@@ -1,7 +1,8 @@
 """
 Module: run_plotboxes
 
-This module provides functionality to read a CSV file and perform box plotting on the images
+This module provides functionality to read a CSV file
+and perform box plotting on the images
 based on the data in the CSV file.
 
 Usage:
