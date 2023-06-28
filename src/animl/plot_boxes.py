@@ -2,6 +2,8 @@
 Module: animl.plot_boxes
 Functionality to draw bounding boxes and labels provided image DataFrame.
 """
+# pylint: disable=R0914
+# pylint: disable=no-member
 
 import cv2
 
@@ -32,12 +34,28 @@ def draw_bounding_boxes(row, box_number, image_output_path):
     label = row['prediction']
     text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
     text_size_width, text_size_height = text_size
-    # print( textSizeWidth, textSizeHeight)
     thick = int((height + width) // 900)
-    box_right = right if (right - left) < (text_size_width*3) else left + (text_size_width*3)
+    box_right = (
+        right if (right - left) < (text_size_width * 3)
+        else left + (text_size_width * 3)
+    )
     cv2.rectangle(img, (left, top), (right, bottom), (90, 255, 0), thick)
-    cv2.rectangle(img, (left, top), (box_right, top - (text_size_height*2)), (90, 255, 0), -1)
-    cv2.putText(img, label, (left, top - 12), 0, 1e-3 * height, (0, 0, 0), thick//3)
+    cv2.rectangle(
+        img,
+        (left, top),
+        (box_right, top - (text_size_height * 2)),
+        (90, 255, 0),
+        -1,
+    )
+    cv2.putText(
+        img,
+        label,
+        (left, top - 12),
+        0,
+        1e-3 * height,
+        (0, 0, 0),
+        thick // 3,
+    )
     filename = image_output_path + str(box_number) + ".jpg"
     print(filename)
     cv2.imwrite(filename, img)
