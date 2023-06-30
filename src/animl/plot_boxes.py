@@ -2,13 +2,15 @@
 Module: animl.plot_boxes
 Functionality to draw bounding boxes and labels provided image DataFrame.
 """
-# pylint: disable=R0914
-# pylint: disable=no-member
 
 import cv2
 
 
-def draw_bounding_boxes(row, box_number, image_output_path):
+def draw_bounding_boxes(
+    row,
+    box_number,
+    image_output_path
+):  # pylint: disable=R0914
     """
     Draws bounding boxes and labels on image DataFrame.
     Args:
