@@ -7,9 +7,7 @@ import cv2
 
 
 def draw_bounding_boxes(
-    row,
-    box_number,
-    image_output_path
+    row, box_number, image_output_path
 ):  # pylint: disable=R0914
     """
     Draws bounding boxes and labels on image DataFrame.
