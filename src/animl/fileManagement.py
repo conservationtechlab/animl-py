@@ -28,7 +28,7 @@ def build_file_manifest(image_dir, exif=True, offset=0, out_file=None):
         lambda x: datetime.fromtimestamp(
             os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
 
-    if(outfile):
+    if(out_file):
         save_data(files, out_file)
 
     return files

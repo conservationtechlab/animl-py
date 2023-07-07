@@ -101,33 +101,34 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
     videos =  files[files["FileName"].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",
                                                         ".mpg", ".mpeg", ".asf", ".m4v"])]
+    if not videos.empty:
+        if parallel:
+            pool = mp.Pool(workers)
 
-    if parallel:
-        pool = mp.Pool(workers)
+            video_frames = vstack([pool.apply(extractImages, 
+                                               args=(video, out_dir, fps, frames)) for 
+                                               video in videos["FilePath"]])
 
-        video_frames = vstack([pool.apply(extractImages, 
-                                   args=(video, out_dir, fps, frames)) for video in videos["FilePath"]])
-        
-        video_frames = pd.DataFrame(video_frames, columns = ["Frame","FilePath"])
+            video_frames = pd.DataFrame(video_frames, columns = ["Frame","FilePath"])
 
-        pool.close()
+            pool.close()
 
-    else:
-        video_frames = []
-        for i, video in videos.iterrows():
-            video_frames += extractImages(video["FilePath"],out_dir=out_dir, 
-                                     fps=fps, frames=frames)
-            
-            if (i % checkpoint == 0) and (outfile is not None):
-                fileManagement.save_data(images,outfile)
-        
-        video_frames = pd.DataFrame(video_frames, columns = ["Frame","FilePath"])
-               
-    videos = videos.merge(video_frames, on="FilePath")
-     
+        else:
+            video_frames = []
+            for i, video in videos.iterrows():
+                video_frames += extractImages(video["FilePath"],out_dir=out_dir, 
+                                         fps=fps, frames=frames)
+
+                if (i % checkpoint == 0) and (outfile is not None):
+                    fileManagement.save_data(images,outfile)
+
+            video_frames = pd.DataFrame(video_frames, columns = ["Frame","FilePath"])
+
+        videos = videos.merge(video_frames, on="FilePath")
+
     allframes = pd.concat([images,videos])
-    
+
     if (out_file is not None):
         fileManagement.save_data(allframes,out_file) 
-            
+
     return allframes
