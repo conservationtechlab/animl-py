@@ -48,6 +48,7 @@ def main(image_dir, model_file, class_model, class_list):
         checkpoint_path=None, checkpoint_frequency=-1,
         results=None, n_cores=1, quiet=True
         )
+    print(md_results)
     print("Converting MD JSON to pd dataframe and merging with manifest...")
     # Convert MD JSON to pandas dataframe, merge with manifest
     md_res = parseResults.parseMD(
