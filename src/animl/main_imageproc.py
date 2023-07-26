@@ -13,7 +13,7 @@ import splitData
 import predictSpecies
 
 
-def main(image_dir, model_file, class_model, class_list):
+def main(image_dir, model_file, class_model, class_list, results_file):
     '''
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
@@ -28,7 +28,7 @@ def main(image_dir, model_file, class_model, class_list):
     pandas.DataFrame: Concatenated dataframe of animal and empty detections.
 
     '''
-    print(sys.path)
+    
     print("Setting up working directory...")
     # Create a working directory, build the file manifest from img_dir
     working_dir = fileManagement.WorkingDirectory(image_dir)
@@ -48,7 +48,6 @@ def main(image_dir, model_file, class_model, class_list):
         checkpoint_path=None, checkpoint_frequency=-1,
         results=None, n_cores=1, quiet=True
         )
-    print(md_results)
     print("Converting MD JSON to pd dataframe and merging with manifest...")
     # Convert MD JSON to pandas dataframe, merge with manifest
     md_res = parseResults.parseMD(
@@ -69,7 +68,10 @@ def main(image_dir, model_file, class_model, class_list):
     print(empty.columns)
     print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals, empty])
-    return manifest
+    manifest.to_csv(results_file)
+    print("Final Results in "+ results_file)
+
+    #return manifest
 
 
 if __name__ == '__main__':
@@ -83,12 +85,13 @@ if __name__ == '__main__':
     parser.add_argument('model_file', type=str, help='Path to MD model')
     parser.add_argument('class_model', type=str, help='Path to Class model')
     parser.add_argument('class_list', type=str, help='Path to class list')
+    parser.add_argument('results_file', type=str, help='Path to Final results')
 
     # Parse the command-line arguments
     args = parser.parse_args()
 
-    # Call the main function
-    RESULT = main(
-        args.image_dir, args.model_file, args.class_model, args.class_list
+    # Call the main function 
+    main(
+        args.image_dir, args.model_file, args.class_model, args.class_list, args.results_file
         )
-    print(RESULT)
+    
