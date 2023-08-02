@@ -16,21 +16,29 @@ def parseMD(results, manifest = None, out_file = None):
         
     df = pd.DataFrame()
     for dictionary in results:
+        
         detections = dictionary['detections']
-        for detection in detections:
-            bbox = detection['bbox']
+        if len(detections) == 0:
             data = {'file': dictionary['file'], 'max_detection_conf': dictionary['max_detection_conf'],
-                    'category': detection['category'], 'conf': detection['conf'], 'bbox1': bbox[0],
-                    'bbox2': bbox[1],
-                    'bbox3': bbox[2], 'bbox4': bbox[3]}
+            'category': 0, 'conf': None, 'bbox1': None,
+            'bbox2': None, 'bbox3': None, 'bbox4': None}
             df = df.append(data, ignore_index=True)
+        else:
+            for detection in detections:
+                bbox = detection['bbox']
+                data = {'file': dictionary['file'], 'max_detection_conf': dictionary['max_detection_conf'],
+                        'category': detection['category'], 'conf': detection['conf'], 'bbox1': bbox[0],
+                        'bbox2': bbox[1],
+                        'bbox3': bbox[2], 'bbox4': bbox[3]}
+                df = df.append(data, ignore_index=True)
        
+    print(df)
     # adjust boxes with 2% buffer from image edge 
     df.loc[df["bbox1"] > 0.98, "bbox1"] = 0.98
     df.loc[df["bbox2"] > 0.98, "bbox2"] = 0.98
     df.loc[df["bbox3"] > 0.98, "bbox3"] = 0.98
     df.loc[df["bbox4"] > 0.98, "bbox4"] = 0.98
-    
+
     df.loc[df["bbox1"] < 0.02, "bbox1"] = 0.02
     df.loc[df["bbox2"] < 0.02, "bbox2"] = 0.02
     df.loc[df["bbox3"] < 0.02, "bbox3"] = 0.02
