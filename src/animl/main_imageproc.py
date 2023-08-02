@@ -3,9 +3,9 @@ This module contains the main function for the species detection using
 the MD, yolo5 and ai4eutils models
 '''
 import argparse
-import sys
+#import sys
 import pandas as pd
-import fileManagement
+import file_management
 import videoProcessing
 import detectMD
 import parseResults
@@ -13,7 +13,7 @@ import splitData
 import predictSpecies
 
 
-def main(image_dir, model_file, class_model, class_list, results_file):
+def main(image_dir, model_file, class_model, class_list):
     '''
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
@@ -28,11 +28,11 @@ def main(image_dir, model_file, class_model, class_list, results_file):
     pandas.DataFrame: Concatenated dataframe of animal and empty detections.
 
     '''
-    
+
     print("Setting up working directory...")
     # Create a working directory, build the file manifest from img_dir
-    working_dir = fileManagement.WorkingDirectory(image_dir)
-    files = fileManagement.build_file_manifest(
+    working_dir = file_management.WorkingDirectory(image_dir)
+    files = file_management.build_file_manifest(
         image_dir, out_file=working_dir.filemanifest
         )
     print("Processing videos...")
@@ -64,15 +64,10 @@ def main(image_dir, model_file, class_model, class_list, results_file):
     animals = parseResults.applyPredictions(
         animals, pred_results, class_list, out_file=working_dir.predictions
         )
-    print(animals.columns)
-    print(empty.columns)
     print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals, empty])
-    manifest.to_csv(results_file)
-    print("Final Results in "+ results_file)
-
-    #return manifest
-
+    manifest.to_csv(working_dir.results)
+    print("Final Results in "+ working_dir.results)
 
 if __name__ == '__main__':
     # Create an argument parser
@@ -86,12 +81,12 @@ if __name__ == '__main__':
     parser.add_argument('class_model', type=str, help='Path to Class model')
     parser.add_argument('class_list', type=str, help='Path to class list')
     parser.add_argument('results_file', type=str, help='Path to Final results')
+    parser.add_argument('linkdir', type=str, help='Destination Directory for symlinks')
 
     # Parse the command-line arguments
     args = parser.parse_args()
 
-    # Call the main function 
+    # Call the main function
     main(
-        args.image_dir, args.model_file, args.class_model, args.class_list, args.results_file
+        args.image_dir, args.model_file, args.class_model, args.class_list
         )
-    
