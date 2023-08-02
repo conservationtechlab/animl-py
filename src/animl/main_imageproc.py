@@ -80,9 +80,6 @@ if __name__ == '__main__':
     parser.add_argument('model_file', type=str, help='Path to MD model')
     parser.add_argument('class_model', type=str, help='Path to Class model')
     parser.add_argument('class_list', type=str, help='Path to class list')
-    parser.add_argument('results_file', type=str, help='Path to Final results')
-    parser.add_argument('linkdir', type=str, help='Destination Directory for symlinks')
-
     # Parse the command-line arguments
     args = parser.parse_args()
 
