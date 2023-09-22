@@ -12,14 +12,20 @@ from detection import run_detector_batch
 def chunks_by_number_of_chunks(ls, n):
     for i in range(0, n):
         yield ls[i::n]
+        
+        
+def load_MD_model(model_file):
+    print('GPU available: {}'.format(run_detector.is_gpu_available(model_file)))
+    detector = run_detector.load_detector(model_file)
+    return detector
 
         
-def detect_MD_batch(model_file, image_file_names, checkpoint_path=None,
-                                confidence_threshold=run_detector.DEFAULT_OUTPUT_CONFIDENCE_THRESHOLD,
-                                checkpoint_frequency=-1, results=None, n_cores=1, quiet=False, image_size=None):
+def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint_frequency=-1,
+                    confidence_threshold=run_detector.DEFAULT_OUTPUT_CONFIDENCE_THRESHOLD,
+                    results=None, n_cores=1, quiet=False, image_size=None):
     """
     Args
-    - model_file: str, path to .pb model file
+    - detector: preloaded md model
     - image_file_names: list of strings (image filenames), a single image filename, 
                         a folder to recursively search for images in, or a .json file containing
                         a list of images.
@@ -75,22 +81,9 @@ def detect_MD_batch(model_file, image_file_names, checkpoint_path=None,
 
     already_processed = set([i['Frame'] for i in results])
 
-    print('GPU available: {}'.format(run_detector.is_gpu_available(model_file)))
     
-    if n_cores > 1 and run_detector.is_gpu_available(model_file):
-        print('Warning: multiple cores requested, but a GPU is available; parallelization across ' + \
-              'GPUs is not currently supported, defaulting to one GPU')
-        n_cores = 1
-
-        
-    elif n_cores <= 1:
-
-        # Load the detector
-        start_time = time.time()
-        detector = run_detector.load_detector(model_file)
-        elapsed = time.time() - start_time
-        print('Loaded model in {}'.format(humanfriendly.format_timespan(elapsed)))
-
+    # CPU
+    if n_cores <= 1:
         # Does not count those already processed
         count = 0
 
@@ -135,10 +128,6 @@ def detect_MD_batch(model_file, image_file_names, checkpoint_path=None,
             # ...if it's time to make a checkpoint
             
     else:
-        
-        # When using multiprocessing, let the workers load the model
-        detector = model_file
-
         print('Creating pool with {} cores'.format(n_cores))
 
         if len(already_processed) > 0:
