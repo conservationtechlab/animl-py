@@ -3,8 +3,10 @@ from math import ceil
 from os.path import isfile
 from pandas import DataFrame
 import imageCropGenerator
+import time
+import humanfriendly
 
-def load_clasifier(model_file):
+def load_classifier(model_file):
     if not isfile(model_file):
         raise AssertionError("The given model file does not exist.")
         
