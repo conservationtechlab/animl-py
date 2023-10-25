@@ -1,62 +1,84 @@
 import pandas as pd
 from os.path import isfile
-import fileManagement
+import file_management
 import numpy as np
 
 
-def parseMD(results, manifest = None, out_file = None):
-    if fileManagement.check_file(out_file):
-        return fileManagement.load_data(out_file)
-    
+def parseMD(results, manifest=None, out_file=None, buffer=0.02):
+    """
+    Converts numerical output from classifier to common name species label
+
+    Args:
+        - animals: dataframe of animal detections
+        - predictions: output of the classifier model
+        - class_file: species list associated with classifier outputs
+        - out_file: path to save dataframe
+    Returns:
+        - animals: dataframe containing species labels
+    """
+    if file_management.check_file(out_file):
+        return file_management.load_data(out_file)
+
     if not isinstance(results, list):
         raise AssertionError("MD results input must be list")
-    
+
     if len(results) == 0:
         raise AssertionError("'results' contains no detections")
-        
+
     df = pd.DataFrame()
     for dictionary in results:
-        
+
         detections = dictionary['detections']
         if len(detections) == 0:
-            data = {'file': dictionary['file'], 'max_detection_conf': dictionary['max_detection_conf'],
-            'category': 0, 'conf': None, 'bbox1': None,
-            'bbox2': None, 'bbox3': None, 'bbox4': None}
+            data = {'file': dictionary['file'],
+                    'max_detection_conf': dictionary['max_detection_conf'],
+                    'category': 0, 'conf': None, 'bbox1': None,
+                    'bbox2': None, 'bbox3': None, 'bbox4': None}
             df = df.append(data, ignore_index=True)
         else:
             for detection in detections:
                 bbox = detection['bbox']
-                data = {'file': dictionary['file'], 'max_detection_conf': dictionary['max_detection_conf'],
-                        'category': detection['category'], 'conf': detection['conf'], 'bbox1': bbox[0],
-                        'bbox2': bbox[1],
+                data = {'file': dictionary['file'],
+                        'max_detection_conf': dictionary['max_detection_conf'],
+                        'category': detection['category'], 'conf': detection['conf'],
+                        'bbox1': bbox[0], 'bbox2': bbox[1],
                         'bbox3': bbox[2], 'bbox4': bbox[3]}
                 df = df.append(data, ignore_index=True)
-       
-    print(df)
-    # adjust boxes with 2% buffer from image edge 
-    df.loc[df["bbox1"] > 0.98, "bbox1"] = 0.98
-    df.loc[df["bbox2"] > 0.98, "bbox2"] = 0.98
-    df.loc[df["bbox3"] > 0.98, "bbox3"] = 0.98
-    df.loc[df["bbox4"] > 0.98, "bbox4"] = 0.98
 
-    df.loc[df["bbox1"] < 0.02, "bbox1"] = 0.02
-    df.loc[df["bbox2"] < 0.02, "bbox2"] = 0.02
-    df.loc[df["bbox3"] < 0.02, "bbox3"] = 0.02
-    df.loc[df["bbox4"] < 0.02, "bbox4"] = 0.02
-    
-    
+    # adjust boxes with 2% buffer from image edge
+    df.loc[df["bbox1"] > (1 - buffer), "bbox1"] = (1 - buffer)
+    df.loc[df["bbox2"] > (1 - buffer), "bbox2"] = (1 - buffer)
+    df.loc[df["bbox3"] > (1 - buffer), "bbox3"] = (1 - buffer)
+    df.loc[df["bbox4"] > (1 - buffer), "bbox4"] = (1 - buffer)
+
+    df.loc[df["bbox1"] < buffer, "bbox1"] = buffer
+    df.loc[df["bbox2"] < buffer, "bbox2"] = buffer
+    df.loc[df["bbox3"] < buffer, "bbox3"] = buffer
+    df.loc[df["bbox4"] < buffer, "bbox4"] = buffer
+
     if isinstance(manifest, pd.DataFrame):
         df = manifest.merge(df, left_on="Frame", right_on="file")
-        
+
     if out_file:
-        fileManagement.save_data(df, out_file)
-            
+        file_management.save_data(df, out_file)
+
     return df
-    
-# def parseMDjson
-def applyPredictions(animals, predictions, class_file, out_file = None, counts = False):
-    if fileManagement.check_file(out_file): 
-        return fileManagement.load_data(out_file)
+
+
+def applyPredictions(animals, predictions, class_file, out_file=None):
+    """
+    Converts numerical output from classifier to common name species label
+
+    Args:
+        - animals: dataframe of animal detections
+        - predictions: output of the classifier model
+        - class_file: species list associated with classifier outputs
+        - out_file: path to save dataframe
+    Returns:
+        - animals: dataframe containing species labels
+    """
+    if file_management.check_file(out_file):
+        return file_management.load_data(out_file)
 
     if not isinstance(animals, pd.DataFrame):
         raise AssertionError("'animals' must be DataFrame.")
@@ -69,5 +91,5 @@ def applyPredictions(animals, predictions, class_file, out_file = None, counts =
 
     animals['prediction'] = [table['x'].values[int(np.argmax(x))] for x in predictions]
     animals['confidence'] = [np.max(x) for x in predictions] * animals["conf"]
-    
+
     return animals

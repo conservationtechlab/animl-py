@@ -42,11 +42,10 @@ import time
 import sys
 import pandas as pd
 from datetime import datetime
-from PIL import Image
-from PIL import ImageFile
+from PIL import Image, ImageFile
+
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-
 
 def copy_image(infile, outpath, imageheight):
     img = Image.open(infile.FilePath)
@@ -76,7 +75,7 @@ def connect_to_Panoptes(usr, pw):
     print("Connected to Zooniverse")
 
 
-def upload_to_Zooniverse_Simple(project_name, subject_set_name, images, 
+def upload_to_Zooniverse_Simple(project_name, subject_set_name, images,
                                 outdir, imageheight=700):
     sys.stdout.flush()
     # Create a new subject set or append the subjects to an existing one
@@ -104,7 +103,7 @@ def upload_to_Zooniverse_Simple(project_name, subject_set_name, images,
         subject_set.add(subject)
 
 
-def upload_to_Zooniverse(project_name, subject_set_name, images, outdir, 
+def upload_to_Zooniverse(project_name, subject_set_name, images, outdir,
                          maxSeq=1, maxTime=0, imageheight=700):
     sys.stdout.flush()
     # Create a new subject set or append the subjects to an existing one

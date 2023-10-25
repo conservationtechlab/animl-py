@@ -1,133 +1,82 @@
+'''
+This module contains the main function for the species detection using
+the MD, yolo5 and ai4eutils models
+'''
 import argparse
-import sys
-import json
-import os
-
-from datetime import datetime
-from animl.ImageCropGenerator import GenerateCropsFromFile
-from animl.FileManagement import imagesFromVideos, parseMD, filterImages, symlinkClassification, parseCM
-from animl.DetectMD import load_and_run_detector_batch
-from tensorflow import keras
+import pandas as pd
+import file_management
+import videoProcessing
+import detectMD
+import parseResults
+import splitData
+import predictSpecies
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Workflow for running animl')
+def main(image_dir, model_file, class_model, class_list):
+    """
+    This function is the main method to invoke all the sub functions
+    to create a working directory for the image directory.
 
-    parser.add_argument(
-        'image_dir',
-        type=str,
-        help='A directory of images and/or videos to be processed')
+    Args:
+        image_dir (str): The directory path containing the images or videos.
+        model_file (str): The file path of the MegaDetector model.
+        class_model (str): The file path of the classifier model.
+        class_list (list): A list of classes or species for classification.
 
-    parser.add_argument(
-        'megadetector_model',
-        type=str,
-        help='Path to the megadetector model')
-
-    parser.add_argument(
-        'classification_model',
-        type=str,
-        help='Path to the classification model')
-
-    parser.add_argument(
-        'classes',
-        type=str,
-        help='Path to the classes text file for the classification model')
-
-    parser.add_argument(
-        '-output_dir',
-        default=None,
-        type=str,
-        help='Output directory including site name and date')
-
-    parser.add_argument(
-        '--fps',
-        type=int,
-        default=None,
-        help='Number of frames per second to be used when extracting images from videos')
-
-    parser.add_argument(
-        '--frames',
-        type=int,
-        default=5,
-        help='Number of frames to be extracted from videos')
-
-    parser.add_argument(
-        '--parallel',
-        action='store_true',
-        help='Run the program in a parallel fashion using multiple cores')
-
-    parser.add_argument(
-        '--threshold',
-        type=float,
-        default=0.9,
-        help="Confidence threshold between 0 and 1.0. Default is 0.9")
-
-    parser.add_argument(
-        '--checkpoint_frequency',
-        type=int,
-        default=2500,  # approximately every hour
-        help='Write results to a temporary file every N images; a value of -1 disables this feature')
-
-    parser.add_argument(
-        '--resume_from_checkpoint',
-        help='Initiate from the specified checkpoint, which is in the same directory as the output_file specified')
-
-    if len(sys.argv[1:]) == 0:
-        parser.print_help()
-        parser.exit()
-
-    args = parser.parse_args()
-    MegaDetector_file = args.megadetector_model
-    Classification_file = args.classification_model
-    classes = args.classes
-    # load the checkpoint if available
-    # relative file names are only output at the end; all file paths in the checkpoint are still full paths
-    if args.resume_from_checkpoint:
-        assert os.path.exists(args.resume_from_checkpoint), 'File at resume_from_checkpoint specified does not exist'
-        with open(args.resume_from_checkpoint) as f:
-            saved = json.load(f)
-        assert 'images' in saved, \
-            'The file saved as checkpoint does not have the correct fields; cannot be restored'
-        results = saved['images']
-        print('Restored {} entries from the checkpoint'.format(len(results)))
-    else:
-        results = []
-    images = imagesFromVideos(args.image_dir, out_dir=args.output_dir,
-                              fps=args.fps, frames=args.frames,
-                              parallel=args.parallel)
-
-    # test that we can write to the output_file's dir if checkpointing requested
-    if args.checkpoint_frequency != -1:
-        checkpoint_path = os.path.join(args.output_dir,
-                                       'checkpoint_{}.json'.format(datetime.utcnow().strftime("%Y%m%d%H%M%S")))
-        with open(checkpoint_path, 'w') as f:
-            json.dump({'images': []}, f)
-        print('The checkpoint file will be written to {}'.format(checkpoint_path))
-    else:
-        checkpoint_path = None
-
-    # run MegaDetector and format results
-    detections = detectObjectBatch(images, MegaDetector_file, checkpoint_path, 
-                                   args.threshold, args.checkpoint_frequency,
-                                   results)
-
-    df = parseMD(detections)
-    # filter out all non animal detections
-    animalDataframe = getAnimals(df)
-    otherDataframe = getEmpty(df)
-
-    # Create generator for classification model
-    generator = GenerateCropsFromFile(animalDataframe)
-
-    # Create and predict model
-    model = keras.models.load_model(Classification_file)
-    predictions = model.predict(generator)
-
-    # Format Classification results
-    maxDataframe = applyPredictions(animalDataframe, otherDataframe, predictions, classes)
-    # Symlink
-    symlinkSpecies(maxDataframe, args.output_dir, classes)
+    Returns:
+        pandas.DataFrame: Concatenated dataframe of animal and empty detections.
+    """
+    print("Setting up working directory...")
+    # Create a working directory, build the file manifest from img_dir
+    working_dir = file_management.WorkingDirectory(image_dir)
+    files = file_management.build_file_manifest(
+        image_dir, out_file=working_dir.filemanifest
+        )
+    print("Processing videos...")
+    # Video-processing to extract individual frames as images in to directory
+    all_frames = videoProcessing.images_from_videos(
+        files, out_dir=working_dir.vidfdir,
+        out_file=working_dir.imageframes, parallel=True, frames=2
+        )
+    print("Running images and video frames through MegaDetector...")
+    # Run all images and video frames through MegaDetector
+    md_results = detectMD.detect_MD_batch(
+        model_file, all_frames["Frame"],
+        checkpoint_path=None, checkpoint_frequency=-1,
+        results=None, n_cores=1, quiet=True
+        )
+    print("Converting MD JSON to pd dataframe and merging with manifest...")
+    # Convert MD JSON to pandas dataframe, merge with manifest
+    md_res = parseResults.parseMD(
+        md_results, manifest=all_frames, out_file=working_dir.mdresults
+        )
+    print("Extracting animal detections...")
+    # Extract animal detections from the rest
+    animals = splitData.getAnimals(md_res)
+    empty = splitData.getEmpty(md_res)
+    print("Predicting species of animal detections...")
+    # Use the classifier model to predict the species of animal detections
+    pred_results = predictSpecies.predictSpecies(animals, class_model, batch=4)
+    print("Applying predictions to animal detections...")
+    animals = parseResults.applyPredictions(
+        animals, pred_results, class_list, out_file=working_dir.predictions
+        )
+    print("Concatenating animal and empty dataframes...")
+    manifest = pd.concat([animals, empty])
+    manifest.to_csv(working_dir.results)
+    print("Final Results in " + working_dir.results)
 
 
-if __name__ == '__main__':
-    main()
+# Create an argument parser
+parser = argparse.ArgumentParser(description='Folder locations for the main script')
+
+# Create and parse arguements
+parser.add_argument('image_dir', type=str, help='Path to Image Directory')
+parser.add_argument('model_file', type=str, help='Path to MD model')
+parser.add_argument('class_model', type=str, help='Path to Class model')
+parser.add_argument('class_list', type=str, help='Path to class list')
+# Parse the command-line arguments
+args = parser.parse_args()
+
+# Call the main function
+main(args.image_dir, args.model_file, args.class_model, args.class_list)

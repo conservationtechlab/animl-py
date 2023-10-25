@@ -26,7 +26,7 @@ def resize_with_padding(img, expected_size):
 
 
 class GenerateCropsFromFile(Sequence):
-    def __init__(self, x, filecol = 'file', resize=299, buffer=0, batch=32, standardize=True):
+    def __init__(self, x, filecol='file', resize=299, buffer=0, batch=32, standardize=True):
         self.x = x
         self.filecol = filecol
         self.resize = int(resize)
