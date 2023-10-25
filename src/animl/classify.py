@@ -1,9 +1,9 @@
 from tensorflow.keras.models import load_model
 from os.path import isfile
 from pandas import DataFrame
-import imageCropGenerator
-import time
+from time import time
 from humanfriendly import format_timespan
+import imageCropGenerator
 
 
 def load_classifier(model_file):
@@ -19,7 +19,7 @@ def load_classifier(model_file):
     if not isfile(model_file):
         raise AssertionError("The given model file does not exist.")
 
-    start_time = time.time()
+    start_time = time()
     if model_file.endswith('.h5'):
         model = load_model(model_file)
     elif model_file.endswith('.pt'):
@@ -27,13 +27,13 @@ def load_classifier(model_file):
         raise ValueError('Pytorch models not currently supported.')
     else:
         raise ValueError('Unrecognized model format: {}'.format(model_file))
-    elapsed = time.time() - start_time
+    elapsed = time() - start_time
     print('Loaded model in {}'.format(format_timespan(elapsed)))
     return model
 
 
-def predictSpecies(detections, model, resize=456,
-                   standardize=False, batch=1, workers=1):
+def predict_species(detections, model, resize=456,
+                    standardize=False, batch=1, workers=1):
     """
     Predict species using classifier model
 

@@ -25,7 +25,7 @@ def resize_with_padding(img, expected_size):
     return ImageOps.expand(img, padding)
 
 
-class GenerateCropsFromFile(Sequence):
+class CropGenerator(Sequence):
     def __init__(self, x, filecol='file', resize=299, buffer=0, batch=32, standardize=True):
         self.x = x
         self.filecol = filecol

@@ -2,9 +2,9 @@ import os
 import cv2
 from random import randrange
 import multiprocessing as mp
-from animl import file_management
 import pandas as pd
 from numpy import vstack
+import file_management
 
 # TODO
 #
@@ -122,9 +122,8 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
         else:
             video_frames = []
             for i, video in videos.iterrows():
-                video_frames += extract_images(video["FilePath"],
-                                              out_dir=out_dir,
-                                              fps=fps, frames=frames)
+                video_frames += extract_images(video["FilePath"], out_dir=out_dir,
+                                               fps=fps, frames=frames)
 
                 if (i % checkpoint == 0) and (out_file is not None):
                     file_management.save_data(images, out_file)

@@ -4,7 +4,7 @@ import file_management
 import numpy as np
 
 
-def parseMD(results, manifest=None, out_file=None, buffer=0.02):
+def from_MD(results, manifest=None, out_file=None, buffer=0.02):
     """
     Converts numerical output from classifier to common name species label
 
@@ -65,7 +65,7 @@ def parseMD(results, manifest=None, out_file=None, buffer=0.02):
     return df
 
 
-def applyPredictions(animals, predictions, class_file, out_file=None):
+def from_classifier(animals, predictions, class_file, out_file=None):
     """
     Converts numerical output from classifier to common name species label
 

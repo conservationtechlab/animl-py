@@ -1,18 +1,13 @@
-'''
-This module contains the main function for the species detection using
-the MD, yolo5 and ai4eutils models
-'''
 import argparse
 import pandas as pd
 import file_management
-import videoProcessing
+import video_processing
 import detectMD
-import parseResults
-import splitData
-import predictSpecies
+import parse_results 
+import split
+import classify
 
-
-def main(image_dir, model_file, class_model, class_list):
+def main(image_dir, md_model, class_model, class_list):
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
@@ -32,40 +27,43 @@ def main(image_dir, model_file, class_model, class_list):
     files = file_management.build_file_manifest(
         image_dir, out_file=working_dir.filemanifest
         )
+    print("Found %d files." % len(files))
     print("Processing videos...")
     # Video-processing to extract individual frames as images in to directory
-    all_frames = videoProcessing.images_from_videos(
+    all_frames = video_processing.images_from_videos(
         files, out_dir=working_dir.vidfdir,
         out_file=working_dir.imageframes, parallel=True, frames=2
         )
     print("Running images and video frames through MegaDetector...")
     # Run all images and video frames through MegaDetector
-    md_results = detectMD.detect_MD_batch(
-        model_file, all_frames["Frame"],
-        checkpoint_path=None, checkpoint_frequency=-1,
-        results=None, n_cores=1, quiet=True
-        )
-    print("Converting MD JSON to pd dataframe and merging with manifest...")
-    # Convert MD JSON to pandas dataframe, merge with manifest
-    md_res = parseResults.parseMD(
-        md_results, manifest=all_frames, out_file=working_dir.mdresults
-        )
+    if (file_management.check_file(working_dir.mdresults)):
+        detections = file_management.load_data(working_dir.mdresults)
+    else:
+        detector = detectMD.load_MD_model(md_model)
+        md_results = detectMD.detect_MD_batch(
+            detector, all_frames["Frame"], results=None, 
+            )
+        print("Converting MD JSON to pd dataframe and merging with manifest...")
+        # Convert MD JSON to pandas dataframe, merge with manifest
+        detections = parse_results.from_MD(
+            md_results, manifest=all_frames, out_file=working_dir.mdresults
+            )
     print("Extracting animal detections...")
     # Extract animal detections from the rest
-    animals = splitData.getAnimals(md_res)
-    empty = splitData.getEmpty(md_res)
+    animals = split.getAnimals(detections)
+    empty = split.getEmpty(detections)
     print("Predicting species of animal detections...")
+    classifier = classify.load_classifier(class_model)
     # Use the classifier model to predict the species of animal detections
-    pred_results = predictSpecies.predictSpecies(animals, class_model, batch=4)
+    pred_results = classify.predict_species(animals, classifier, batch=4)
     print("Applying predictions to animal detections...")
-    animals = parseResults.applyPredictions(
+    animals = parse_results.from_classifier(
         animals, pred_results, class_list, out_file=working_dir.predictions
         )
     print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals, empty])
     manifest.to_csv(working_dir.results)
     print("Final Results in " + working_dir.results)
-
 
 # Create an argument parser
 parser = argparse.ArgumentParser(description='Folder locations for the main script')
