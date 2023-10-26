@@ -7,8 +7,6 @@ from shutil import copyfile
 from PIL import Image
 import torch
 from file_management import build_file_manifest
-from detection import run_detector
-from detection import run_detector_batch
 
 FAILURE_INFER = 'Failure inference'
 FAILURE_IMAGE_OPEN = 'Failure image access'
