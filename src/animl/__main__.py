@@ -1,13 +1,16 @@
 import argparse
+import os
+import wget
 import pandas as pd
 import file_management
 import video_processing
+import megadetector
 import detectMD
 import parse_results 
 import split
 import classify
 
-def main(image_dir, md_model, class_model, class_list):
+def main(image_dir, detector_file, classifier_file, class_list):
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
@@ -39,21 +42,21 @@ def main(image_dir, md_model, class_model, class_list):
     if (file_management.check_file(working_dir.mdresults)):
         detections = file_management.load_data(working_dir.mdresults)
     else:
-        detector = detectMD.load_MD_model(md_model)
-        md_results = detectMD.detect_MD_batch(
-            detector, all_frames["Frame"], results=None, 
-            )
+        detector = megadetector.MegaDetector(detector_file)
+        md_results = detectMD.detect_MD_batch(detector, 
+                                              all_frames["Frame"], 
+                                              results=None)
         print("Converting MD JSON to pd dataframe and merging with manifest...")
         # Convert MD JSON to pandas dataframe, merge with manifest
-        detections = parse_results.from_MD(
-            md_results, manifest=all_frames, out_file=working_dir.mdresults
-            )
+        detections = parse_results.from_MD(md_results, 
+                                           manifest=all_frames, 
+                                           out_file=working_dir.mdresults)
     print("Extracting animal detections...")
     # Extract animal detections from the rest
     animals = split.getAnimals(detections)
     empty = split.getEmpty(detections)
     print("Predicting species of animal detections...")
-    classifier = classify.load_classifier(class_model)
+    classifier = classify.load_classifier(classifier_file)
     # Use the classifier model to predict the species of animal detections
     pred_results = classify.predict_species(animals, classifier, batch=4)
     print("Applying predictions to animal detections...")
@@ -64,17 +67,46 @@ def main(image_dir, md_model, class_model, class_list):
     manifest = pd.concat([animals, empty])
     manifest.to_csv(working_dir.results)
     print("Final Results in " + working_dir.results)
+    return manifest
+
 
 # Create an argument parser
 parser = argparse.ArgumentParser(description='Folder locations for the main script')
 
 # Create and parse arguements
-parser.add_argument('image_dir', type=str, help='Path to Image Directory')
-parser.add_argument('model_file', type=str, help='Path to MD model')
-parser.add_argument('class_model', type=str, help='Path to Class model')
-parser.add_argument('class_list', type=str, help='Path to class list')
+parser.add_argument('image_dir', type=str, nargs='?',
+                    help='Path to Image Directory',
+                    default = '../examples/Southwest')
+parser.add_argument('detector_file', type=str, nargs='?',
+                    help='Path to MD model',
+                    default='../models/md_v5a.0.0.pt')
+parser.add_argument('classifier_file', type=str, nargs='?',
+                    help='Path to Class model',
+                    default='../models/southwest_v2.h5')
+parser.add_argument('class_list', type=str, nargs='?',
+                    help='Path to class list',
+                    default='../models/southwest_v2_classes.txt')
 # Parse the command-line arguments
 args = parser.parse_args()
 
+if not os.path.isfile(args.detector_file):
+    prompt = "MegaDetector not found, would you like to download? y/n: "
+    if input(prompt).lower() == "y":
+        wget.download('https://sandiegozoo.box.com/shared/static/xj3496ii5hxtomf0s38axb1agn5u9up8.pt',
+                      out='../models/')
+
+if not os.path.isfile(args.classifier_file):
+    prompt = "Classifier not found, would you like to download Southwest_v2? y/n: "
+    if input(prompt).lower() == "y":
+        wget.download('https://sandiegozoo.box.com/shared/static/x63lnaxw8hag39mczeommqy9tw4t0ht9.h5', 
+                      out='../models/')
+
+
+if not os.path.isfile(args.class_list):
+    prompt = "Class list not found, would you like to download Southwest_v2? y/n: "
+    if input(prompt).lower() == "y":
+        wget.download('https://sandiegozoo.box.com/shared/static/hn8nput5pxjc3toao57gfn4h6zo1lyng.txt',
+                      out='../models/')
+
 # Call the main function
-main(args.image_dir, args.model_file, args.class_model, args.class_list)
+main(args.image_dir, args.detector_file, args.classifier_file, args.class_list)

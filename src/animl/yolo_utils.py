@@ -3,9 +3,6 @@ from YOLOv5 utils
 
 
 '''
-import math
-import random
-import time
 import torch
 import torchvision
 import cv2
