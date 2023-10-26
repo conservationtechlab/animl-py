@@ -45,7 +45,7 @@ def main(image_dir, detector_file, classifier_file, class_list):
         detector = megadetector.MegaDetector(detector_file)
         md_results = detectMD.detect_MD_batch(detector, 
                                               all_frames["Frame"], 
-                                              results=None)
+                                              results=None, quiet=True)
         print("Converting MD JSON to pd dataframe and merging with manifest...")
         # Convert MD JSON to pandas dataframe, merge with manifest
         detections = parse_results.from_MD(md_results, 
