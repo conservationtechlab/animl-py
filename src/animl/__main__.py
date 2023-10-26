@@ -88,11 +88,13 @@ parser.add_argument('class_list', type=str, nargs='?',
                     default='../models/southwest_v2_classes.txt')
 # Parse the command-line arguments
 args = parser.parse_args()
+if not os.path.isdir('../models/'):
+    os.mkdir('../models/')
 
 if not os.path.isfile(args.detector_file):
     prompt = "MegaDetector not found, would you like to download? y/n: "
     if input(prompt).lower() == "y":
-        wget.download('https://sandiegozoo.box.com/shared/static/xj3496ii5hxtomf0s38axb1agn5u9up8.pt',
+        wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt',
                       out='../models/')
 
 if not os.path.isfile(args.classifier_file):
