@@ -1,9 +1,10 @@
 from tensorflow.keras.models import load_model
+from keras.engine.functional import Functional
 from os.path import isfile
 from pandas import DataFrame
 from time import time
 from humanfriendly import format_timespan
-import imageCropGenerator
+import generator
 
 
 def load_classifier(model_file):
@@ -52,12 +53,12 @@ def predict_species(detections, model, resize=456,
         filecol = "Frame" if "Frame" in detections.columns else "file"
 
         if any(detections.columns.isin(["bbox1"])):
-
-            dataset = imageCropGenerator.GenerateCropsFromFile(detections,
-                                                               filecol=filecol,
-                                                               resize=resize,
-                                                               standardize=standardize,
-                                                               batch=batch)
+            if type(model) == dict: #pytorch
+                dataset = generator.create_dataloader(detections, batch, workers, filecol)
+            elif type(model) == Functional: #tensorflow
+                dataset = generator.TFGenerator(detections, filecol='file', resize=resize, batch=batch)
+            else:
+                raise AssertionError("Model architechture not supported.")
         else:
             raise AssertionError("Input must be a data frame of crops or vector of file names.")
     else:

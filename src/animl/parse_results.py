@@ -12,7 +12,7 @@ def from_MD(results, manifest=None, out_file=None, buffer=0.02):
         - animals: dataframe of animal detections
         - predictions: output of the classifier model
         - class_file: species list associated with classifier outputs
-        - out_file: path to save dataframe
+        - out_file: path to save dataframeft
     Returns:
         - animals: dataframe containing species labels
     """
