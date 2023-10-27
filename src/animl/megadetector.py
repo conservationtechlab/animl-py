@@ -15,16 +15,16 @@ class MegaDetector:
     IMAGE_SIZE = 1280  # image size used in training
     STRIDE = 64
 
-    def __init__(self, model_path: str, force_cpu: bool=False):
-        self.device = 'cpu'
-        if not force_cpu:
-            if torch.cuda.is_available():
-                self.device = torch.device('cuda:0')
-            try:
-                if torch.backends.mps.is_built and torch.backends.mps.is_available():
-                    self.device = 'mps'
-            except AttributeError:
-                pass
+    def __init__(self, model_path: str):
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda:0')
+            #try:
+            #    if torch.backends.mps.is_built and torch.backends.mps.is_available():
+            #        self.device = 'mps'
+            #except AttributeError:
+            #    pass
+        else:
+            self.device = 'cpu'
         self.model = MegaDetector._load_model(model_path, self.device)
         if (self.device != 'cpu'):
             print('Sending model to GPU')
