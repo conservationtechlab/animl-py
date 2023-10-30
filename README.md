@@ -9,7 +9,8 @@ Table of Contents
 ## Installation Instructions
 
 It is recommended that you set up a conda environment using the included environment.yml folder.
-See **Dependencies** below for more detail.
+See **Dependencies** below for more detail. You will have to activate the conda environment first each
+time you want to run AniML from a new terminal.
 
 ```
 git clone https://github.com/conservationtechlab/animl-py.git
@@ -18,41 +19,13 @@ conda env create --file environment.yml
 conda activate animl-gpu
 ```
 
-AniML also depends on YOLOv5 for MegaDetector to function properly.
-You will have to include this package in your python path.
-
-**Linux**
-```
-cd ~
-git clone https://github.com/ultralytics/yolov5  # clone
-export PYTHONPATH="$PYTHONPATH:$HOME/yolov5"
-```
-
-! Every time you run AniML, setup your environment:
-```
-conda activate animl-gpu
-export PYTHONPATH="$PYTHONPATH:$HOME/yolov5"
-```
-
-**Windows**
-```
-mkdir c:\git
-cd c:\git
-git clone https://github.com/ultralytics/yolov5/
-set PYTHONPATH=c:\git\yolov5
-```
-! Every time you run AniML, setup your environment:
-```
-conda activate animl-gpu
-set PYTHONPATH=c:\git\yolov5
-```
-
 ### From PyPi
 Note: for the latest version of animl, follow instructions for github
 
 
 ### Dependencies
 We recommend running AniML on GPU-enabled hardware. **If using an NVIDIA GPU, ensure driviers, cuda-toolkit and cudnn are installed.
+The /models/ and /utils/ modules are from the YOLOv5 repository.  https://github.com/ultralytics/yolov5
 
 Python Package Dependencies
 - pandas = 1.3.5
