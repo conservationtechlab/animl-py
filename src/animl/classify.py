@@ -53,9 +53,9 @@ def predict_species(detections, model, resize=456,
         filecol = "Frame" if "Frame" in detections.columns else "file"
 
         if any(detections.columns.isin(["bbox1"])):
-            if type(model) == dict: #pytorch
+            if type(model) == dict:  # pytorch
                 dataset = generator.create_dataloader(detections, batch, workers, filecol)
-            elif type(model) == Functional: #tensorflow
+            elif type(model) == Functional:  # tensorflow
                 dataset = generator.TFGenerator(detections, filecol='file', resize=resize, batch=batch)
             else:
                 raise AssertionError("Model architechture not supported.")

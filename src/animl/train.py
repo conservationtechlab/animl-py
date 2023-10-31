@@ -25,12 +25,7 @@ from model import load_model, save_model
 
 
 # # log values using comet ml (comet.com)
-experiment = Experiment(
-  api_key="z3XHB9d67yOgZ2B5reqfuDLfZ",
-  project_name="general",
-  workspace="tkswanson"
-)
-
+# experiment = Experiment()
 
 def train(cfg, dataLoader, model, optimizer):
     '''
@@ -38,9 +33,8 @@ def train(cfg, dataLoader, model, optimizer):
     '''
     # put model on device
     device = cfg['device']
-
     model.to(device)
-    
+
     # put the model into training mode
     # this is required for some layers that behave differently during training
     # and validation (examples: Batch Normalization, Dropout, etc.)
@@ -54,9 +48,8 @@ def train(cfg, dataLoader, model, optimizer):
 
     # iterate over dataLoader
     progressBar = trange(len(dataLoader))
-    for idx, (data, labels, paths) in enumerate(dataLoader):       # see the last line of file "dataset.py" where we return the image tensor (data) and label
-        
-
+    for idx, (data, labels, paths) in enumerate(dataLoader): 
+        # see the last line of file "dataset.py" where we return the image tensor (data) and label
         # put data and labels on device
         data, labels = data.to(device), labels.to(device)
         # import pdb; pdb.set_trace() # DEBUGGER
@@ -95,7 +88,6 @@ def train(cfg, dataLoader, model, optimizer):
         )
         progressBar.update(1)
 
-    
     # end of epoch; finalize
     progressBar.close()
     loss_total /= len(dataLoader)           # shorthand notation for: loss_total = loss_total / len(dataLoader)
@@ -104,13 +96,11 @@ def train(cfg, dataLoader, model, optimizer):
     return loss_total, oa_total
 
 
-
 def validate(cfg, dataLoader, model):
     '''
         Validation function. Note that this looks almost the same as the training
         function, except that we don't use any optimizer or gradient steps.
     '''
-    
     device = cfg['device']
     model.to(device)
 
@@ -166,7 +156,7 @@ def validate(cfg, dataLoader, model):
                 )
             )
             progressBar.update(1)
-    
+ 
     # end of epoch; finalize
     progressBar.close()
     loss_total /= len(dataLoader)
@@ -179,9 +169,7 @@ def validate(cfg, dataLoader, model):
     return loss_total, oa_total, precision, recall
 
 
-
 def main():
-
     # Argument parser for command-line arguments:
     # python ct_classifier/train.py --config configs/exp_resnet18.yaml
     parser = argparse.ArgumentParser(description='Train deep learning model.')

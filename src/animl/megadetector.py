@@ -7,8 +7,10 @@ import numpy as np
 import traceback
 import yolo_utils
 
+
 CONF_DIGITS = 3
 COORD_DIGITS = 4
+
 
 class MegaDetector:
 
@@ -29,24 +31,23 @@ class MegaDetector:
         if (self.device != 'cpu'):
             print('Sending model to GPU')
             self.model.to(self.device)
-            
-        self.printed_image_size_warning = False        
+
+        self.printed_image_size_warning = False
 
     @staticmethod
     def _load_model(model_pt_path, device):
         checkpoint = torch.load(model_pt_path, map_location=device)
-        # Compatibility fix that allows older YOLOv5 models with 
+        # Compatibility fix that allows older YOLOv5 models with
         # newer versions of YOLOv5/PT
         for m in checkpoint['model'].modules():
             t = type(m)
             if t is torch.nn.Upsample and not hasattr(m, 'recompute_scale_factor'):
                 m.recompute_scale_factor = None
-            
+
         model = checkpoint['model'].float().fuse().eval()  # FP32 model
         return model
 
-
-    def generate_detections_one_image(self, img_original, image_id, 
+    def generate_detections_one_image(self, img_original, image_id,
                                       confidence_threshold, image_size=None,
                                       skip_image_resizing=False):
         """
@@ -62,7 +63,7 @@ class MegaDetector:
         A dict with the following fields, see the 'images' key in https://github.com/agentmorris/MegaDetector/tree/master/api/batch_processing#batch-processing-api-output-format
             - 'file' (always present)
             - 'max_detection_conf' (removed from MegaDetector output by default, but generated here)
-            - 'detections', which is a list of detection objects containing keys 'category', 
+            - 'detections', which is a list of detection objects containing keys 'category',
               'conf' and 'bbox'
             - 'failure'
         """
@@ -78,24 +79,23 @@ class MegaDetector:
 
             # Image size can be an int (which translates to a square target size) or (h,w)
             if image_size is not None:
-                
-                assert isinstance(image_size,int) or (len(image_size)==2)
-                
+
+                assert isinstance(image_size, int) or (len(image_size) == 2)
+
                 if not self.printed_image_size_warning:
                     print('Warning: using user-supplied image size {}'.format(image_size))
                     self.printed_image_size_warning = True
-            
+
                 target_size = image_size
-            
+
             else:
                 self.printed_image_size_warning = False
-            
+
             if skip_image_resizing:
                 img = img_original
             else:
                 img = yolo_utils.letterbox(img_original, new_shape=target_size,
                                            stride=MegaDetector.STRIDE, auto=True)[0]
-            
             # HWC to CHW; PIL Image is RGB already
             img = img.transpose((2, 0, 1))
             img = np.ascontiguousarray(img)
@@ -104,8 +104,8 @@ class MegaDetector:
             img = img.float()
             img /= 255
 
-            # In practice this is always true 
-            if len(img.shape) == 3:  
+            # In practice this is always true
+            if len(img.shape) == 3:
                 img = torch.unsqueeze(img, 0)
 
             pred: list = self.model(img)[0]
@@ -114,27 +114,25 @@ class MegaDetector:
             if self.device == 'mps':
                 # As of v1.13.0.dev20220824, nms is not implemented for MPS.
                 # Send predication back to the CPU to fix.
-                pred = yolo_utils.non_max_suppression(prediction=pred.cpu(), conf_thres=confidence_threshold)
-            else: 
-                pred = yolo_utils.non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
+                pred = yolo_utils.non_max_suppression(prediction=pred.cpu(),
+                                                      conf_thres=confidence_threshold)
+            else:
+                pred = yolo_utils.non_max_suppression(prediction=pred,
+                                                      conf_thres=confidence_threshold)
 
             # format detections/bounding boxes
-            #
             # normalization gain whwh
             gn = torch.tensor(img_original.shape)[[1, 0, 1, 0]]
 
             # This is a loop over detection batches, which will always be length 1 in our case,
             # since we're not doing batch inference.
             for det in pred:
-                
                 if len(det):
-                    
                     # Rescale boxes from img_size to im0 size
                     det[:, :4] = yolo_utils.scale_coords(img.shape[2:], det[:, :4], img_original.shape).round()
 
                     for *xyxy, conf, cls in reversed(det):
-                        
-                        # normalized center-x, center-y, width and height
+                        # Normalized center-x, center-y, width and height
                         xywh = (yolo_utils.xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()
 
                         api_box = convert_yolo_to_xywh(xywh)
@@ -151,14 +149,10 @@ class MegaDetector:
                             'bbox': truncate_float_array(api_box, precision=COORD_DIGITS)
                         })
                         max_conf = max(max_conf, conf)
-                        
                     # ...for each detection in this batch
-                        
                 # ...if this is a non-empty batch
-                
             # ...for each detection batch
-
-        # ...try     
+        # ...try
         except Exception as e:
             result['failure'] = 'Failure inference'
             print('PTDetector: image {} failed during inference: {}\n'.format(image_id, str(e)))
@@ -168,6 +162,7 @@ class MegaDetector:
         result['detections'] = detections
 
         return result
+
 
 # From MegeDetector/ct_utils
 def convert_yolo_to_xywh(yolo_box):
@@ -180,7 +175,6 @@ def convert_yolo_to_xywh(yolo_box):
     Returns:
         bbox with coordinates represented as [x_min, y_min, width_of_box, height_of_box].
     """
-    
     x_center, y_center, width_of_box, height_of_box = yolo_box
     x_min = x_center - width_of_box / 2.0
     y_min = y_center - height_of_box / 2.0
@@ -190,57 +184,23 @@ def convert_yolo_to_xywh(yolo_box):
 def truncate_float(x, precision=3):
     """
     Truncates a floating-point value to a specific number of significant digits.
-    
     For example: truncate_float(0.0003214884) --> 0.000321
-    
     This function is primarily used to achieve a certain float representation
     before exporting to JSON.
 
     Args:
-    x         (float) Scalar to truncate
-    precision (int)   The number of significant digits to preserve, should be
+        - x (float): Scalar to truncate
+        - precision (int): The number of significant digits to preserve, should be
                       greater or equal 1
     """
     assert precision > 0
 
     if np.isclose(x, 0):
         return 0
-    
     else:
         # Determine the factor, which shifts the decimal point of x
         # just behind the last significant digit.
         factor = math.pow(10, precision - 1 - math.floor(math.log10(abs(x))))
-        
-        # Shift decimal point by multiplicatipon with factor, flooring, and
-        # division by factor.
-        return math.floor(x * factor)/factor
-
-
-def truncate_float(x, precision=3):
-    """
-    Truncates a floating-point value to a specific number of significant digits.
-    
-    For example: truncate_float(0.0003214884) --> 0.000321
-    
-    This function is primarily used to achieve a certain float representation
-    before exporting to JSON.
-
-    Args:
-    x         (float) Scalar to truncate
-    precision (int)   The number of significant digits to preserve, should be
-                      greater or equal 1
-    """
-
-    assert precision > 0
-
-    if np.isclose(x, 0):
-        return 0
-
-    else:
-        # Determine the factor, which shifts the decimal point of x
-        # just behind the last significant digit.
-        factor = math.pow(10, precision - 1 - math.floor(math.log10(abs(x))))
-        
         # Shift decimal point by multiplicatipon with factor, flooring, and
         # division by factor.
         return math.floor(x * factor)/factor
@@ -251,8 +211,8 @@ def truncate_float_array(xs, precision=3):
     Vectorized version of truncate_float(...)
 
     Args:
-    xs        (list of float) List of floats to truncate
-    precision (int)           The number of significant digits to preserve, should be
-                              greater or equal 1
+        - xs (list of float): List of floats to truncate
+        - precision (int): The number of significant digits to preserve,
+                           should be greater or equal 1
     """
     return [truncate_float(x, precision=precision) for x in xs]

@@ -34,7 +34,7 @@ def draw_bounding_boxes(row, box_number, image_output_path, prediction):
     text_size_width, text_size_height = text_size
     thick = int((height + width) // 900)
     box_right = (right if (right - left) < (text_size_width * 3)
-                else left + (text_size_width * 3))
+                 else left + (text_size_width * 3))
     cv2.rectangle(img, (left, top), (right, bottom), (90, 255, 0), thick)
     cv2.rectangle(img, (left, top),
                   (box_right, top - (text_size_height * 2)),
@@ -90,7 +90,7 @@ def demo_boxes(manifest, min_conf=0.9, prediction=True):
                 text_size_width, text_size_height = text_size
                 thick = int((height + width) // 900)
                 box_right = (right if (right - left) < (text_size_width * 3)
-                            else left + (text_size_width * 3))
+                             else left + (text_size_width * 3))
 
                 cv2.rectangle(img, (left, top), (right, bottom), (90, 255, 0), thick)
 

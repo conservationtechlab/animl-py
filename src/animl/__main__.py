@@ -6,9 +6,10 @@ import file_management
 import video_processing
 import megadetector
 import detectMD
-import parse_results 
+import parse_results
 import split
 import classify
+
 
 def main(image_dir, detector_file, classifier_file, class_list):
     """
@@ -22,7 +23,7 @@ def main(image_dir, detector_file, classifier_file, class_list):
         class_list (list): A list of classes or species for classification.
 
     Returns:
-        pandas.DataFrame: Concatenated dataframe of animal and empty detections.
+        pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
     print("Setting up working directory...")
     # Create a working directory, build the file manifest from img_dir
@@ -43,13 +44,13 @@ def main(image_dir, detector_file, classifier_file, class_list):
         detections = file_management.load_data(working_dir.mdresults)
     else:
         detector = megadetector.MegaDetector(detector_file)
-        md_results = detectMD.detect_MD_batch(detector, 
-                                              all_frames["Frame"], 
+        md_results = detectMD.detect_MD_batch(detector,
+                                              all_frames["Frame"],
                                               results=None, quiet=True)
-        print("Converting MD JSON to pd dataframe and merging with manifest...")
+        print("Converting MD JSON to dataframe and merging with manifest...")
         # Convert MD JSON to pandas dataframe, merge with manifest
-        detections = parse_results.from_MD(md_results, 
-                                           manifest=all_frames, 
+        detections = parse_results.from_MD(md_results,
+                                           manifest=all_frames,
                                            out_file=working_dir.mdresults)
     print("Extracting animal detections...")
     # Extract animal detections from the rest
@@ -60,9 +61,8 @@ def main(image_dir, detector_file, classifier_file, class_list):
     # Use the classifier model to predict the species of animal detections
     pred_results = classify.predict_species(animals, classifier, batch=4)
     print("Applying predictions to animal detections...")
-    animals = parse_results.from_classifier(
-        animals, pred_results, class_list, out_file=working_dir.predictions
-        )
+    animals = parse_results.from_classifier(animals, pred_results, class_list,
+                                            out_file=working_dir.predictions)
     print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals, empty])
     manifest.to_csv(working_dir.results)
@@ -76,7 +76,7 @@ parser = argparse.ArgumentParser(description='Folder locations for the main scri
 # Create and parse arguements
 parser.add_argument('image_dir', type=str, nargs='?',
                     help='Path to Image Directory',
-                    default = '../examples/Southwest')
+                    default='../examples/Southwest')
 parser.add_argument('detector_file', type=str, nargs='?',
                     help='Path to MD model',
                     default='../models/md_v5a.0.0.pt')
@@ -100,9 +100,8 @@ if not os.path.isfile(args.detector_file):
 if not os.path.isfile(args.classifier_file):
     prompt = "Classifier not found, would you like to download Southwest_v2? y/n: "
     if input(prompt).lower() == "y":
-        wget.download('https://sandiegozoo.box.com/shared/static/x63lnaxw8hag39mczeommqy9tw4t0ht9.h5', 
+        wget.download('https://sandiegozoo.box.com/shared/static/x63lnaxw8hag39mczeommqy9tw4t0ht9.h5',
                       out='../models/')
-
 
 if not os.path.isfile(args.class_list):
     prompt = "Class list not found, would you like to download Southwest_v2? y/n: "

@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 from torchvision.models import resnet
 
+
 def load_model(cfg):
     '''
         Creates a model instance and loads the latest model state weights.

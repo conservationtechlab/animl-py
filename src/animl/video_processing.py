@@ -6,11 +6,6 @@ import pandas as pd
 from numpy import vstack
 import file_management
 
-# TODO
-#
-# 1. check if video file is corrupt
-# 2. implement checkpoint
-
 
 def extract_images(file_path, out_dir, fps=None, frames=None):
     """

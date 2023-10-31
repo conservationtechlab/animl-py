@@ -2,7 +2,6 @@ from tensorflow.keras.utils import Sequence
 import numpy as np
 from PIL import Image, ImageOps, ImageFile
 import tensorflow as tf
-import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import Compose, Resize, ToTensor
@@ -10,8 +9,9 @@ from torchvision.transforms import Compose, Resize, ToTensor
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+
 # From torchvision.transforms
-def _setup_size(size, error_msg):
+def _setup_size(size):
     if isinstance(size, int):
         return int(size), int(size)
 
@@ -19,11 +19,11 @@ def _setup_size(size, error_msg):
         return size[0], size[0]
 
     if len(size) != 2:
-        raise ValueError(error_msg)
-
+        raise ValueError('Please provide up to two dimensions (h,w)')
     return size
 
-def resize_with_padding(expected_size):
+
+def resize_with_padding(img, expected_size):
     if img.size[0] == 0 or img.size[1] == 0:
         return img
     if img.size[0] > img.size[1]:
@@ -38,25 +38,27 @@ def resize_with_padding(expected_size):
     pad_width = delta_width // 2
     pad_height = delta_height // 2
     padding = (pad_width, pad_height,
-            delta_width - pad_width, delta_height - pad_height)
+               delta_width - pad_width,
+               delta_height - pad_height)
     return ImageOps.expand(img, padding)
 
 
 class ResizeWithPadding(torch.nn.Module):
-    """Crops the given image at the center.
+    """Pads a crop to given size
     If the image is torch Tensor, it is expected
     to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
-    If image size is smaller than output size along any edge, image is padded with 0 and then center cropped.
+    If image size is smaller than output size along any edge, image is padded with 0 and
+    then center cropped.
 
     Args:
         size (sequence or int): Desired output size of the crop. If size is an
             int instead of sequence like (h, w), a square crop (size, size) is
-            made. If provided a sequence of length 1, it will be interpreted as (size[0], size[0]).
+            made. If provided a sequence of length 1, it will be interpreted as
+            (size[0], size[0]).
     """
-
     def __init__(self, expected_size):
         super().__init__()
-        self.expected_size = _setup_size(expected_size, error_msg="Please provide only two dimensions (h, w) for size.")
+        self.expected_size = _setup_size(expected_size)
 
     def forward(self, img):
         """
@@ -80,25 +82,24 @@ class ResizeWithPadding(torch.nn.Module):
         pad_width = delta_width // 2
         pad_height = delta_height // 2
         padding = (pad_width, pad_height,
-                delta_width - pad_width, delta_height - pad_height)
-
+                   delta_width - pad_width,
+                   delta_height - pad_height)
         return ImageOps.expand(img, padding)
-    
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(size={self.size})"
 
 
 class CropGenerator(Sequence):
-    def __init__(self, x, filecol='file', resize=299, buffer=0, batch=32, standardize=True):
+    def __init__(self, x, filecol='file', resize=299, buffer=0, batch=32):
         self.x = x
         self.filecol = filecol
         self.resize = int(resize)
         self.buffer = buffer
         self.batch = int(batch)
-        self.standardize = standardize
-        self.transform = Compose([     
-            Resize(resize),        
-            ToTensor()                         
+        self.transform = Compose([
+            Resize(resize),
+            ToTensor()
         ])
 
     def __len__(self):
@@ -111,7 +112,7 @@ class CropGenerator(Sequence):
             img = Image.open(image_name).convert('RGB')
         except OSError:
             return
-        
+
         width, height = img.size
 
         bbox1 = self.x['bbox1'].iloc[idx]
@@ -130,28 +131,25 @@ class CropGenerator(Sequence):
         bottom = min(height, bottom + self.buffer)
 
         img = img.crop((left, top, right, bottom))
-        #change to resize with padding
-        #img_tensor = self.transform(img)
-        img = img.resize((self.resize, self.resize))
-        img_tensor = tf.keras.utils.img_to_array(img)
+        img_tensor = self.transform(img)
 
         return img_tensor
 
 
-#currently working on this class
+# currently working on this class
 class TrainGenerator(Dataset):
     def __init__(self, x, classes, filecol='FilePath', resize=456, batch_size=32):
         self.x = x
         self.resize = resize
         self.filecol = filecol
         self.batch_size = int(batch_size)
-        self.transform = Compose([     
-            #RandomHorizontalFlip()
-            Resize((self.resize)),        
-            ToTensor()                         
+        self.transform = Compose([
+            # RandomHorizontalFlip()
+            Resize((self.resize)),
+            ToTensor()
         ])
         self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
-        
+
     def __len__(self):
         return len(self.x)
 
@@ -168,14 +166,14 @@ class TrainGenerator(Dataset):
 
         return img_tensor, label, image_name
 
+
 class TFGenerator(Sequence):
-    def __init__(self, x, filecol='file', resize=299, buffer=0, batch=32, standardize=True):
+    def __init__(self, x, filecol='file', resize=299, buffer=0, batch=32):
         self.x = x
         self.filecol = filecol
         self.resize = int(resize)
         self.buffer = buffer
         self.batch = int(batch)
-        self.standardize = standardize
 
     def __len__(self):
         return int(np.ceil(len(self.x.index) / float(self.batch)))
@@ -213,9 +211,10 @@ class TFGenerator(Sequence):
 
         return np.asarray(imgarray)
 
+
 def train_dataloader(manifest, classes, batch_size, workers, filecol="file"):
     '''
-        Loads a dataset and wraps it in a
+        Loads a dataset for training and wraps it in a
         PyTorch DataLoader object.
     '''
     dataset_instance = TrainGenerator(manifest, classes, filecol)
@@ -234,7 +233,7 @@ def create_dataloader(manifest, batch_size, workers, filecol="file"):
         Loads a dataset and wraps it in a
         PyTorch DataLoader object.
     '''
-    dataset_instance = CropGenerator(manifest, filecol)
+    dataset_instance = TFGenerator(manifest, filecol)
 
     dataLoader = DataLoader(
             dataset=dataset_instance,
