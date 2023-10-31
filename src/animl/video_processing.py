@@ -4,7 +4,7 @@ from random import randrange
 import multiprocessing as mp
 import pandas as pd
 from numpy import vstack
-import file_management
+from animl import file_management
 
 # TODO
 #

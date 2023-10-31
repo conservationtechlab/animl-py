@@ -6,7 +6,7 @@ import pandas as pd
 from shutil import copyfile
 from PIL import Image
 import torch
-from file_management import build_file_manifest
+from animl.file_management import build_file_manifest
 
 FAILURE_INFER = 'Failure inference'
 FAILURE_IMAGE_OPEN = 'Failure image access'

@@ -5,7 +5,8 @@ import math
 import torch
 import numpy as np
 import traceback
-import yolo_utils
+from .utils import general, augmentations
+from .models import yolo
 
 CONF_DIGITS = 3
 COORD_DIGITS = 4
@@ -93,7 +94,7 @@ class MegaDetector:
             if skip_image_resizing:
                 img = img_original
             else:
-                img = yolo_utils.letterbox(img_original, new_shape=target_size,
+                img = augmentations.letterbox(img_original, new_shape=target_size,
                                            stride=MegaDetector.STRIDE, auto=True)[0]
             
             # HWC to CHW; PIL Image is RGB already
@@ -114,9 +115,9 @@ class MegaDetector:
             if self.device == 'mps':
                 # As of v1.13.0.dev20220824, nms is not implemented for MPS.
                 # Send predication back to the CPU to fix.
-                pred = yolo_utils.non_max_suppression(prediction=pred.cpu(), conf_thres=confidence_threshold)
+                pred = general.non_max_suppression(prediction=pred.cpu(), conf_thres=confidence_threshold)
             else: 
-                pred = yolo_utils.non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
+                pred = general.non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
 
             # format detections/bounding boxes
             #
@@ -130,12 +131,12 @@ class MegaDetector:
                 if len(det):
                     
                     # Rescale boxes from img_size to im0 size
-                    det[:, :4] = yolo_utils.scale_coords(img.shape[2:], det[:, :4], img_original.shape).round()
+                    det[:, :4] = general.scale_coords(img.shape[2:], det[:, :4], img_original.shape).round()
 
                     for *xyxy, conf, cls in reversed(det):
                         
                         # normalized center-x, center-y, width and height
-                        xywh = (yolo_utils.xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()
+                        xywh = (general.xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()
 
                         api_box = convert_yolo_to_xywh(xywh)
 

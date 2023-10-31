@@ -2,13 +2,13 @@ from tensorflow.keras.utils import Sequence
 import numpy as np
 from PIL import Image, ImageOps, ImageFile
 import tensorflow as tf
-import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import Compose, Resize, ToTensor
 
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 
 # From torchvision.transforms
 def _setup_size(size, error_msg):
@@ -23,7 +23,7 @@ def _setup_size(size, error_msg):
 
     return size
 
-def resize_with_padding(expected_size):
+def resize_with_padding(img, expected_size):
     if img.size[0] == 0 or img.size[1] == 0:
         return img
     if img.size[0] > img.size[1]:

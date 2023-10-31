@@ -2,13 +2,8 @@ import argparse
 import os
 import wget
 import pandas as pd
-import file_management
-import video_processing
-import megadetector
-import detectMD
-import parse_results 
-import split
-import classify
+from animl import file_management, video_processing, megadetector
+from animl import detectMD, parse_results, split, classify
 
 def main(image_dir, detector_file, classifier_file, class_list):
     """
@@ -74,9 +69,8 @@ def main(image_dir, detector_file, classifier_file, class_list):
 parser = argparse.ArgumentParser(description='Folder locations for the main script')
 
 # Create and parse arguements
-parser.add_argument('image_dir', type=str, nargs='?',
-                    help='Path to Image Directory',
-                    default = '../examples/Southwest')
+parser.add_argument('image_dir', type=str,
+                    help='Path to Image Directory')
 parser.add_argument('detector_file', type=str, nargs='?',
                     help='Path to MD model',
                     default='../models/md_v5a.0.0.pt')
@@ -87,9 +81,11 @@ parser.add_argument('class_list', type=str, nargs='?',
                     help='Path to class list',
                     default='../models/southwest_v2_classes.txt')
 # Parse the command-line arguments
+
 args = parser.parse_args()
 if not os.path.isdir('../models/'):
     os.mkdir('../models/')
+    
 
 if not os.path.isfile(args.detector_file):
     prompt = "MegaDetector not found, would you like to download? y/n: "
