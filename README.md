@@ -17,11 +17,17 @@ git clone https://github.com/conservationtechlab/animl-py.git
 cd animl-py
 conda env create --file environment.yml
 conda activate animl-gpu
+pip install -e .
 ```
 
 ### From PyPi
-Note: for the latest version of animl, follow instructions for github
+```
+conda create -n animl-gpu python=3.7
+conda activate animl-gpu
+conda install cudatoolkit=11.3.1 cudnn=8.2.1
+pip install animl
 
+```
 
 ### Dependencies
 We recommend running AniML on GPU-enabled hardware. **If using an NVIDIA GPU, ensure driviers, cuda-toolkit and cudnn are installed.
@@ -39,10 +45,9 @@ Python Package Dependencies
 A full list of dependencies can be found in environment.yml
 
 ### Verify Install 
-From the animl-py/src directory, test AniML on the included examples by running the test script.
-This will download MegaDetector 
+With the conda environment active:
 ```
-python3 animl
+python3 -m animl /path/to/example/folder
 ```
 
 
