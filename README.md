@@ -8,10 +8,11 @@ Table of Contents
 
 ## Installation Instructions
 
-It is recommended that you set up a conda environment using the included environment.yml folder.
+It is recommended that you set up a conda environment for using animl.
 See **Dependencies** below for more detail. You will have to activate the conda environment first each
 time you want to run AniML from a new terminal.
 
+### From GitHub
 ```
 git clone https://github.com/conservationtechlab/animl-py.git
 cd animl-py
