@@ -2,17 +2,13 @@
     Training script. Here, we load the training and validation datasets (and
     data loaders) and the model and train and validate the model accordingly.
 
+    Original script from
     2022 Benjamin Kellenberger
 '''
 
-import os
 import argparse
 import yaml
-import glob
 from tqdm import trange
-from comet_ml import Experiment
-from comet_ml.integration.pytorch import log_model
-
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -20,12 +16,13 @@ from sklearn.metrics import precision_score, recall_score
 
 # let's import our own classes and functions!
 from util import init_seed, setup_optimizer
-from dataset import create_dataloader
+from .generator import create_dataloader
 from model import load_model, save_model
 
-
+from comet_ml import Experiment
+from comet_ml.integration.pytorch import log_model
 # # log values using comet ml (comet.com)
-# experiment = Experiment()
+experiment = Experiment()
 
 def train(cfg, dataLoader, model, optimizer):
     '''
@@ -34,10 +31,6 @@ def train(cfg, dataLoader, model, optimizer):
     # put model on device
     device = cfg['device']
     model.to(device)
-
-    # put the model into training mode
-    # this is required for some layers that behave differently during training
-    # and validation (examples: Batch Normalization, Dropout, etc.)
     model.train()
 
     # loss function
