@@ -21,12 +21,18 @@ pip install -e .
 ```
 
 ### From PyPi
+With NVIDIA GPU
 ```
 conda create -n animl-gpu python=3.7
 conda activate animl-gpu
 conda install cudatoolkit=11.3.1 cudnn=8.2.1
 pip install animl
-
+```
+CPU only
+```
+conda create -n animl-cpu python=3.7
+conda activate animl
+pip install animl
 ```
 
 ### Dependencies
@@ -45,11 +51,13 @@ Python Package Dependencies
 A full list of dependencies can be found in environment.yml
 
 ### Verify Install 
-With the conda environment active:
+We recommend you download the [examples](https://github.com/conservationtechlab/animl-py/blob/main/examples/Southwest.zip) folder within this repository.
+Download and unarchive the zip folder. Then with the conda environment active:
 ```
 python3 -m animl /path/to/example/folder
 ```
-
+This should create an Animl-Directory subfolder within
+the example folder.
 
 ## Usage
 
