@@ -63,7 +63,57 @@ the example folder.
 ## Usage
 
 ### Inference
+The functionality of animl can be parcelated into its individual functions to suit your data and scripting needs.
+The sandbox.ipynb notebook has all of these steps available for further exploration.
+
+1. It is recommended that you use the animl working directory for storing intermediate steps.
+```python
+from animl import file_management
+workingdir = file_management.WorkingDirectory(imagedir)
+```
+
+2. Build the file manifest of your given directory. This will find both images and videos.
+```python
+files = file_management.build_file_manifest('/path/to/images', out_file = workingdir.filemanifest)
+```
+
+3. If there are videos, extract individual frames for processing.
+   Select either the number of frames or fps using the argumments.
+   The other option can be set to None or removed.
+```python
+from animl import video_processing
+allframes = video_processing.images_from_videos(files, out_dir=workingdir.vidfdir,
+                                                out_file=workingdir.imageframes,
+                                                parallel=True, frames=3, fps=None)
+```
+4. Pass all images into MegaDetector. We recommend [MDv5a](https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt)
+   parseMD will merge detections with the original file manifest, if provided.
+
+```python
+from animl import detectMD, megadetector, parse_results
+detector = megadetector.MegaDetector('/path/to/mdmodel.pt')
+mdresults = detectMD.detect_MD_batch(detector, allframes["Frame"], quiet=True)
+mdres = parse_results.from_MD(mdresults, manifest=allframes, out_file = workingdir.mdresults)
+```
+5. For speed and efficiency, extract the empty/human/vehicle detections before classification.
+```python
+from animl import split
+animals = split.getAnimals(mdres)
+empty = split.getEmpty(mdres)
+```
+6. Classify using the appropriate species model. Merge the output with the rest of the detections
+   if desired.
+```python
+from animl import classify, parse_results
+classifier = classify.load_classifier('/path/to/classifier/')
+predresults = classify.predict_species(animals, classifier, batch = 4)
+animals = parse_results.from_classifier(animals, predresults, '/path/to/classlist.txt',
+                                         out_file=workingdir.predictions)
+manifest = pd.concat([animals,empty])
+```
 
 
-
+---
 ### Training
+
+Training workflows are available in the repo but still under development.
