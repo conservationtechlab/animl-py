@@ -5,9 +5,7 @@ import os
 import pandas as pd
 from shutil import copyfile
 from PIL import Image
-import torch
-from animl.file_management import build_file_manifest
-
+from .file_management import build_file_manifest
 
 
 def process_image(im_file, detector, confidence_threshold, image=None,

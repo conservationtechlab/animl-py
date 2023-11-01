@@ -2,7 +2,7 @@ import argparse
 import os
 import wget
 import pandas as pd
-from animl import (file_management, video_processing, megadetector,
+from . import (file_management, video_processing, megadetector,
                    detectMD, parse_results, split, classify)
 
 

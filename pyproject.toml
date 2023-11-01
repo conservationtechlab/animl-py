@@ -5,7 +5,7 @@ description = "Tools for classifying camera trap images"
 
 readme = "README.md" 
 license = {file = "LICENSE.txt"}
-keywords = ["camera trap", "ecology", "conservation", "zoo", "SDZWA"] 
+keywords = ["camera trap", "ecology", "conservation", "zoo", "SDZWA", "conservationtechlab"] 
 
 authors = [{name = "Kyra Swanson", email = "tswanson@sdzwa.org" }]
 

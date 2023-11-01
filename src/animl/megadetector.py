@@ -96,7 +96,7 @@ class MegaDetector:
                 img = img_original
             else:
                 img = augmentations.letterbox(img_original, new_shape=target_size,
-                                           stride=MegaDetector.STRIDE, auto=True)[0]
+                                              stride=MegaDetector.STRIDE, auto=True)[0]
             # HWC to CHW; PIL Image is RGB already
             img = img.transpose((2, 0, 1))
             img = np.ascontiguousarray(img)
@@ -116,7 +116,7 @@ class MegaDetector:
                 # As of v1.13.0.dev20220824, nms is not implemented for MPS.
                 # Send predication back to the CPU to fix.
                 pred = general.non_max_suppression(prediction=pred.cpu(), conf_thres=confidence_threshold)
-            else: 
+            else:
                 pred = general.non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
             # format detections/bounding boxes
             # normalization gain whwh

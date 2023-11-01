@@ -1,6 +1,6 @@
 import pandas as pd
 from os.path import isfile
-from animl import file_management
+from . import file_management
 import numpy as np
 
 

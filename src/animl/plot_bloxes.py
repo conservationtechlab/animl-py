@@ -96,8 +96,8 @@ def demo_boxes(manifest, min_conf=0.9, prediction=True):
 
                 if prediction:
                     cv2.rectangle(img, (left, top),
-                                 (box_right, top - (text_size_height * 3)),
-                                 (90, 255, 0), -1)
+                                  (box_right, top - (text_size_height * 3)),
+                                  (90, 255, 0), -1)
                     cv2.putText(img, label, (left, top - 12), 0, 1e-3 * height,
                                 (0, 0, 0), thick // 3)
                 cv2.imshow('Display', img)

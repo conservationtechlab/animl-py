@@ -19,7 +19,7 @@ Example:
 
 import argparse
 import pandas as pd
-from animl.plot_boxes import draw_bounding_boxes
+from .plot_boxes import draw_bounding_boxes
 
 
 def main(csv_file, output_dir):

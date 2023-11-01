@@ -47,6 +47,7 @@ from PIL import Image, ImageFile
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+
 def copy_image(infile, outpath, imageheight):
     img = Image.open(infile.FilePath)
     try:

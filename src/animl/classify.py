@@ -4,7 +4,7 @@ from os.path import isfile
 from pandas import DataFrame
 from time import time
 from humanfriendly import format_timespan
-from animl import generator
+from . import generator
 
 
 def load_classifier(model_file):

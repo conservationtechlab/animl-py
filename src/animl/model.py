@@ -22,7 +22,7 @@ def load_model(cfg):
 
     # load latest model state
     model_states = glob.glob(exp_folder + '*.pt')
-    
+
     if len(model_states) and overwrite==False:
         # at least one save state found; get latest
         model_epochs = [int(m.replace(exp_folder,'').replace('.pt','')) for m in model_states]
