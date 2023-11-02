@@ -33,7 +33,7 @@ pip install animl
 CPU only
 ```
 conda create -n animl-cpu python=3.7
-conda activate animl
+conda activate animl-cpu
 pip install animl
 ```
 
