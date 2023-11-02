@@ -67,7 +67,7 @@ def main(image_dir, detector_file, classifier_file, class_list):
 
 # Create an argument parser
 parser = argparse.ArgumentParser(description='Folder locations for the main script')
-home = os.path.join(os.getcwd(),'/models/')
+home = os.path.join(os.getcwd(),'models')
 # Create and parse arguements
 parser.add_argument('image_dir', type=str,
                     help='Path to Image Directory')
@@ -79,7 +79,7 @@ parser.add_argument('classifier_file', type=str, nargs='?',
                     default=os.path.join(home,'southwest_v2.h5'))
 parser.add_argument('class_list', type=str, nargs='?',
                     help='Path to class list',
-                    default=os.path.join(home,'/models/southwest_v2_classes.txt'))
+                    default=os.path.join(home,'southwest_v2_classes.txt'))
 # Parse the command-line arguments
 
 args = parser.parse_args()
