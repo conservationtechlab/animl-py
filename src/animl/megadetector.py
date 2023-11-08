@@ -50,7 +50,7 @@ class MegaDetector:
 
     def generate_detections_one_image(self, img_original, image_id,
                                       confidence_threshold, image_size=None,
-                                      skip_image_resizing=False):
+                                      skip_image_resize=False):
         """
         Apply the detector to an image.
 
@@ -92,7 +92,7 @@ class MegaDetector:
             else:
                 self.printed_image_size_warning = False
 
-            if skip_image_resizing:
+            if skip_image_resize:
                 img = img_original
             else:
                 img = augmentations.letterbox(img_original, new_shape=target_size,
@@ -122,8 +122,7 @@ class MegaDetector:
             # normalization gain whwh
             gn = torch.tensor(img_original.shape)[[1, 0, 1, 0]]
 
-            # This is a loop over detection batches, which will always be length 1 in our case,
-            # since we're not doing batch inference.
+            # This is a loop over detection batches, which will always be length 1
             for det in pred:
                 if len(det):
                     # Rescale boxes from img_size to im0 size

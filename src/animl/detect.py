@@ -5,11 +5,11 @@ import os
 import pandas as pd
 from shutil import copyfile
 from PIL import Image
-from .file_management import build_file_manifest
+from . import file_management
 
 
-def process_image(im_file, detector, confidence_threshold, image=None,
-                  quiet=False, image_size=None, skip_image_resizing=False):
+def process_image(im_file, detector, confidence_threshold, quiet=True, 
+                  image_size=None, skip_image_resize=False):
     """
     From AgentMorris/MegaDetector
     Runs MegaDetector on a single image file.
@@ -28,25 +28,24 @@ def process_image(im_file, detector, confidence_threshold, image=None,
     """
     if not quiet:
         print('Processing image {}'.format(im_file))
-
-    if image is None:
-        try:
-            image = Image.open(im_file).convert(mode='RGB')
-            image.load()
-        except Exception as e:
-            if not quiet:
-                print('Image {} cannot be loaded. Exception: {}'.format(im_file, e))
-            result = {
-                'file': im_file,
-                'failure': 'Failure image access'
-            }
-            return result
-
+    # open the file
+    try:
+        image = Image.open(im_file).convert(mode='RGB')
+        image.load()
+    except Exception as e:
+        if not quiet:
+            print('Image {} cannot be loaded. Exception: {}'.format(im_file, e))
+        result = {
+            'file': im_file,
+            'failure': 'Failure image access'
+        }
+        return result
+    # run MD
     try:
         result = detector.generate_detections_one_image(image, im_file,
                                                         confidence_threshold=confidence_threshold,
                                                         image_size=image_size,
-                                                        skip_image_resizing=skip_image_resizing)
+                                                        skip_image_resize=skip_image_resize)
     except Exception as e:
         if not quiet:
             print('Image {} cannot be processed. Exception: {}'.format(im_file, e))
@@ -60,7 +59,7 @@ def process_image(im_file, detector, confidence_threshold, image=None,
 
 
 def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint_frequency=-1,
-                    confidence_threshold=0.005, results=None, quiet=False, image_size=None):
+                    confidence_threshold=0.005, results=None, quiet=True, image_size=None):
     """
     Args
         - detector: preloaded md model
@@ -86,7 +85,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
         # Find the images to score; images can be a directory, may need to recurse
         if os.path.isdir(image_file_names):
             image_dir = image_file_names
-            image_file_names = build_file_manifest(image_dir, True)
+            image_file_names = file_management.build_file_manifest(image_dir, True)
             print('{} image files found in folder {}'.format(len(image_file_names), image_dir))
 
         # A json list of image paths
@@ -148,3 +147,71 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
                 os.remove(checkpoint_tmp_path)
 
     return results
+
+
+def parse_MD(results, manifest=None, out_file=None, buffer=0.02):
+    """
+    Converts numerical output from classifier to common name species label
+
+    Args:
+        - animals: dataframe of animal detections
+        - predictions: output of the classifier model
+        - class_file: species list associated with classifier outputs
+        - out_file: path to save dataframeft
+    Returns:
+        - animals: dataframe containing species labels
+    """
+    if file_management.check_file(out_file):
+        return file_management.load_data(out_file)
+
+    if not isinstance(results, list):
+        raise AssertionError("MD results input must be list")
+
+    if len(results) == 0:
+        raise AssertionError("'results' contains no detections")
+
+    df = pd.DataFrame(columns = ('file', 'max_detection_conf',
+                                 'category', 'conf', 'bbox1',
+                                 'bbox2', 'bbox3', 'bbox4'))
+    for dictionary in results:
+
+        try: 
+            detections = dictionary['detections']
+        except KeyError:
+            print('File error ',  dictionary['file']) 
+        if len(detections) == 0:
+            data = {'file': [dictionary['file']],
+                    'max_detection_conf': [dictionary['max_detection_conf']],
+                    'category': [0], 'conf': [None], 'bbox1': [None],
+                    'bbox2': [None], 'bbox3': [None], 'bbox4': [None]}
+            df = pd.concat([df,pd.DataFrame(data)]).reset_index(drop=True)
+
+        else:
+            for detection in detections:
+                bbox = detection['bbox']
+                data = {'file': [dictionary['file']],
+                        'max_detection_conf': [dictionary['max_detection_conf']],
+                        'category': [detection['category']], 'conf': [detection['conf']],
+                        'bbox1': [bbox[0]], 'bbox2': [bbox[1]],
+                        'bbox3': [bbox[2]], 'bbox4': [bbox[3]]}
+                df = pd.concat([df,pd.DataFrame(data)]).reset_index(drop=True)
+
+                
+    # adjust boxes with 2% buffer from image edge
+    df.loc[df["bbox1"] > (1 - buffer), "bbox1"] = (1 - buffer)
+    df.loc[df["bbox2"] > (1 - buffer), "bbox2"] = (1 - buffer)
+    df.loc[df["bbox3"] > (1 - buffer), "bbox3"] = (1 - buffer)
+    df.loc[df["bbox4"] > (1 - buffer), "bbox4"] = (1 - buffer)
+
+    df.loc[df["bbox1"] < buffer, "bbox1"] = buffer
+    df.loc[df["bbox2"] < buffer, "bbox2"] = buffer
+    df.loc[df["bbox3"] < buffer, "bbox3"] = buffer
+    df.loc[df["bbox4"] < buffer, "bbox4"] = buffer
+
+    if isinstance(manifest, pd.DataFrame):
+        df = manifest.merge(df, left_on="Frame", right_on="file")
+
+    if out_file:
+        file_management.save_data(df, out_file)
+
+    return df
