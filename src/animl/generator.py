@@ -4,23 +4,11 @@ from PIL import Image, ImageOps, ImageFile
 import tensorflow as tf
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import Compose, Resize, ToTensor
-
+from torchvision.transforms import (Compose, Resize, ToTensor, Normalize,
+                                    RandomHorizontalFlip)
+from .utils.torch_utils import _setup_size
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-
-# From torchvision.transforms
-def _setup_size(size):
-    if isinstance(size, int):
-        return int(size), int(size)
-
-    if isinstance(size, Sequence) and len(size) == 1:
-        return size[0], size[0]
-
-    if len(size) != 2:
-        raise ValueError('Please provide up to two dimensions (h,w)')
-    return size
 
 
 def resize_with_padding(img, expected_size):
@@ -91,7 +79,7 @@ class ResizeWithPadding(torch.nn.Module):
 
 
 class CropGenerator(Sequence):
-    def __init__(self, x, filecol='file', resize=299, buffer=0, batch=32):
+    def __init__(self, x, filecol='file', resize=299, buffer=0, batch=1):
         self.x = x
         self.filecol = filecol
         self.resize = int(resize)
@@ -144,9 +132,11 @@ class TrainGenerator(Dataset):
         self.filecol = filecol
         self.batch_size = int(batch_size)
         self.transform = Compose([
-            # RandomHorizontalFlip()
             Resize((self.resize)),
-            ToTensor()
+            RandomHorizontalFlip(p=0.5),
+            ToTensor(),
+            Normalize(mean=[0.485, 0.456, 0.406],
+                      std=[0.229, 0.224, 0.225])
         ])
         self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
 
@@ -212,7 +202,7 @@ class TFGenerator(Sequence):
         return np.asarray(imgarray)
 
 
-def train_dataloader(manifest, classes, batch_size, workers, filecol="file"):
+def train_dataloader(manifest, classes, batch_size, workers, filecol="FilePath"):
     '''
         Loads a dataset for training and wraps it in a
         PyTorch DataLoader object.
@@ -228,12 +218,12 @@ def train_dataloader(manifest, classes, batch_size, workers, filecol="file"):
     return dataLoader
 
 
-def create_dataloader(manifest, batch_size, workers, filecol="file"):
+def create_dataloader(manifest, batch_size, workers, framework="torch", filecol="file"):
     '''
         Loads a dataset and wraps it in a
         PyTorch DataLoader object.
     '''
-    dataset_instance = TFGenerator(manifest, filecol)
+    dataset_instance = CropGenerator(manifest, filecol, batch_size)
 
     dataLoader = DataLoader(
             dataset=dataset_instance,

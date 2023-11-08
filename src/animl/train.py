@@ -5,72 +5,119 @@
     Original script from
     2022 Benjamin Kellenberger
 '''
+from comet_ml import Experiment
+from comet_ml.integration.pytorch import log_model
 
 import argparse
 import yaml
 from tqdm import trange
-import torch
+import pandas as pd
+import glob
 import torch.nn as nn
+import torch
+import os
 from torch.utils.data import DataLoader
-from sklearn.metrics import precision_score, recall_score
+from sklearn.metrics import precision_score, recall_score #fix
 
 # let's import our own classes and functions!
-from util import init_seed, setup_optimizer
-from .generator import create_dataloader
-from model import load_model, save_model
+from .utils import train_utils
+from .generator import train_dataloader
+from .CTLClassifier import CTLClassifier
 
-from comet_ml import Experiment
-from comet_ml.integration.pytorch import log_model
+
 # # log values using comet ml (comet.com)
-experiment = Experiment()
+experiment = Experiment(
+  api_key="z3XHB9d67yOgZ2B5reqfuDLfZ",
+  project_name="Cougar-Binary",
+  workspace="tkswanson"
+)
+
+
+def save_model(cfg, epoch, model, stats):
+    '''
+        Saves model state weights.
+    '''
+    # make sure save directory exists; create if not
+    exp_folder = cfg['experiment_folder']
+    os.makedirs(exp_folder, exist_ok=True)
+
+    # get model parameters and add to stats...
+    stats['model'] = model.state_dict()
+
+    # ...and save
+    torch.save(stats, open(f'{exp_folder}/{epoch}.pt', 'wb'))
+
+    # also save config file if not present
+    cfpath = exp_folder + '/config.yaml'
+    if not os.path.exists(cfpath):
+        with open(cfpath, 'w') as f:
+            yaml.dump(cfg, f)
+
+
+def load_model(cfg):
+    '''
+        Creates a model instance and loads the latest model state weights.
+    '''
+    if (cfg['architecture']=="CTL"):
+        model_instance = CTLClassifier(cfg['num_classes'])        
+    else:
+        raise AssertionError('Please provide the correct model')
+    overwrite = cfg['overwrite']
+    exp_folder = cfg['experiment_folder']
+
+    # load latest model state
+    model_states = glob.glob(exp_folder + '*.pt')
+
+    if len(model_states) and overwrite==False:
+        # at least one save state found; get latest
+        model_epochs = [int(m.replace(exp_folder,'').replace('.pt','')) for m in model_states]
+        start_epoch = max(model_epochs)
+
+        # load state dict and apply weights to model
+        print(f'Resuming from epoch {start_epoch}')
+        state = torch.load(open(f'{exp_folder}/{start_epoch}.pt', 'rb'), map_location='cpu')
+        model_instance.load_state_dict(state['model'])
+
+    else:
+        # no save state found; start anew
+        print('Starting new model')
+        start_epoch = 0
+
+    return model_instance, start_epoch
 
 def train(cfg, dataLoader, model, optimizer):
     '''
         Our actual training function.
     '''
-    # put model on device
     device = cfg['device']
     model.to(device)
-    model.train()
+    model.train() # put the model into training mode
 
     # loss function
     criterion = nn.CrossEntropyLoss()
 
-    # running averages
-    loss_total, oa_total = 0.0, 0.0                         # for now, we just log the loss and overall accuracy (OA)
+    # log the loss and overall accuracy (OA)
+    loss_total, oa_total = 0.0, 0.0                         
 
-    # iterate over dataLoader
     progressBar = trange(len(dataLoader))
-    for idx, (data, labels, paths) in enumerate(dataLoader): 
-        # see the last line of file "dataset.py" where we return the image tensor (data) and label
+    for idx, (data, labels, _) in enumerate(dataLoader): 
         # put data and labels on device
         data, labels = data.to(device), labels.to(device)
-        # import pdb; pdb.set_trace() # DEBUGGER
-
         # forward pass
         prediction = model(data)
-
         # reset gradients to zero
         optimizer.zero_grad()
 
-        # loss
         loss = criterion(prediction, labels)
-
-        # backward pass (calculate gradients of current batch)
-        loss.backward()
-
+        loss.backward() # backward pass (calculate gradients of current batch)
         # apply gradients to model parameters
         optimizer.step()
-
         # log statistics
         loss_total += loss.item()                       
-        # the .item() command retrieves the value of a single-valued tensor, regardless of its data type and device of tensor
 
         pred_label = torch.argmax(prediction, dim=1)    
-        # the predicted label is the one at position (class index) with highest predicted value
         
         oa = torch.mean((pred_label == labels).float()) 
-        # OA: number of correct predictions divided by batch size (i.e., average/mean)
         oa_total += oa.item()
 
         progressBar.set_description(
@@ -81,9 +128,9 @@ def train(cfg, dataLoader, model, optimizer):
         )
         progressBar.update(1)
 
-    # end of epoch; finalize
+    # end of epoch
     progressBar.close()
-    loss_total /= len(dataLoader)           # shorthand notation for: loss_total = loss_total / len(dataLoader)
+    loss_total /= len(dataLoader)
     oa_total /= len(dataLoader)
 
     return loss_total, oa_total
@@ -96,32 +143,25 @@ def validate(cfg, dataLoader, model):
     '''
     device = cfg['device']
     model.to(device)
-
-    # put the model into evaluation mode
-    # see lines 103-106 above
-    model.eval()
+    model.eval() # put the model into evaluation mode
     
-    criterion = nn.CrossEntropyLoss()   # we still need a criterion to calculate the validation loss
+    criterion = nn.CrossEntropyLoss() # we still need a criterion to calculate the validation loss
 
-    # running averages
-    loss_total, oa_total = 0.0, 0.0     # for now, we just log the loss and overall accuracy (OA)    
+    # log the loss and overall accuracy (OA)
+    loss_total, oa_total = 0.0, 0.0
 
     # create empty lists for true and predicted labels
     true_labels = []
     pred_labels = []
 
-    # iterate over dataLoader
     progressBar = trange(len(dataLoader))
-    
     with torch.no_grad():               
         # don't calculate intermediate gradient steps: we don't need them, so this saves memory and is faster
-        for idx, (data, labels) in enumerate(dataLoader):
-
+        for idx, (data, labels, _) in enumerate(dataLoader):
             # put data and labels on device
             data, labels = data.to(device), labels.to(device)
 
             # add true labels to the true labels list
-            # import pdb; pdb.set_trace() # DEBUGGER
             labels_np = labels.cpu().detach().numpy()
             true_labels.extend(labels_np)
 
@@ -163,8 +203,12 @@ def validate(cfg, dataLoader, model):
 
 
 def main():
-    # Argument parser for command-line arguments:
-    # python ct_classifier/train.py --config configs/exp_resnet18.yaml
+    '''
+    Command line function
+
+    Example usage :
+    > python train.py --config configs/exp_resnet18.yaml
+    '''
     parser = argparse.ArgumentParser(description='Train deep learning model.')
     parser.add_argument('--config', help='Path to config file', default='exp_resnet18.yaml')
     args = parser.parse_args()
@@ -174,7 +218,7 @@ def main():
     cfg = yaml.safe_load(open(args.config, 'r'))
 
     # init random number generator seed (set at the start)
-    init_seed(cfg.get('seed', None))
+    train_utils.init_seed(cfg.get('seed', None))
 
     # check if GPU is available
     device = cfg['device']
@@ -184,17 +228,20 @@ def main():
 
     # initialize data loaders for training and validation set
     train_dataset = pd.read_csv(cfg['training_set'])
-    train_dataset = pd.read_csv(cfg['test_set'])
-    dl_train = create_dataloader(train_dataset)
-    dl_val = create_dataloader(test_dataset)
+    validate_dataset = pd.read_csv(cfg['validate_set'])
+
+    classes = pd.read_csv(cfg['class_file'])['x']
+    categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
+
+    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
+    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
 
     # initialize model
     model, current_epoch = load_model(cfg)
 
     # set up model optimizer
-    optim = setup_optimizer(cfg, model)
+    optim = train_utils.setup_optimizer(cfg, model)
 
-    # we have everything now: data loaders, model, optimizer; let's do the epochs!
     numEpochs = cfg['num_epochs']
     while current_epoch < numEpochs:
         current_epoch += 1
@@ -220,6 +267,4 @@ def main():
     
 
 if __name__ == '__main__':
-    # This block only gets executed if you call the "train.py" script directly
-    # (i.e., "python ct_classifier/train.py").
     main()

@@ -3,7 +3,7 @@ import os
 import wget
 import pandas as pd
 from . import (file_management, video_processing, megadetector,
-                   detectMD, parse_results, split, classify)
+               detect, parse_results, split, inference)
 
 
 def main(image_dir, detector_file, classifier_file, class_list):
@@ -39,7 +39,7 @@ def main(image_dir, detector_file, classifier_file, class_list):
         detections = file_management.load_data(working_dir.mdresults)
     else:
         detector = megadetector.MegaDetector(detector_file)
-        md_results = detectMD.detect_MD_batch(detector,
+        md_results = detect.detect_MD_batch(detector,
                                               all_frames["Frame"],
                                               results=None, quiet=True)
         print("Converting MD JSON to dataframe and merging with manifest...")
@@ -52,11 +52,11 @@ def main(image_dir, detector_file, classifier_file, class_list):
     animals = split.getAnimals(detections)
     empty = split.getEmpty(detections)
     print("Predicting species of animal detections...")
-    classifier = classify.load_classifier(classifier_file)
+    classifier, classes = inference.load_classifier(classifier_file, class_list)
     # Use the classifier model to predict the species of animal detections
-    pred_results = classify.predict_species(animals, classifier, batch=4)
+    pred_results = inference.predict_species(animals, classifier, batch=4)
     print("Applying predictions to animal detections...")
-    animals = parse_results.from_classifier(animals, pred_results, class_list,
+    animals = parse_results.from_classifier(animals, pred_results, classes,
                                             out_file=working_dir.predictions)
     print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals, empty])
