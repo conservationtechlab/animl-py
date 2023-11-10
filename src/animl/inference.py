@@ -26,7 +26,7 @@ def load_classifier(model_file, class_file, device='cpu'):
     if not isfile(class_file):
         raise AssertionError("The given class file does not exist.")
     
-    classes = pd.read_table(class_file, sep=",", index_col=0)
+    classes = pd.read_table(class_file, sep=" ", index_col=0)
     
     if device != 'cpu' and not torch.cuda.is_available():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
@@ -38,7 +38,7 @@ def load_classifier(model_file, class_file, device='cpu'):
         model = load_model(model_file)
     # PyTorch dict
     elif model_file.endswith('.pt'):
-        model = CTLClassifier.CTLClassifier(len(classes))
+        model = CTLClassifier(len(classes))
         checkpoint = torch.load(model_file, map_location=device)
         model.load_state_dict(checkpoint['model'])
         model.eval()
@@ -78,7 +78,7 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
         if any(detections.columns.isin(["bbox1"])):
 
             # pytorch
-            if type(model) == CTLClassifier.CTLClassifier:  
+            if type(model) == CTLClassifier:  
                 dataset = generator.create_dataloader(detections, batch, workers, filecol)
                 with torch.no_grad():
                     for ix,(data,_) in enumerate(dataset):
