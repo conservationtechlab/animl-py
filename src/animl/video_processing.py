@@ -1,5 +1,6 @@
 import os
 import cv2
+from tqdm import tqdm
 from random import randrange
 import multiprocessing as mp
 import pandas as pd
@@ -116,7 +117,7 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
 
         else:
             video_frames = []
-            for i, video in videos.iterrows():
+            for i, video in tqdm(videos.iterrows()):
                 video_frames += extract_images(video["FilePath"], out_dir=out_dir,
                                                fps=fps, frames=frames)
 
