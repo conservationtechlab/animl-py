@@ -21,11 +21,11 @@ class MegaDetector:
     def __init__(self, model_path: str):
         if torch.cuda.is_available():
             self.device = torch.device('cuda:0')
-            #try:
-            #    if torch.backends.mps.is_built and torch.backends.mps.is_available():
-            #        self.device = 'mps'
-            #except AttributeError:
-            #    pass
+#             try:
+#                if torch.backends.mps.is_built and torch.backends.mps.is_available():
+#                    self.device = 'mps'
+#             except AttributeError:
+#                pass
         else:
             self.device = 'cpu'
         self.model = MegaDetector._load_model(model_path, self.device)
