@@ -1,6 +1,7 @@
 import torch.nn as nn
 from torchvision.models import resnet
 
+
 class CTLClassifier(nn.Module):
 
     def __init__(self, num_classes):
@@ -19,7 +20,6 @@ class CTLClassifier(nn.Module):
         self.feature_extractor.fc = nn.Identity()                       # discard last layer...
 
         self.classifier = nn.Linear(in_features, num_classes)           # ...and create a new one
-    
 
     def forward(self, x):
         '''

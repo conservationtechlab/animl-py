@@ -173,6 +173,7 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02):
     df = pd.DataFrame(columns=('file', 'max_detection_conf',
                                'category', 'conf', 'bbox1',
                                'bbox2', 'bbox3', 'bbox4'))
+
     for frame in tqdm(results):
 
         try:
