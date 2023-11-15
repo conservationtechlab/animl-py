@@ -8,7 +8,7 @@ from PIL import Image
 from . import file_management
 
 
-def process_image(im_file, detector, confidence_threshold, quiet=True, 
+def process_image(im_file, detector, confidence_threshold, quiet=True,
                   image_size=None, skip_image_resize=False):
     """
     From AgentMorris/MegaDetector
@@ -170,21 +170,21 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02):
     if len(results) == 0:
         raise AssertionError("'results' contains no detections")
 
-    df = pd.DataFrame(columns = ('file', 'max_detection_conf',
-                                 'category', 'conf', 'bbox1',
-                                 'bbox2', 'bbox3', 'bbox4'))
+    df = pd.DataFrame(columns=('file', 'max_detection_conf',
+                               'category', 'conf', 'bbox1',
+                               'bbox2', 'bbox3', 'bbox4'))
     for dictionary in results:
 
-        try: 
+        try:
             detections = dictionary['detections']
         except KeyError:
-            print('File error ',  dictionary['file']) 
+            print('File error ',  dictionary['file'])
         if len(detections) == 0:
             data = {'file': [dictionary['file']],
                     'max_detection_conf': [dictionary['max_detection_conf']],
                     'category': [0], 'conf': [None], 'bbox1': [None],
                     'bbox2': [None], 'bbox3': [None], 'bbox4': [None]}
-            df = pd.concat([df,pd.DataFrame(data)]).reset_index(drop=True)
+            df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
 
         else:
             for detection in detections:
@@ -194,9 +194,8 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02):
                         'category': [detection['category']], 'conf': [detection['conf']],
                         'bbox1': [bbox[0]], 'bbox2': [bbox[1]],
                         'bbox3': [bbox[2]], 'bbox4': [bbox[3]]}
-                df = pd.concat([df,pd.DataFrame(data)]).reset_index(drop=True)
+                df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
 
-                
     # adjust boxes with 2% buffer from image edge
     df.loc[df["bbox1"] > (1 - buffer), "bbox1"] = (1 - buffer)
     df.loc[df["bbox2"] > (1 - buffer), "bbox2"] = (1 - buffer)
