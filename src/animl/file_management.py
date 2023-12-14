@@ -31,9 +31,11 @@ def build_file_manifest(image_dir, exif=True, offset=0, out_file=None):
     files = pd.DataFrame(files, columns=["FilePath"])
     files["FileName"] = files["FilePath"].apply(
         lambda x: os.path.split(x)[1])
-    files["FileModifyDate"] = files["FilePath"].apply(
-        lambda x: datetime.fromtimestamp(
-            os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
+    
+    if exif:
+        files["FileModifyDate"] = files["FilePath"].apply(
+            lambda x: datetime.fromtimestamp(
+                os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
 
     if out_file:
         save_data(files, out_file)

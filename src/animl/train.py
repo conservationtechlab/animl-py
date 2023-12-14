@@ -22,7 +22,7 @@ from sklearn.metrics import precision_score, recall_score #fix
 # let's import our own classes and functions!
 from .utils import train_utils
 from .generator import train_dataloader
-from .CTLClassifier import CTLClassifier
+from .classifiers import CTLClassifier, EfficientNet
 
 
 # # log values using comet ml (comet.com)
@@ -59,7 +59,9 @@ def load_model(cfg):
         Creates a model instance and loads the latest model state weights.
     '''
     if (cfg['architecture']=="CTL"):
-        model_instance = CTLClassifier(cfg['num_classes'])        
+        model_instance = CTLClassifier(cfg['num_classes'])
+    elif (cfg['architecture']=="efficientnet_v2_m"):
+        model_instance = EfficientNet(cfg['num_classes'])        
     else:
         raise AssertionError('Please provide the correct model')
     overwrite = cfg['overwrite']
@@ -230,9 +232,9 @@ def main():
     train_dataset = pd.read_csv(cfg['training_set'])
     validate_dataset = pd.read_csv(cfg['validate_set'])
 
-    classes = pd.read_csv(cfg['class_file'])['x']
-    categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
-
+    classes = pd.read_csv(cfg['class_file'])
+    categories = dict([[x["species"], x["id"]] for _,x in classes.iterrows()])
+    
     dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
     dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
 

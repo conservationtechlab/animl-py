@@ -61,8 +61,11 @@ def extract_images(file_path, out_dir, fps=None, frames=None):
 
     cap.release()
     cv2.destroyAllWindows()
+    if len(frames_saved) == 0:
+        return ["File Error", file_path]
 
-    return frames_saved
+    else:
+        return frames_saved
 
 
 def images_from_videos(files, out_dir, out_file=None, format="jpg",

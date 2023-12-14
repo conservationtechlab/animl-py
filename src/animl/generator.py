@@ -128,7 +128,7 @@ class CropGenerator(Dataset):
 
 # currently working on this class
 class TrainGenerator(Dataset):
-    def __init__(self, x, classes, filecol='FilePath', resize=456, batch_size=32):
+    def __init__(self, x, classes, filecol='FilePath', resize=299, batch_size=32):
         self.x = x
         self.resize = resize
         self.filecol = filecol
@@ -152,9 +152,12 @@ class TrainGenerator(Dataset):
         try:
             img = Image.open(image_name).convert('RGB')
         except OSError:
-            return
+            del self.x.iloc[idx]
+            return self.__getitem__(idx)
+
 
         img_tensor = self.transform(img)
+        #print(image_name, len(img_tensor))
 
         return img_tensor, label, image_name
 

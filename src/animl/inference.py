@@ -7,7 +7,7 @@ from pandas import DataFrame
 from time import time
 from humanfriendly import format_timespan
 from . import generator, file_management
-from .CTLClassifier import CTLClassifier
+from .classifiers import CTLClassifier
 
 
 def load_classifier(model_file, class_file, device='cpu'):
