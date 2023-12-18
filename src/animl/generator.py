@@ -132,9 +132,10 @@ class TrainGenerator(Dataset):
         self.x = x
         self.resize = resize
         self.filecol = filecol
+        self.buffer = 0
         self.batch_size = int(batch_size)
         self.transform = Compose([
-            Resize((self.resize)),
+            Resize((self.resize,self.resize)),
             RandomHorizontalFlip(p=0.5),
             ToTensor(),
             Normalize(mean=[0.485, 0.456, 0.406],
@@ -151,15 +152,38 @@ class TrainGenerator(Dataset):
 
         try:
             img = Image.open(image_name).convert('RGB')
+
         except OSError:
+            print("File error", image_name)
             del self.x.iloc[idx]
             return self.__getitem__(idx)
 
+        width, height = img.size
+
+        bbox1 = self.x['bbox1'].iloc[idx]
+        bbox2 = self.x['bbox2'].iloc[idx]
+        bbox3 = self.x['bbox3'].iloc[idx]
+        bbox4 = self.x['bbox4'].iloc[idx]
+        
+        left = width * bbox1
+        top = height * bbox2
+        right = width * (bbox1 + bbox3)
+        bottom = height * (bbox2 + bbox4)
+        
+        left = max(0, int(left) - self.buffer)
+        top = max(0, int(top) - self.buffer)
+        right = min(width, int(right) + self.buffer)
+        bottom = min(height, int(bottom) + self.buffer)
+        img = img.crop((left, top, right, bottom))
 
         img_tensor = self.transform(img)
-        #print(image_name, len(img_tensor))
 
+        #print(image_name, img_tensor.shape)
         return img_tensor, label, image_name
+
+        
+
+        
 
 
 class TFGenerator(Sequence):

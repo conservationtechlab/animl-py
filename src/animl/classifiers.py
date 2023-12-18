@@ -1,4 +1,5 @@
 import torch.nn as nn
+from torch import flatten
 from torchvision.models import resnet
 from torchvision.models import efficientnet
 
@@ -37,16 +38,23 @@ class CTLClassifier(nn.Module):
 
 class EfficientNet(nn.Module):
 
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, tune=True):
         '''
             Constructor of the model. Here, we initialize the model's
             architecture (layers).
         '''
         super(EfficientNet, self).__init__()
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
 
         self.model = efficientnet.efficientnet_v2_m(weights = efficientnet.EfficientNet_V2_M_Weights)       # "pretrained": use weights pre-trained on ImageNet
+        if tune:
+            for params in self.model.parameters():
+                params.requires_grad = True
+        
         num_ftrs = self.model.classifier[1].in_features
+        
         self.model.classifier[1] = nn.Linear(in_features=num_ftrs, out_features=num_classes)
+
     
 
     def forward(self, x):
@@ -57,7 +65,11 @@ class EfficientNet(nn.Module):
             num_classes prediction.
         '''
         # x.size(): [B x 3 x W x H]
-        features = self.feature_extractor(x)    # features.size(): [B x 512 x W x H]
-        prediction = self.classifier(features)  # prediction.size(): [B x num_classes]
+        x = self.model.features(x)    # features.size(): [B x 3 x W x H]
+
+        x = self.avgpool(x)
+        x = flatten(x, 1)
+
+        prediction = self.model.classifier(x)  # prediction.size(): [B x num_classes]
 
         return prediction

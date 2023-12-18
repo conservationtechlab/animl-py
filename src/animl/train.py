@@ -27,9 +27,6 @@ from .classifiers import CTLClassifier, EfficientNet
 
 # # log values using comet ml (comet.com)
 experiment = Experiment(
-  api_key="z3XHB9d67yOgZ2B5reqfuDLfZ",
-  project_name="Cougar-Binary",
-  workspace="tkswanson"
 )
 
 
@@ -61,7 +58,7 @@ def load_model(cfg):
     if (cfg['architecture']=="CTL"):
         model_instance = CTLClassifier(cfg['num_classes'])
     elif (cfg['architecture']=="efficientnet_v2_m"):
-        model_instance = EfficientNet(cfg['num_classes'])        
+        model_instance = EfficientNet(cfg['num_classes'],tune=False)        
     else:
         raise AssertionError('Please provide the correct model')
     overwrite = cfg['overwrite']
@@ -102,8 +99,10 @@ def train(cfg, dataLoader, model, optimizer):
     loss_total, oa_total = 0.0, 0.0                         
 
     progressBar = trange(len(dataLoader))
-    for idx, (data, labels, _) in enumerate(dataLoader): 
+    for idx, batch in enumerate(dataLoader): 
         # put data and labels on device
+        data = batch[0]
+        labels = batch[1]
         data, labels = data.to(device), labels.to(device)
         # forward pass
         prediction = model(data)
@@ -159,8 +158,10 @@ def validate(cfg, dataLoader, model):
     progressBar = trange(len(dataLoader))
     with torch.no_grad():               
         # don't calculate intermediate gradient steps: we don't need them, so this saves memory and is faster
-        for idx, (data, labels, _) in enumerate(dataLoader):
-            # put data and labels on device
+        for idx, batch in enumerate(dataLoader): 
+        # put data and labels on device
+            data = batch[0]
+            labels = batch[1]
             data, labels = data.to(device), labels.to(device)
 
             # add true labels to the true labels list
@@ -198,8 +199,8 @@ def validate(cfg, dataLoader, model):
     oa_total /= len(dataLoader)
 
     # calculate precision and recall
-    precision = precision_score(true_labels, pred_labels)
-    recall = recall_score(true_labels, pred_labels)
+    precision = precision_score(true_labels, pred_labels, average = "weighted")
+    recall = recall_score(true_labels, pred_labels, average = "weighted")
 
     return loss_total, oa_total, precision, recall
 
@@ -229,12 +230,13 @@ def main():
         cfg['device'] = 'cpu'
 
     # initialize data loaders for training and validation set
-    train_dataset = pd.read_csv(cfg['training_set'])
-    validate_dataset = pd.read_csv(cfg['validate_set'])
+    train_dataset = pd.read_csv(cfg['training_set']).reset_index(drop=True)
+    validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
+
 
     classes = pd.read_csv(cfg['class_file'])
     categories = dict([[x["species"], x["id"]] for _,x in classes.iterrows()])
-    
+
     dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
     dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
 

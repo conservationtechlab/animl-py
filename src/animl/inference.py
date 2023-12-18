@@ -7,7 +7,7 @@ from pandas import DataFrame
 from time import time
 from humanfriendly import format_timespan
 from . import generator, file_management
-from .classifiers import CTLClassifier
+from .classifiers import EfficientNet
 
 
 def load_classifier(model_file, class_file, device='cpu'):
@@ -26,7 +26,7 @@ def load_classifier(model_file, class_file, device='cpu'):
     if not isfile(class_file):
         raise AssertionError("The given class file does not exist.")
 
-    classes = pd.read_table(class_file, sep=" ", index_col=0)
+    classes = pd.read_csv(class_file)
 
     if device != 'cpu' and not torch.cuda.is_available():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
@@ -38,7 +38,7 @@ def load_classifier(model_file, class_file, device='cpu'):
         model = load_model(model_file)
     # PyTorch dict
     elif model_file.endswith('.pt'):
-        model = CTLClassifier(len(classes))
+        model = EfficientNet(len(classes))
         checkpoint = torch.load(model_file, map_location=device)
         model.load_state_dict(checkpoint['model'])
         model.eval()
@@ -50,6 +50,7 @@ def load_classifier(model_file, class_file, device='cpu'):
         raise ValueError('Unrecognized model format: {}'.format(model_file))
     elapsed = time() - start_time
     print('Loaded model in {}'.format(format_timespan(elapsed)))
+    
     return model, classes
 
 
