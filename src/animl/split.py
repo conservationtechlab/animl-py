@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-def getAnimals(manifest):
+def get_animals(manifest):
     """
     Pulls MD animal detections for classification
 
@@ -16,7 +16,7 @@ def getAnimals(manifest):
     return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
 
 
-def getEmpty(manifest):
+def get_empty(manifest):
     """
     Pulls MD non-animal detections
 
@@ -32,7 +32,7 @@ def getEmpty(manifest):
 
     # Removes all images that MegaDetector gave no detection for
     otherdf = manifest[manifest['category'].astype(int) != 1].reset_index(drop=True)
-    otherdf['prediction'] = otherdf['category']
+    otherdf['prediction'] = otherdf['category'].astype(int)
 
     # Numbers the class of the non-animals correctly
     if not otherdf.empty:

@@ -1,14 +1,70 @@
+import os
+import glob
+import torch
 import torch.nn as nn
-from torch import flatten
 from torchvision.models import resnet
 from torchvision.models import efficientnet
+
+
+def save_model(exp_folder, epoch, model, stats):
+    '''
+        Saves model state weights.
+    '''
+    os.makedirs(exp_folder, exist_ok=True)
+
+    # get model parameters and add to stats
+    stats['model'] = model.state_dict()
+
+    torch.save(stats, open(f'{exp_folder}/{epoch}.pt', 'wb'))
+
+
+def load_model(path, architecture, num_classes, overwrite=False):
+    '''
+        Creates a model instance and loads the latest model state weights.
+    '''
+    if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
+        model_instance = EfficientNet(num_classes, tune=False)
+    else:
+        raise AssertionError('Please provide the correct model')
+
+    # load latest model state from given folder
+    if os.path.isdir(path):
+        model_states = glob.glob(path + '*.pt')
+
+        if len(model_states) and not overwrite:
+            # at least one save state found; get latest
+            model_epochs = [int(m.replace(path, '').replace('.pt', '')) for m in model_states]
+            start_epoch = max(model_epochs)
+
+            # load state dict and apply weights to model
+            print(f'Resuming from epoch {start_epoch}')
+            state = torch.load(open(f'{path}/{start_epoch}.pt', 'rb'))
+            model_instance.load_state_dict(state['model'])
+
+        else:
+            # no save state found/overwrite; start anew
+            print('Model found but overwrite enabled, starting new model')
+            start_epoch = 0
+
+    # load a specific model file
+    elif os.path.isfile(path):
+        print(f'Loading model at {path}')
+        state = torch.load(open(f'{path}/{start_epoch}.pt', 'rb'))
+        model_instance.load_state_dict(state['model'])
+
+    # no dir or file found
+    else:
+        raise ValueError("Model not found at given path")
+
+    return model_instance, start_epoch
+
 
 class CTLClassifier(nn.Module):
 
     def __init__(self, num_classes):
         '''
             Constructor of the model. Here, we initialize the model's
-            architecture (layers).
+            architecture (layers). NOT IN USE
         '''
         super(CTLClassifier, self).__init__()
 
@@ -46,29 +102,23 @@ class EfficientNet(nn.Module):
         super(EfficientNet, self).__init__()
         self.avgpool = nn.AdaptiveAvgPool2d(1)
 
-        self.model = efficientnet.efficientnet_v2_m(weights = efficientnet.EfficientNet_V2_M_Weights)       # "pretrained": use weights pre-trained on ImageNet
+        self.model = efficientnet.efficientnet_v2_m(weights=efficientnet.EfficientNet_V2_M_Weights)       # "pretrained": use weights pre-trained on ImageNet
         if tune:
             for params in self.model.parameters():
                 params.requires_grad = True
-        
-        num_ftrs = self.model.classifier[1].in_features
-        
-        self.model.classifier[1] = nn.Linear(in_features=num_ftrs, out_features=num_classes)
 
-    
+        num_ftrs = self.model.classifier[1].in_features
+
+        self.model.classifier[1] = nn.Linear(in_features=num_ftrs, out_features=num_classes)
 
     def forward(self, x):
         '''
-            Forward pass. Here, we define how to apply our model. It's basically
-            applying our modified ResNet-18 on the input tensor ("x") and then
-            apply the final classifier layer on the ResNet-18 output to get our
-            num_classes prediction.
+            Forward pass.
         '''
         # x.size(): [B x 3 x W x H]
-        x = self.model.features(x)    # features.size(): [B x 3 x W x H]
-
+        x = self.model.features(x)
         x = self.avgpool(x)
-        x = flatten(x, 1)
+        x = torch.flatten(x, 1)
 
         prediction = self.model.classifier(x)  # prediction.size(): [B x num_classes]
 

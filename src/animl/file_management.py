@@ -79,7 +79,7 @@ class WorkingDirectory():
         self.results = self.datadir + "Results.csv"
         self.crops = self.datadir + "Crops.csv"
         self.predictions = self.datadir + "Predictions.csv"
-        self.mdresults = self.datadir + "mdresults.csv"
+        self.mdresults = self.datadir + "MD_Results.csv"
 
 
 def save_data(data, file, prompt=True):

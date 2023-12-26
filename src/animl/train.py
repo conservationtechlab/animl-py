@@ -5,101 +5,57 @@
     Original script from
     2022 Benjamin Kellenberger
 '''
-from comet_ml import Experiment
-from comet_ml.integration.pytorch import log_model
+
 
 import argparse
 import yaml
 from tqdm import trange
 import pandas as pd
-import glob
+import random
 import torch.nn as nn
 import torch
-import os
-from torch.utils.data import DataLoader
-from sklearn.metrics import precision_score, recall_score #fix
+from torch.backends import cudnn
+from torch.optim import SGD
+from sklearn.metrics import precision_score, recall_score
 
-# let's import our own classes and functions!
-from .utils import train_utils
 from .generator import train_dataloader
-from .classifiers import CTLClassifier, EfficientNet
-
+from .classifiers import save_model, load_model
 
 # # log values using comet ml (comet.com)
-experiment = Experiment(
-)
+# from comet_ml import Experiment
+# from comet_ml.integration.pytorch import log_model
+# experiment = Experiment()
 
 
-def save_model(cfg, epoch, model, stats):
+def init_seed(seed):
     '''
-        Saves model state weights.
+        Initalizes the seed for all random number generators used. This is
+        important to be able to reproduce results and experiment with different
+        random setups of the same code and experiments.
     '''
-    # make sure save directory exists; create if not
-    exp_folder = cfg['experiment_folder']
-    os.makedirs(exp_folder, exist_ok=True)
-
-    # get model parameters and add to stats...
-    stats['model'] = model.state_dict()
-
-    # ...and save
-    torch.save(stats, open(f'{exp_folder}/{epoch}.pt', 'wb'))
-
-    # also save config file if not present
-    cfpath = exp_folder + '/config.yaml'
-    if not os.path.exists(cfpath):
-        with open(cfpath, 'w') as f:
-            yaml.dump(cfg, f)
+    if seed is not None:
+        random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        cudnn.benchmark = True
+        cudnn.deterministic = True
 
 
-def load_model(cfg):
-    '''
-        Creates a model instance and loads the latest model state weights.
-    '''
-    if (cfg['architecture']=="CTL"):
-        model_instance = CTLClassifier(cfg['num_classes'])
-    elif (cfg['architecture']=="efficientnet_v2_m"):
-        model_instance = EfficientNet(cfg['num_classes'],tune=False)        
-    else:
-        raise AssertionError('Please provide the correct model')
-    overwrite = cfg['overwrite']
-    exp_folder = cfg['experiment_folder']
-
-    # load latest model state
-    model_states = glob.glob(exp_folder + '*.pt')
-
-    if len(model_states) and overwrite==False:
-        # at least one save state found; get latest
-        model_epochs = [int(m.replace(exp_folder,'').replace('.pt','')) for m in model_states]
-        start_epoch = max(model_epochs)
-
-        # load state dict and apply weights to model
-        print(f'Resuming from epoch {start_epoch}')
-        state = torch.load(open(f'{exp_folder}/{start_epoch}.pt', 'rb'), map_location='cpu')
-        model_instance.load_state_dict(state['model'])
-
-    else:
-        # no save state found; start anew
-        print('Starting new model')
-        start_epoch = 0
-
-    return model_instance, start_epoch
-
-def train(cfg, dataLoader, model, optimizer):
+def train(data_loader, model, optimizer, device='cpu'):
     '''
         Our actual training function.
     '''
-    device = cfg['device']
     model.to(device)
-    model.train() # put the model into training mode
+    model.train()  # put the model into training mode
 
     # loss function
     criterion = nn.CrossEntropyLoss()
 
     # log the loss and overall accuracy (OA)
-    loss_total, oa_total = 0.0, 0.0                         
+    loss_total, oa_total = 0.0, 0.0
 
-    progressBar = trange(len(dataLoader))
-    for idx, batch in enumerate(dataLoader): 
+    progressBar = trange(len(data_loader))
+    for idx, batch in enumerate(data_loader):
         # put data and labels on device
         data = batch[0]
         labels = batch[1]
@@ -110,15 +66,16 @@ def train(cfg, dataLoader, model, optimizer):
         optimizer.zero_grad()
 
         loss = criterion(prediction, labels)
-        loss.backward() # backward pass (calculate gradients of current batch)
+        # calculate gradients of current batch
+        loss.backward()
         # apply gradients to model parameters
         optimizer.step()
-        # log statistics
-        loss_total += loss.item()                       
 
-        pred_label = torch.argmax(prediction, dim=1)    
-        
-        oa = torch.mean((pred_label == labels).float()) 
+        loss_total += loss.item()
+
+        pred_label = torch.argmax(prediction, dim=1)
+
+        oa = torch.mean((pred_label == labels).float())
         oa_total += oa.item()
 
         progressBar.set_description(
@@ -131,22 +88,21 @@ def train(cfg, dataLoader, model, optimizer):
 
     # end of epoch
     progressBar.close()
-    loss_total /= len(dataLoader)
-    oa_total /= len(dataLoader)
+    loss_total /= len(data_loader)
+    oa_total /= len(data_loader)
 
     return loss_total, oa_total
 
 
-def validate(cfg, dataLoader, model):
+def validate(data_loader, model, device="cpu"):
     '''
         Validation function. Note that this looks almost the same as the training
         function, except that we don't use any optimizer or gradient steps.
     '''
-    device = cfg['device']
     model.to(device)
-    model.eval() # put the model into evaluation mode
-    
-    criterion = nn.CrossEntropyLoss() # we still need a criterion to calculate the validation loss
+    model.eval()  # put the model into evaluation mode
+
+    criterion = nn.CrossEntropyLoss()
 
     # log the loss and overall accuracy (OA)
     loss_total, oa_total = 0.0, 0.0
@@ -155,11 +111,9 @@ def validate(cfg, dataLoader, model):
     true_labels = []
     pred_labels = []
 
-    progressBar = trange(len(dataLoader))
-    with torch.no_grad():               
-        # don't calculate intermediate gradient steps: we don't need them, so this saves memory and is faster
-        for idx, batch in enumerate(dataLoader): 
-        # put data and labels on device
+    progressBar = trange(len(data_loader))
+    with torch.no_grad():  # gradients not necessary for validation
+        for idx, batch in enumerate(data_loader):
             data = batch[0]
             labels = batch[1]
             data, labels = data.to(device), labels.to(device)
@@ -192,15 +146,15 @@ def validate(cfg, dataLoader, model):
                 )
             )
             progressBar.update(1)
- 
+
     # end of epoch; finalize
     progressBar.close()
-    loss_total /= len(dataLoader)
-    oa_total /= len(dataLoader)
+    loss_total /= len(data_loader)
+    oa_total /= len(data_loader)
 
     # calculate precision and recall
-    precision = precision_score(true_labels, pred_labels, average = "weighted")
-    recall = recall_score(true_labels, pred_labels, average = "weighted")
+    precision = precision_score(true_labels, pred_labels, average="weighted")
+    recall = recall_score(true_labels, pred_labels, average="weighted")
 
     return loss_total, oa_total, precision, recall
 
@@ -221,54 +175,52 @@ def main():
     cfg = yaml.safe_load(open(args.config, 'r'))
 
     # init random number generator seed (set at the start)
-    train_utils.init_seed(cfg.get('seed', None))
+    init_seed(cfg.get('seed', None))
 
     # check if GPU is available
-    device = cfg['device']
+    device = cfg.get('device', 'cpu')
     if device != 'cpu' and not torch.cuda.is_available():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
-        cfg['device'] = 'cpu'
+        device = 'cpu'
+
+    # get class list
+    classes = pd.read_csv(cfg['class_file'])
+    categories = dict([[x["species"], x["id"]] for _, x in classes.iterrows()])
 
     # initialize data loaders for training and validation set
     train_dataset = pd.read_csv(cfg['training_set']).reset_index(drop=True)
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
-
-
-    classes = pd.read_csv(cfg['class_file'])
-    categories = dict([[x["species"], x["id"]] for _,x in classes.iterrows()])
-
     dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
     dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
 
     # initialize model
-    model, current_epoch = load_model(cfg)
+    model, current_epoch = load_model(cfg['experiment_folder'], cfg['architecture'], len(categories))
 
     # set up model optimizer
-    optim = train_utils.setup_optimizer(cfg, model)
+    optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
 
     numEpochs = cfg['num_epochs']
     while current_epoch < numEpochs:
         current_epoch += 1
         print(f'Epoch {current_epoch}/{numEpochs}')
 
-        loss_train, oa_train = train(cfg, dl_train, model, optim)
-        loss_val, oa_val, precision, recall = validate(cfg, dl_val, model)
-        
+        loss_train, oa_train = train(dl_train, model, optim, device)
+        loss_val, oa_val, precision, recall = validate(dl_val, model, device)
+
         # combine stats and save
         stats = {
             'loss_train': loss_train,
             'loss_val': loss_val,
             'oa_train': oa_train,
             'oa_val': oa_val,
-            'precision' : precision,
-            'recall' : recall
+            'precision': precision,
+            'recall': recall
         }
-        
-        experiment.log_metrics(stats, step=current_epoch)
 
+        # experiment.log_metrics(stats, step=current_epoch)
         if current_epoch % 10 == 0:
-            save_model(cfg, current_epoch, model, stats)
-    
+            save_model(cfg['experiment_folder'], current_epoch, model, stats)
+
 
 if __name__ == '__main__':
     main()
