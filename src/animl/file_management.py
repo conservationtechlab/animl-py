@@ -1,10 +1,10 @@
 """
-File Management Module
+    File Management Module
 
-This module provides functions and classes for managing files and directories.
+    This module provides functions and classes for managing files and directories.
 
+    @ Kyra Swanson 2023
 """
-
 import os
 from glob import glob
 from datetime import datetime
@@ -13,13 +13,16 @@ import pandas as pd
 
 def build_file_manifest(image_dir, exif=True, offset=0, out_file=None):
     """
-    # Extract exif Data and Create File Manifest
-    # @param imagedir file path
-    # @param exif returns date and time info from exif data, defaults to true
-    # @param offset add offset to videos, defaults to 0
-    # @param outfile file path to which the data frame should be saved
-    #
-    # @return files dataframe with or without file modify dates
+    Recursively Find Image/Video Files and Gather exif Data
+
+    Args:
+        - image_dir (str): directory of files to analyze
+        - exif (bool): returns date and time info from exif data, defaults to True
+        - offset (int): add offset to time in hours, defaults to 0
+        - out_file (str): file path to which the dataframe should be saved
+
+    Returns:
+        - files (pd.DataFrame): list of files with or without file modify dates
     """
     if check_file(out_file):
         return load_data(out_file)  # load_data(outfile) load file manifest
@@ -45,13 +48,13 @@ def build_file_manifest(image_dir, exif=True, offset=0, out_file=None):
 
 class WorkingDirectory():
     """
-    # Set Working Directory and Save File Global Variables
-    # @param workingdir local directory that contains data to process
-    # @param pkg.env environment to create global variables in
-    # @return None
+    Set Working Directory and Save File Global Variables
+
+    Constructor requires root working_directory
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self, working_dir):
+
         if not os.path.isdir(working_dir):
             raise FileNotFoundError("The given directory does not exist.")
         if not working_dir.endswith("/"):
@@ -82,31 +85,35 @@ class WorkingDirectory():
         self.mdresults = self.datadir + "MD_Results.csv"
 
 
-def save_data(data, file, prompt=True):
+def save_data(data, out_file, prompt=True):
     """
-    # Save Data to Given File
-    #
-    # @param data the dataframe to be saved
-    # @param file the full path of the saved file
-    # @param prompt if true, prompts the user to confirm overwrite
-    #
-    # @return none
+    Save Data to Given File
+
+    Args:
+        - data (pd.DataFrame): the dataframe to be saved
+        - out_file (str): full path to save file to
+        - prompt (bool): prompts the user to confirm overwrite
+
+    Returns:
+        None
     """
-    if os.path.exists(file) and (prompt is True):
+    if os.path.exists(out_file) and (prompt is True):
         prompt = "Output file exists, would you like to overwrite? y/n: "
         if input(prompt).lower() == "y":
-            data.to_csv(file, index=False)
+            data.to_csv(out_file, index=False)
     else:
-        data.to_csv(file, index=False)
+        data.to_csv(out_file, index=False)
 
 
 def load_data(file):
     """
-    # Load .csv File
-    #
-    # @param file the full path of the file to load
-    #
-    # @return data extracted from the file
+    Load .csv File
+
+    Args:
+        - file (str): the full path of the file to load
+
+    Returns:
+        - data extracted from the file
     """
     ext = os.path.splitext(file)[1]
     if ext == ".csv":
@@ -117,10 +124,14 @@ def load_data(file):
 
 def check_file(file):
     """
-    # Check for files existence and prompt user if they want to load
-    # @param file the full path of the file to check
-    # @return a boolean indicating wether a file was found
-    # and the user wants to load or not
+    Check for files existence and prompt user if they want to load
+
+    Args:
+        - file (str): the full path of the file to check
+
+    Returns:
+        - a boolean indicating whether a file was found and
+          the user wants to load or not
     """
 
     if file is not None and os.path.isfile(file):

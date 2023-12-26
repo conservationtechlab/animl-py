@@ -69,19 +69,19 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     From AgentMorris/MegaDetector
     Runs MegaDetector on a batch of image files.
 
-        Args:
-            - detector: preloaded md model
-            - image_file_names (mult): list of image filenames, a single image filename,
-                                a folder to recursively search for images in, or a .json file
-                                containing a list of images.
-            - checkpoint_path (str): path to checkpoint file
-            - checkpoint_frequency (int): write results to checkpoint file every N images
-            - confidence_threshold (float): only detections above this threshold are returned
-            - quiet (bool): print debugging statements when false, defaults to true
-            - image_size (int): overrides default image size, 1280
+    Args:
+        - detector: preloaded md model
+        - image_file_names (mult): list of image filenames, a single image filename,
+                            a folder to recursively search for images in, or a .json file
+                            containing a list of images.
+        - checkpoint_path (str): path to checkpoint file
+        - checkpoint_frequency (int): write results to checkpoint file every N images
+        - confidence_threshold (float): only detections above this threshold are returned
+        - quiet (bool): print debugging statements when false, defaults to true
+        - image_size (int): overrides default image size, 1280
 
-        Returns:
-            - results: list of dict, each dict represents detections on one image
+    Returns:
+        - results: list of dict, each dict represents detections on one image
     """
     if confidence_threshold is None:
         confidence_threshold = 0.005  # Defult from MegaDetector

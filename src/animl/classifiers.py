@@ -13,16 +13,16 @@ from torchvision.models import efficientnet
 
 def save_model(out_dir, epoch, model, stats):
     '''
-        Saves model state weights.
+    Saves model state weights.
 
-        Args:
-            - out_dir (str): directory to save model to
-            - epoch (int): current training epoch
-            - model: pytorch model
-            - stats (dict): performance metrics of current epoch
+    Args:
+        - out_dir (str): directory to save model to
+        - epoch (int): current training epoch
+        - model: pytorch model
+        - stats (dict): performance metrics of current epoch
 
-        Returns
-            None
+    Returns
+        None
     '''
     os.makedirs(out_dir, exist_ok=True)
 
@@ -34,17 +34,17 @@ def save_model(out_dir, epoch, model, stats):
 
 def load_model(path, architecture, num_classes, overwrite=False):
     '''
-        Creates a model instance and loads the latest model state weights.
+    Creates a model instance and loads the latest model state weights.
 
-        Args:
-            - path (str): file path to model weights
-            - architecture (str): expected model architecture
-            - num_classes (int): number of expected classes to set output layer to
-            - overwrite (bool): overwrite existing model files within path if true
+    Args:
+        - path (str): file path to model weights
+        - architecture (str): expected model architecture
+        - num_classes (int): number of expected classes to set output layer to
+        - overwrite (bool): overwrite existing model files within path if true
 
-        Returns:
-            - model_instance: model object of given architecture with loaded weights
-            - start_epoch (int): current epoch, 0 if not resuming training
+    Returns:
+        - model_instance: model object of given architecture with loaded weights
+        - start_epoch (int): current epoch, 0 if not resuming training
     '''
     if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
         model_instance = EfficientNet(num_classes, tune=False)
