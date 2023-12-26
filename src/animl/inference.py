@@ -1,3 +1,13 @@
+"""
+    Inference Module
+
+    Provides functions for species classifier inference
+
+    TODO:
+    merge load_classifier with classifiers.load_model
+
+    @ Kyra Swanson 2023
+"""
 from tensorflow.keras.models import load_model
 import torch
 import pandas as pd
@@ -12,15 +22,16 @@ from .classifiers import EfficientNet
 def load_classifier(model_file, class_file, device='cpu'):
     """
     Load classifier model
-    If .pt file, assumes CTLclassifier
+    If .pt file, assumes CTL EfficientNet
 
     Args
-        - model_file: path to classifier model
-        - class_file: path to associate class list
-        - device: specify to run model on cpu or gpu, default to cpu
+        - model_file (str): path to classifier model
+        - class_file (str): path to associated class list
+        - device (str): specify to run model on cpu or gpu, default to cpu
 
     Returns
         model: model object
+        classes: dataframe of classes
     """
     if not isfile(model_file):
         raise AssertionError("The given model file does not exist.")
@@ -40,12 +51,14 @@ def load_classifier(model_file, class_file, device='cpu'):
     # PyTorch dict
     elif model_file.endswith('.pt'):
         model = EfficientNet(len(classes))
-        checkpoint = torch.load(model_file, map_location=device)
+        checkpoint = torch.load(model_file)
         model.load_state_dict(checkpoint['model'])
+        model.to(device)
         model.eval()
     # PyTorch full model
     elif model_file.endswith('.pth'):
-        model = torch.load(model_file, map_location=device)
+        model = torch.load(model_file)
+        model.to(device)
         model.eval()
     else:
         raise ValueError('Unrecognized model format: {}'.format(model_file))
@@ -56,19 +69,22 @@ def load_classifier(model_file, class_file, device='cpu'):
 
 
 def predict_species(detections, model, classes, device='cpu', out_file=None,
-                    resize=456, batch=1, workers=1):
+                    resize=299, batch=1, workers=1):
     """
     Predict species using classifier model
 
     Args
-        - detections: dataframe of animal detections
+        - detections (pd.DataFrame): dataframe of (animal) detections
         - model: preloaded classifier model
-        - resize: image input size
-        - batch: data generator batch size
-        - workers: number of cores
+        - classes: preloaded class list
+        - device (str): specify to run model on cpu or gpu, default to cpu
+        - out_file (str): path to save prediction results to
+        - resize (int): image input size
+        - batch (int): data generator batch size
+        - workers (int): number of cores
 
     Returns
-        matrix of model outputs
+        - detections (pd.DataFrame): MD detections with classifier prediction and confidence
     """
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
