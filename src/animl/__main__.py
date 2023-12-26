@@ -3,10 +3,10 @@ import os
 import wget
 import pandas as pd
 from . import (file_management, video_processing, megadetector,
-               detect, parse_results, split, inference)
+               detect, split, inference, symlink)
 
 
-def main(image_dir, detector_file, classifier_file, class_list):
+def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
@@ -23,45 +23,49 @@ def main(image_dir, detector_file, classifier_file, class_list):
     print("Setting up working directory...")
     # Create a working directory, build the file manifest from img_dir
     working_dir = file_management.WorkingDirectory(image_dir)
-    files = file_management.build_file_manifest(
-        image_dir, out_file=working_dir.filemanifest
-        )
+    files = file_management.build_file_manifest(image_dir,
+                                                out_file=working_dir.filemanifest)
     print("Found %d files." % len(files))
-    print("Processing videos...")
+
     # Video-processing to extract individual frames as images in to directory
-    all_frames = video_processing.images_from_videos(
-        files, out_dir=working_dir.vidfdir,
-        out_file=working_dir.imageframes, parallel=True, frames=2
-        )
-    print("Running images and video frames through MegaDetector...")
+    print("Processing videos...")
+    all_frames = video_processing.images_from_videos(files,
+                                                     out_dir=working_dir.vidfdir,
+                                                     out_file=working_dir.imageframes,
+                                                     parallel=True, frames=2)
+
     # Run all images and video frames through MegaDetector
+    print("Running images and video frames through MegaDetector...")
     if (file_management.check_file(working_dir.mdresults)):
         detections = file_management.load_data(working_dir.mdresults)
     else:
         detector = megadetector.MegaDetector(detector_file)
-        md_results = detect.detect_MD_batch(detector,
-                                            all_frames["Frame"],
+        md_results = detect.detect_MD_batch(detector, all_frames["Frame"],
                                             results=None, quiet=True)
-        print("Converting MD JSON to dataframe and merging with manifest...")
         # Convert MD JSON to pandas dataframe, merge with manifest
-        detections = parse_results.from_MD(md_results,
-                                           manifest=all_frames,
-                                           out_file=working_dir.mdresults)
-    print("Extracting animal detections...")
+        print("Converting MD JSON to dataframe and merging with manifest...")
+        detections = detect.parse_MD(md_results, manifest=all_frames,
+                                     out_file=working_dir.mdresults)
+
     # Extract animal detections from the rest
-    animals = split.getAnimals(detections)
-    empty = split.getEmpty(detections)
+    print("Extracting animal detections...")
+    animals = split.get_animals(detections)
+    empty = split.get_empty(detections)
+
+    # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
     classifier, classes = inference.load_classifier(classifier_file, class_list)
-    # Use the classifier model to predict the species of animal detections
-    pred_results = inference.predict_species(animals, classifier, batch=4)
-    print("Applying predictions to animal detections...")
-    animals = parse_results.from_classifier(animals, pred_results, classes,
-                                            out_file=working_dir.predictions)
+    animals = inference.predict_species(animals, classifier, classes,
+                                        batch=4, out_file=working_dir.predictions)
     print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals, empty])
-    manifest.to_csv(working_dir.results)
+
+    if sort:
+        manifest = symlink.symlink_species(manifest, working_dir.linkdir)
+
+    file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + working_dir.results)
+
     return manifest
 
 
@@ -79,7 +83,7 @@ parser.add_argument('classifier_file', type=str, nargs='?',
                     default=os.path.join(home, 'southwest_v2.h5'))
 parser.add_argument('class_list', type=str, nargs='?',
                     help='Path to class list',
-                    default=os.path.join(home, 'southwest_v2_classes.txt'))
+                    default=os.path.join(home, 'southwest_v2_classes.csv'))
 # Parse the command-line arguments
 
 args = parser.parse_args()
@@ -108,7 +112,7 @@ if not os.path.isfile(args.class_list):
         if not os.path.isdir(home):
             os.mkdir(home)
         print('Saving to', home)
-        wget.download('https://sandiegozoo.box.com/shared/static/hn8nput5pxjc3toao57gfn4h6zo1lyng.txt',
+        wget.download('https://sandiegozoo.box.com/shared/static/c977z3cfztap8pvig9c0frxdybsv55e1.csv',
                       out=home)
 
 # Call the main function
