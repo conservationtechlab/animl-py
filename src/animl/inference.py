@@ -16,6 +16,8 @@ def load_classifier(model_file, class_file, device='cpu'):
 
     Args
         - model_file: path to classifier model
+        - class_file: path to associate class list
+        - device: specify to run model on cpu or gpu, default to cpu
 
     Returns
         model: model object
@@ -62,7 +64,6 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
         - detections: dataframe of animal detections
         - model: preloaded classifier model
         - resize: image input size
-        - standardize:
         - batch: data generator batch size
         - workers: number of cores
 
@@ -89,19 +90,22 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
                         probs = torch.max(torch.nn.functional.softmax(output, dim=1), 1).values.numpy()[0]
 
                         detections.loc[ix, 'prediction'] = pred
-                        detections.loc[ix, 'confidence'] = probs * detections.loc[ix, 'conf']
+                        detections.loc[ix, 'confidence'] = probs
 
             else:  # tensorflow
                 dataset = generator.TFGenerator(detections, filecol=filecol, resize=resize, batch=batch)
                 output = model.predict(dataset, workers=workers, verbose=1)
 
-                detections['prediction'] = [classes['x'].values[int(np.argmax(x))] for x in output]
-                detections['confidence'] = [np.max(x) for x in output] * detections["conf"]
+                detections['prediction'] = [classes['species'].values[int(np.argmax(x))] for x in output]
+                detections['confidence'] = [np.max(x) for x in output]
 #         else:
 #            raise AssertionError("Model architechture not supported.")
         else:
             raise AssertionError("Input must be a data frame of crops or vector of file names.")
     else:
         raise AssertionError("Input must be a data frame of crops or vector of file names.")
+
+    if out_file:
+        file_management.save_data(detections, out_file)
 
     return detections
