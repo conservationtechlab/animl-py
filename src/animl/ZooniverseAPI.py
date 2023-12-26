@@ -118,6 +118,8 @@ def upload_to_Zooniverse(project_name, subject_set_name, images, outdir,
     # print(images.columns.values)
     images['DateTime'] = pd.to_datetime(images['DateTime'], format="%Y:%m:%d %H:%M:%S")
 
+    subject = None
+    dDateTime = 0
     si = 0  # set sequence counter to 0
     for _, infile in images.iterrows():
         bProc = False

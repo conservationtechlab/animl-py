@@ -78,7 +78,7 @@ class ResizeWithPadding(torch.nn.Module):
         return f"{self.__class__.__name__}(size={self.size})"
 
 
-class CropGenerator(Sequence):
+class CropGenerator(Dataset):
     def __init__(self, x, filecol='file', resize=299, buffer=0, batch=1):
         self.x = x
         self.filecol = filecol
@@ -86,8 +86,10 @@ class CropGenerator(Sequence):
         self.buffer = buffer
         self.batch = int(batch)
         self.transform = Compose([
-            Resize(resize),
-            ToTensor()
+            Resize((self.resize, self.resize)),
+            ToTensor(),
+            Normalize(mean=[0.485, 0.456, 0.406],
+                      std=[0.229, 0.224, 0.225])
         ])
 
     def __len__(self):
@@ -113,26 +115,26 @@ class CropGenerator(Sequence):
         right = width * (bbox1 + bbox3)
         bottom = height * (bbox2 + bbox4)
 
-        left = max(0, left - self.buffer)
-        top = max(0, top - self.buffer)
-        right = min(width, right + self.buffer)
-        bottom = min(height, bottom + self.buffer)
-
+        left = max(0, int(left) - self.buffer)
+        top = max(0, int(top) - self.buffer)
+        right = min(width, int(right) + self.buffer)
+        bottom = min(height, int(bottom) + self.buffer)
         img = img.crop((left, top, right, bottom))
         img_tensor = self.transform(img)
 
-        return img_tensor
+        return img_tensor, image_name
 
 
 # currently working on this class
 class TrainGenerator(Dataset):
-    def __init__(self, x, classes, filecol='FilePath', resize=456, batch_size=32):
+    def __init__(self, x, classes, filecol='FilePath', resize=299, batch_size=32):
         self.x = x
-        self.resize = resize
+        self.resize = int(resize)
         self.filecol = filecol
+        self.buffer = 0
         self.batch_size = int(batch_size)
         self.transform = Compose([
-            Resize((self.resize)),
+            Resize((self.resize, self.resize)),
             RandomHorizontalFlip(p=0.5),
             ToTensor(),
             Normalize(mean=[0.485, 0.456, 0.406],
@@ -149,8 +151,29 @@ class TrainGenerator(Dataset):
 
         try:
             img = Image.open(image_name).convert('RGB')
+
         except OSError:
-            return
+            print("File error", image_name)
+            del self.x.iloc[idx]
+            return self.__getitem__(idx)
+
+        width, height = img.size
+
+        bbox1 = self.x['bbox1'].iloc[idx]
+        bbox2 = self.x['bbox2'].iloc[idx]
+        bbox3 = self.x['bbox3'].iloc[idx]
+        bbox4 = self.x['bbox4'].iloc[idx]
+
+        left = width * bbox1
+        top = height * bbox2
+        right = width * (bbox1 + bbox3)
+        bottom = height * (bbox2 + bbox4)
+
+        left = max(0, int(left) - self.buffer)
+        top = max(0, int(top) - self.buffer)
+        right = min(width, int(right) + self.buffer)
+        bottom = min(height, int(bottom) + self.buffer)
+        img = img.crop((left, top, right, bottom))
 
         img_tensor = self.transform(img)
 
@@ -202,7 +225,7 @@ class TFGenerator(Sequence):
         return np.asarray(imgarray)
 
 
-def train_dataloader(manifest, classes, batch_size, workers, filecol="FilePath"):
+def train_dataloader(manifest, classes, batch_size=1, workers=1, filecol="FilePath"):
     '''
         Loads a dataset for training and wraps it in a
         PyTorch DataLoader object.
@@ -218,12 +241,12 @@ def train_dataloader(manifest, classes, batch_size, workers, filecol="FilePath")
     return dataLoader
 
 
-def create_dataloader(manifest, batch_size, workers, framework="torch", filecol="file"):
+def create_dataloader(manifest, batch_size=1, workers=1, framework="torch", filecol="file"):
     '''
         Loads a dataset and wraps it in a
         PyTorch DataLoader object.
     '''
-    dataset_instance = CropGenerator(manifest, filecol, batch_size)
+    dataset_instance = CropGenerator(manifest, filecol, batch=batch_size)
 
     dataLoader = DataLoader(
             dataset=dataset_instance,

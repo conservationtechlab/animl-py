@@ -1,5 +1,6 @@
 import os
 import cv2
+from tqdm import tqdm
 from random import randrange
 import multiprocessing as mp
 import pandas as pd
@@ -60,8 +61,11 @@ def extract_images(file_path, out_dir, fps=None, frames=None):
 
     cap.release()
     cv2.destroyAllWindows()
+    if len(frames_saved) == 0:
+        return ["File Error", file_path]
 
-    return frames_saved
+    else:
+        return frames_saved
 
 
 def images_from_videos(files, out_dir, out_file=None, format="jpg",
@@ -116,7 +120,7 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
 
         else:
             video_frames = []
-            for i, video in videos.iterrows():
+            for i, video in tqdm(videos.iterrows()):
                 video_frames += extract_images(video["FilePath"], out_dir=out_dir,
                                                fps=fps, frames=frames)
 
