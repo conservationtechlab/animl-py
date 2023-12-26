@@ -1,8 +1,7 @@
-import pandas as pd
 import os
 
 
-def symlink_species(manifest, linkdir, classes):
+def symlink_species(manifest, linkdir, file_col="FilePath"):
     """
     Creates symbolic links of images into species folders
 
@@ -12,19 +11,20 @@ def symlink_species(manifest, linkdir, classes):
         - classes: full list of class names
     """
     # Create species folders
-    table = pd.read_table(classes, sep=" ", index_col=0)
-    for i in range(0, len(table.index)):
-        directory = str(table['x'].values[i])
-        if not os.path.isdir(linkdir + directory):
-            os.makedirs(linkdir + directory)
+    for species in manifest['prediction'].unique():
+        os.makedirs(linkdir + species, exist_ok=True)
 
-    for i in range(0, len(manifest.index)):
+    manifest['Symlink'] = linkdir
+    for i, row in manifest.iterrows():
+        link = linkdir + row['prediction'] + "/" + os.path.basename(row[file_col])
+        manifest.loc[i, 'Symlink'] = link
         try:
-            os.symlink(manifest.at[i, 'file'],
-                       linkdir + manifest.at[i, 'class'] + "/" + os.path.basename(manifest.at[i, 'file']))
+            os.symlink(row[file_col], link)
         except Exception as e:
             print('File already exists. Exception: {}'.format(e))
             continue
+
+    return manifest
 
 
 def symlink_MD(manifest, linkdir):
