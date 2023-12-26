@@ -11,17 +11,15 @@ import argparse
 import yaml
 from tqdm import trange
 import pandas as pd
-import glob
 import random
 import torch.nn as nn
 import torch
-import os
 from torch.backends import cudnn
 from torch.optim import SGD
 from sklearn.metrics import precision_score, recall_score
 
 from .generator import train_dataloader
-from .classifiers import EfficientNet
+from .classifiers import save_model, load_model
 
 # # log values using comet ml (comet.com)
 # from comet_ml import Experiment
@@ -41,59 +39,6 @@ def init_seed(seed):
         torch.cuda.manual_seed(seed)
         cudnn.benchmark = True
         cudnn.deterministic = True
-
-
-def save_model(exp_folder, epoch, model, stats):
-    '''
-        Saves model state weights.
-    '''
-    os.makedirs(exp_folder, exist_ok=True)
-
-    # get model parameters and add to stats
-    stats['model'] = model.state_dict()
-
-    torch.save(stats, open(f'{exp_folder}/{epoch}.pt', 'wb'))
-
-
-def load_model(path, architecture, num_classes, overwrite=False):
-    '''
-        Creates a model instance and loads the latest model state weights.
-    '''
-    if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-        model_instance = EfficientNet(num_classes, tune=False)
-    else:
-        raise AssertionError('Please provide the correct model')
-
-    # load latest model state from given folder
-    if os.path.isdir(path):
-        model_states = glob.glob(path + '*.pt')
-
-        if len(model_states) and not overwrite:
-            # at least one save state found; get latest
-            model_epochs = [int(m.replace(path, '').replace('.pt', '')) for m in model_states]
-            start_epoch = max(model_epochs)
-
-            # load state dict and apply weights to model
-            print(f'Resuming from epoch {start_epoch}')
-            state = torch.load(open(f'{path}/{start_epoch}.pt', 'rb'))
-            model_instance.load_state_dict(state['model'])
-
-        else:
-            # no save state found/overwrite; start anew
-            print('Model found but overwrite enabled, starting new model')
-            start_epoch = 0
-
-    # load a specific model file
-    elif os.path.isfile(path):
-        print(f'Loading model at {path}')
-        state = torch.load(open(f'{path}/{start_epoch}.pt', 'rb'))
-        model_instance.load_state_dict(state['model'])
-
-    # no dir or file found
-    else:
-        raise ValueError("Model not found at given path")
-
-    return model_instance, start_epoch
 
 
 def train(data_loader, model, optimizer, device='cpu'):
