@@ -5,6 +5,7 @@ This package is also available in R: [animl](https://github.com/conservationtech
 Table of Contents
 1. Installation
 2. [Usage](#usage)
+3. [Models](#models)
 
 ## Installation Instructions
 
@@ -32,7 +33,7 @@ pip install animl
 CPU only
 ```
 conda create -n animl-cpu python=3.7
-conda activate animl
+conda activate animl-cpu
 pip install animl
 ```
 
@@ -55,10 +56,16 @@ A full list of dependencies can be found in environment.yml
 We recommend you download the [examples](https://github.com/conservationtechlab/animl-py/blob/main/examples/Southwest.zip) folder within this repository.
 Download and unarchive the zip folder. Then with the conda environment active:
 ```
-python3 -m animl /path/to/example/folder
+python -m animl /path/to/example/folder
 ```
 This should create an Animl-Directory subfolder within
 the example folder.
+
+Or, if using your own data/models, animl can be given the paths to those files:
+Download and unarchive the zip folder. Then with the conda environment active:
+```
+python -m animl /path/to/example/folder /path/to/megadetector /path/to/classifier /path/to/classlist.txt
+```
 
 ## Usage
 
@@ -117,3 +124,12 @@ manifest = pd.concat([animals,empty])
 ### Training
 
 Training workflows are available in the repo but still under development.
+
+# Models
+
+The Conservation Technology Lab has several models available for use. 
+
+* Southwest United States [v2](https://sandiegozoo.box.com/s/mzhv08cxcbunsjuh2yp6o7aa5ueetua6) [v3](https://sandiegozoo.box.com/s/p4ws6v5qnoi87otsie0ckmie0izxzqwo)
+* [Amazon](https://sandiegozoo.box.com/s/dfc3ozdslku1ekahvz635kjloaaeopfl)
+* [Savannah](https://sandiegozoo.box.com/s/ai6yu45jgvc0to41xzd26moqh8amb4vw)
+* [MegaDetector](https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt)
