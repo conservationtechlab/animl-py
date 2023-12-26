@@ -30,11 +30,11 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     to create a working directory for the image directory.
 
     Args:
-        - image_dir (str): The directory path containing the images or videos.
-        - model_file (str): The file path of the MegaDetector model.
-        - class_model (str): The file path of the classifier model.
-        - class_list (list): A list of classes or species for classification.
-        - sort (bool): Toggle option to create symlinks
+        - image_dir (str): directory path containing the images or videos.
+        - model_file (str): file path of the MegaDetector model.
+        - class_model (str): file path of the classifier model.
+        - class_list (list): list of classes or species for classification.
+        - sort (bool): toggle option to create symlinks
 
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections

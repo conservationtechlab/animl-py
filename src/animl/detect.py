@@ -1,4 +1,8 @@
-# modified from CameraTraps/MegaDetector
+'''
+    Tools for Using MegaDetector
+
+    Modified from https://github.com/agentmorris/MegaDetector/tree/master
+'''
 from tqdm import tqdm
 import json
 import os
@@ -14,15 +18,16 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
     From AgentMorris/MegaDetector
     Runs MegaDetector on a single image file.
 
-    Args
-    - im_file: str, path to image file
-    - detector: loaded model
-    - confidence_threshold: float, only detections above this threshold are returned
-    - image: previously-loaded image, if available
-    - skip_image_resizing: whether to skip internal image resizing and rely on external resizing
+    Args:
+        - im_file (str): path to image file
+        - detector: loaded model
+        - confidence_threshold (float): only detections above this threshold are returned
+        - quiet (bool): print debugging statements when false, defaults to true
+        - image_size (int): overrides default image size, 1280
+        - skip_image_resizing (bool): skip internal image resizing and rely on external resizing
 
     Returns:
-    - result: dict representing detections on one image
+        - result: dict representing detections on one image
         see the 'images' key in
         https://github.com/agentmorris/MegaDetector/tree/master/api/batch_processing#batch-processing-api-output-format
     """
@@ -59,20 +64,24 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
 
 
 def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint_frequency=-1,
-                    confidence_threshold=0.005, results=None, quiet=True, image_size=None):
+                    confidence_threshold=0.005, quiet=True, image_size=None):
     """
-    Args
-        - detector: preloaded md model
-        - image_file_names: list of strings (image filenames), a single image filename,
-                            a folder to recursively search for images in, or a .json file
-                            containing a list of images.
-        - checkpoint_path: str, path to JSON checkpoint file
-        - confidence_threshold: float, only detections above this threshold are returned
-        - checkpoint_frequency: int, write results to JSON checkpoint file every N images
-        - results: list of dict, existing results loaded from checkpoint
+    From AgentMorris/MegaDetector
+    Runs MegaDetector on a batch of image files.
 
-    Returns
-        - results: list of dict, each dict represents detections on one image
+        Args:
+            - detector: preloaded md model
+            - image_file_names (mult): list of image filenames, a single image filename,
+                                a folder to recursively search for images in, or a .json file
+                                containing a list of images.
+            - checkpoint_path (str): path to checkpoint file
+            - checkpoint_frequency (int): write results to checkpoint file every N images
+            - confidence_threshold (float): only detections above this threshold are returned
+            - quiet (bool): print debugging statements when false, defaults to true
+            - image_size (int): overrides default image size, 1280
+
+        Returns:
+            - results: list of dict, each dict represents detections on one image
     """
     if confidence_threshold is None:
         confidence_threshold = 0.005  # Defult from MegaDetector
@@ -95,7 +104,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
                 image_file_names = json.load(f)
             print('Loaded {} image filenames from list file {}'.format(len(image_file_names), list_file))
 
-        # Dataframe, expected input
+        # column from pd.DataFrame, expected input
         elif isinstance(image_file_names, pd.Series):
             pass
 
@@ -106,7 +115,8 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
             raise ValueError('image_file_names is a string, but is not a directory, a json ' +
                              'list (.json), or an image file (png/jpg/jpeg/gif)')
 
-    if results is None:
+    results = file_management.check_file(checkpoint_path)
+    if not results:  # checkpoint comes back empty
         results = []
 
     already_processed = set([i['Frame'] for i in results])
@@ -154,12 +164,14 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
     Converts numerical output from classifier to common name species label
 
     Args:
-        - animals: dataframe of animal detections
-        - predictions: output of the classifier model
-        - class_file: species list associated with classifier outputs
-        - out_file: path to save dataframeft
+        - results (list): md output dicts
+        - manifest (pd.DataFrame): full file manifest, if not None, merge md predictions automatically
+        - out_file (str): path to save dataframe
+        - buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
+        - threshold (float): parse only detections above given confidence threshold
+
     Returns:
-        - animals: dataframe containing species labels
+        - df (pd.DataFrame): formatted md outputs, one row per detection
     """
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
