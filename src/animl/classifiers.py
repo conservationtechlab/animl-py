@@ -1,3 +1,8 @@
+'''
+    Tools for Saving, Loading, and Building Species Classifiers
+
+   @ Kyra Swanson 2023
+'''
 import os
 import glob
 import torch
@@ -6,21 +11,40 @@ from torchvision.models import resnet
 from torchvision.models import efficientnet
 
 
-def save_model(exp_folder, epoch, model, stats):
+def save_model(out_dir, epoch, model, stats):
     '''
         Saves model state weights.
+
+        Args:
+            - out_dir (str): directory to save model to
+            - epoch (int): current training epoch
+            - model: pytorch model
+            - stats (dict): performance metrics of current epoch
+
+        Returns
+            None
     '''
-    os.makedirs(exp_folder, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
 
     # get model parameters and add to stats
     stats['model'] = model.state_dict()
 
-    torch.save(stats, open(f'{exp_folder}/{epoch}.pt', 'wb'))
+    torch.save(stats, open(f'{out_dir}/{epoch}.pt', 'wb'))
 
 
 def load_model(path, architecture, num_classes, overwrite=False):
     '''
         Creates a model instance and loads the latest model state weights.
+
+        Args:
+            - path (str): file path to model weights
+            - architecture (str): expected model architecture
+            - num_classes (int): number of expected classes to set output layer to
+            - overwrite (bool): overwrite existing model files within path if true
+
+        Returns:
+            - model_instance: model object of given architecture with loaded weights
+            - start_epoch (int): current epoch, 0 if not resuming training
     '''
     if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
         model_instance = EfficientNet(num_classes, tune=False)
@@ -80,10 +104,7 @@ class CTLClassifier(nn.Module):
 
     def forward(self, x):
         '''
-            Forward pass. Here, we define how to apply our model. It's basically
-            applying our modified ResNet-18 on the input tensor ("x") and then
-            apply the final classifier layer on the ResNet-18 output to get our
-            num_classes prediction.
+            Forward pass (prediction)
         '''
         # x.size(): [B x 3 x W x H]
         features = self.feature_extractor(x)    # features.size(): [B x 512 x W x H]
@@ -96,8 +117,7 @@ class EfficientNet(nn.Module):
 
     def __init__(self, num_classes, tune=True):
         '''
-            Constructor of the model. Here, we initialize the model's
-            architecture (layers).
+            Construct the model architecture.
         '''
         super(EfficientNet, self).__init__()
         self.avgpool = nn.AdaptiveAvgPool2d(1)
@@ -113,7 +133,7 @@ class EfficientNet(nn.Module):
 
     def forward(self, x):
         '''
-            Forward pass.
+            Forward pass (prediction)
         '''
         # x.size(): [B x 3 x W x H]
         x = self.model.features(x)
