@@ -79,14 +79,14 @@ class ResizeWithPadding(torch.nn.Module):
 
 
 class CropGenerator(Dataset):
-    def __init__(self, x, filecol='file', resize=456, buffer=0, batch=1):
+    def __init__(self, x, filecol='file', resize=299, buffer=0, batch=1):
         self.x = x
         self.filecol = filecol
-        self.resize = resize
+        self.resize = int(resize)
         self.buffer = buffer
         self.batch = int(batch)
         self.transform = Compose([
-            Resize(resize),
+            Resize((self.resize, self.resize)),
             ToTensor(),
             Normalize(mean=[0.485, 0.456, 0.406],
                       std=[0.229, 0.224, 0.225])
@@ -109,12 +109,12 @@ class CropGenerator(Dataset):
         bbox2 = self.x['bbox2'].iloc[idx]
         bbox3 = self.x['bbox3'].iloc[idx]
         bbox4 = self.x['bbox4'].iloc[idx]
-        
+
         left = width * bbox1
         top = height * bbox2
         right = width * (bbox1 + bbox3)
         bottom = height * (bbox2 + bbox4)
-        
+
         left = max(0, int(left) - self.buffer)
         top = max(0, int(top) - self.buffer)
         right = min(width, int(right) + self.buffer)
@@ -125,17 +125,16 @@ class CropGenerator(Dataset):
         return img_tensor, image_name
 
 
-
 # currently working on this class
 class TrainGenerator(Dataset):
     def __init__(self, x, classes, filecol='FilePath', resize=299, batch_size=32):
         self.x = x
-        self.resize = resize
+        self.resize = int(resize)
         self.filecol = filecol
         self.buffer = 0
         self.batch_size = int(batch_size)
         self.transform = Compose([
-            Resize((self.resize,self.resize)),
+            Resize((self.resize, self.resize)),
             RandomHorizontalFlip(p=0.5),
             ToTensor(),
             Normalize(mean=[0.485, 0.456, 0.406],
@@ -164,12 +163,12 @@ class TrainGenerator(Dataset):
         bbox2 = self.x['bbox2'].iloc[idx]
         bbox3 = self.x['bbox3'].iloc[idx]
         bbox4 = self.x['bbox4'].iloc[idx]
-        
+
         left = width * bbox1
         top = height * bbox2
         right = width * (bbox1 + bbox3)
         bottom = height * (bbox2 + bbox4)
-        
+
         left = max(0, int(left) - self.buffer)
         top = max(0, int(top) - self.buffer)
         right = min(width, int(right) + self.buffer)
@@ -178,12 +177,7 @@ class TrainGenerator(Dataset):
 
         img_tensor = self.transform(img)
 
-        #print(image_name, img_tensor.shape)
         return img_tensor, label, image_name
-
-        
-
-        
 
 
 class TFGenerator(Sequence):

@@ -3,7 +3,6 @@ import torch
 import pandas as pd
 import numpy as np
 from os.path import isfile
-from pandas import DataFrame
 from time import time
 from humanfriendly import format_timespan
 from . import generator, file_management
@@ -50,7 +49,7 @@ def load_classifier(model_file, class_file, device='cpu'):
         raise ValueError('Unrecognized model format: {}'.format(model_file))
     elapsed = time() - start_time
     print('Loaded model in {}'.format(format_timespan(elapsed)))
-    
+
     return model, classes
 
 
@@ -79,7 +78,7 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
         if any(detections.columns.isin(["bbox1"])):
 
             # pytorch
-            if type(model) == CTLClassifier:
+            if type(model) == EfficientNet:
                 dataset = generator.create_dataloader(detections, batch, workers, filecol)
                 with torch.no_grad():
                     for ix, (data, _) in enumerate(dataset):
