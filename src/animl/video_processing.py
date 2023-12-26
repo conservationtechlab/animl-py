@@ -10,20 +10,20 @@ from . import file_management
 
 def extract_images(file_path, out_dir, fps=None, frames=None):
     """
-    Extract frames from video for classification
+        Extract frames from video for classification
 
-    Args
-        - file_path: dataframe of videos
-        - out_dir: directory to save frames to
-        - fps: frames per second, otherwise determine mathematically
-        - frames: number of frames to sample
+        Args
+            - file_path: dataframe of videos
+            - out_dir: directory to save frames to
+            - fps: frames per second, otherwise determine mathematically
+            - frames: number of frames to sample
 
-    Return
-        - frames_saved: dataframe of still frames for each video
+        Return
+            - frames_saved: dataframe of still frames for each video
     """
     cap = cv2.VideoCapture(file_path)
     filename = os.path.basename(file_path)
-    filename, extension = os.path.splitext(filename)
+    filename, _ = os.path.splitext(filename)
     uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
     frames_saved = []
 
@@ -72,21 +72,21 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
                        fps=None, frames=None, parallel=False,
                        workers=mp.cpu_count(), checkpoint=1000):
     """
-    Extract frames from video for classification
+        Extract frames from video for classification
 
-    Args
-        - files: dataframe of videos
-        - out_dir: directory to save frames to
-        - out_file: file to which results will be saved
-        - format: output format for frames, defaults to jpg
-        - fps: frames per second, otherwise determine mathematically
-        - frames: number of frames to sample
-        - parallel: Toggle for parallel processing, defaults to FALSE
-        - workers: number of processors to use if parallel, defaults to 1
-        - checkpoint: if not parallel, checkpoint ever n files, defaults to 1000
+        Args
+            - files: dataframe of videos
+            - out_dir: directory to save frames to
+            - out_file: file to which results will be saved
+            - format: output format for frames, defaults to jpg
+            - fps: frames per second, otherwise determine mathematically
+            - frames: number of frames to sample
+            - parallel: Toggle for parallel processing, defaults to FALSE
+            - workers: number of processors to use if parallel, defaults to 1
+            - checkpoint: if not parallel, checkpoint ever n files, defaults to 1000
 
-    Return
-        - allframes: dataframe of still frames for each video
+        Return
+            - allframes: dataframe of still frames for each video
     """
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
