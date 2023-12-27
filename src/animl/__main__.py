@@ -19,9 +19,10 @@
 import argparse
 import os
 import wget
+import torch
 import pandas as pd
 from . import (file_management, video_processing, megadetector,
-               detect, split, inference, symlink)
+               detect, split, classifiers, inference, symlink)
 
 
 def main(image_dir, detector_file, classifier_file, class_list, sort=True):
@@ -39,6 +40,11 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
+    if torch.cuda.is_available():
+        device = "cuda:0"
+    else:
+        device = 'cpu'
+
     print("Setting up working directory...")
     # Create a working directory, build the file manifest from img_dir
     working_dir = file_management.WorkingDirectory(image_dir)
@@ -59,8 +65,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         detections = file_management.load_data(working_dir.mdresults)
     else:
         detector = megadetector.MegaDetector(detector_file)
-        md_results = detect.detect_MD_batch(detector, all_frames["Frame"],
-                                            results=None, quiet=True)
+        md_results = detect.detect_MD_batch(detector, all_frames["Frame"], quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_MD(md_results, manifest=all_frames,
@@ -73,12 +78,14 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
-    classifier, classes = inference.load_classifier(classifier_file, class_list)
-    animals = inference.predict_species(animals, classifier, classes,
+    print(class_list)
+    classifier, classes, _ = classifiers.load_model(classifier_file, class_list, device=device)
+    animals = inference.predict_species(animals, classifier, classes, device=device,
                                         batch=4, out_file=working_dir.predictions)
+
+    # merge animal and empty, create symlinks
     print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals, empty])
-
     if sort:
         manifest = symlink.symlink_species(manifest, working_dir.linkdir)
 

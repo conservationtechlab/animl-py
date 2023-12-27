@@ -5,11 +5,14 @@
 '''
 import os
 import glob
+import pandas as pd
 import torch
 import torch.nn as nn
+from time import time
+from humanfriendly import format_timespan
 from torchvision.models import resnet
 from torchvision.models import efficientnet
-
+from tensorflow import keras
 
 def save_model(out_dir, epoch, model, stats):
     '''
@@ -32,55 +35,83 @@ def save_model(out_dir, epoch, model, stats):
     torch.save(stats, open(f'{out_dir}/{epoch}.pt', 'wb'))
 
 
-def load_model(path, architecture, num_classes, overwrite=False):
+def load_model(model_path, class_file, device="cpu", architecture="CTL", overwrite=False):
     '''
     Creates a model instance and loads the latest model state weights.
 
     Args:
-        - path (str): file path to model weights
+        - model_path (str): file or directory path to model weights
+        - class_file (str): path to associated class list
+        - device (str): specify to run on cpu or gpu
         - architecture (str): expected model architecture
-        - num_classes (int): number of expected classes to set output layer to
         - overwrite (bool): overwrite existing model files within path if true
 
     Returns:
-        - model_instance: model object of given architecture with loaded weights
+        - model: model object of given architecture with loaded weights
+        - classes: associated species class list
         - start_epoch (int): current epoch, 0 if not resuming training
     '''
-    if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-        model_instance = EfficientNet(num_classes, tune=False)
-    else:
-        raise AssertionError('Please provide the correct model')
+    # read class file
+    classes = pd.read_csv(class_file)
+
+    start_epoch = 0
+    
+    # check to make sure GPU is available if chosen
+    if device != 'cpu' and not torch.cuda.is_available():
+        print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
+        device = 'cpu'
 
     # load latest model state from given folder
-    if os.path.isdir(path):
-        model_states = glob.glob(path + '*.pt')
+    if os.path.isdir(model_path):
+        if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
+            model = EfficientNet(len(classes))
+        else:  # can only resume CTL models from a directory at this time
+            raise AssertionError('Please provide the correct model')
+
+        model_states = glob.glob(model_path + '*.pt')
 
         if len(model_states) and not overwrite:
             # at least one save state found; get latest
-            model_epochs = [int(m.replace(path, '').replace('.pt', '')) for m in model_states]
+            model_epochs = [int(m.replace(model_path, '').replace('.pt', '')) for m in model_states]
             start_epoch = max(model_epochs)
 
             # load state dict and apply weights to model
             print(f'Resuming from epoch {start_epoch}')
-            state = torch.load(open(f'{path}/{start_epoch}.pt', 'rb'))
-            model_instance.load_state_dict(state['model'])
-
+            state = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'))
+            model.load_state_dict(state['model'])
         else:
             # no save state found/overwrite; start anew
             print('Model found but overwrite enabled, starting new model')
-            start_epoch = 0
 
     # load a specific model file
-    elif os.path.isfile(path):
-        print(f'Loading model at {path}')
-        state = torch.load(open(f'{path}/{start_epoch}.pt', 'rb'))
-        model_instance.load_state_dict(state['model'])
+    elif os.path.isfile(model_path):
+        print(f'Loading model at {model_path}')
+        start_time = time()
+        # TensorFlow
+        if model_path.endswith('.h5'):
+            model = keras.models.load_model(model_path)
+        # PyTorch dict
+        elif model_path.endswith('.pt'):
+            model = EfficientNet(len(classes), tune=False)
+            checkpoint = torch.load(model_path)
+            model.load_state_dict(checkpoint['model'])
+            model.to(device)
+            model.eval()
+        # PyTorch full model
+        elif model_path.endswith('.pth'):
+            model = torch.load(model_path)
+            model.to(device)
+            model.eval()
+        else:
+            raise ValueError('Unrecognized model format: {}'.format(model_path))
+        elapsed = time() - start_time
+        print('Loaded model in {}'.format(format_timespan(elapsed)))
 
     # no dir or file found
     else:
         raise ValueError("Model not found at given path")
 
-    return model_instance, start_epoch
+    return model, classes, start_epoch
 
 
 class CTLClassifier(nn.Module):

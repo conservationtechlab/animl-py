@@ -3,69 +3,13 @@
 
     Provides functions for species classifier inference
 
-    TODO:
-    merge load_classifier with classifiers.load_model
-
     @ Kyra Swanson 2023
 """
-from tensorflow.keras.models import load_model
 import torch
 import pandas as pd
 import numpy as np
-from os.path import isfile
-from time import time
-from humanfriendly import format_timespan
 from . import generator, file_management
 from .classifiers import EfficientNet
-
-
-def load_classifier(model_file, class_file, device='cpu'):
-    """
-    Load classifier model
-    If .pt file, assumes CTL EfficientNet
-
-    Args
-        - model_file (str): path to classifier model
-        - class_file (str): path to associated class list
-        - device (str): specify to run model on cpu or gpu, default to cpu
-
-    Returns
-        model: model object
-        classes: dataframe of classes
-    """
-    if not isfile(model_file):
-        raise AssertionError("The given model file does not exist.")
-    if not isfile(class_file):
-        raise AssertionError("The given class file does not exist.")
-
-    classes = pd.read_csv(class_file)
-
-    if device != 'cpu' and not torch.cuda.is_available():
-        print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
-        device = 'cpu'
-
-    start_time = time()
-    # TensorFlow
-    if model_file.endswith('.h5'):
-        model = load_model(model_file)
-    # PyTorch dict
-    elif model_file.endswith('.pt'):
-        model = EfficientNet(len(classes))
-        checkpoint = torch.load(model_file)
-        model.load_state_dict(checkpoint['model'])
-        model.to(device)
-        model.eval()
-    # PyTorch full model
-    elif model_file.endswith('.pth'):
-        model = torch.load(model_file)
-        model.to(device)
-        model.eval()
-    else:
-        raise ValueError('Unrecognized model format: {}'.format(model_file))
-    elapsed = time() - start_time
-    print('Loaded model in {}'.format(format_timespan(elapsed)))
-
-    return model, classes
 
 
 def predict_species(detections, model, classes, device='cpu', out_file=None,
