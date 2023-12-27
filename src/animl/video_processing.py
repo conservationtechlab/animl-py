@@ -112,7 +112,7 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
             pool = mp.Pool(workers)
 
             video_frames = vstack([pool.apply(extract_images, args=(video, out_dir, fps, frames))
-                                   for video in videos["FilePath"]])
+                                   for video in tqdm(videos["FilePath"])])
 
             video_frames = pd.DataFrame(video_frames, columns=["Frame", "FilePath"])
 

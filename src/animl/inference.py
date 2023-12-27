@@ -8,6 +8,7 @@
 import torch
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 from . import generator, file_management
 from .classifiers import EfficientNet
 
@@ -42,11 +43,11 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
             if type(model) == EfficientNet:
                 dataset = generator.create_dataloader(detections, batch, workers, filecol)
                 with torch.no_grad():
-                    for ix, (data, _) in enumerate(dataset):
+                    for ix, (data, _) in tqdm(enumerate(dataset)):
                         data.to(device)
                         output = model(data)
 
-                        pred = classes['x'].values[torch.argmax(output, 1).numpy()[0]]
+                        pred = classes['species'].values[torch.argmax(output, 1).numpy()[0]]
                         probs = torch.max(torch.nn.functional.softmax(output, dim=1), 1).values.numpy()[0]
 
                         detections.loc[ix, 'prediction'] = pred
