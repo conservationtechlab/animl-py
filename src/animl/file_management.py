@@ -9,9 +9,10 @@ import os
 from glob import glob
 from datetime import datetime
 import pandas as pd
+from random import randrange
 
 
-def build_file_manifest(image_dir, exif=True, offset=0, out_file=None):
+def build_file_manifest(image_dir, exif=True, offset=0, out_file=None, unique=True):
     """
     Recursively Find Image/Video Files and Gather exif Data
 
@@ -39,6 +40,10 @@ def build_file_manifest(image_dir, exif=True, offset=0, out_file=None):
         files["FileModifyDate"] = files["FilePath"].apply(
             lambda x: datetime.fromtimestamp(
                 os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
+        
+    if unique:
+        files['UniqueName'] = files['FileName'].apply(lambda x: os.path.splitext(x)[0] + "_" + \
+                                                      str(randrange(10000,99999)) + os.path.splitext(x)[1])
 
     if out_file:
         save_data(files, out_file)
