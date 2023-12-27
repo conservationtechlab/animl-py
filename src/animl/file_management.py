@@ -40,10 +40,10 @@ def build_file_manifest(image_dir, exif=True, offset=0, out_file=None, unique=Tr
         files["FileModifyDate"] = files["FilePath"].apply(
             lambda x: datetime.fromtimestamp(
                 os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
-        
+
     if unique:
-        files['UniqueName'] = files['FileName'].apply(lambda x: os.path.splitext(x)[0] + "_" + \
-                                                      str(randrange(10000,99999)) + os.path.splitext(x)[1])
+        files['UniqueName'] = files['FileName'].apply(lambda x: os.path.splitext(x)[0] + "_" +
+                                                      str(randrange(10000, 99999)) + os.path.splitext(x)[1])
 
     if out_file:
         save_data(files, out_file)

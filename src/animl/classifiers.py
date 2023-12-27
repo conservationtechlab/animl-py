@@ -32,7 +32,7 @@ def save_model(out_dir, epoch, model, stats):
 
     # get model parameters and add to stats
     stats['model'] = model.state_dict()
-    
+
     torch.save(stats, open(f'{out_dir}/{epoch}.pt', 'wb'))
 
 
