@@ -14,6 +14,7 @@ from torchvision.models import resnet
 from torchvision.models import efficientnet
 from tensorflow import keras
 
+
 def save_model(out_dir, epoch, model, stats):
     '''
     Saves model state weights.
@@ -31,7 +32,7 @@ def save_model(out_dir, epoch, model, stats):
 
     # get model parameters and add to stats
     stats['model'] = model.state_dict()
-
+    
     torch.save(stats, open(f'{out_dir}/{epoch}.pt', 'wb'))
 
 
@@ -54,8 +55,6 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
     # read class file
     classes = pd.read_csv(class_file)
 
-    start_epoch = 0
-    
     # check to make sure GPU is available if chosen
     if device != 'cpu' and not torch.cuda.is_available():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
@@ -63,6 +62,7 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
 
     # load latest model state from given folder
     if os.path.isdir(model_path):
+        start_epoch = 0
         if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
             model = EfficientNet(len(classes))
         else:  # can only resume CTL models from a directory at this time
@@ -82,6 +82,8 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
         else:
             # no save state found/overwrite; start anew
             print('Model found but overwrite enabled, starting new model')
+
+        return model, classes, start_epoch
 
     # load a specific model file
     elif os.path.isfile(model_path):
@@ -107,11 +109,12 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
         elapsed = time() - start_time
         print('Loaded model in {}'.format(format_timespan(elapsed)))
 
+        # no need to return epoch
+        return model, classes
+
     # no dir or file found
     else:
         raise ValueError("Model not found at given path")
-
-    return model, classes, start_epoch
 
 
 class CTLClassifier(nn.Module):

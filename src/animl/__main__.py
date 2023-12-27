@@ -79,7 +79,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
     print(class_list)
-    classifier, classes, _ = classifiers.load_model(classifier_file, class_list, device=device)
+    classifier, classes = classifiers.load_model(classifier_file, class_list, device=device)
     animals = inference.predict_species(animals, classifier, classes, device=device,
                                         batch=4, out_file=working_dir.predictions)
 
