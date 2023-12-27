@@ -119,6 +119,13 @@ animals = parse_results.from_classifier(animals, predresults, '/path/to/classlis
 manifest = pd.concat([animals,empty])
 ```
 
+7. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
+
+```python
+from animl import save_classification, animl_results_to_md_results
+csv_loc = save_classification.csv_converter(animals, empty, imagedir, only_animl = True)
+animl_results_to_md_results.animl_results_to_md_results(csv_loc, imagedir + "final_result.json")
+```
 
 ---
 ### Training
