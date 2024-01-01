@@ -14,7 +14,7 @@ from .classifiers import EfficientNet
 
 
 def predict_species(detections, model, classes, device='cpu', out_file=None,
-                    resize=299, batch=1, workers=1):
+                    file_col='Frame', resize=299, batch=1, workers=1):
     """
     Predict species using classifier model
 
@@ -35,13 +35,12 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
         return file_management.load_data(out_file)
 
     if isinstance(detections, pd.DataFrame):
-        filecol = "Frame" if "Frame" in detections.columns else "file"
-
+        # cropped images
         if any(detections.columns.isin(["bbox1"])):
 
             # pytorch
             if type(model) == EfficientNet:
-                dataset = generator.create_dataloader(detections, batch, workers, filecol)
+                dataset = generator.create_dataloader(detections, batch, workers, file_col)
                 with torch.no_grad():
                     for ix, (data, _) in tqdm(enumerate(dataset)):
                         data.to(device)
@@ -54,13 +53,14 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
                         detections.loc[ix, 'confidence'] = probs
 
             else:  # tensorflow
-                dataset = generator.TFGenerator(detections, filecol=filecol, resize=resize, batch=batch)
+                dataset = generator.TFGenerator(detections, filecol=file_col, resize=resize, batch=batch)
                 output = model.predict(dataset, workers=workers, verbose=1)
 
                 detections['prediction'] = [classes['species'].values[int(np.argmax(x))] for x in output]
                 detections['confidence'] = [np.max(x) for x in output]
 #         else:
 #            raise AssertionError("Model architechture not supported.")
+        # non-cropped images (not supported)
         else:
             raise AssertionError("Input must be a data frame of crops or vector of file names.")
     else:

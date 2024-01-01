@@ -39,12 +39,10 @@ def test(data_loader, model, device='cpu'):
             pred_label = torch.argmax(prediction, dim=1)
             pred_label_np = pred_label.cpu().detach().numpy()
             pred_labels.extend(pred_label_np)
-
             # get ground truth labels
             labels = batch[1]
             labels_np = labels.numpy()
             true_labels.extend(labels_np)
-
             # get file paths
             paths = batch[2]
             filepaths.extend(paths)
@@ -75,16 +73,13 @@ def main():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
         device = 'cpu'
 
-    # get class list
-    classes = pd.read_csv(cfg['class_file'])
+    # initialize model and get class list
+    model, classes = load_model(cfg['active_model'], cfg['class_file'], device=device, architecture=cfg['architecture'])
     categories = dict([[x["species"], x["id"]] for _, x in classes.iterrows()])
 
     # initialize data loaders for training and validation set
     test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
     dl_test = train_dataloader(test_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
-
-    # initialize model
-    model, _ = load_model(cfg['active_model'], cfg['architecture'], len(categories))
 
     # get predictions
     pred, true, paths = test(dl_test, model, device)
