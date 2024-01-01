@@ -1,9 +1,28 @@
+'''
+    Main script.
+
+    Runs full animl workflow on a given directory.
+    User must provide MegaDetector, Classifier, and Class list files,
+    otherwise will pull MDv5 and the CTL Southwest v2 models by default.
+
+    Usage example
+    > python -m animl /home/usr/animl-py/examples/southwest/
+
+    OR
+
+    > python -m animl /image/dir megadetector.pt classifier.h5 class_file.csv
+
+    Paths to model files must be edited to local machine.
+
+    @ Kyra Swanson, 2023
+'''
 import argparse
 import os
 import wget
+import torch
 import pandas as pd
 from . import (file_management, video_processing, megadetector,
-               detect, split, inference, symlink)
+               detect, split, classifiers, inference, symlink)
 
 
 def main(image_dir, detector_file, classifier_file, class_list, sort=True):
@@ -12,14 +31,20 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     to create a working directory for the image directory.
 
     Args:
-        image_dir (str): The directory path containing the images or videos.
-        model_file (str): The file path of the MegaDetector model.
-        class_model (str): The file path of the classifier model.
-        class_list (list): A list of classes or species for classification.
+        - image_dir (str): directory path containing the images or videos.
+        - model_file (str): file path of the MegaDetector model.
+        - class_model (str): file path of the classifier model.
+        - class_list (list): list of classes or species for classification.
+        - sort (bool): toggle option to create symlinks
 
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
+    if torch.cuda.is_available():
+        device = "cuda:0"
+    else:
+        device = 'cpu'
+
     print("Setting up working directory...")
     # Create a working directory, build the file manifest from img_dir
     working_dir = file_management.WorkingDirectory(image_dir)
@@ -32,7 +57,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     all_frames = video_processing.images_from_videos(files,
                                                      out_dir=working_dir.vidfdir,
                                                      out_file=working_dir.imageframes,
-                                                     parallel=True, frames=2)
+                                                     parallel=True, frames=1)
 
     # Run all images and video frames through MegaDetector
     print("Running images and video frames through MegaDetector...")
@@ -40,8 +65,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         detections = file_management.load_data(working_dir.mdresults)
     else:
         detector = megadetector.MegaDetector(detector_file)
-        md_results = detect.detect_MD_batch(detector, all_frames["Frame"],
-                                            results=None, quiet=True)
+        md_results = detect.detect_MD_batch(detector, all_frames["Frame"], quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_MD(md_results, manifest=all_frames,
@@ -54,12 +78,14 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
-    classifier, classes = inference.load_classifier(classifier_file, class_list)
-    animals = inference.predict_species(animals, classifier, classes,
+    print(class_list)
+    classifier, classes = classifiers.load_model(classifier_file, class_list, device=device)
+    animals = inference.predict_species(animals, classifier, classes, device=device,
                                         batch=4, out_file=working_dir.predictions)
+
+    # merge animal and empty, create symlinks
     print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals, empty])
-
     if sort:
         manifest = symlink.symlink_species(manifest, working_dir.linkdir)
 
@@ -69,6 +95,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     return manifest
 
 
+# IF RUN FROM COMMAND LINE
 # Create an argument parser
 parser = argparse.ArgumentParser(description='Folder locations for the main script')
 home = os.path.join(os.getcwd(), 'models')

@@ -3,6 +3,8 @@ Module: animl.plot_boxes
 Functionality to draw bounding boxes and labels provided image DataFrame.
 """
 import cv2
+import argparse
+import pandas as pd
 
 
 def draw_bounding_boxes(row, box_number, image_output_path, prediction):
@@ -107,3 +109,37 @@ def demo_boxes(manifest, min_conf=0.9, prediction=True):
                 continue
 
     cv2.destroyAllWindows()
+
+
+def main(csv_file, output_dir):
+    """
+    Read a CSV file values and perform box plotting on the images.
+
+    Args:
+        csv_file (str): Path to the CSV file.
+        output_dir (str): Saved location  of boxed images output dir.
+
+    Returns:
+        None
+    """
+    # Read the CSV file
+    data = pd.read_csv(csv_file)
+
+    # Perform box plotting for each image in the CSV file
+    for i, row in data.iterrows():
+        draw_bounding_boxes(row, 60 + i, output_dir + '/')
+
+
+if __name__ == '__main__':
+    # Create an argument parser
+    parser = argparse.ArgumentParser(description='Plot boxes images-csv')
+
+    # Add the CSV file and output directory arguments
+    parser.add_argument('csv_file', type=str, help='Path to the CSV file')
+    parser.add_argument('output_dir', type=str, help='Path to the output dir')
+
+    # Parse the command-line arguments
+    args = parser.parse_args()
+
+    # Call the main function
+    main(args.csv_file, args.output_dir)
