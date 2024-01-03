@@ -4,8 +4,7 @@ from PIL import Image, ImageOps, ImageFile
 import tensorflow as tf
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import (Compose, Resize, ToTensor, Normalize,
-                                    RandomHorizontalFlip)
+from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip)
 from .utils.torch_utils import _setup_size
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -79,17 +78,16 @@ class ResizeWithPadding(torch.nn.Module):
 
 
 class CropGenerator(Dataset):
-    def __init__(self, x, filecol='file', resize=299, buffer=0, batch=1):
+    def __init__(self, x, filecol='file', crop=True, resize=299, buffer=0, batch=1):
         self.x = x
         self.filecol = filecol
+        self.crop = crop
         self.resize = int(resize)
         self.buffer = buffer
         self.batch = int(batch)
         self.transform = Compose([
             Resize((self.resize, self.resize)),
             ToTensor(),
-            Normalize(mean=[0.485, 0.456, 0.406],
-                      std=[0.229, 0.224, 0.225])
         ])
 
     def __len__(self):
@@ -101,25 +99,28 @@ class CropGenerator(Dataset):
         try:
             img = Image.open(image_name).convert('RGB')
         except OSError:
-            return
+            print("File error", image_name)
+            del self.x.iloc[idx]
+            return self.__getitem__(idx)
 
-        width, height = img.size
+        if self.crop:
+            width, height = img.size
+            bbox1 = self.x['bbox1'].iloc[idx]
+            bbox2 = self.x['bbox2'].iloc[idx]
+            bbox3 = self.x['bbox3'].iloc[idx]
+            bbox4 = self.x['bbox4'].iloc[idx]
 
-        bbox1 = self.x['bbox1'].iloc[idx]
-        bbox2 = self.x['bbox2'].iloc[idx]
-        bbox3 = self.x['bbox3'].iloc[idx]
-        bbox4 = self.x['bbox4'].iloc[idx]
+            left = width * bbox1
+            top = height * bbox2
+            right = width * (bbox1 + bbox3)
+            bottom = height * (bbox2 + bbox4)
 
-        left = width * bbox1
-        top = height * bbox2
-        right = width * (bbox1 + bbox3)
-        bottom = height * (bbox2 + bbox4)
+            left = max(0, int(left) - self.buffer)
+            top = max(0, int(top) - self.buffer)
+            right = min(width, int(right) + self.buffer)
+            bottom = min(height, int(bottom) + self.buffer)
+            img = img.crop((left, top, right, bottom))
 
-        left = max(0, int(left) - self.buffer)
-        top = max(0, int(top) - self.buffer)
-        right = min(width, int(right) + self.buffer)
-        bottom = min(height, int(bottom) + self.buffer)
-        img = img.crop((left, top, right, bottom))
         img_tensor = self.transform(img)
 
         return img_tensor, image_name
@@ -127,19 +128,19 @@ class CropGenerator(Dataset):
 
 # currently working on this class
 class TrainGenerator(Dataset):
-    def __init__(self, x, classes, file_col='FilePath', label_col='species', resize=299, batch_size=32):
+    def __init__(self, x, classes, file_col='FilePath', label_col='species', crop=True, resize=299, batch_size=32):
         self.x = x
         self.resize = int(resize)
         self.file_col = file_col
         self.label_col = label_col
         self.buffer = 0
+        self.crop = crop
         self.batch_size = int(batch_size)
         self.transform = Compose([
-            Resize((self.resize, self.resize)),
+            # add augmentations
             RandomHorizontalFlip(p=0.5),
+            Resize((self.resize, self.resize)),
             ToTensor(),
-            Normalize(mean=[0.485, 0.456, 0.406],
-                      std=[0.229, 0.224, 0.225])
         ])
         self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
 
@@ -152,29 +153,29 @@ class TrainGenerator(Dataset):
 
         try:
             img = Image.open(image_name).convert('RGB')
-
         except OSError:
             print("File error", image_name)
             del self.x.iloc[idx]
             return self.__getitem__(idx)
 
-        width, height = img.size
+        if self.crop:
+            width, height = img.size
 
-        bbox1 = self.x['bbox1'].iloc[idx]
-        bbox2 = self.x['bbox2'].iloc[idx]
-        bbox3 = self.x['bbox3'].iloc[idx]
-        bbox4 = self.x['bbox4'].iloc[idx]
+            bbox1 = self.x['bbox1'].iloc[idx]
+            bbox2 = self.x['bbox2'].iloc[idx]
+            bbox3 = self.x['bbox3'].iloc[idx]
+            bbox4 = self.x['bbox4'].iloc[idx]
 
-        left = width * bbox1
-        top = height * bbox2
-        right = width * (bbox1 + bbox3)
-        bottom = height * (bbox2 + bbox4)
+            left = width * bbox1
+            top = height * bbox2
+            right = width * (bbox1 + bbox3)
+            bottom = height * (bbox2 + bbox4)
 
-        left = max(0, int(left) - self.buffer)
-        top = max(0, int(top) - self.buffer)
-        right = min(width, int(right) + self.buffer)
-        bottom = min(height, int(bottom) + self.buffer)
-        img = img.crop((left, top, right, bottom))
+            left = max(0, int(left) - self.buffer)
+            top = max(0, int(top) - self.buffer)
+            right = min(width, int(right) + self.buffer)
+            bottom = min(height, int(bottom) + self.buffer)
+            img = img.crop((left, top, right, bottom))
 
         img_tensor = self.transform(img)
 
@@ -182,9 +183,15 @@ class TrainGenerator(Dataset):
 
 
 class TFGenerator(Sequence):
-    def __init__(self, x, filecol='file', resize=299, buffer=0, batch=32):
+    '''
+    Generator for TensorFlow/Keras models
+
+    Does not require a dataloader, self-batches
+    '''
+    def __init__(self, x, filecol='file', crop=True, resize=299, buffer=0, batch=32):
         self.x = x
         self.filecol = filecol
+        self.crop = crop
         self.resize = int(resize)
         self.buffer = buffer
         self.batch = int(batch)
@@ -201,24 +208,25 @@ class TFGenerator(Sequence):
                 img = Image.open(file)
             except OSError:
                 continue
-            width, height = img.size
 
-            bbox1 = self.x['bbox1'].iloc[i]
-            bbox2 = self.x['bbox2'].iloc[i]
-            bbox3 = self.x['bbox3'].iloc[i]
-            bbox4 = self.x['bbox4'].iloc[i]
+            if self.crop:
+                width, height = img.size
+                bbox1 = self.x['bbox1'].iloc[i]
+                bbox2 = self.x['bbox2'].iloc[i]
+                bbox3 = self.x['bbox3'].iloc[i]
+                bbox4 = self.x['bbox4'].iloc[i]
 
-            left = width * bbox1
-            top = height * bbox2
-            right = width * (bbox1 + bbox3)
-            bottom = height * (bbox2 + bbox4)
+                left = width * bbox1
+                top = height * bbox2
+                right = width * (bbox1 + bbox3)
+                bottom = height * (bbox2 + bbox4)
 
-            left = max(0, left - self.buffer)
-            top = max(0, top - self.buffer)
-            right = min(width, right + self.buffer)
-            bottom = min(height, bottom + self.buffer)
+                left = max(0, left - self.buffer)
+                top = max(0, top - self.buffer)
+                right = min(width, right + self.buffer)
+                bottom = min(height, bottom + self.buffer)
+                img = img.crop((left, top, right, bottom))
 
-            img = img.crop((left, top, right, bottom))
             img = img.resize((self.resize, self.resize))
             img = tf.keras.utils.img_to_array(img)
             imgarray.append(img)
@@ -226,12 +234,12 @@ class TFGenerator(Sequence):
         return np.asarray(imgarray)
 
 
-def train_dataloader(manifest, classes, batch_size=1, workers=1, filecol="FilePath"):
+def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath", crop=False):
     '''
         Loads a dataset for training and wraps it in a
         PyTorch DataLoader object.
     '''
-    dataset_instance = TrainGenerator(manifest, classes, filecol)
+    dataset_instance = TrainGenerator(manifest, classes, file_col, crop=crop)
 
     dataLoader = DataLoader(
             dataset=dataset_instance,
@@ -242,12 +250,12 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, filecol="FilePa
     return dataLoader
 
 
-def create_dataloader(manifest, batch_size=1, workers=1, framework="torch", filecol="file"):
+def create_dataloader(manifest, batch_size=1, workers=1, framework="torch", file_col="file", crop=False):
     '''
         Loads a dataset and wraps it in a
         PyTorch DataLoader object.
     '''
-    dataset_instance = CropGenerator(manifest, filecol, batch=batch_size)
+    dataset_instance = CropGenerator(manifest, file_col, crop=crop, batch=batch_size)
 
     dataLoader = DataLoader(
             dataset=dataset_instance,
