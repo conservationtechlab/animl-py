@@ -183,6 +183,7 @@ def main():
 
     # initialize model and get class list
     model, classes, current_epoch = load_model(cfg['experiment_folder'], cfg['class_file'], device=device, architecture=cfg['architecture'])
+    
     categories = dict([[x["species"], x["id"]] for _, x in classes.iterrows()])
 
     # initialize data loaders for training and validation set

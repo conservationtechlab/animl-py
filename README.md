@@ -119,11 +119,77 @@ animals = parse_results.from_classifier(animals, predresults, '/path/to/classlis
 manifest = pd.concat([animals,empty])
 ```
 
+7. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
+
+```python
+from animl import save_classification, animl_results_to_md_results
+csv_loc = save_classification.csv_converter(animals, empty, imagedir, only_animl = True)
+animl_results_to_md_results.animl_results_to_md_results(csv_loc, imagedir + "final_result.json")
+```
 
 ---
 ### Training
 
-Training workflows are available in the repo but still under development.
+Training workflows are still under development. Please submit Issues as you come upon them.
+
+1. Assuming a file manifest of training data with species labels, first split the data into training, validation and test splits.
+   This function splits each label proportionally by the given percentages, by default 0.7 training, 0.2 validation, 0.1 Test.
+```python
+from animl import split
+train, val, test, stats = train_val_test(manifest, out_dir='path/to/save/data/, label_col="species",
+                   percentage=(0.7, 0.2, 0.1), seed=None)
+```
+
+2. Set up training configuration file. Specify the paths to the data splits from the previous step. Example .yaml file:
+```
+seed: 28  # random number generator seed (long integer value)
+device: cuda:0  # set to local gpu device 
+num_workers: 8  # number of cores
+
+# dataset parameters
+num_classes: 53 #might need to be adjusted based on the classes file
+training_set: "/path/to/save/train_data.csv"
+validate_set: "/path/to/save/validate_data.csv"
+test_set: "/path/to/save/test_data.csv"
+class_file: "/home/usr/machinelearning/Models/Animl-Test/test_classes.txt" 
+
+# training hyperparameters
+architecture: "efficientnet_v2_m"
+image_size: [299, 299]
+num_epochs: 100
+batch_size: 16
+
+learning_rate: 0.003
+weight_decay: 0.001
+
+# overwrite .pt files
+overwrite: False
+
+experiment_folder: '/home/usr/machinelearning/Models/Animl-Test/'
+```
+
+class_file refers to a flle that contains index,label pairs. For example:<br>
+test_class.txt
+```
+id,species
+1,cat
+2,dog
+```
+
+3. (Optional) Update train.py to include MLOPS connection. 
+
+4. Using the config file, begin training
+```bash
+python -m animl.train --config /path/to/config.yaml
+```
+Every 10 epochs, the model will be checkpointed to the 'experiment_folder' parameter in the config file, and will contain performance metrics for selection.
+
+
+5. Testing of a model checkpoint can be done with the "test.py" module.  Add an 'active_model' parameter to the config file that contains the path of the checkpoint to test.
+   This will produce a confusion matrix of the test dataset as well as a csv containing predicted and ground truth labels for each image.
+```bash
+python -m animl.test --config /path/to/config.yaml
+```
 
 # Models
 

@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+from math import fsum
 
 
 def get_animals(manifest):
@@ -45,3 +47,89 @@ def get_empty(manifest):
         otherdf = pd.DataFrame(columns=manifest.columns.values)
 
     return otherdf
+
+
+def train_val_test(manifest, out_dir=None, label_col="species",
+                   percentage=(0.7, 0.2, 0.1), seed=None):
+    '''
+    Splits the manifest into training. validation and test dataets for training
+
+    Credit: Unduwap Kandage-Don
+
+    Args:
+        - manifest
+        - label_col
+        - percentage
+        - seed
+
+    Returns:
+        - train
+        - validate
+        - test
+        - stats
+    '''
+    if seed is None:
+        seed = np.random.randint(0, 100)
+
+    # check percentages add up to 1
+    if not (fsum(percentage) == 1):
+        print("Invalid percentages")
+
+    # create blank dataframes
+    train = pd.DataFrame()
+    validate = pd.DataFrame()
+    test = pd.DataFrame()
+
+    # stats
+    totCtArr = []
+    trainCtArr = []
+    valCtArr = []
+    testCtArr = []
+
+    # group the data based on label column
+    manifest_by_label = manifest.groupby(label_col)
+    labelCt = manifest[label_col].value_counts()
+    labels = labelCt.keys()
+
+    print("seed =", seed)
+
+    for l in labels:
+        # calc how much of each data belongs to each category
+        # test gets the remainder due to rounding percentages
+        catCt = labelCt[l]
+        trainCt = round(catCt * percentage[0])
+        valCt = round(catCt * percentage[1])
+        testCt = catCt - (trainCt + valCt)
+
+        totCtArr.append(catCt)
+        trainCtArr.append(trainCt)
+        valCtArr.append(valCt)
+        testCtArr.append(testCt)
+
+        # shuffle based on seed without re-sample
+        currLabel = manifest_by_label.get_group(l).sample(frac=1, replace=False, random_state=seed)
+
+        # split group into train, test, val
+        trainLabel = currLabel[0:trainCt]
+        valLabel = currLabel[trainCt:trainCt+valCt]
+        testLabel = currLabel[trainCt+valCt:]
+
+        # save to combined data frame
+        train = pd.concat([train, trainLabel], ignore_index=True)
+        validate = pd.concat([validate, valLabel], ignore_index=True)
+        test = pd.concat([test, testLabel], ignore_index=True)
+
+    # save stats
+    stats = {"label": list(labels), "total images": totCtArr,
+             "train": trainCtArr, "test": testCtArr, "validation": valCtArr}
+
+    if out_dir is not None:
+        statsdf = pd.DataFrame(stats)
+        statsdf.to_csv(out_dir + "/data_split.csv")
+
+        # save to csv
+        train.to_csv(out_dir + "/train_data.csv")
+        validate.to_csv(out_dir + "/validate_data.csv")
+        test.to_csv(out_dir + "/test_data.csv")
+
+    return train, validate, test, stats
