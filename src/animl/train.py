@@ -183,8 +183,7 @@ def main():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
         device = 'cpu'
 
-    # get class list
-    classes = pd.read_csv(cfg['class_file'])
+    model, classes, current_epoch = load_model(cfg['experiment_folder'], cfg['class_file'], architecture=cfg['architecture'])
     categories = dict([[x["species"], x["id"]] for _, x in classes.iterrows()])
 
     # initialize data loaders for training and validation set
@@ -192,9 +191,6 @@ def main():
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
     dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
     dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
-
-    # initialize model
-    model, current_epoch = load_model(cfg['experiment_folder'], cfg['architecture'], len(categories))
 
     # set up model optimizer
     optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
