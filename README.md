@@ -97,34 +97,40 @@ allframes = video_processing.images_from_videos(files, out_dir=workingdir.vidfdi
    parseMD will merge detections with the original file manifest, if provided.
 
 ```python
-from animl import detectMD, megadetector, parse_results
+from animl import detect, megadetector
 detector = megadetector.MegaDetector('/path/to/mdmodel.pt')
-mdresults = detectMD.detect_MD_batch(detector, allframes["Frame"], quiet=True)
-mdres = parse_results.from_MD(mdresults, manifest=allframes, out_file = workingdir.mdresults)
+mdresults = detect.detect_MD_batch(detector, allframes["Frame"], quiet=True)
+mdres = detect.parse_MD(mdresults, out_file=workingdir.mdresults, threshold=0)
+frame_bbox = allframes.merge(mdres, left_on="Frame", right_on="file")
 ```
 5. For speed and efficiency, extract the empty/human/vehicle detections before classification.
 ```python
 from animl import split
-animals = split.getAnimals(mdres)
-empty = split.getEmpty(mdres)
+animals = split.get_animals(frame_bbox)
+empty = split.get_empty(frame_bbox)
 ```
 6. Classify using the appropriate species model. Merge the output with the rest of the detections
    if desired.
 ```python
-from animl import classify, parse_results
-classifier = classify.load_classifier('/path/to/classifier/')
-predresults = classify.predict_species(animals, classifier, batch = 4)
-animals = parse_results.from_classifier(animals, predresults, '/path/to/classlist.txt',
-                                         out_file=workingdir.predictions)
+from animl import classifiers, inference
+classifier, class_list = classifiers.load_model('/path/to/model, '/path/to/classlist.txt')
+predresults = inference.predict_species(animals, classifier, class_list, batch = 16)
 manifest = pd.concat([animals,empty])
+pd.to_csv(manifest, workindir.results)
 ```
 
 7. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
 
 ```python
-from animl import save_classification, animl_results_to_md_results
-csv_loc = save_classification.csv_converter(animals, empty, imagedir, only_animl = True)
+from animl import timelapse, animl_results_to_md_results
+csv_loc = timelapse.csv_converter(animals, empty, imagedir, only_animl = True)
 animl_results_to_md_results.animl_results_to_md_results(csv_loc, imagedir + "final_result.json")
+```
+
+8. (OPTIONAL) Create symlinks within a given directory for file browser access.
+```python
+linked_manifest = symlink_species(manifest, workingdir.linkdir, file_col="FilePath", copy=False)
+pd.to_csv(linked_manifest, workindir.results)
 ```
 
 ---
