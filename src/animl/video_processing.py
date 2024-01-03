@@ -131,7 +131,7 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
 
         videos = videos.merge(video_frames, on="FilePath")
 
-    allframes = pd.concat([images, videos])
+    allframes = pd.concat([images, videos]).reset_index()
 
     if (out_file is not None):
         file_management.save_data(allframes, out_file)

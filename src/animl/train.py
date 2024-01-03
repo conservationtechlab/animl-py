@@ -5,8 +5,6 @@
     Original script from
     2022 Benjamin Kellenberger
 '''
-
-
 import argparse
 import yaml
 from tqdm import trange
@@ -183,7 +181,9 @@ def main():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
         device = 'cpu'
 
-    model, classes, current_epoch = load_model(cfg['experiment_folder'], cfg['class_file'], architecture=cfg['architecture'])
+    # initialize model and get class list
+    model, classes, current_epoch = load_model(cfg['experiment_folder'], cfg['class_file'], device=device, architecture=cfg['architecture'])
+    
     categories = dict([[x["species"], x["id"]] for _, x in classes.iterrows()])
 
     # initialize data loaders for training and validation set
@@ -205,6 +205,7 @@ def main():
 
         # combine stats and save
         stats = {
+            'num_classes': len(classes),
             'loss_train': loss_train,
             'loss_val': loss_val,
             'oa_train': oa_train,
@@ -213,8 +214,9 @@ def main():
             'recall': recall
         }
 
+        checkpoint = cfg.get('checkpoint_frequency', 10)
         # experiment.log_metrics(stats, step=current_epoch)
-        if current_epoch % 10 == 0:
+        if current_epoch % checkpoint == 0:
             save_model(cfg['experiment_folder'], current_epoch, model, stats)
 
 
