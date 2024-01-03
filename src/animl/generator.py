@@ -127,10 +127,11 @@ class CropGenerator(Dataset):
 
 # currently working on this class
 class TrainGenerator(Dataset):
-    def __init__(self, x, classes, filecol='FilePath', resize=299, batch_size=32):
+    def __init__(self, x, classes, file_col='FilePath', label_col='species', resize=299, batch_size=32):
         self.x = x
         self.resize = int(resize)
-        self.filecol = filecol
+        self.file_col = file_col
+        self.label_col = label_col
         self.buffer = 0
         self.batch_size = int(batch_size)
         self.transform = Compose([
@@ -146,8 +147,8 @@ class TrainGenerator(Dataset):
         return len(self.x)
 
     def __getitem__(self, idx):
-        image_name = self.x[self.filecol].iloc[idx]
-        label = self.categories[self.x['label'].iloc[idx]]
+        image_name = self.x[self.file_col].iloc[idx]
+        label = self.categories[self.x[self.label_col].iloc[idx]]
 
         try:
             img = Image.open(image_name).convert('RGB')

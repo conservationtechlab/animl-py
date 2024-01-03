@@ -45,3 +45,10 @@ def get_empty(manifest):
         otherdf = pd.DataFrame(columns=manifest.columns.values)
 
     return otherdf
+
+def train_val_test(manifest, label_col="species", percentage=(0.7,0.2,0.1)):
+    train = manifest
+    validate = manifest
+    test = manifest
+
+    return train, validate, test

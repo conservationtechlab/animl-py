@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 
+
 def csv_converter(animals, empty, imagedir, only_animl= True):
     '''
     Converts the Pandas DataFrame created by running the animl classsifier to a csv file that contains columns needed for TimeLapse conversion in later step
@@ -16,7 +17,6 @@ def csv_converter(animals, empty, imagedir, only_animl= True):
         non-anim.csv - A csv file containing detections of all non-animals made to be similar to animals.csv in columns \
         csv_loc - Location of the stored animals csv file
     '''
-
     if not imagedir.endswith("/"):
         imagedir += "/"
     
@@ -73,8 +73,6 @@ def csv_converter(animals, empty, imagedir, only_animl= True):
         csv_loc = os.path.join(ICdir, "manifest.csv")
         manifest = pd.concat([animals,empty])
         manifest.to_csv(csv_loc, index=False)
-    
-    
     
     # Return the location of csv for json conversion
     return csv_loc
