@@ -78,9 +78,9 @@ class ResizeWithPadding(torch.nn.Module):
 
 
 class CropGenerator(Dataset):
-    def __init__(self, x, filecol='file', crop=True, resize=299, buffer=0, batch=1):
+    def __init__(self, x, file_col='file', crop=True, resize=299, buffer=0, batch=1):
         self.x = x
-        self.filecol = filecol
+        self.file_col = file_col
         self.crop = crop
         self.resize = int(resize)
         self.buffer = buffer
@@ -94,7 +94,7 @@ class CropGenerator(Dataset):
         return int(np.ceil(len(self.x.index) / float(self.batch)))
 
     def __getitem__(self, idx):
-        image_name = self.x[self.filecol].iloc[idx]
+        image_name = self.x[self.file_col].iloc[idx]
 
         try:
             img = Image.open(image_name).convert('RGB')
@@ -188,9 +188,9 @@ class TFGenerator(Sequence):
 
     Does not require a dataloader, self-batches
     '''
-    def __init__(self, x, filecol='file', crop=True, resize=299, buffer=0, batch=32):
+    def __init__(self, x, file_col='file', crop=True, resize=299, buffer=0, batch=32):
         self.x = x
-        self.filecol = filecol
+        self.file_col = file_col
         self.crop = crop
         self.resize = int(resize)
         self.buffer = buffer
@@ -204,7 +204,7 @@ class TFGenerator(Sequence):
         for i in range(min(len(self.x.index), idx * self.batch),
                        min(len(self.x.index), (idx + 1) * self.batch)):
             try:
-                file = self.x[self.filecol].iloc[i]
+                file = self.x[self.file_col].iloc[i]
                 img = Image.open(file)
             except OSError:
                 continue

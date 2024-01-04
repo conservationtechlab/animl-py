@@ -40,7 +40,7 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
 
             # pytorch
             if type(model) == EfficientNet:
-                dataset = generator.create_dataloader(detections, batch, workers, file_col)
+                dataset = generator.create_dataloader(detections, batch, workers, file_col=file_col)
                 with torch.no_grad():
                     for ix, (data, _) in tqdm(enumerate(dataset)):
                         data.to(device)
