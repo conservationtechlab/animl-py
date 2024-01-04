@@ -53,7 +53,7 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
                         detections.loc[ix, 'confidence'] = probs
 
             else:  # tensorflow
-                dataset = generator.TFGenerator(detections, filecol=file_col, resize=resize, batch=batch)
+                dataset = generator.TFGenerator(detections, file_col=file_col, resize=resize, batch=batch)
                 output = model.predict(dataset, workers=workers, verbose=1)
 
                 detections['prediction'] = [classes['species'].values[int(np.argmax(x))] for x in output]
