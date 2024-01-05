@@ -78,23 +78,21 @@ class ResizeWithPadding(torch.nn.Module):
 
 
 class CropGenerator(Dataset):
-    def __init__(self, x, file_col='file', crop=True, resize=299, buffer=0, batch=1):
+    def __init__(self, x, file_col='file', resize=299, buffer=0):
         self.x = x
         self.file_col = file_col
-        self.crop = crop
         self.resize = int(resize)
         self.buffer = buffer
-        self.batch = int(batch)
         self.transform = Compose([
             Resize((self.resize, self.resize)),
             ToTensor(),
         ])
 
     def __len__(self):
-        return int(np.ceil(len(self.x.index) / float(self.batch)))
+        return len(self.x)
 
     def __getitem__(self, idx):
-        image_name = self.x[self.file_col].iloc[idx]
+        image_name = self.x.loc[idx, self.file_col]
 
         try:
             img = Image.open(image_name).convert('RGB')
@@ -103,23 +101,22 @@ class CropGenerator(Dataset):
             del self.x.iloc[idx]
             return self.__getitem__(idx)
 
-        if self.crop:
-            width, height = img.size
-            bbox1 = self.x['bbox1'].iloc[idx]
-            bbox2 = self.x['bbox2'].iloc[idx]
-            bbox3 = self.x['bbox3'].iloc[idx]
-            bbox4 = self.x['bbox4'].iloc[idx]
+        width, height = img.size
+        bbox1 = self.x['bbox1'].iloc[idx]
+        bbox2 = self.x['bbox2'].iloc[idx]
+        bbox3 = self.x['bbox3'].iloc[idx]
+        bbox4 = self.x['bbox4'].iloc[idx]
 
-            left = width * bbox1
-            top = height * bbox2
-            right = width * (bbox1 + bbox3)
-            bottom = height * (bbox2 + bbox4)
+        left = width * bbox1
+        top = height * bbox2
+        right = width * (bbox1 + bbox3)
+        bottom = height * (bbox2 + bbox4)
 
-            left = max(0, int(left) - self.buffer)
-            top = max(0, int(top) - self.buffer)
-            right = min(width, int(right) + self.buffer)
-            bottom = min(height, int(bottom) + self.buffer)
-            img = img.crop((left, top, right, bottom))
+        left = max(0, int(left) - self.buffer)
+        top = max(0, int(top) - self.buffer)
+        right = min(width, int(right) + self.buffer)
+        bottom = min(height, int(bottom) + self.buffer)
+        img = img.crop((left, top, right, bottom))
 
         img_tensor = self.transform(img)
 
@@ -148,8 +145,8 @@ class TrainGenerator(Dataset):
         return len(self.x)
 
     def __getitem__(self, idx):
-        image_name = self.x[self.file_col].iloc[idx]
-        label = self.categories[self.x[self.label_col].iloc[idx]]
+        image_name = self.x.loc[idx, self.file_col]
+        label = self.categories[ self.x.loc[idx, self.label_col]]
 
         try:
             img = Image.open(image_name).convert('RGB')
@@ -250,12 +247,13 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
     return dataLoader
 
 
-def create_dataloader(manifest, batch_size=1, workers=1, framework="torch", file_col="file", crop=False):
+def create_dataloader(manifest, batch_size=1, workers=1, framework="torch", file_col="file"):
     '''
         Loads a dataset and wraps it in a
         PyTorch DataLoader object.
     '''
-    dataset_instance = CropGenerator(manifest, file_col, crop=crop, batch=batch_size)
+    #  file_col='file', resize=299, buffer=0
+    dataset_instance = CropGenerator(manifest, file_col=file_col)
 
     dataLoader = DataLoader(
             dataset=dataset_instance,

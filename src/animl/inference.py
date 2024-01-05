@@ -37,22 +37,27 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
     if isinstance(detections, pd.DataFrame):
         # cropped images
         if any(detections.columns.isin(["bbox1"])):
-
             # pytorch
             if type(model) == EfficientNet:
-                dataset = generator.create_dataloader(detections, batch, workers, file_col=file_col)
+                
+                dataset = generator.create_dataloader(detections, batch_size=batch, workers=workers, file_col=file_col)
+
                 with torch.no_grad():
-                    for ix, (data, _) in tqdm(enumerate(dataset)):
+                    for ix, batch in tqdm(enumerate(dataset)):
+                        data = batch[0]
+                        # name = batch[1]
+
                         data.to(device)
                         output = model(data)
-
                         pred = classes['species'].values[torch.argmax(output, 1).numpy()[0]]
                         probs = torch.max(torch.nn.functional.softmax(output, dim=1), 1).values.numpy()[0]
 
                         detections.loc[ix, 'prediction'] = pred
                         detections.loc[ix, 'confidence'] = probs
+                
 
             else:  # tensorflow
+
                 dataset = generator.TFGenerator(detections, file_col=file_col, resize=resize, batch=batch)
                 output = model.predict(dataset, workers=workers, verbose=1)
 

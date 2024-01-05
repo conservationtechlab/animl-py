@@ -7,7 +7,7 @@ import argparse
 import pandas as pd
 
 
-def draw_bounding_boxes(row, box_number, image_output_path, prediction):
+def draw_bounding_boxes(row, box_number, image_output_path=None, prediction=False):
     # pylint: disable=R0914
     """
     Draws bounding boxes and labels on image DataFrame.
@@ -31,23 +31,27 @@ def draw_bounding_boxes(row, box_number, image_output_path, prediction):
     top = int(row['bbox2'] * height)
     right = int((row['bbox1'] + row['bbox3']) * width)
     bottom = int((row['bbox2'] + row['bbox4']) * height)
-    label = row['prediction']
-    text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
-    text_size_width, text_size_height = text_size
     thick = int((height + width) // 900)
-    box_right = (right if (right - left) < (text_size_width * 3)
-                 else left + (text_size_width * 3))
     cv2.rectangle(img, (left, top), (right, bottom), (90, 255, 0), thick)
-    cv2.rectangle(img, (left, top),
+
+    if prediction:
+        label = row['prediction']
+        text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
+        text_size_width, text_size_height = text_size
+        
+        box_right = (right if (right - left) < (text_size_width * 3)
+                 else left + (text_size_width * 3))
+        cv2.rectangle(img, (left, top),
                   (box_right, top - (text_size_height * 2)),
                   (90, 255, 0), -1)
-    if prediction:
+
         cv2.putText(img, label, (left, top - 12), 0, 1e-3 * height,
                     (0, 0, 0), thick // 3)
 
-    filename = image_output_path + str(box_number) + ".jpg"
-    print(filename)
-    cv2.imwrite(filename, img)
+    if image_output_path is not None:
+        filename = image_output_path + str(box_number) + ".jpg"
+        print(filename)
+        cv2.imwrite(filename, img)
 
 
 def demo_boxes(manifest, min_conf=0.9, prediction=True):
