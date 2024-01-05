@@ -80,12 +80,12 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     print("Predicting species of animal detections...")
     print(class_list)
     classifier, classes = classifiers.load_model(classifier_file, class_list, device=device)
-    animals = inference.predict_species(animals, classifier, classes, device=device,
+    animals = inference.predict_species(animals.reset_index(), classifier, classes, device=device,
                                         batch=4, out_file=working_dir.predictions)
 
     # merge animal and empty, create symlinks
     print("Concatenating animal and empty dataframes...")
-    manifest = pd.concat([animals, empty])
+    manifest = pd.concat([animals, empty]).reset_index()
     if sort:
         manifest = symlink.symlink_species(manifest, working_dir.linkdir)
 
