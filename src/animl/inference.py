@@ -8,7 +8,7 @@
 import torch
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
+from tqdm import trange
 from . import generator, file_management
 from .classifiers import EfficientNet
 
@@ -40,21 +40,29 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
             # pytorch
             if type(model) == EfficientNet:
                 
-                dataset = generator.create_dataloader(detections, batch_size=batch, workers=workers, file_col=file_col)
+                predictions = []
+                probabilities = []
 
+                dataset = generator.create_dataloader(detections, batch_size=batch, workers=workers, file_col=file_col)
+                progressBar = trange(len(dataset))
                 with torch.no_grad():
-                    for ix, batch in tqdm(enumerate(dataset)):
+                    for ix, batch in enumerate(dataset):
                         data = batch[0]
                         # name = batch[1]
-
                         data.to(device)
                         output = model(data)
-                        pred = classes['species'].values[torch.argmax(output, 1).numpy()[0]]
-                        probs = torch.max(torch.nn.functional.softmax(output, dim=1), 1).values.numpy()[0]
 
-                        detections.loc[ix, 'prediction'] = pred
-                        detections.loc[ix, 'confidence'] = probs
-                
+                        labels = torch.argmax(output, dim=1).cpu().detach().numpy()
+                        pred = classes['species'].values[labels]
+                        predictions.extend(pred)
+
+                        probs = torch.max(torch.nn.functional.softmax(output, dim=1), 1)
+                        probabilities.extend(probs)
+                        progressBar.update(1)
+
+                detections['prediction'] = predictions
+                detections['confidence'] = probabilities
+                progressBar.close()   
 
             else:  # tensorflow
 
