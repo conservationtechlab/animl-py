@@ -48,16 +48,15 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
                 with torch.no_grad():
                     for ix, batch in enumerate(dataset):
                         data = batch[0]
-                        # name = batch[1]
-                        data.to(device)
+                        data = data.to(device)
                         output = model(data)
 
                         labels = torch.argmax(output, dim=1).cpu().detach().numpy()
                         pred = classes['species'].values[labels]
                         predictions.extend(pred)
 
-                        probs = torch.max(torch.nn.functional.softmax(output, dim=1), 1)
-                        probabilities.extend(probs)
+                        probs = torch.max(torch.nn.functional.softmax(output, dim=1),1)[0]
+                        probabilities.extend(probs.cpu().detach().numpy())
                         progressBar.update(1)
 
                 detections['prediction'] = predictions
@@ -65,7 +64,6 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
                 progressBar.close()   
 
             else:  # tensorflow
-
                 dataset = generator.TFGenerator(detections, file_col=file_col, resize=resize, batch=batch)
                 output = model.predict(dataset, workers=workers, verbose=1)
 

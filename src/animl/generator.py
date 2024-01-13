@@ -247,7 +247,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
     return dataLoader
 
 
-def create_dataloader(manifest, batch_size=1, workers=1, framework="torch", file_col="file"):
+def create_dataloader(manifest, batch_size=1, workers=1, file_col="file"):
     '''
         Loads a dataset and wraps it in a
         PyTorch DataLoader object.
@@ -258,7 +258,7 @@ def create_dataloader(manifest, batch_size=1, workers=1, framework="torch", file
     dataLoader = DataLoader(
             dataset=dataset_instance,
             batch_size=batch_size,
-            shuffle=True,
+            shuffle=False,
             num_workers=workers
         )
     return dataLoader
