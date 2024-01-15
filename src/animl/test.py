@@ -92,11 +92,11 @@ def main():
     results = pd.DataFrame({'FilePath': paths,
                             'Ground Truth': true,
                             'Predicted': pred})
-    results.to_csv(cfg['exp_folder'] + "/test_results.csv")
+    results.to_csv(cfg['experiment_folder'] + "/test_results.csv")
 
     cm = confusion_matrix(true, pred)
     confuse = pd.DataFrame(cm, columns=classes['species'], index=classes['species'])
-    confuse.to_csv(cfg['exp_folder'] + "/confusion_matrix.csv")
+    confuse.to_csv(cfg['experiment_folder'] + "/confusion_matrix.csv")
 
 
 if __name__ == '__main__':

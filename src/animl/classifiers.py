@@ -59,6 +59,9 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
     if device != 'cpu' and not torch.cuda.is_available():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
         device = 'cpu'
+        
+    else:
+        print('Device set to',device)
 
     # load latest model state from given folder
     if os.path.isdir(model_path):

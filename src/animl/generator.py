@@ -78,11 +78,11 @@ class ResizeWithPadding(torch.nn.Module):
 
 
 class CropGenerator(Dataset):
-    def __init__(self, x, file_col='file', resize=299, buffer=0):
+    def __init__(self, x, file_col='file', resize=299):
         self.x = x
         self.file_col = file_col
         self.resize = int(resize)
-        self.buffer = buffer
+        self.buffer = 0
         self.transform = Compose([
             Resize((self.resize, self.resize)),
             ToTensor(),
@@ -102,6 +102,7 @@ class CropGenerator(Dataset):
             return self.__getitem__(idx)
 
         width, height = img.size
+
         bbox1 = self.x['bbox1'].iloc[idx]
         bbox2 = self.x['bbox2'].iloc[idx]
         bbox3 = self.x['bbox3'].iloc[idx]
@@ -125,14 +126,13 @@ class CropGenerator(Dataset):
 
 # currently working on this class
 class TrainGenerator(Dataset):
-    def __init__(self, x, classes, file_col='FilePath', label_col='species', crop=True, resize=299, batch_size=32):
+    def __init__(self, x, classes, file_col='FilePath', label_col='species', crop=True, resize=299):
         self.x = x
         self.resize = int(resize)
         self.file_col = file_col
         self.label_col = label_col
         self.buffer = 0
         self.crop = crop
-        self.batch_size = int(batch_size)
         self.transform = Compose([
             # add augmentations
             RandomHorizontalFlip(p=0.5),
@@ -247,7 +247,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
     return dataLoader
 
 
-def create_dataloader(manifest, batch_size=1, workers=1, framework="torch", file_col="file"):
+def create_dataloader(manifest, batch_size=1, workers=1, file_col="file"):
     '''
         Loads a dataset and wraps it in a
         PyTorch DataLoader object.
@@ -258,7 +258,7 @@ def create_dataloader(manifest, batch_size=1, workers=1, framework="torch", file
     dataLoader = DataLoader(
             dataset=dataset_instance,
             batch_size=batch_size,
-            shuffle=True,
+            shuffle=False,
             num_workers=workers
         )
     return dataLoader
