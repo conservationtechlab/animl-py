@@ -81,7 +81,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     print(class_list)
     classifier, classes = classifiers.load_model(classifier_file, class_list, device=device)
     animals = inference.predict_species(animals.reset_index(drop=True), classifier, classes, device=device,
-                                        file_col="Frame", batch=4, out_file=working_dir.predictions)
+                                        file_col="Frame", batch_size=4, out_file=working_dir.predictions)
 
     # merge animal and empty, create symlinks
     print("Concatenating animal and empty dataframes...")
@@ -125,12 +125,12 @@ if not os.path.isfile(args.detector_file):
                       out=home)
 
 if not os.path.isfile(args.classifier_file):
-    prompt = "Classifier not found, would you like to download Southwest_v2? y/n: "
+    prompt = "Classifier not found, would you like to download Southwest_v3? y/n: "
     if input(prompt).lower() == "y":
         if not os.path.isdir(home):
             os.mkdir(home)
         print('Saving to', home)
-        wget.download('https://sandiegozoo.box.com/shared/static/x63lnaxw8hag39mczeommqy9tw4t0ht9.h5',
+        wget.download('https://sandiegozoo.box.com/shared/static/ucbk8kc2h3qu15g4xbg0nvbghvo1cl97.pt',
                       out=home)
 
 if not os.path.isfile(args.class_list):
@@ -139,7 +139,7 @@ if not os.path.isfile(args.class_list):
         if not os.path.isdir(home):
             os.mkdir(home)
         print('Saving to', home)
-        wget.download('https://sandiegozoo.box.com/shared/static/c977z3cfztap8pvig9c0frxdybsv55e1.csv',
+        wget.download('https://sandiegozoo.box.com/shared/static/u5zsr7k8st35zeqfisbht5mcoi9cbajy.csv',
                       out=home)
 
 # Call the main function

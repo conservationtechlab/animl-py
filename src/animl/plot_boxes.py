@@ -8,7 +8,6 @@ import pandas as pd
 
 
 def draw_bounding_boxes(row, box_number, image_output_path=None, prediction=False):
-    # pylint: disable=R0914
     """
     Draws bounding boxes and labels on image DataFrame.
     Args:
@@ -38,12 +37,11 @@ def draw_bounding_boxes(row, box_number, image_output_path=None, prediction=Fals
         label = row['prediction']
         text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
         text_size_width, text_size_height = text_size
-        
+
         box_right = (right if (right - left) < (text_size_width * 3)
-                 else left + (text_size_width * 3))
-        cv2.rectangle(img, (left, top),
-                  (box_right, top - (text_size_height * 2)),
-                  (90, 255, 0), -1)
+                     else left + (text_size_width * 3))
+        cv2.rectangle(img, (left, top), (box_right, top - (text_size_height * 2)),
+                      (90, 255, 0), -1)
 
         cv2.putText(img, label, (left, top - 12), 0, 1e-3 * height,
                     (0, 0, 0), thick // 3)
@@ -55,9 +53,9 @@ def draw_bounding_boxes(row, box_number, image_output_path=None, prediction=Fals
 
 
 def demo_boxes(manifest, min_conf=0.9, prediction=True):
-    # pylint: disable=R0914
     """
     Draws bounding boxes and labels on image DataFrame.
+
     Args:
         image : DataFrame containing image data - coordinates and predictions.
             The DataFrame should have the following columns:
@@ -69,6 +67,7 @@ def demo_boxes(manifest, min_conf=0.9, prediction=True):
             - 'prediction': Object prediction label for the bounding box.
         n (int): Number used for generating the output image filename.
         imageOutputPath (str): Output directory to saved images.
+
     Returns:
         None
     """

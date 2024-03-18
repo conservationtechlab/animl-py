@@ -12,15 +12,15 @@ import pandas as pd
 from random import randrange
 
 
-def build_file_manifest(image_dir, exif=True, offset=0, out_file=None, unique=True):
+def build_file_manifest(image_dir, exif=True, out_file=None, unique=True):
     """
     Recursively Find Image/Video Files and Gather exif Data
 
     Args:
         - image_dir (str): directory of files to analyze
         - exif (bool): returns date and time info from exif data, defaults to True
-        - offset (int): add offset to time in hours, defaults to 0
         - out_file (str): file path to which the dataframe should be saved
+        - unique (bool): add a unique identifier name for each file
 
     Returns:
         - files (pd.DataFrame): list of files with or without file modify dates

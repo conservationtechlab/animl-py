@@ -19,7 +19,12 @@ from .classifiers import load_model
 
 def test(data_loader, model, device='cpu'):
     '''
-        Our actual training function.
+        Run trained model on test split
+
+        Args:
+            data_loader: test set dataloader
+            model: trained model object
+            device: run model on gpu or cpu, defaults to cpu
     '''
     model.to(device)
     model.eval()  # put the model into training mode
@@ -66,6 +71,7 @@ def main():
     # load config
     print(f'Using config "{args.config}"')
     cfg = yaml.safe_load(open(args.config, 'r'))
+    crop = cfg.get('crop', False)
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -79,7 +85,7 @@ def main():
 
     # initialize data loaders for training and validation set
     test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
-    dl_test = train_dataloader(test_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
+    dl_test = train_dataloader(test_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], crop=crop)
 
     # get predictions
     pred, true, paths = test(dl_test, model, device)

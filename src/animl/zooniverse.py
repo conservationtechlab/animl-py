@@ -48,22 +48,42 @@ from PIL import Image, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-def copy_image(infile, outpath, imageheight):
-    img = Image.open(infile.FilePath)
+def copy_image(image, out_dir, image_height):
+    """
+        Copy and resize an image for upload
+
+        Args:
+            - image (DataFrame): image to upload, row from list
+            - temp_dir (str): location to save temporary resized images to
+            - image_height (int): height in px to resize images before upload
+        Returns:
+            - out_file: the path of the copied image for upload
+    """
+    img = Image.open(image.FilePath)
     try:
         exif = img.info['exif']
     except KeyError:
         return None
 
-    wpercent = (imageheight / float(img.size[1]))
+    wpercent = (image_height / float(img.size[1]))
     imagewidth = int((float(img.size[0]) * float(wpercent)))
-    img = img.resize((imagewidth, imageheight), Image.ANTIALIAS)
-    outfile = outpath + infile.FileName
-    img.save(outfile, "JPEG", exif=exif)
-    return outfile
+    img = img.resize((imagewidth, image_height), Image.ANTIALIAS)
+    out_file = out_dir + image.FileName
+    img.save(out_file, "JPEG", exif=exif)
+    return out_file
 
 
 def create_SubjectSet(project, subject_set_name):
+    """
+        Create a new subject set under a given project
+
+        Args:
+            - project (int): Zooniverse project number
+            - subject_set_name (str): name of new subject set
+
+        Return:
+            - subject_set: the number associated with the new subject set
+    """
     subject_set = SubjectSet()
     subject_set.links.project = project
     subject_set.display_name = subject_set_name
@@ -72,12 +92,29 @@ def create_SubjectSet(project, subject_set_name):
 
 
 def connect_to_Panoptes(usr, pw):
+    """
+        Login to Zooniverse through panoptes
+
+        Args:
+            - usr (str): Zooniverse account username
+            - pw (str): Zooniverse account password
+    """
     Panoptes.connect(username=usr, password=pw)
     print("Connected to Zooniverse")
 
 
 def upload_to_Zooniverse_Simple(project_name, subject_set_name, images,
-                                outdir, imageheight=700):
+                                temp_dir, image_height=700):
+    """
+        Upload single images to Zooniverse
+
+        Args:
+            - project_name (str): name of project on zooniverse
+            - subject_set_name (str): name of subject set to upoad into
+            - images (DataFrame): list of images to upload
+            - temp_dir (str): location to save temporary resized images to
+            - image_height (int): height in px to resize images before upload
+    """
     sys.stdout.flush()
     # Create a new subject set or append the subjects to an existing one
     project = Project.find(project_name)
@@ -91,7 +128,7 @@ def upload_to_Zooniverse_Simple(project_name, subject_set_name, images,
             print(infile.FileName)
         subject = Subject()  # create new subject
         subject.links.project = project
-        outfile = copy_image(infile, outdir, imageheight)
+        outfile = copy_image(infile, temp_dir, image_height)
         if outfile is None:
             continue
         subject.add_location(outfile)
@@ -104,8 +141,20 @@ def upload_to_Zooniverse_Simple(project_name, subject_set_name, images,
         subject_set.add(subject)
 
 
-def upload_to_Zooniverse(project_name, subject_set_name, images, outdir,
-                         maxSeq=1, maxTime=0, imageheight=700):
+def upload_to_Zooniverse(project_name, subject_set_name, images, temp_dir,
+                         max_seq=1, max_time=0, image_height=700):
+    """
+        Upload sets of images to Zooniverse
+
+        Args:
+            - project_name (str): name of project on zooniverse
+            - subject_set_name (str): name of subject set to upoad into
+            - images (DataFrame): list of images to upload
+            - temp_dir (str): location to save temporary resized images to
+            - max_seq (int): maximum number of images within a set
+            - max_time (int): maximum duration in seconds to consider a set
+            - image_height (int): height in px to resize images before upload
+    """
     sys.stdout.flush()
     # Create a new subject set or append the subjects to an existing one
     project = Project.find(project_name)
@@ -129,10 +178,10 @@ def upload_to_Zooniverse(project_name, subject_set_name, images, outdir,
             currentDateTime = datetime.strptime(str(infile.DateTime), "%Y-%m-%d %H:%M:%S")
 
         # add image to current sequence
-        if si > 0 and si < maxSeq and (currentDateTime - dDateTime) <= maxTime and subject.metadata[
+        if si > 0 and si < max_seq and (currentDateTime - dDateTime) <= max_time and subject.metadata[
                 '#machine_prediction'] == infile.ZooniverseCode:
             # print("Continue")
-            outfile = copy_image(infile, outdir, imageheight)
+            outfile = copy_image(infile, temp_dir, image_height)
             if outfile is None:
                 continue
             subject.add_location(outfile)
@@ -147,13 +196,13 @@ def upload_to_Zooniverse(project_name, subject_set_name, images, outdir,
         #  print(subject.metadata)
 
         # sequence has ended, current image is in a new sequence
-        elif 0 < si < maxSeq and ((currentDateTime - dDateTime) > maxTime or subject.metadata[
+        elif 0 < si < max_seq and ((currentDateTime - dDateTime) > max_time or subject.metadata[
                 '#machine_prediction'] != infile.ZooniverseCode):
-            si = maxSeq
+            si = max_seq
             bProc = False
 
             # need to start a new sequence OR maxSeq = 1
-        if si == maxSeq:
+        if si == max_seq:
             # print("Upload")
             subject.save()
             subject_set.add(subject)
@@ -164,7 +213,7 @@ def upload_to_Zooniverse(project_name, subject_set_name, images, outdir,
             subject = Subject()  # create new subject
             subject.links.project = project
             dDateTime = currentDateTime
-            outfile = copy_image(infile, outdir, imageheight)
+            outfile = copy_image(infile, temp_dir, image_height)
             if outfile is None:
                 continue
             subject.add_location(outfile)
