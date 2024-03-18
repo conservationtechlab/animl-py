@@ -57,10 +57,11 @@ def train_val_test(manifest, out_dir=None, label_col="species",
     Credit: Unduwap Kandage-Don
 
     Args:
-        - manifest
-        - label_col
-        - percentage
-        - seed
+        - manifest (DataFrame): list of files to split for training
+        - out_dir (str): location to save split lists to
+        - label_col (str): column name containing class labels
+        - percentage (tuple): fraction of data dedicated to train-val-test
+        - seed (int): RNG seed, if none will pick one at random within [0,100]
 
     Returns:
         - train
@@ -89,14 +90,13 @@ def train_val_test(manifest, out_dir=None, label_col="species",
     # group the data based on label column
     manifest_by_label = manifest.groupby(label_col)
     labelCt = manifest[label_col].value_counts()
-    labels = labelCt.keys()
 
     print("seed =", seed)
 
-    for l in labels:
+    for label in labelCt.keys():
         # calc how much of each data belongs to each category
         # test gets the remainder due to rounding percentages
-        catCt = labelCt[l]
+        catCt = labelCt[label]
         trainCt = round(catCt * percentage[0])
         valCt = round(catCt * percentage[1])
         testCt = catCt - (trainCt + valCt)
@@ -107,7 +107,7 @@ def train_val_test(manifest, out_dir=None, label_col="species",
         testCtArr.append(testCt)
 
         # shuffle based on seed without re-sample
-        currLabel = manifest_by_label.get_group(l).sample(frac=1, replace=False, random_state=seed)
+        currLabel = manifest_by_label.get_group(label).sample(frac=1, replace=False, random_state=seed)
 
         # split group into train, test, val
         trainLabel = currLabel[0:trainCt]
@@ -120,7 +120,7 @@ def train_val_test(manifest, out_dir=None, label_col="species",
         test = pd.concat([test, testLabel], ignore_index=True)
 
     # save stats
-    stats = {"label": list(labels), "total images": totCtArr,
+    stats = {"label": list(labelCt.keys()), "total images": totCtArr,
              "train": trainCtArr, "test": testCtArr, "validation": valCtArr}
 
     if out_dir is not None:

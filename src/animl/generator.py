@@ -11,6 +11,21 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 def resize_with_padding(img, expected_size):
+    """Pads a crop to given size
+    If the image is torch Tensor, it is expected
+    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
+    If image size is smaller than output size along any edge, image is padded with 0 and
+    then center cropped.
+
+    Args:
+        - img (Img): a loaded Img object
+        - expected_size (sequence or int): Desired output size of the crop. If size is an
+            int instead of sequence like (h, w), a square crop (size, size) is
+            made. If provided a sequence of length 1, it will be interpreted as
+            (size[0], size[0]).
+    Returns:
+        - the padded Img object
+    """
     if img.size[0] == 0 or img.size[1] == 0:
         return img
     if img.size[0] > img.size[1]:
@@ -78,6 +93,14 @@ class ResizeWithPadding(torch.nn.Module):
 
 
 class CropGenerator(Dataset):
+    '''
+    Data generator that crops images on the fly, requires relative bbox coordinates,
+    ie from MegaDetector
+
+    Options:
+        - file_col: column name containing full file paths
+        - resize: dynamically resize images to target (square)
+    '''
     def __init__(self, x, file_col='file', resize=299):
         self.x = x
         self.file_col = file_col
@@ -126,6 +149,15 @@ class CropGenerator(Dataset):
 
 # currently working on this class
 class TrainGenerator(Dataset):
+    '''
+    Data generator for training. Requires a list of possible classes
+
+    Options:
+        - file_col: column name containing full file paths
+        - label_col: column name containing class labels
+        - crop: if true, dynamically crop
+        - resize: dynamically resize images to target (square)
+    '''
     def __init__(self, x, classes, file_col='FilePath', label_col='species', crop=True, resize=299):
         self.x = x
         self.resize = int(resize)
@@ -146,7 +178,7 @@ class TrainGenerator(Dataset):
 
     def __getitem__(self, idx):
         image_name = self.x.loc[idx, self.file_col]
-        label = self.categories[ self.x.loc[idx, self.label_col]]
+        label = self.categories[self.x.loc[idx, self.label_col]]
 
         try:
             img = Image.open(image_name).convert('RGB')
@@ -184,22 +216,30 @@ class TFGenerator(Sequence):
     Generator for TensorFlow/Keras models
 
     Does not require a dataloader, self-batches
+
+    Options:
+        - file_col: column name containing full file paths
+        - label_col: column name containing class labels
+        - crop: if true, dynamically crop
+        - resize: dynamically resize images to target (square)
+        - buffer: add buffer to crops
+        - batch_size: batch size for loading
     '''
-    def __init__(self, x, file_col='file', crop=True, resize=299, buffer=0, batch=32):
+    def __init__(self, x, file_col='file', crop=True, resize=299, buffer=0, batch_size=32):
         self.x = x
         self.file_col = file_col
         self.crop = crop
         self.resize = int(resize)
         self.buffer = buffer
-        self.batch = int(batch)
+        self.batch_size = int(batch_size)
 
     def __len__(self):
-        return int(np.ceil(len(self.x.index) / float(self.batch)))
+        return int(np.ceil(len(self.x.index) / float(self.batch_size)))
 
     def __getitem__(self, idx):
         imgarray = []
-        for i in range(min(len(self.x.index), idx * self.batch),
-                       min(len(self.x.index), (idx + 1) * self.batch)):
+        for i in range(min(len(self.x.index), idx * self.batch_size),
+                       min(len(self.x.index), (idx + 1) * self.batch_size)):
             try:
                 file = self.x[self.file_col].iloc[i]
                 img = Image.open(file)
@@ -234,7 +274,18 @@ class TFGenerator(Sequence):
 def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath", crop=False):
     '''
         Loads a dataset for training and wraps it in a
-        PyTorch DataLoader object.
+        PyTorch DataLoader object. Shuffles the data before loading.
+
+        Args:
+            - manifest (DataFrame): data to be fed into the model
+            - classes (dict): all possible class labels
+            - batch_size (int): size of each batch
+            - workers (int): number of processes to handle the data
+            - file_col: column name containing full file paths
+            - crop: if true, dynamically crop
+
+        Returns:
+            dataloader object
     '''
     dataset_instance = TrainGenerator(manifest, classes, file_col, crop=crop)
 
@@ -247,12 +298,21 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
     return dataLoader
 
 
-def create_dataloader(manifest, batch_size=1, workers=1, file_col="file"):
+def crop_dataloader(manifest, batch_size=1, workers=1, file_col="file"):
     '''
-        Loads a dataset and wraps it in a
-        PyTorch DataLoader object.
+        Loads a dataset and wraps it in a PyTorch DataLoader object.
+        Always dynamically crops
+
+        Args:
+            - manifest (DataFrame): data to be fed into the model
+            - batch_size (int): size of each batch
+            - workers (int): number of processes to handle the data
+            - file_col: column name containing full file paths
+
+        Returns:
+            dataloader object
     '''
-    #  file_col='file', resize=299, buffer=0
+    # default values file_col='file', resize=299, buffer=0
     dataset_instance = CropGenerator(manifest, file_col=file_col)
 
     dataLoader = DataLoader(

@@ -14,7 +14,7 @@ from .classifiers import EfficientNet
 
 
 def predict_species(detections, model, classes, device='cpu', out_file=None,
-                    file_col='Frame', resize=299, batch=1, workers=1):
+                    file_col='Frame', resize=299, batch_size=1, workers=1):
     """
     Predict species using classifier model
 
@@ -24,8 +24,9 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
         - classes: preloaded class list
         - device (str): specify to run model on cpu or gpu, default to cpu
         - out_file (str): path to save prediction results to
+        - file_col (str): column name containing file paths
         - resize (int): image input size
-        - batch (int): data generator batch size
+        - batch_size (int): data generator batch size
         - workers (int): number of cores
 
     Returns
@@ -39,11 +40,11 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
         if any(detections.columns.isin(["bbox1"])):
             # pytorch
             if type(model) == EfficientNet:
-                
+
                 predictions = []
                 probabilities = []
 
-                dataset = generator.create_dataloader(detections, batch_size=batch, workers=workers, file_col=file_col)
+                dataset = generator.crop_dataloader(detections, batch_size=batch_size, workers=workers, file_col=file_col)
                 progressBar = trange(len(dataset))
                 with torch.no_grad():
                     for ix, batch in enumerate(dataset):
@@ -55,16 +56,16 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
                         pred = classes['species'].values[labels]
                         predictions.extend(pred)
 
-                        probs = torch.max(torch.nn.functional.softmax(output, dim=1),1)[0]
+                        probs = torch.max(torch.nn.functional.softmax(output, dim=1), 1)[0]
                         probabilities.extend(probs.cpu().detach().numpy())
                         progressBar.update(1)
 
                 detections['prediction'] = predictions
                 detections['confidence'] = probabilities
-                progressBar.close()   
+                progressBar.close()
 
             else:  # tensorflow
-                dataset = generator.TFGenerator(detections, file_col=file_col, resize=resize, batch=batch)
+                dataset = generator.TFGenerator(detections, file_col=file_col, resize=resize, batch_size=batch_size)
                 output = model.predict(dataset, workers=workers, verbose=1)
 
                 detections['prediction'] = [classes['species'].values[int(np.argmax(x))] for x in output]
