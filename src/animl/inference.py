@@ -14,7 +14,7 @@ from .classifiers import EfficientNet
 
 
 def predict_species(detections, model, classes, device='cpu', out_file=None,
-                    file_col='Frame', resize=299, batch_size=1, workers=1):
+                    file_col='Frame', resize=299, batch_size=1, workers=1, raw=False):
     """
     Predict species using classifier model
 
@@ -43,6 +43,8 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
 
                 predictions = []
                 probabilities = []
+                if raw:
+                    raw_output = []
 
                 dataset = generator.crop_dataloader(detections, batch_size=batch_size, workers=workers, file_col=file_col)
                 progressBar = trange(len(dataset))
@@ -51,6 +53,8 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
                         data = batch[0]
                         data = data.to(device)
                         output = model(data)
+                        if raw:
+                            raw_output.extend(output.cpu().detach().numpy())
 
                         labels = torch.argmax(output, dim=1).cpu().detach().numpy()
                         pred = classes['species'].values[labels]
@@ -81,4 +85,7 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
     if out_file:
         file_management.save_data(detections, out_file)
 
-    return detections
+    if raw:
+        return np.vstack(raw_output)
+    else:
+        return detections
