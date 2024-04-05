@@ -8,7 +8,7 @@ from numpy import vstack
 from . import file_management
 
 
-def extract_images(file_path, out_dir, fps=None, frames=None):
+def extract_frames(file_path, out_dir, fps=None, frames=None):
     """
     Extract frames from video for classification
 
@@ -111,7 +111,7 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
         if parallel:
             pool = mp.Pool(workers)
 
-            video_frames = vstack([pool.apply(extract_images, args=(video, out_dir, fps, frames))
+            video_frames = vstack([pool.apply(extract_frames, args=(video, out_dir, fps, frames))
                                    for video in tqdm(videos["FilePath"])])
 
             video_frames = pd.DataFrame(video_frames, columns=["Frame", "FilePath"])
@@ -121,7 +121,7 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
         else:
             video_frames = []
             for i, video in tqdm(videos.iterrows()):
-                video_frames += extract_images(video["FilePath"], out_dir=out_dir,
+                video_frames += extract_frames(video["FilePath"], out_dir=out_dir,
                                                fps=fps, frames=frames)
 
                 if (i % checkpoint == 0) and (out_file is not None):
