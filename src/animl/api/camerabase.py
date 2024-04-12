@@ -1,4 +1,0 @@
-'''
-    Integration with Camera Base
-
-'''
