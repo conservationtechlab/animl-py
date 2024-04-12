@@ -64,7 +64,7 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
 
 
 def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint_frequency=-1,
-                    confidence_threshold=0.005, quiet=True, image_size=None):
+                    confidence_threshold=0.1, quiet=True, image_size=None):
     """
     From AgentMorris/MegaDetector
     Runs MegaDetector on a batch of image files.
@@ -200,13 +200,12 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
 
         else:
             for detection in detections:
-                bbox = detection['bbox']
                 if (detection['conf'] > threshold):
                     data = {'file': [frame['file']],
                             'max_detection_conf': [frame['max_detection_conf']],
                             'category': [detection['category']], 'conf': [detection['conf']],
-                            'bbox1': [bbox[0]], 'bbox2': [bbox[1]],
-                            'bbox3': [bbox[2]], 'bbox4': [bbox[3]]}
+                            'bbox1': [detection['bbox1']], 'bbox2': [detection['bbox2']],
+                            'bbox3': [detection['bbox3']], 'bbox4': [detection['bbox4']]}
                     df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
 
     # adjust boxes with 2% buffer from image edge

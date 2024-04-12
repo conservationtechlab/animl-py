@@ -18,8 +18,8 @@ class MegaDetector:
     IMAGE_SIZE = 1280  # image size used in training
     STRIDE = 64
 
-    def __init__(self, model_path: str):
-        if torch.cuda.is_available():
+    def __init__(self, model_path: str, device=None):
+        if torch.cuda.is_available() and device is None:
             self.device = torch.device('cuda:0')
 #             try:
 #                if torch.backends.mps.is_built and torch.backends.mps.is_available():
@@ -133,6 +133,7 @@ class MegaDetector:
                         xywh = (general.xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()
 
                         api_box = convert_yolo_to_xywh(xywh)
+                        api_box = truncate_float_array(api_box, precision=COORD_DIGITS)
 
                         conf = truncate_float(conf.tolist(), precision=CONF_DIGITS)
 
@@ -143,7 +144,10 @@ class MegaDetector:
                         detections.append({
                             'category': str(cls),
                             'conf': conf,
-                            'bbox': truncate_float_array(api_box, precision=COORD_DIGITS)
+                            'bbox1': api_box[0],
+                            'bbox2': api_box[1],
+                            'bbox3': api_box[2],
+                            'bbox4': api_box[3],
                         })
                         max_conf = max(max_conf, conf)
                     # ...for each detection in this batch

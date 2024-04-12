@@ -1,4 +1,3 @@
-from tensorflow.keras.utils import Sequence
 import numpy as np
 from PIL import Image, ImageOps, ImageFile
 import tensorflow as tf
@@ -211,7 +210,7 @@ class TrainGenerator(Dataset):
         return img_tensor, label, image_name
 
 
-class TFGenerator(Sequence):
+class TFGenerator(Dataset):
     '''
     Generator for TensorFlow/Keras models
 
