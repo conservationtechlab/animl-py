@@ -3,6 +3,7 @@ from PIL import Image, ImageOps, ImageFile
 import tensorflow as tf
 import torch
 from torch.utils.data import Dataset, DataLoader
+from tensorflow.keras.utils import Sequence
 from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip)
 from .utils.torch_utils import _setup_size
 
@@ -210,7 +211,7 @@ class TrainGenerator(Dataset):
         return img_tensor, label, image_name
 
 
-class TFGenerator(Dataset):
+class TFGenerator(Sequence):
     '''
     Generator for TensorFlow/Keras models
 
