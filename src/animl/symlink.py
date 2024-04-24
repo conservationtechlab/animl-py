@@ -15,9 +15,13 @@ def symlink_species(manifest, linkdir, file_col="FilePath", copy=False):
     Creates symbolic links of images into species folders
 
     Args
-        - manifest: dataframe containing images and associated predictions
-        - linkdir: root directory for species folders
-        - classes: full list of class names
+        - manifest (DataFrame): dataframe containing images and associated predictions
+        - linkdir (str): root directory for species folders
+        - file_col (str): column containing source paths
+        - copy (bool): if true, hard copy
+
+    Returns
+        copy of manifest with link path column
     """
     # Create species folders
     for species in manifest['prediction'].unique():
@@ -48,13 +52,17 @@ def symlink_MD(manifest, linkdir, file_col="file", copy=False):
     Creates symbolic links of images into species folders
 
     Args
-        - manifest: dataframe containing images and associated detections
-        - linkdir: root directory for species folders
-        - classes: full list of class names
+        - manifest (DataFrame): dataframe containing images and associated predictions
+        - linkdir (str): root directory for species folders
+        - file_col (str): column containing source paths
+        - copy (bool): if true, hard copy
+
+    Returns
+        copy of manifest with link path column
     """
     # Create class subfolders
     classes = ["empty", "animal", "human", "vehicle"]
-    for i in range(len(classes)):
+    for i in range(classes):
         os.makedirs(linkdir + i, exist_ok=True)
 
     # create new column

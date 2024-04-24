@@ -174,6 +174,7 @@ def main():
 
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
+    crop = cfg.get('crop', False)
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -183,14 +184,14 @@ def main():
 
     # initialize model and get class list
     model, classes, current_epoch = load_model(cfg['experiment_folder'], cfg['class_file'], device=device, architecture=cfg['architecture'])
-    
+
     categories = dict([[x["species"], x["id"]] for _, x in classes.iterrows()])
 
     # initialize data loaders for training and validation set
     train_dataset = pd.read_csv(cfg['training_set']).reset_index(drop=True)
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
-    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
-    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'])
+    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], crop=crop)
+    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], crop=crop)
 
     # set up model optimizer
     optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
