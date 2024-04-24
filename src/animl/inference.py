@@ -86,6 +86,6 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
         file_management.save_data(detections, out_file)
 
     if raw:
-        return np.vstack(raw_output)
+        return detections, np.vstack(raw_output)
     else:
         return detections
