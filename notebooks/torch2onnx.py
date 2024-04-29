@@ -1,5 +1,5 @@
 """
-    Converts a given pyTorch model to an Onnx Model
+    Converts a given Torch model to an Onnx Model
 
     Author: Unduwap KandageDon
 """
