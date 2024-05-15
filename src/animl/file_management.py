@@ -7,7 +7,7 @@
 """
 import os
 from glob import glob
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 from random import randrange
 from exiftool import ExifToolHelper
@@ -41,9 +41,9 @@ def build_file_manifest(image_dir, exif=True, out_file=None, unique=True, offset
     if exif:
         files["FileModifyDate"] = files["FilePath"].apply(
             lambda x: datetime.fromtimestamp(
-                os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
+                os.path.getmtime(x)))
         # add hour offset to adjust timezone
-        files["FileModifyDate"] = files["FileModifyDate"] + offset
+        files["FileModifyDate"] = files["FileModifyDate"] + timedelta(hours=offset)
 
     if unique:
         files['UniqueName'] = files['FileName'].apply(lambda x: os.path.splitext(x)[0] + "_" +
