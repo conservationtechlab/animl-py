@@ -49,7 +49,8 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     # Create a working directory, build the file manifest from img_dir
     working_dir = file_management.WorkingDirectory(image_dir)
     files = file_management.build_file_manifest(image_dir,
-                                                out_file=working_dir.filemanifest)
+                                                out_file=working_dir.filemanifest,
+                                                exif=True)
     print("Found %d files." % len(files))
 
     # Video-processing to extract individual frames as images in to directory
