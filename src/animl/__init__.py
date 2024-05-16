@@ -21,8 +21,8 @@ from animl.classifiers import (EfficientNet, load_model, save_model,)
 from animl.detect import (detect_MD_batch, parse_MD, process_image,)
 from animl.file_management import (WorkingDirectory, build_file_manifest,
                                    check_file, load_data, save_data,)
-from animl.generator import (CropGenerator, ResizeWithPadding, TFGenerator,
-                             TrainGenerator, crop_dataloader,
+from animl.generator import (ImageGenerator, ResizeWithPadding,
+                             TrainGenerator, manifest_dataloader,
                              resize_with_padding, train_dataloader,)
 from animl.inference import (predict_species,)
 from animl.megadetector import (CONF_DIGITS, COORD_DIGITS, MegaDetector,
