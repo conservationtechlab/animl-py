@@ -11,8 +11,8 @@ import torch.nn as nn
 from time import time
 from torchvision.models import efficientnet
 # import tensorflow.keras
+# import onnx
 import torch.onnx
-import onnx
 import onnxruntime
 
 
@@ -110,7 +110,7 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
             model.eval()
             model.framework = "pytorch"
         elif model_path.endswith('.onnx'):
-            onnx.checker.check_model(model_path)
+            #onnx.checker.check_model(model_path)
             if device == "gpu":
                 model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider"])
             else:

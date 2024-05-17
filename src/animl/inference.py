@@ -8,7 +8,7 @@
 import torch
 import pandas as pd
 import numpy as np
-from tqdm import trange
+from tqdm import tqdm
 from . import generator, file_management
 
 
@@ -68,9 +68,9 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
 
             dataset = generator.manifest_dataloader(detections, batch_size=batch_size, workers=workers,
                                                     file_col=file_col, crop=crop, resize=resize)
-            progressBar = trange(len(dataset))
+
             with torch.no_grad():
-                for _, batch in enumerate(dataset):
+                for _, batch in tqdm(enumerate(dataset)):
                     # pytorch
                     if model.framework == "pytorch" or model.framework == "EfficientNet":
                         data = batch[0]
@@ -80,12 +80,11 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
                             raw_output.extend(output.cpu().detach().numpy())
 
                         labels = torch.argmax(output, dim=1).cpu().detach().numpy()
-                        pred = classes['species'].values[labels]
+                        pred = classes['Code'].values[labels]
                         predictions.extend(pred)
 
                         probs = torch.max(torch.nn.functional.softmax(output, dim=1), 1)[0]
                         probabilities.extend(probs.cpu().detach().numpy())
-                        progressBar.update(1)
 
                     # onnx
                     elif model.framework == "onnx":
@@ -101,7 +100,7 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
                             raw_output.extend(output)
 
                         labels = np.argmax(output, axis=1)
-                        pred = classes['species'].values[labels]
+                        pred = classes['Code'].values[labels]
                         predictions.extend(pred)
 
                         # onnx_probs = np.max(softmax(output),axis=1)

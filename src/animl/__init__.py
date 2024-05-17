@@ -38,7 +38,7 @@ from animl.utils import (notebook_init,)
 from animl.video_processing import (extract_frames, images_from_videos,)
 
 __all__ = ['CONF_DIGITS', 'COORD_DIGITS', 'CropGenerator', 'EfficientNet',
-           'MegaDetector', 'ResizeWithPadding', 'TFGenerator',
+           'MegaDetector', 'ResizeWithPadding', 'TFGenerator', 'ImageGenerator'
            'TrainGenerator', 'WorkingDirectory', 'animl_results_to_md_results',
            'build_file_manifest', 'check_file', 'classifiers',
            'convert_yolo_to_xywh', 'crop_dataloader', 'demo_boxes', 'detect',
@@ -48,7 +48,7 @@ __all__ = ['CONF_DIGITS', 'COORD_DIGITS', 'CropGenerator', 'EfficientNet',
            'inference', 'init_seed', 'load_data', 'load_model', 'main',
            'megadetector', 'notebook_init', 'parse_MD', 'plot_boxes',
            'predict_species', 'process_image', 'remove_symlink',
-           'resize_with_padding', 'save_data', 'save_model',
+           'resize_with_padding', 'save_data', 'save_model', 'manifest_dataloader'
            'sequence_classification', 'split', 'symlink', 'symlink_MD',
            'symlink_species', 'test', 'train', 'train_dataloader',
            'train_val_test', 'truncate_float', 'truncate_float_array',
