@@ -1,11 +1,11 @@
-import numpy as np
+# import numpy as np
 from PIL import Image, ImageOps, ImageFile
-#import tensorflow as tf
 import torch
 from torch.utils.data import Dataset, DataLoader
-#from tensorflow.keras.utils import Sequence
 from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip)
 from .utils.torch_utils import _setup_size
+# import tensorflow as tf
+# from tensorflow.keras.utils import Sequence
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -99,19 +99,21 @@ class ImageGenerator(Dataset):
 
     Options:
         - file_col: column name containing full file paths
-        - resize: dynamically resize images to target (square)
+        - resize: dynamically resize images to target (square) [W,H]
     '''
-    def __init__(self, x, file_col='file', resize=[299,299], crop=True):
+    def __init__(self, x, file_col='file', resize=299, crop=True, standardize=True):
         self.x = x
         self.file_col = file_col
         self.crop = crop
         if type(resize) == int:
-            self.resize = [resize,resize]
+            self.resize = [resize, resize]
         else:
             self.resize = resize
         self.buffer = 0
+        self.standardize = standardize
         self.transform = Compose([
-            Resize((self.resize[0], self.resize[1])),
+            # torch.resize order is H,W
+            Resize((self.resize[1], self.resize[0])),
             ToTensor(),
         ])
 
@@ -140,7 +142,7 @@ class ImageGenerator(Dataset):
             top = height * bbox2
             right = width * (bbox1 + bbox3)
             bottom = height * (bbox2 + bbox4)
-            
+
             left = max(0, int(left) - self.buffer)
             top = max(0, int(top) - self.buffer)
             right = min(width, int(right) + self.buffer)
@@ -215,9 +217,10 @@ class TrainGenerator(Dataset):
 
         return img_tensor, label, image_name
 
+
 '''
 class TFGenerator(Sequence):
-    
+
     Generator for TensorFlow/Keras models
 
     Does not require a dataloader, self-batches
@@ -229,7 +232,7 @@ class TFGenerator(Sequence):
         - resize: dynamically resize images to target (square)
         - buffer: add buffer to crops
         - batch_size: batch size for loading
-    
+
     def __init__(self, x, file_col='file', crop=True, resize=299, buffer=0, batch_size=32):
         self.x = x
         self.file_col = file_col
@@ -276,8 +279,8 @@ class TFGenerator(Sequence):
         return np.asarray(imgarray)
 '''
 
-def train_dataloader(manifest, classes, batch_size=1, workers=1, 
-                     file_col="FilePath", crop=False, resize=[299,299]):
+
+def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath", crop=False):
     '''
         Loads a dataset for training and wraps it in a
         PyTorch DataLoader object. Shuffles the data before loading.
@@ -293,7 +296,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1,
         Returns:
             dataloader object
     '''
-    dataset_instance = TrainGenerator(manifest, classes, file_col=file_col, crop=crop, resize=resize)
+    dataset_instance = TrainGenerator(manifest, classes, file_col, crop=crop)
 
     dataLoader = DataLoader(
             dataset=dataset_instance,
@@ -304,7 +307,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1,
     return dataLoader
 
 
-def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file", crop=False, resize=[299,299]):
+def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file", crop=False, resize=[299, 299]):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.
         Always dynamically crops
@@ -318,12 +321,10 @@ def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file", crop
         Returns:
             dataloader object
     '''
-    # default values file_col='file', resize=299, buffer=0
-    
-    # crop selected but no bounding boxes found
     if crop is True and not any(manifest.columns.isin(["bbox1"])):
         crop = False
-        
+
+    # default values file_col='file', resize=299, buffer=0
     dataset_instance = ImageGenerator(manifest, file_col=file_col, crop=crop, resize=resize)
 
     dataLoader = DataLoader(
