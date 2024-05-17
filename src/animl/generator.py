@@ -108,7 +108,7 @@ class ImageGenerator(Dataset):
         if type(resize) == int:
             self.resize = [resize, resize]
         else:
-            self.resize = resize
+            self.resize = [int(resize[0]),int(resize[1])]
         self.buffer = 0
         self.standardize = standardize
         self.transform = Compose([
