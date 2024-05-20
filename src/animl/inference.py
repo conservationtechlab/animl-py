@@ -88,11 +88,9 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
 
                     # onnx
                     elif model.framework == "onnx":
-                        if device == "gpu":
-                            device = "cuda"
+                        device = "cpu"
 
                         data = batch[0]
-                        data = data.to(device)
 
                         inputs = {model.get_inputs()[0].name: tensor_to_onnx(data)}
                         output = model.run(None, inputs)[0]
@@ -112,7 +110,6 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
 
                 detections['prediction'] = predictions
                 detections['confidence'] = probabilities
-                progressBar.close()
 
     else:
         raise AssertionError("Input must be a data frame of crops or vector of file names.")
