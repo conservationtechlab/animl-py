@@ -4,10 +4,7 @@ Model validation metrics
 """
 
 import math
-import warnings
 from pathlib import Path
-
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -178,40 +175,6 @@ class ConfusionMatrix:
         # fn = self.matrix.sum(0) - tp  # false negatives (missed detections)
         return tp[:-1], fp[:-1]  # remove background class
 
-    def plot(self, normalize=True, save_dir='', names=()):
-        try:
-            import seaborn as sn
-
-            array = self.matrix / ((self.matrix.sum(0).reshape(1, -1) + 1E-9) if normalize else 1)  # normalize columns
-            array[array < 0.005] = np.nan  # don't annotate (would appear as 0.00)
-
-            fig = plt.figure(figsize=(12, 9), tight_layout=True)
-            nc, nn = self.nc, len(names)  # number of classes, names
-            sn.set(font_scale=1.0 if nc < 50 else 0.8)  # for label size
-            labels = (0 < nn < 99) and (nn == nc)  # apply names to ticklabels
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore')  # suppress empty matrix RuntimeWarning: All-NaN slice encountered
-                sn.heatmap(array,
-                           annot=nc < 30,
-                           annot_kws={
-                               "size": 8},
-                           cmap='Blues',
-                           fmt='.2f',
-                           square=True,
-                           vmin=0.0,
-                           xticklabels=names + ['background FP'] if labels else "auto",
-                           yticklabels=names + ['background FN'] if labels else "auto").set_facecolor((1, 1, 1))
-            fig.axes[0].set_xlabel('True')
-            fig.axes[0].set_ylabel('Predicted')
-            fig.savefig(Path(save_dir) / 'confusion_matrix.png', dpi=250)
-            plt.close()
-        except Exception as e:
-            print(f'WARNING: ConfusionMatrix plot failure: {e}')
-
-    def print(self):
-        for i in range(self.nc + 1):
-            print(' '.join(map(str, self.matrix[i])))
-
 
 def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, eps=1e-7):
     # Returns Intersection over Union (IoU) of box1(1,4) to box2(n,4)
@@ -308,48 +271,3 @@ def wh_iou(wh1, wh2):
     wh2 = wh2[None]  # [1,M,2]
     inter = torch.min(wh1, wh2).prod(2)  # [N,M]
     return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter)
-
-
-# Plots ----------------------------------------------------------------------------------------------------------------
-
-
-def plot_pr_curve(px, py, ap, save_dir=Path('pr_curve.png'), names=()):
-    # Precision-recall curve
-    fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
-    py = np.stack(py, axis=1)
-
-    if 0 < len(names) < 21:  # display per-class legend if < 21 classes
-        for i, y in enumerate(py.T):
-            ax.plot(px, y, linewidth=1, label=f'{names[i]} {ap[i, 0]:.3f}')  # plot(recall, precision)
-    else:
-        ax.plot(px, py, linewidth=1, color='grey')  # plot(recall, precision)
-
-    ax.plot(px, py.mean(1), linewidth=3, color='blue', label='all classes %.3f mAP@0.5' % ap[:, 0].mean())
-    ax.set_xlabel('Recall')
-    ax.set_ylabel('Precision')
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
-    fig.savefig(save_dir, dpi=250)
-    plt.close()
-
-
-def plot_mc_curve(px, py, save_dir=Path('mc_curve.png'), names=(), xlabel='Confidence', ylabel='Metric'):
-    # Metric-confidence curve
-    fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
-
-    if 0 < len(names) < 21:  # display per-class legend if < 21 classes
-        for i, y in enumerate(py):
-            ax.plot(px, y, linewidth=1, label=f'{names[i]}')  # plot(confidence, metric)
-    else:
-        ax.plot(px, py.T, linewidth=1, color='grey')  # plot(confidence, metric)
-
-    y = smooth(py.mean(0), 0.05)
-    ax.plot(px, y, linewidth=3, color='blue', label=f'all classes {y.max():.2f} at {px[y.argmax()]:.3f}')
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
-    fig.savefig(save_dir, dpi=250)
-    plt.close()
