@@ -1,11 +1,11 @@
-import numpy as np
+# import numpy as np
 from PIL import Image, ImageOps, ImageFile
-import tensorflow as tf
 import torch
 from torch.utils.data import Dataset, DataLoader
-from tensorflow.keras.utils import Sequence
 from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip)
 from .utils.torch_utils import _setup_size
+# import tensorflow as tf
+# from tensorflow.keras.utils import Sequence
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -92,22 +92,28 @@ class ResizeWithPadding(torch.nn.Module):
         return f"{self.__class__.__name__}(size={self.size})"
 
 
-class CropGenerator(Dataset):
+class ImageGenerator(Dataset):
     '''
     Data generator that crops images on the fly, requires relative bbox coordinates,
     ie from MegaDetector
 
     Options:
         - file_col: column name containing full file paths
-        - resize: dynamically resize images to target (square)
+        - resize: dynamically resize images to target (square) [W,H]
     '''
-    def __init__(self, x, file_col='file', resize=299):
+    def __init__(self, x, file_col='file', resize=299, crop=True, standardize=True):
         self.x = x
         self.file_col = file_col
-        self.resize = int(resize)
+        self.crop = crop
+        if type(resize) == int:
+            self.resize = [resize, resize]
+        else:
+            self.resize = [int(resize[0]),int(resize[1])]
         self.buffer = 0
+        self.standardize = standardize
         self.transform = Compose([
-            Resize((self.resize, self.resize)),
+            # torch.resize order is H,W
+            Resize((self.resize[1], self.resize[0])),
             ToTensor(),
         ])
 
@@ -126,21 +132,22 @@ class CropGenerator(Dataset):
 
         width, height = img.size
 
-        bbox1 = self.x['bbox1'].iloc[idx]
-        bbox2 = self.x['bbox2'].iloc[idx]
-        bbox3 = self.x['bbox3'].iloc[idx]
-        bbox4 = self.x['bbox4'].iloc[idx]
+        if self.crop:
+            bbox1 = self.x['bbox1'].iloc[idx]
+            bbox2 = self.x['bbox2'].iloc[idx]
+            bbox3 = self.x['bbox3'].iloc[idx]
+            bbox4 = self.x['bbox4'].iloc[idx]
 
-        left = width * bbox1
-        top = height * bbox2
-        right = width * (bbox1 + bbox3)
-        bottom = height * (bbox2 + bbox4)
+            left = width * bbox1
+            top = height * bbox2
+            right = width * (bbox1 + bbox3)
+            bottom = height * (bbox2 + bbox4)
 
-        left = max(0, int(left) - self.buffer)
-        top = max(0, int(top) - self.buffer)
-        right = min(width, int(right) + self.buffer)
-        bottom = min(height, int(bottom) + self.buffer)
-        img = img.crop((left, top, right, bottom))
+            left = max(0, int(left) - self.buffer)
+            top = max(0, int(top) - self.buffer)
+            right = min(width, int(right) + self.buffer)
+            bottom = min(height, int(bottom) + self.buffer)
+            img = img.crop((left, top, right, bottom))
 
         img_tensor = self.transform(img)
 
@@ -211,8 +218,9 @@ class TrainGenerator(Dataset):
         return img_tensor, label, image_name
 
 
+'''
 class TFGenerator(Sequence):
-    '''
+
     Generator for TensorFlow/Keras models
 
     Does not require a dataloader, self-batches
@@ -224,7 +232,7 @@ class TFGenerator(Sequence):
         - resize: dynamically resize images to target (square)
         - buffer: add buffer to crops
         - batch_size: batch size for loading
-    '''
+
     def __init__(self, x, file_col='file', crop=True, resize=299, buffer=0, batch_size=32):
         self.x = x
         self.file_col = file_col
@@ -269,6 +277,7 @@ class TFGenerator(Sequence):
             imgarray.append(img)
 
         return np.asarray(imgarray)
+'''
 
 
 def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath", crop=False):
@@ -298,7 +307,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
     return dataLoader
 
 
-def crop_dataloader(manifest, batch_size=1, workers=1, file_col="file"):
+def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file", crop=False, resize=[299, 299]):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.
         Always dynamically crops
@@ -312,8 +321,11 @@ def crop_dataloader(manifest, batch_size=1, workers=1, file_col="file"):
         Returns:
             dataloader object
     '''
+    if crop is True and not any(manifest.columns.isin(["bbox1"])):
+        crop = False
+
     # default values file_col='file', resize=299, buffer=0
-    dataset_instance = CropGenerator(manifest, file_col=file_col)
+    dataset_instance = ImageGenerator(manifest, file_col=file_col, crop=crop, resize=resize)
 
     dataLoader = DataLoader(
             dataset=dataset_instance,

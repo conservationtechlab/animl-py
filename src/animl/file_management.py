@@ -7,7 +7,7 @@
 """
 import os
 from glob import glob
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 from random import randrange
 from exiftool import ExifToolHelper
@@ -41,9 +41,9 @@ def build_file_manifest(image_dir, exif=True, out_file=None, unique=True, offset
     if exif:
         files["FileModifyDate"] = files["FilePath"].apply(
             lambda x: datetime.fromtimestamp(
-                os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
+                os.path.getmtime(x)))
         # add hour offset to adjust timezone
-        files["FileModifyDate"] = files["FileModifyDate"] + offset
+        files["FileModifyDate"] = files["FileModifyDate"] + timedelta(hours=offset)
 
     if unique:
         files['UniqueName'] = files['FileName'].apply(lambda x: os.path.splitext(x)[0] + "_" +
@@ -155,20 +155,18 @@ def check_file(file):
 
 def correct_datetime(manifest, file_col="Filepath"):
     '''
-    Rewrite the FileModifyDate for files that had them overwritten by the OS 
-    
-    Ars: 
+    Rewrite the FileModifyDate for files that had them overwritten by the OS
+
+    Ars:
         - manifest (DataFrame): manifest containing original FileModifyDates
         - file_col (str): column in manifest containing filepaths to rewrite
-    
     '''
     et = ExifToolHelper()
-    #reconvert format
-    manifest['FileMod_Converted'] = manifest['FileModifyDate'].apply(lambda x: datetime.strptime(x,"%Y-%m-%d %H:%M:%S").strftime("%Y:%m:%d %H:%M:%S"))
+    # reconvert format
+    manifest['FileMod_Converted'] = manifest['FileModifyDate'].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S").strftime("%Y:%m:%d %H:%M:%S"))
     for _, row in tqdm(manifest.iterrows()):
         original = row["FileMod_Converted"]
-        
+
         et.set_tags([row[file_col]],
                     tags={"FileModifyDate": original},
-                    params=["-P", "-overwrite_original"]
-        )
+                    params=["-P", "-overwrite_original"])

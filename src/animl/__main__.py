@@ -103,15 +103,15 @@ home = os.path.join(os.getcwd(), 'models')
 # Create and parse arguements
 parser.add_argument('image_dir', type=str,
                     help='Path to Image Directory')
-parser.add_argument('detector_file', type=str, nargs='?',
+parser.add_argument('--detector_file', type=str, nargs='?',
                     help='Path to MD model',
                     default=os.path.join(home, 'md_v5a.0.0.pt'))
-parser.add_argument('classifier_file', type=str, nargs='?',
+parser.add_argument('--classifier_file', type=str, nargs='?',
                     help='Path to Class model',
-                    default=os.path.join(home, 'southwest_v2.h5'))
-parser.add_argument('class_list', type=str, nargs='?',
+                    default=os.path.join(home, 'southwest_v3.pt'))
+parser.add_argument('--class_list', type=str, nargs='?',
                     help='Path to class list',
-                    default=os.path.join(home, 'southwest_v2_classes.csv'))
+                    default=os.path.join(home, 'southwest_v3_classes.csv'))
 # Parse the command-line arguments
 
 args = parser.parse_args()
@@ -135,12 +135,12 @@ if not os.path.isfile(args.classifier_file):
                       out=home)
 
 if not os.path.isfile(args.class_list):
-    prompt = "Class list not found, would you like to download Southwest_v2? y/n: "
+    prompt = "Class list not found, would you like to download Southwest_v3? y/n: "
     if input(prompt).lower() == "y":
         if not os.path.isdir(home):
             os.mkdir(home)
         print('Saving to', home)
-        wget.download('https://sandiegozoo.box.com/shared/static/u5zsr7k8st35zeqfisbht5mcoi9cbajy.csv',
+        wget.download('https://sandiegozoo.box.com/shared/static/tetfkotf295espoaw8jyco4tk1t0trtt.csv',
                       out=home)
 
 # Call the main function

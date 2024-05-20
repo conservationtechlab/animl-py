@@ -10,7 +10,10 @@ import torch
 import torch.nn as nn
 from time import time
 from torchvision.models import efficientnet
-from tensorflow import keras
+# import tensorflow.keras
+# import onnx
+import torch.onnx
+import onnxruntime
 
 
 def save_model(out_dir, epoch, model, stats):
@@ -90,20 +93,29 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
         print(f'Loading model at {model_path}')
         start_time = time()
         # TensorFlow
-        if model_path.endswith('.h5'):
-            model = keras.models.load_model(model_path)
+        # if model_path.endswith('.h5'):
+        #    model = keras.models.load_model(model_path)
         # PyTorch dict
-        elif model_path.endswith('.pt'):
+        if model_path.endswith('.pt'):
             model = EfficientNet(len(classes), tune=False)
             checkpoint = torch.load(model_path)
             model.load_state_dict(checkpoint['model'])
             model.to(device)
             model.eval()
+            model.framework = "EfficientNet"
         # PyTorch full model
         elif model_path.endswith('.pth'):
             model = torch.load(model_path)
             model.to(device)
             model.eval()
+            model.framework = "pytorch"
+        elif model_path.endswith('.onnx'):
+            #onnx.checker.check_model(model_path)
+            if device == "gpu":
+                model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider"])
+            else:
+                model = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+            model.framework = "onnx"
         else:
             raise ValueError('Unrecognized model format: {}'.format(model_path))
         elapsed = time() - start_time
