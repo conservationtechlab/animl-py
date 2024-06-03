@@ -33,8 +33,7 @@ import torch
 import torchvision
 import yaml
 
-from .downloads import gsutil_getsize
-from .metrics import box_iou, fitness
+#from .downloads import gsutil_getsize
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[1]  # YOLOv5 root directory
@@ -904,6 +903,12 @@ def strip_optimizer(f='best.pt', s=''):  # from utils.general import *; strip_op
     mb = os.path.getsize(s or f) / 1E6  # filesize
     LOGGER.info(f"Optimizer stripped from {f},{f' saved as {s},' if s else ''} {mb:.1f}MB")
 
+# FROM downloads.py
+def gsutil_getsize(url=''):
+    # gs://bucket/file size https://cloud.google.com/storage/docs/gsutil/commands/du
+    s = check_output(f'gsutil du {url}', shell=True).decode('utf-8')
+    return eval(s.split(' ')[0]) if len(s) else 0  # bytes
+
 
 def print_mutation(results, hyp, save_dir, bucket, prefix=colorstr('evolve: ')):
     evolve_csv = save_dir / 'evolve.csv'
@@ -1030,3 +1035,35 @@ cv2.imread, cv2.imwrite, cv2.imshow = imread, imwrite, imshow  # redefine
 
 # Variables ------------------------------------------------------------------------------------------------------------
 NCOLS = 0 if is_docker() else shutil.get_terminal_size().columns  # terminal window size for tqdm
+
+
+# From metrics.py ------------------------------------------------------------------------------------------------------
+def fitness(x):
+    # Model fitness as a weighted combination of metrics
+    w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
+    return (x[:, :4] * w).sum(1)
+
+def box_area(box):
+    # box = xyxy(4,n)
+    return (box[2] - box[0]) * (box[3] - box[1])
+
+
+def box_iou(box1, box2):
+    # https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
+    """
+    Return intersection-over-union (Jaccard index) of boxes.
+    Both sets of boxes are expected to be in (x1, y1, x2, y2) format.
+    Arguments:
+        box1 (Tensor[N, 4])
+        box2 (Tensor[M, 4])
+    Returns:
+        iou (Tensor[N, M]): the NxM matrix containing the pairwise
+            IoU values for every element in boxes1 and boxes2
+    """
+
+    # inter(N,M) = (rb(N,M,2) - lt(N,M,2)).clamp(0).prod(2)
+    (a1, a2), (b1, b2) = box1[:, None].chunk(2, 2), box2.chunk(2, 1)
+    inter = (torch.min(a2, b2) - torch.max(a1, b1)).clamp(0).prod(2)
+
+    # IoU = inter / (area1 + area2 - inter)
+    return inter / (box_area(box1.T)[:, None] + box_area(box2.T) - inter)
