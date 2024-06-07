@@ -92,6 +92,7 @@ class ResizeWithPadding(torch.nn.Module):
         return f"{self.__class__.__name__}(size={self.size})"
 
 
+# HOW TO HANDLE NON-SQUARE SIZES?
 class ImageGenerator(Dataset):
     '''
     Data generator that crops images on the fly, requires relative bbox coordinates,
@@ -108,7 +109,7 @@ class ImageGenerator(Dataset):
         if type(resize) == int:
             self.resize = [resize, resize]
         else:
-            self.resize = [int(resize[0]),int(resize[1])]
+            self.resize = [int(resize[0]), int(resize[1])]
         self.buffer = 0
         self.standardize = standardize
         self.transform = Compose([
@@ -307,7 +308,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
     return dataLoader
 
 
-def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file", crop=False, resize=[299, 299]):
+def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file", crop=False, resize=[299, 299], standardize=True):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.
         Always dynamically crops
@@ -324,8 +325,8 @@ def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file", crop
     if crop is True and not any(manifest.columns.isin(["bbox1"])):
         crop = False
 
-    # default values file_col='file', resize=299, buffer=0
-    dataset_instance = ImageGenerator(manifest, file_col=file_col, crop=crop, resize=resize)
+    # default values file_col='file', resize=299
+    dataset_instance = ImageGenerator(manifest, file_col=file_col, crop=crop, resize=resize, standardize=standardize)
 
     dataLoader = DataLoader(
             dataset=dataset_instance,

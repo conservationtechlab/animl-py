@@ -84,7 +84,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
             - results: list of dict, each dict represents detections on one image
     """
     if confidence_threshold is None:
-        confidence_threshold = 0.005  # Defult from MegaDetector
+        confidence_threshold = 0.1
 
     if checkpoint_frequency is None:
         checkpoint_frequency = -1
@@ -159,6 +159,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     return results
 
 
+# PARALLELIZE
 def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
     """
     Converts numerical output from classifier to common name species label
