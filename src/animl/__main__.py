@@ -45,7 +45,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     else:
         device = 'cpu'
 
-    print("Setting up working directory...")
+    print("Searching directory...")
     # Create a working directory, build the file manifest from img_dir
     working_dir = file_management.WorkingDirectory(image_dir)
     files = file_management.build_file_manifest(image_dir,

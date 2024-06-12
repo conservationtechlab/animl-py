@@ -9,12 +9,11 @@ import os
 from glob import glob
 from datetime import datetime, timedelta
 import pandas as pd
-from random import randrange
 from exiftool import ExifToolHelper
 from tqdm import tqdm
 
 
-def build_file_manifest(image_dir, exif=True, out_file=None, unique=True, offset=0):
+def build_file_manifest(image_dir, exif=True, out_file=None, offset=0):
     """
     Recursively Find Image/Video Files and Gather exif Data
 
@@ -39,15 +38,24 @@ def build_file_manifest(image_dir, exif=True, out_file=None, unique=True, offset
         lambda x: os.path.split(x)[1])
 
     if exif:
-        files["FileModifyDate"] = files["FilePath"].apply(
-            lambda x: datetime.fromtimestamp(
-                os.path.getmtime(x)))
-        # add hour offset to adjust timezone
-        files["FileModifyDate"] = files["FileModifyDate"] + timedelta(hours=offset)
+        #make norm
+        et = ExifToolHelper()
+        file_exif = et.get_tags(files["FilePath"].tolist(), tags=["CreateDate", "ImageWidth", "ImageHeight"])
+        et.terminate()  # close exiftool
+        # merge exif data with manifest
+        file_exif = pd.DataFrame(file_exif).rename(columns={"EXIF:CreateDate":"CreateDate", 
+                                                            "File:ImageWidth":"Width",
+                                                            "File:ImageHeight":"Height"})
 
-    if unique:
-        files['UniqueName'] = files['FileName'].apply(lambda x: os.path.splitext(x)[0] + "_" +
-                                                      str(randrange(10000, 99999)) + os.path.splitext(x)[1])
+        # adjust for windows if necessary
+        file_exif["SourceFile"] = file_exif["SourceFile"].apply(lambda x: os.path.normpath(x))
+        files = files.merge(pd.DataFrame(file_exif), left_on="FilePath", right_on="SourceFile")
+        # get filemodifydate as backup (videos, etc)
+        files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)))
+        files["FileModifyDate"] = files["FileModifyDate"] + timedelta(hours=offset) 
+        # select createdate if exists, else choose filemodify date
+        files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
+        files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
 
     if out_file:
         save_data(files, out_file)
@@ -71,15 +79,12 @@ class WorkingDirectory():
 
         self.basedir = working_dir + "Animl-Directory/"
         self.datadir = self.basedir + "Data/"
-        self.cropdir = self.basedir + "Crops/"
         self.vidfdir = self.basedir + "Frames/"
         self.linkdir = self.basedir + "Sorted/"
 
         # Create directories if they do not already exist
         if not os.path.exists(self.datadir):
             os.makedirs(self.datadir)
-        if not os.path.exists(self.cropdir):
-            os.makedirs(self.cropdir)
         if not os.path.exists(self.vidfdir):
             os.makedirs(self.vidfdir)
         if not os.path.exists(self.linkdir):
@@ -89,7 +94,6 @@ class WorkingDirectory():
         self.filemanifest = self.datadir + "FileManifest.csv"
         self.imageframes = self.datadir + "ImageFrames.csv"
         self.results = self.datadir + "Results.csv"
-        self.crops = self.datadir + "Crops.csv"
         self.predictions = self.datadir + "Predictions.csv"
         self.mdresults = self.datadir + "MD_Results.csv"
 
