@@ -35,7 +35,7 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
         print('Processing image {}'.format(im_file))
     # open the file
     try:
-        image = Image.open(im_file).convert(mode='RGB')
+        image = Image.open(os.path.normpath(im_file)).convert(mode='RGB')
         image.load()
     except Exception as e:
         if not quiet:
@@ -64,7 +64,7 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
 
 
 def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint_frequency=-1,
-                    confidence_threshold=0.1, quiet=True, image_size=None):
+                    confidence_threshold=0.1, quiet=True, image_size=None, file_col="Frame"):
     """
     From AgentMorris/MegaDetector
     Runs MegaDetector on a batch of image files.
@@ -119,7 +119,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     if not results:  # checkpoint comes back empty
         results = []
 
-    already_processed = set([i['Frame'] for i in results])
+    already_processed = set([i[file_col] for i in results])
 
     count = 0
     for im_file in tqdm(image_file_names):
@@ -130,7 +130,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
             continue
 
         count += 1
-
+        
         result = process_image(im_file, detector,
                                confidence_threshold, quiet=quiet,
                                image_size=image_size)
@@ -160,7 +160,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
 
 
 # PARALLELIZE
-def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
+def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame"):
     """
     Converts numerical output from classifier to common name species label
 
@@ -221,7 +221,7 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
     df.loc[df["bbox4"] < buffer, "bbox4"] = buffer
 
     if isinstance(manifest, pd.DataFrame):
-        df = manifest.merge(df, left_on="Frame", right_on="file")
+        df = manifest.merge(df, left_on=file_col, right_on="file")
 
     if out_file:
         file_management.save_data(df, out_file)

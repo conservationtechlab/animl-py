@@ -35,7 +35,7 @@ from animl.symlink import (remove_symlink, symlink_MD, symlink_species,
 from animl.test import (main, test,)
 from animl.train import (init_seed, main, train, validate,)
 from animl.utils import (notebook_init,)
-from animl.video_processing import (extract_frames, images_from_videos,)
+from animl.video_processing import (extract_frames, extract_frame_single,)
 
 __all__ = ['CONF_DIGITS', 'COORD_DIGITS', 'CropGenerator', 'EfficientNet',
            'MegaDetector', 'ResizeWithPadding', 'TFGenerator', 'ImageGenerator'
