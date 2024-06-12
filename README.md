@@ -25,14 +25,14 @@ pip install -e .
 ### From PyPi
 With NVIDIA GPU
 ```
-conda create -n animl-gpu python=3.7
+conda create -n animl-gpu python=3.12
 conda activate animl-gpu
 conda install cudatoolkit=11.3.1 cudnn=8.2.1
 pip install animl
 ```
 CPU only
 ```
-conda create -n animl-cpu python=3.7
+conda create -n animl-cpu python=3.12
 conda activate animl-cpu
 pip install animl
 ```
