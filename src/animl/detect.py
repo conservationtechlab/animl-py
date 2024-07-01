@@ -130,7 +130,6 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
             continue
 
         count += 1
-        
         result = process_image(im_file, detector,
                                confidence_threshold, quiet=quiet,
                                image_size=image_size)

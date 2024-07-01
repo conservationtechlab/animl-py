@@ -106,7 +106,7 @@ class ImageGenerator(Dataset):
         self.x = x
         self.file_col = file_col
         self.crop = crop
-        if type(resize) == int:
+        if isinstance(resize, int):
             self.resize = [resize, resize]
         else:
             self.resize = [int(resize[0]), int(resize[1])]

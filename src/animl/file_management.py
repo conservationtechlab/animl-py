@@ -10,18 +10,18 @@ from glob import glob
 from datetime import datetime, timedelta
 import pandas as pd
 from exiftool import ExifToolHelper
-from tqdm import tqdm
 
 
-def build_file_manifest(image_dir, exif=True, out_file=None, offset=0):
+def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive=True):
     """
-    Recursively Find Image/Video Files and Gather exif Data
+    Find Image/Video Files and Gather exif Data
 
     Args:
         - image_dir (str): directory of files to analyze
         - exif (bool): returns date and time info from exif data, defaults to True
         - out_file (str): file path to which the dataframe should be saved
-        - unique (bool): add a unique identifier name for each file
+        - offset (int): add timezone offset in hours to datetime column
+        - recursive (bool): recursively search thhrough all child directories
 
     Returns:
         - files (pd.DataFrame): list of files with or without file modify dates
@@ -31,28 +31,27 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0):
     if not os.path.isdir(image_dir):
         raise FileNotFoundError("The given directory does not exist.")
 
-    files = glob(os.path.join(image_dir, '**', '*.*'), recursive=True)
+    files = glob(os.path.join(image_dir, '**', '*.*'), recursive=recursive)
 
     files = pd.DataFrame(files, columns=["FilePath"])
     files["FileName"] = files["FilePath"].apply(
         lambda x: os.path.split(x)[1])
 
     if exif:
-        #make norm
         et = ExifToolHelper()
         file_exif = et.get_tags(files["FilePath"].tolist(), tags=["CreateDate", "ImageWidth", "ImageHeight"])
         et.terminate()  # close exiftool
         # merge exif data with manifest
-        file_exif = pd.DataFrame(file_exif).rename(columns={"EXIF:CreateDate":"CreateDate", 
-                                                            "File:ImageWidth":"Width",
-                                                            "File:ImageHeight":"Height"})
+        file_exif = pd.DataFrame(file_exif).rename(columns={"EXIF:CreateDate": "CreateDate",
+                                                            "File:ImageWidth": "Width",
+                                                            "File:ImageHeight": "Height"})
 
         # adjust for windows if necessary
         file_exif["SourceFile"] = file_exif["SourceFile"].apply(lambda x: os.path.normpath(x))
         files = files.merge(pd.DataFrame(file_exif), left_on="FilePath", right_on="SourceFile")
         # get filemodifydate as backup (videos, etc)
         files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)))
-        files["FileModifyDate"] = files["FileModifyDate"] + timedelta(hours=offset) 
+        files["FileModifyDate"] = files["FileModifyDate"] + timedelta(hours=offset)
         # select createdate if exists, else choose filemodify date
         files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
         files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
@@ -157,20 +156,40 @@ def check_file(file):
     return False
 
 
-def correct_datetime(manifest, file_col="Filepath"):
-    '''
-    Rewrite the FileModifyDate for files that had them overwritten by the OS
+def active_times(manifest_dir, depth=1, recursive=True, offset=0):
+    """
+    Get start and stop dates for each camera folder
 
-    Ars:
-        - manifest (DataFrame): manifest containing original FileModifyDates
-        - file_col (str): column in manifest containing filepaths to rewrite
-    '''
-    et = ExifToolHelper()
-    # reconvert format
-    manifest['FileMod_Converted'] = manifest['FileModifyDate'].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S").strftime("%Y:%m:%d %H:%M:%S"))
-    for _, row in tqdm(manifest.iterrows()):
-        original = row["FileMod_Converted"]
+    Args:
+        - manifest_dir (str): either file manifest or directory of files to analyze
+        - depth (int): directory depth from which to split cameras
+        - recursive (bool): recursively search thhrough all child directories
+        - offset (int): add timezone offset in hours to datetime column
 
-        et.set_tags([row[file_col]],
-                    tags={"FileModifyDate": original},
-                    params=["-P", "-overwrite_original"])
+    Returns:
+        - times (pd.DataFrame): list of files with or without file modify dates
+
+    """
+    # from manifest file
+    if check_file(manifest_dir):
+        files = load_data(manifest_dir)  # load_data(outfile) load file manifest
+
+    # from manifest dataframe
+    elif isinstance(manifest_dir, pd.DataFrame):
+        # get time stamps if dne
+        if "FileModifyDate" not in manifest_dir.columns:
+            files = manifest_dir
+            files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
+
+    # from scratch
+    elif os.path.isdir(manifest_dir):
+        files = build_file_manifest(manifest_dir, exif=True, offset=offset, recursive=recursive)
+
+    else:
+        raise FileNotFoundError("Requires a file manifest or image directory.")
+
+    files["Camera"] = files["FilePath"].apply(lambda x: x.split(os.sep)[depth])
+
+    times = files.groupby("Camera").agg({'FileModifyDate': ['min', 'max']})
+
+    return times
