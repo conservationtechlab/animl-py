@@ -31,7 +31,7 @@ def tensor_to_onnx(tensor):
 
 def predict_species(detections, model, classes, device='cpu', out_file=None,
                     file_col='Frame', crop=True, resize=299, standardize=True,
-                    batch_size=1, workers=1, raw=False):
+                    batch_size=1, workers=1, channel_last=False, raw=False):
     """
     Predict species using classifier model
 
@@ -45,6 +45,8 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
         - resize (int): image input size
         - batch_size (int): data generator batch size
         - workers (int): number of cores
+        - channel_last (bool): swap dims for onnx models trained with BHWC order
+        - raw (bool): return raw logits instead of applying labels
 
     Returns
         - detections (pd.DataFrame): MD detections with classifier prediction and confidence
@@ -86,7 +88,12 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
 
                     data = batch[0]
 
-                    inputs = {model.get_inputs()[0].name: tensor_to_onnx(data)}
+                    # TODO: RUN ON GPU
+                    if channel_last:
+                        inputs = {model.get_inputs()[0].name: tensor_to_onnx(data)}
+                    else:
+                        inputs = {model.get_inputs()[0].name: data.cpu().detach().numpy()}
+
                     output = model.run(None, inputs)[0]
                     if raw:
                         raw_output.extend(output)
