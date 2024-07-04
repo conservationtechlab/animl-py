@@ -7,3 +7,4 @@ exclude =
     ./src/animl/utils
     ./src/animl/models
     ./build/
+    ./src/animl/future
