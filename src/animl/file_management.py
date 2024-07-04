@@ -95,6 +95,7 @@ class WorkingDirectory():
         self.results = self.datadir + "Results.csv"
         self.predictions = self.datadir + "Predictions.csv"
         self.mdresults = self.datadir + "MD_Results.csv"
+        self.mdraw = self.datadir + "MD_Raw.csv"
 
 
 def save_data(data, out_file, prompt=True):

@@ -55,10 +55,9 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
 
     # Video-processing to extract individual frames as images in to directory
     print("Processing videos...")
-    all_frames = video_processing.images_from_videos(files,
-                                                     out_dir=working_dir.vidfdir,
-                                                     out_file=working_dir.imageframes,
-                                                     parallel=True, frames=1)
+    all_frames = video_processing.extract_frames(files,out_dir=working_dir.vidfdir,
+                                                 out_file=working_dir.imageframes,
+                                                 parallel=True, frames=1)
 
     # Run all images and video frames through MegaDetector
     print("Running images and video frames through MegaDetector...")
@@ -66,7 +65,8 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         detections = file_management.load_data(working_dir.mdresults)
     else:
         detector = megadetector.MegaDetector(detector_file)
-        md_results = detect.detect_MD_batch(detector, all_frames["Frame"], quiet=True)
+        md_results = detect.detect_MD_batch(detector, all_frames["Frame"], 
+                                            checkpoint_path=working_dir.mdraw, quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_MD(md_results, manifest=all_frames,
@@ -86,7 +86,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
 
     # merge animal and empty, create symlinks
     print("Concatenating animal and empty dataframes...")
-    manifest = pd.concat([animals, empty]).reset_index(drop=True)
+    manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
     if sort:
         manifest = symlink.symlink_species(manifest, working_dir.linkdir)
 

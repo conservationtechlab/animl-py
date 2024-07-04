@@ -159,7 +159,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     return results
 
 
-def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
+def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, checkpoint_frequency=-1):
     """
     Converts numerical output from classifier to common name species label
 
@@ -169,6 +169,7 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
         - out_file (str): path to save dataframe
         - buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
         - threshold (float): parse only detections above given confidence threshold
+        - checkpoint_frequency (int): write results to checkpoint file every N images
 
     Returns:
         - df (pd.DataFrame): formatted md outputs, one row per detection
@@ -182,11 +183,11 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
     if len(results) == 0:
         raise AssertionError("'results' contains no detections")
 
-    df = pd.DataFrame(columns=('file', 'max_detection_conf', 
-                               'category', 'conf', 'bbox1', 
+    df = pd.DataFrame(columns=('file', 'max_detection_conf',
+                               'category', 'conf', 'bbox1',
                                'bbox2', 'bbox3', 'bbox4'))
 
-    idx = 0
+    count = 0
     for frame in tqdm(results):
         try:
             detections = frame['detections']
@@ -198,7 +199,7 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
                     'max_detection_conf': [frame['max_detection_conf']],
                     'category': [0], 'conf': [None], 'bbox1': [None],
                     'bbox2': [None], 'bbox3': [None], 'bbox4': [None]}
-            df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
+            df = pd.DataFrame(data) if df.empty else pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
 
         else:
             for detection in detections:
@@ -208,26 +209,37 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
                             'category': [detection['category']], 'conf': [detection['conf']],
                             'bbox1': [detection['bbox1']], 'bbox2': [detection['bbox2']],
                             'bbox3': [detection['bbox3']], 'bbox4': [detection['bbox4']]}
-                    df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
-                    if idx % 10000 == 0:
-                        # adjust boxes with 2% buffer from image edge
-                        df.loc[df["bbox1"] > (1 - buffer), "bbox1"] = (1 - buffer)
-                        df.loc[df["bbox2"] > (1 - buffer), "bbox2"] = (1 - buffer)
-                        df.loc[df["bbox3"] > (1 - buffer), "bbox3"] = (1 - buffer)
-                        df.loc[df["bbox4"] > (1 - buffer), "bbox4"] = (1 - buffer)
 
-                        df.loc[df["bbox1"] < buffer, "bbox1"] = buffer
-                        df.loc[df["bbox2"] < buffer, "bbox2"] = buffer
-                        df.loc[df["bbox3"] < buffer, "bbox3"] = buffer
-                        df.loc[df["bbox4"] < buffer, "bbox4"] = buffer
+                    df = pd.DataFrame(data) if df.empty else pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
 
-                        df.to_csv(out_file, mode='a', header=idx==0, index=False)
-                        df = df[0:0]
-                    idx += 1
+                    # adjust boxes with 2% buffer from image edge
+                    df.loc[df["bbox1"] > (1 - buffer), "bbox1"] = (1 - buffer)
+                    df.loc[df["bbox2"] > (1 - buffer), "bbox2"] = (1 - buffer)
+                    df.loc[df["bbox3"] > (1 - buffer), "bbox3"] = (1 - buffer)
+                    df.loc[df["bbox4"] > (1 - buffer), "bbox4"] = (1 - buffer)
 
-    df.to_csv(out_file, mode='a', header=idx==0, index=False)
+                    df.loc[df["bbox1"] < buffer, "bbox1"] = buffer
+                    df.loc[df["bbox2"] < buffer, "bbox2"] = buffer
+                    df.loc[df["bbox3"] < buffer, "bbox3"] = buffer
+                    df.loc[df["bbox4"] < buffer, "bbox4"] = buffer
+        count += 1
 
-    df = pd.read_csv(out_file)
+        if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
+            print('Writing a new checkpoint after having processed {} images since last restart'.format(count))
+
+            assert out_file is not None
+            checkpoint_tmp_path = None
+            if os.path.isfile(out_file):
+                checkpoint_tmp_path = out_file + '_tmp'
+                copyfile(out_file, checkpoint_tmp_path)
+
+            # Write the new checkpoint
+            with open(out_file, 'w') as f:
+                json.dump({'images': results}, f, indent=1)
+
+            # Remove the backup checkpoint if it exists
+            if checkpoint_tmp_path is not None:
+                os.remove(checkpoint_tmp_path)
 
     if isinstance(manifest, pd.DataFrame):
         df = manifest.merge(df, left_on="Frame", right_on="file")
