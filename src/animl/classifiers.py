@@ -136,7 +136,7 @@ class EfficientNet(nn.Module):
         super(EfficientNet, self).__init__()
         self.avgpool = nn.AdaptiveAvgPool2d(1)
 
-        self.model = efficientnet.efficientnet_v2_m(weights=efficientnet.EfficientNet_V2_M_Weights)       # "pretrained": use weights pre-trained on ImageNet
+        self.model = efficientnet.efficientnet_v2_m(weights=efficientnet.EfficientNet_V2_M_Weights.DEFAULT)       # "pretrained": use weights pre-trained on ImageNet
         if tune:
             for params in self.model.parameters():
                 params.requires_grad = True
