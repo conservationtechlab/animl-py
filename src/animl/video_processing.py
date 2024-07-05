@@ -107,6 +107,7 @@ def extract_frames(files, out_dir, out_file=None, fps=None, frames=None,
         lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",
                                                         ".mpg", ".mpeg", ".asf", ".m4v"])]
     if not videos.empty:
+        # TODO add checkpoint to parallel
         if parallel:
             pool = mp.Pool(workers)
 

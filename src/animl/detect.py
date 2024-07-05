@@ -188,6 +188,7 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, ch
                                'bbox2', 'bbox3', 'bbox4'))
 
     count = 0
+    # TODO: Add parallelization
     for frame in tqdm(results):
         try:
             detections = frame['detections']
@@ -228,14 +229,14 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, ch
             print('Writing a new checkpoint after having processed {} images since last restart'.format(count))
 
             assert out_file is not None
+            # Move previous checkpoint to temp file
             checkpoint_tmp_path = None
             if os.path.isfile(out_file):
                 checkpoint_tmp_path = out_file + '_tmp'
                 copyfile(out_file, checkpoint_tmp_path)
 
             # Write the new checkpoint
-            with open(out_file, 'w') as f:
-                json.dump({'images': results}, f, indent=1)
+            file_management.save_data(df, out_file)
 
             # Remove the backup checkpoint if it exists
             if checkpoint_tmp_path is not None:
