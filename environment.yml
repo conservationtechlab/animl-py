@@ -1,5 +1,5 @@
 # warning: onnxruntime-gpu must be run on CUDA<=11.8
-name: animl
+name: animl-gpu
 channels:
   - anaconda
   - defaults
