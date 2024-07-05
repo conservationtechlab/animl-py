@@ -103,20 +103,20 @@ home = os.path.join(os.getcwd(), 'models')
 # Create and parse arguements
 parser.add_argument('image_dir', type=str,
                     help='Path to Image Directory')
-parser.add_argument('--detector_file', type=str, nargs='?',
+parser.add_argument('--detector', type=str, nargs='?',
                     help='Path to MD model',
                     default=os.path.join(home, 'md_v5a.0.0.pt'))
-parser.add_argument('--classifier_file', type=str, nargs='?',
+parser.add_argument('--classifier', type=str, nargs='?',
                     help='Path to Class model',
                     default=os.path.join(home, 'southwest_v3.pt'))
-parser.add_argument('--class_list', type=str, nargs='?',
+parser.add_argument('--classlist', type=str, nargs='?',
                     help='Path to class list',
                     default=os.path.join(home, 'southwest_v3_classes.csv'))
 # Parse the command-line arguments
 
 args = parser.parse_args()
 
-if not os.path.isfile(args.detector_file):
+if not os.path.isfile(args.detector):
     prompt = "MegaDetector not found, would you like to download? y/n: "
     if input(prompt).lower() == "y":
         if not os.path.isdir(home):
@@ -125,7 +125,7 @@ if not os.path.isfile(args.detector_file):
         wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt',
                       out=home)
 
-if not os.path.isfile(args.classifier_file):
+if not os.path.isfile(args.classifier):
     prompt = "Classifier not found, would you like to download Southwest_v3? y/n: "
     if input(prompt).lower() == "y":
         if not os.path.isdir(home):
@@ -134,7 +134,7 @@ if not os.path.isfile(args.classifier_file):
         wget.download('https://sandiegozoo.box.com/shared/static/ucbk8kc2h3qu15g4xbg0nvbghvo1cl97.pt',
                       out=home)
 
-if not os.path.isfile(args.class_list):
+if not os.path.isfile(args.classlist):
     prompt = "Class list not found, would you like to download Southwest_v3? y/n: "
     if input(prompt).lower() == "y":
         if not os.path.isdir(home):
@@ -144,4 +144,4 @@ if not os.path.isfile(args.class_list):
                       out=home)
 
 # Call the main function
-main(args.image_dir, args.detector_file, args.classifier_file, args.class_list)
+main(args.image_dir, args.detector, args.classifier, args.classlist)
