@@ -1,12 +1,11 @@
 # warning: onnxruntime-gpu must be run on CUDA<=11.8
-name: animl
+name: animl-gpu
 channels:
   - anaconda
   - defaults
 dependencies:
   - pip=24.0
   - python=3.12.3
-  - jupyter=1.0.0
   - pip:
       - numpy==1.26.4
       - onnxruntime-gpu==1.17.1
