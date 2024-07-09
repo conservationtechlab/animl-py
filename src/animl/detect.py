@@ -10,7 +10,38 @@ import pandas as pd
 from shutil import copyfile
 from PIL import Image
 from . import file_management
+from ultralytics import YOLO
+import multiprocessing as mp
+from numpy import vstack
 
+
+
+def handle_yolo(detector, image_path):
+    try:
+        result = {'file': image_path}
+        detections = []
+        max_conf = 0.0
+
+        results = detector(image_path)
+        for det in results:
+            detections.append({
+                                'category': det.boxes.cls.item(),
+                                'conf': det.boxes.conf.item(),
+                                'bbox1': det.boxes.xywhn[0][0].item(),
+                                'bbox2': det.boxes.xywhn[0][1].item(),
+                                'bbox3': det.boxes.xywhn[0][2].item(),
+                                'bbox4': det.boxes.xywhn[0][3].item(),
+                            })
+            max_conf = max(max_conf, det.boxes.conf)
+
+        result['max_detection_conf'] = max_conf.item()
+        result['detections'] = detections
+    
+        #result = list(filter(lambda item: item is not None, result))
+        return result
+
+    except Exception as e:
+        print(e)
 
 def process_image(im_file, detector, confidence_threshold, quiet=True,
                   image_size=None, skip_image_resize=False):
@@ -64,7 +95,7 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
 
 
 def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint_frequency=-1,
-                    confidence_threshold=0.1, quiet=True, image_size=None):
+                    confidence_threshold=0.1, quiet=True, image_size=None, file_col='Frame'):
     """
     From AgentMorris/MegaDetector
     Runs MegaDetector on a batch of image files.
@@ -106,7 +137,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
 
         # column from pd.DataFrame, expected input
         elif isinstance(image_file_names, pd.Series):
-            pass
+            image_file_names = image_file_names[file_col]
 
         # A single image file
         elif os.path.isfile(image_file_names):
@@ -131,9 +162,8 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
 
         count += 1
 
-        result = process_image(im_file, detector,
-                               confidence_threshold, quiet=quiet,
-                               image_size=image_size)
+        result = process_image(im_file, detector, confidence_threshold, quiet=quiet, image_size=image_size)
+        #result = handle_yolo(detector, im_file)
         results.append(result)
 
         # Write a checkpoint if necessary
@@ -158,8 +188,37 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
 
     return results
 
+def process_frame(frame, threshold=0.5, buffer=0.02):
+    try:
+        detections = frame['detections']
+    except KeyError:
+        print('File error ', frame['file'])
+        return None
 
-def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
+    data = []
+
+    if len(detections) == 0:
+        data.append({'file': frame['file'],
+                     'max_detection_conf': frame['max_detection_conf'],
+                     'category': 0, 'conf': None, 'bbox1': None,
+                     'bbox2': None, 'bbox3': None, 'bbox4': None})
+    else:
+        for detection in detections:
+            if detection['conf'] > threshold:
+                bbox1 = min(max(detection['bbox1'], buffer), 1 - buffer)
+                bbox2 = min(max(detection['bbox2'], buffer), 1 - buffer)
+                bbox3 = min(max(detection['bbox3'], buffer), 1 - buffer)
+                bbox4 = min(max(detection['bbox4'], buffer), 1 - buffer)
+
+                data.append({'file': frame['file'],
+                             'max_detection_conf': frame['max_detection_conf'],
+                             'category': detection['category'], 'conf': detection['conf'],
+                             'bbox1': bbox1, 'bbox2': bbox2, 'bbox3': bbox3, 'bbox4': bbox4})
+
+    return data
+
+
+def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, parallelize=False, workers=mp.cpu_count()):
     """
     Converts numerical output from classifier to common name species label
 
@@ -182,42 +241,62 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
     if len(results) == 0:
         raise AssertionError("'results' contains no detections")
 
-    df = pd.DataFrame(columns=('file', 'max_detection_conf',
-                               'category', 'conf', 'bbox1',
+    df = pd.DataFrame(columns=('file', 'max_detection_conf', 
+                               'category', 'conf', 'bbox1', 
                                'bbox2', 'bbox3', 'bbox4'))
-    for frame in tqdm(results):
-        try:
-            detections = frame['detections']
-        except KeyError:
-            print('File error ', frame['file'])
-            continue
-        if len(detections) == 0:
-            data = {'file': [frame['file']],
-                    'max_detection_conf': [frame['max_detection_conf']],
-                    'category': [0], 'conf': [None], 'bbox1': [None],
-                    'bbox2': [None], 'bbox3': [None], 'bbox4': [None]}
-            df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
 
-        else:
-            for detection in detections:
-                if (detection['conf'] > threshold):
-                    data = {'file': [frame['file']],
-                            'max_detection_conf': [frame['max_detection_conf']],
-                            'category': [detection['category']], 'conf': [detection['conf']],
-                            'bbox1': [detection['bbox1']], 'bbox2': [detection['bbox2']],
-                            'bbox3': [detection['bbox3']], 'bbox4': [detection['bbox4']]}
-                    df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
+    idx = 0
 
-    # adjust boxes with 2% buffer from image edge
-    df.loc[df["bbox1"] > (1 - buffer), "bbox1"] = (1 - buffer)
-    df.loc[df["bbox2"] > (1 - buffer), "bbox2"] = (1 - buffer)
-    df.loc[df["bbox3"] > (1 - buffer), "bbox3"] = (1 - buffer)
-    df.loc[df["bbox4"] > (1 - buffer), "bbox4"] = (1 - buffer)
+    if parallelize:
+        pool = mp.Pool(workers)
 
-    df.loc[df["bbox1"] < buffer, "bbox1"] = buffer
-    df.loc[df["bbox2"] < buffer, "bbox2"] = buffer
-    df.loc[df["bbox3"] < buffer, "bbox3"] = buffer
-    df.loc[df["bbox4"] < buffer, "bbox4"] = buffer
+        processed_data = list([pool.apply(process_frame, args=(frame, threshold, buffer)) for frame in tqdm(results)])
+        processed_data = [item for sublist in processed_data for item in sublist]
+        df = pd.DataFrame(processed_data, columns=['file', 'max_detection_conf', 'category', 'conf', 'bbox1', 'bbox2', 'bbox3', 'bbox4'])
+        pool.close()
+
+    else:
+        for frame in tqdm(results):
+            try:
+                detections = frame['detections']
+            except KeyError:
+                print('File error ', frame['file'])
+                continue
+            if len(detections) == 0:
+                data = {'file': [frame['file']],
+                        'max_detection_conf': [frame['max_detection_conf']],
+                        'category': [0], 'conf': [None], 'bbox1': [None],
+                        'bbox2': [None], 'bbox3': [None], 'bbox4': [None]}
+                df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
+
+            else:
+                for detection in detections:
+                    if (detection['conf'] > threshold):
+                        data = {'file': [frame['file']],
+                                'max_detection_conf': [frame['max_detection_conf']],
+                                'category': [detection['category']], 'conf': [detection['conf']],
+                                'bbox1': [detection['bbox1']], 'bbox2': [detection['bbox2']],
+                                'bbox3': [detection['bbox3']], 'bbox4': [detection['bbox4']]}
+                        df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
+                        if idx % 10000 == 0:
+                            # adjust boxes with 2% buffer from image edge
+                            df.loc[df["bbox1"] > (1 - buffer), "bbox1"] = (1 - buffer)
+                            df.loc[df["bbox2"] > (1 - buffer), "bbox2"] = (1 - buffer)
+                            df.loc[df["bbox3"] > (1 - buffer), "bbox3"] = (1 - buffer)
+                            df.loc[df["bbox4"] > (1 - buffer), "bbox4"] = (1 - buffer)
+
+                            df.loc[df["bbox1"] < buffer, "bbox1"] = buffer
+                            df.loc[df["bbox2"] < buffer, "bbox2"] = buffer
+                            df.loc[df["bbox3"] < buffer, "bbox3"] = buffer
+                            df.loc[df["bbox4"] < buffer, "bbox4"] = buffer
+
+                            df.to_csv(out_file, mode='a', header=idx==0, index=False)
+                            df = df[0:0]
+                        idx += 1
+
+        df.to_csv(out_file, mode='a', header=idx==0, index=False)
+
+        df = pd.read_csv(out_file)
 
     if isinstance(manifest, pd.DataFrame):
         df = manifest.merge(df, left_on="Frame", right_on="file")
