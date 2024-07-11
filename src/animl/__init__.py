@@ -1,4 +1,4 @@
-from src.animl.api import animl_to_md
+# from src.animl.api import animl_to_md
 # from src.animl.api import zooniverse
 from animl import classifiers
 from animl import detect
@@ -34,7 +34,7 @@ from animl.test import (main, test,)
 from animl.train import (init_seed, main, train, validate,)
 from animl.utils import (notebook_init,)
 from animl.video_processing import (extract_frames, extract_frame_single,)
-from src.animl.api.animl_to_md import detection_category_id_to_name, main
+# from src.animl.api.animl_to_md import detection_category_id_to_name, main
 
 __all__ = ['CONF_DIGITS', 'COORD_DIGITS', 'EfficientNet', 'file_management',
            'MegaDetector', 'ResizeWithPadding', 'ImageGenerator', 'manifest_dataloader',
