@@ -94,8 +94,8 @@ class WorkingDirectory():
         self.imageframes = self.datadir + "ImageFrames.csv"
         self.results = self.datadir + "Results.csv"
         self.predictions = self.datadir + "Predictions.csv"
-        self.mdresults = self.datadir + "MD_Results.csv"
-        self.mdraw = self.datadir + "MD_Raw.csv"
+        self.mdresults = self.datadir + "Detections.csv"
+        self.mdraw = self.datadir + "MD_Raw.json"
 
 
 def save_data(data, out_file, prompt=True):

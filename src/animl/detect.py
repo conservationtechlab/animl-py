@@ -123,8 +123,11 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     else:
         raise ValueError('image_file_names is not a recognized object')
 
-    results = file_management.check_file(checkpoint_path)
-    if not results:  # checkpoint comes back empty
+    if file_management.check_file(checkpoint_path):  # checkpoint comes back empty
+        with open(checkpoint_path, 'w') as f:
+            data = json.load(f)
+            results = data['images']
+    else:
         results = []
 
     already_processed = set([i[file_col] for i in results])
@@ -244,7 +247,7 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, ch
                 copyfile(out_file, checkpoint_tmp_path)
 
             # Write the new checkpoint
-            file_management.save_data(df, out_file)
+            file_management.save_data(df, out_file, prompt=False)
 
             # Remove the backup checkpoint if it exists
             if checkpoint_tmp_path is not None:
