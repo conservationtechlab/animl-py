@@ -9,8 +9,20 @@ keywords = ["camera trap", "ecology", "conservation", "zoo", "SDZWA", "conservat
 
 authors = [{name = "Kyra Swanson", email = "tswanson@sdzwa.org" }]
 
-requires-python = ">=3.7"
-
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.26.4", 
+    "onnxruntime-gpu>=1.17.1", 
+    "pandas>=2.2.2", 
+    "pillow>10.3.0", 
+    "pyexiftool>=0.5.6",
+    "opencv-python>=4.10.0.82", 
+    "scikit-learn>=1.5.0", 
+    "torch>=2.2.2", 
+    "torchvision>=0.17.2",
+    "tqdm>=4.66.4", 
+    "wget>=3.2"
+]
 
 
 

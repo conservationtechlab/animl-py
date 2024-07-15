@@ -45,6 +45,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     else:
         device = 'cpu'
 
+    device = 'cpu'
     print("Searching directory...")
     # Create a working directory, build the file manifest from img_dir
     working_dir = file_management.WorkingDirectory(image_dir)
@@ -64,7 +65,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     if (file_management.check_file(working_dir.mdresults)):
         detections = file_management.load_data(working_dir.mdresults)
     else:
-        detector = megadetector.MegaDetector(detector_file)
+        detector = megadetector.MegaDetector(detector_file, device=device)
         md_results = detect.detect_MD_batch(detector, all_frames["Frame"], 
                                             checkpoint_path=working_dir.mdraw, quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
