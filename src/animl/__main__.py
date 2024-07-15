@@ -41,11 +41,10 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
     if torch.cuda.is_available():
-        device = "cuda:0"
+        device = torch.cuda.get_device_name()
     else:
         device = 'cpu'
 
-    device = 'cpu'
     print("Searching directory...")
     # Create a working directory, build the file manifest from img_dir
     working_dir = file_management.WorkingDirectory(image_dir)

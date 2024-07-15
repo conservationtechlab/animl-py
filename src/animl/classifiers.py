@@ -97,22 +97,20 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL"):
         # PyTorch dict
         if model_path.endswith('.pt'):
             model = EfficientNet(len(classes), tune=False)
-            checkpoint = torch.load(model_path)
+            checkpoint = torch.load(model_path, map_location=torch.device(device))
             model.load_state_dict(checkpoint['model'])
-            model.to(device)
             model.eval()
             model.framework = "EfficientNet"
         # PyTorch full model
         elif model_path.endswith('.pth'):
-            model = torch.load(model_path)
-            model.to(device)
+            model = torch.load(model_path, map_location=torch.device(device))
             model.eval()
             model.framework = "pytorch"
         elif model_path.endswith('.onnx'):
-            if device == "cuda:0" or device == "gpu":
-                model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider"])
-            else:
+            if device == "cpu":
                 model = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+            else:
+                model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider"])
             model.framework = "onnx"
         else:
             raise ValueError('Unrecognized model format: {}'.format(model_path))
