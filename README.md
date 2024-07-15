@@ -52,6 +52,8 @@ Python Package Dependencies
 
 A full list of dependencies can be found in environment.yml
 
+Animl also depends on [exiftool](https://exiftool.org/index.html) for accessing file metadata. 
+
 ### Verify Install 
 We recommend you download the [examples](https://github.com/conservationtechlab/animl-py/blob/main/examples/Southwest.zip) folder within this repository.
 Download and unarchive the zip folder. Then with the conda environment active:
