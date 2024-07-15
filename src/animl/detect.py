@@ -88,7 +88,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
 
     if checkpoint_frequency is None:
         checkpoint_frequency = -1
-        
+
     # Handle the case where image_file_names is not yet actually a list
     if isinstance(image_file_names, str):
         # Find the images to score; images can be a directory, may need to recurse
@@ -103,19 +103,19 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
             with open(list_file) as f:
                 image_file_names = json.load(f)
             print('Loaded {} image filenames from list file {}'.format(len(image_file_names), list_file))
-            
+
         # A single image file
         elif os.path.isfile(image_file_names):
             image_file_names = [image_file_names]
-            
+
         else:
             raise ValueError('image_file_names is a string, but is not a directory, a json ' +
-                            'list (.json), or an image file (png/jpg/jpeg/gif)')
-            
+                             'list (.json), or an image file (png/jpg/jpeg/gif)')
+
     # full manifest, select file_col
     elif isinstance(image_file_names, pd.DataFrame):
         image_file_names = image_file_names[file_col]
-        
+
     # column from pd.DataFrame, expected input
     elif isinstance(image_file_names, pd.Series):
         pass

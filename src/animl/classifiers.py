@@ -97,13 +97,15 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL"):
         # PyTorch dict
         if model_path.endswith('.pt'):
             model = EfficientNet(len(classes), tune=False)
-            checkpoint = torch.load(model_path, map_location=torch.device(device))
+            checkpoint = torch.load(model_path, map_location=device)
             model.load_state_dict(checkpoint['model'])
+            model.to(device)
             model.eval()
             model.framework = "EfficientNet"
         # PyTorch full model
         elif model_path.endswith('.pth'):
-            model = torch.load(model_path, map_location=torch.device(device))
+            model = torch.load(model_path, map_location=device)
+            model.to(device)
             model.eval()
             model.framework = "pytorch"
         elif model_path.endswith('.onnx'):

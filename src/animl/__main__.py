@@ -41,7 +41,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
     if torch.cuda.is_available():
-        device = torch.cuda.get_device_name()
+        device = "cuda:0"
     else:
         device = 'cpu'
 
@@ -55,7 +55,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
 
     # Video-processing to extract individual frames as images in to directory
     print("Processing videos...")
-    all_frames = video_processing.extract_frames(files,out_dir=working_dir.vidfdir,
+    all_frames = video_processing.extract_frames(files, out_dir=working_dir.vidfdir,
                                                  out_file=working_dir.imageframes,
                                                  parallel=True, frames=1)
 
@@ -65,7 +65,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         detections = file_management.load_data(working_dir.mdresults)
     else:
         detector = megadetector.MegaDetector(detector_file, device=device)
-        md_results = detect.detect_MD_batch(detector, all_frames["Frame"], 
+        md_results = detect.detect_MD_batch(detector, all_frames["Frame"],
                                             checkpoint_path=working_dir.mdraw, quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")

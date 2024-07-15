@@ -19,15 +19,17 @@ class MegaDetector:
     STRIDE = 64
 
     def __init__(self, model_path: str, device=None):
-        if torch.cuda.is_available() and device is None:
-            self.device = torch.device('cuda:0')
-        else:
+        if not torch.cuda.is_available():
             self.device = 'cpu'
+        elif torch.cuda.is_available() and device is None:
+            self.device = 'cuda:0'
+        else:
+            self.device = device
+
+        print('Sending model to %s' % self.device)
 
         self.model = MegaDetector._load_model(model_path, self.device)
-
-        print('Sending model to %s' % device)
-        self.model.to(self.device)
+        self.model.to(device)
 
         self.printed_image_size_warning = False
 
