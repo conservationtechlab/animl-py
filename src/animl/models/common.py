@@ -24,6 +24,7 @@ from torch.cuda import amp
 from utils.dataloaders import exif_transpose, letterbox
 from utils.general import (LOGGER, check_requirements, check_suffix, check_version, colorstr, increment_path,
                            make_divisible, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh)
+from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import copy_attr, time_sync
 
 
@@ -634,6 +635,49 @@ class Detections:
         self.n = len(self.pred)  # number of images (batch size)
         self.t = tuple((times[i + 1] - times[i]) * 1000 / self.n for i in range(3))  # timestamps (ms)
         self.s = shape  # inference BCHW shape
+
+    def display(self, pprint=False, show=False, save=False, crop=False, render=False, labels=True, save_dir=Path('')):
+        crops = []
+        for i, (im, pred) in enumerate(zip(self.imgs, self.pred)):
+            s = f'image {i + 1}/{len(self.pred)}: {im.shape[0]}x{im.shape[1]} '  # string
+            if pred.shape[0]:
+                for c in pred[:, -1].unique():
+                    n = (pred[:, -1] == c).sum()  # detections per class
+                    s += f"{n} {self.names[int(c)]}{'s' * (n > 1)}, "  # add to string
+                if show or save or render or crop:
+                    annotator = Annotator(im, example=str(self.names))
+                    for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
+                        label = f'{self.names[int(cls)]} {conf:.2f}'
+                        if crop:
+                            file = save_dir / 'crops' / self.names[int(cls)] / self.files[i] if save else None
+                            crops.append({
+                                'box': box,
+                                'conf': conf,
+                                'cls': cls,
+                                'label': label,
+                                'im': save_one_box(box, im, file=file, save=save)})
+                        else:  # all others
+                            annotator.box_label(box, label if labels else '', color=colors(cls))
+                    im = annotator.im
+            else:
+                s += '(no detections)'
+
+            im = Image.fromarray(im.astype(np.uint8)) if isinstance(im, np.ndarray) else im  # from np
+            if pprint:
+                print(s.rstrip(', '))
+            if show:
+                im.show(self.files[i])  # show
+            if save:
+                f = self.files[i]
+                im.save(save_dir / f)  # save
+                if i == self.n - 1:
+                    LOGGER.info(f"Saved {self.n} image{'s' * (self.n > 1)} to {colorstr('bold', save_dir)}")
+            if render:
+                self.imgs[i] = np.asarray(im)
+        if crop:
+            if save:
+                LOGGER.info(f'Saved results to {save_dir}\n')
+            return crops
 
     def print(self):
         self.display(pprint=True)  # print results
