@@ -301,45 +301,13 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, pa
              #bypass checkpointed images
             if frame['file'] in already_processed:
                 continue
-          '''
-            try:
-                detections = frame['detections']
-            except KeyError:
-                print('File error ', frame['file'])
-                continue
-        if len(detections) == 0:
-            data = {'file': [frame['file']],
-                    'max_detection_conf': [frame['max_detection_conf']],
-                    'category': [0], 'conf': [None], 'bbox1': [None],
-                    'bbox2': [None], 'bbox3': [None], 'bbox4': [None]}
-            df = pd.DataFrame(data) if df.empty else pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
+            count += 1
 
-        else:
-            for detection in detections:
-                if (detection['conf'] > threshold):
-                    data = {'file': [frame['file']],
-                            'max_detection_conf': [frame['max_detection_conf']],
-                            'category': [detection['category']], 'conf': [detection['conf']],
-                            'bbox1': [detection['bbox1']], 'bbox2': [detection['bbox2']],
-                            'bbox3': [detection['bbox3']], 'bbox4': [detection['bbox4']]}
-
-                    df = pd.DataFrame(data) if df.empty else pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
-
-                    # adjust boxes with 2% buffer from image edge
-                    df.loc[df["bbox1"] > (1 - buffer), "bbox1"] = (1 - buffer)
-                    df.loc[df["bbox2"] > (1 - buffer), "bbox2"] = (1 - buffer)
-                    df.loc[df["bbox3"] > (1 - buffer), "bbox3"] = (1 - buffer)
-                    df.loc[df["bbox4"] > (1 - buffer), "bbox4"] = (1 - buffer)
-
-                    df.loc[df["bbox1"] < buffer, "bbox1"] = buffer
-                    df.loc[df["bbox2"] < buffer, "bbox2"] = buffer
-                    df.loc[df["bbox3"] < buffer, "bbox3"] = buffer
-                    df.loc[df["bbox4"] < buffer, "bbox4"] = buffer
-        #inside parallel else         '''
-        count += 1
+            data = process_frame(frame)
+            df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
 
             if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
-               print('Writing a new checkpoint after having processed {} images since last restart'.format(count))
+                print('Writing a new checkpoint after having processed {} images since last restart'.format(count))
             
                 assert out_file is not None
                 # Move previous checkpoint to temp file
