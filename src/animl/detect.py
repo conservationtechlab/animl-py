@@ -103,7 +103,7 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
     return result
 
 
-def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint_frequency=-1,
+ef detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint_frequency=-1,
                     confidence_threshold=0.1, quiet=True, image_size=None, file_col='Frame'):
     """
     From AgentMorris/MegaDetector
@@ -144,22 +144,33 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
                 image_file_names = json.load(f)
             print('Loaded {} image filenames from list file {}'.format(len(image_file_names), list_file))
 
-        # column from pd.DataFrame, expected input
-        elif isinstance(image_file_names, pd.Series):
-            image_file_names = image_file_names[file_col]
-
         # A single image file
         elif os.path.isfile(image_file_names):
             image_file_names = [image_file_names]
+
         else:
             raise ValueError('image_file_names is a string, but is not a directory, a json ' +
                              'list (.json), or an image file (png/jpg/jpeg/gif)')
 
-    results = file_management.check_file(checkpoint_path)
-    if not results:  # checkpoint comes back empty
+    # full manifest, select file_col
+    elif isinstance(image_file_names, pd.DataFrame):
+        image_file_names = image_file_names[file_col]
+
+    # column from pd.DataFrame, expected input
+    elif isinstance(image_file_names, pd.Series):
+        pass
+
+    else:
+        raise ValueError('image_file_names is not a recognized object')
+
+    if file_management.check_file(checkpoint_path):  # checkpoint comes back empty
+        with open(checkpoint_path, 'w') as f:
+            data = json.load(f)
+            results = data['images']
+    else:
         results = []
 
-    already_processed = set([i['Frame'] for i in results])
+    already_processed = set([i[file_col] for i in results])
 
     count = 0
     for im_file in tqdm(image_file_names):
@@ -171,8 +182,9 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
 
         count += 1
 
-        result = process_image(im_file, detector, confidence_threshold, quiet=quiet, image_size=image_size)
-        #result = handle_yolo(detector, im_file)
+        result = process_image(im_file, detector,
+                               confidence_threshold, quiet=quiet,
+                               image_size=image_size)
         results.append(result)
 
         # Write a checkpoint if necessary
@@ -196,6 +208,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
                 os.remove(checkpoint_tmp_path)
 
     return results
+
 
 def process_frame(frame, threshold=0.5, buffer=0.02):
     """
