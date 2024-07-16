@@ -185,22 +185,29 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, ch
     Returns:
         - df (pd.DataFrame): formatted md outputs, one row per detection
     """
-    if file_management.check_file(out_file):
-        return file_management.load_data(out_file)
-
+    if file_management.check_file(out_file):  # checkpoint comes back empty
+        df = file_management.load_data(out_file)
+        already_processed = set([i['file'] for i in df])
+        
+    else:
+        df = pd.DataFrame(columns=('file', 'max_detection_conf',
+                               'category', 'conf', 'bbox1',
+                               'bbox2', 'bbox3', 'bbox4'))
+        already_processed = set()
+    
     if not isinstance(results, list):
         raise AssertionError("MD results input must be list")
 
     if len(results) == 0:
         raise AssertionError("'results' contains no detections")
 
-    df = pd.DataFrame(columns=('file', 'max_detection_conf',
-                               'category', 'conf', 'bbox1',
-                               'bbox2', 'bbox3', 'bbox4'))
-
     count = 0
     # TODO: Add parallelization
     for frame in tqdm(results):
+        # bypass checkpointed images
+        if frame['file'] in already_processed:
+            continue
+        
         try:
             detections = frame['detections']
         except KeyError:

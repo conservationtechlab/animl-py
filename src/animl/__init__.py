@@ -14,7 +14,7 @@ from animl import timelapse
 from animl import train
 from animl import utils
 from animl import video_processing
-from animl import zooniverse
+#from animl import zooniverse
 
 from animl.animl_to_md import (animl_results_to_md_results,
                                detection_category_id_to_name, main,)
@@ -40,9 +40,9 @@ from animl.timelapse import (csv_converter,)
 from animl.train import (init_seed, main, train, validate,)
 from animl.utils import (notebook_init,)
 from animl.video_processing import (extract_frame_single, extract_frames,)
-from animl.zooniverse import (connect_to_Panoptes, copy_image,
-                              create_SubjectSet, upload_to_Zooniverse,
-                              upload_to_Zooniverse_Simple,)
+#from animl.zooniverse import (connect_to_Panoptes, copy_image,
+#                              create_SubjectSet, upload_to_Zooniverse,
+#                              upload_to_Zooniverse_Simple,)
 
 __all__ = ['CONF_DIGITS', 'COORD_DIGITS', 'EfficientNet', 'ImageGenerator',
            'MegaDetector', 'ResizeWithPadding', 'TrainGenerator',
