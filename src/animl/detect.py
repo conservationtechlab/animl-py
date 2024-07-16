@@ -17,6 +17,15 @@ from numpy import vstack
 
 
 def handle_yolo(detector, image_path):
+    """
+    Args:
+        - detector (str): name of the detector file used
+        - image_path: path of the image of whose to get detections
+        
+    Returns:
+        - result: dict representing detections on one image
+    """
+    
     try:
         result = {'file': image_path}
         detections = []
@@ -189,6 +198,18 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     return results
 
 def process_frame(frame, threshold=0.5, buffer=0.02):
+    """
+    Takes in a single frame and returns a list of its detections
+    
+        Args:
+            - frame (dict): single md output 
+            - buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
+            - threshold (float): parse only detections above given confidence threshold
+
+        Returns:
+            - results: list of dict, each dict represents detections on one image
+    """
+    
     try:
         detections = frame['detections']
     except KeyError:
@@ -228,6 +249,8 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, pa
         - out_file (str): path to save dataframe
         - buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
         - threshold (float): parse only detections above given confidence threshold
+        - parallelixe (boolean): parallelization enabled
+        - workers (int): number of threads running
 
     Returns:
         - df (pd.DataFrame): formatted md outputs, one row per detection
