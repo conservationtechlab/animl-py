@@ -292,6 +292,7 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, pa
         file_management.save_data(df, out_file)
 
     return df
+    
 def MD_JSON_TO_DF(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
 
     if file_management.check_file(out_file):
