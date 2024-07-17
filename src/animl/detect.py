@@ -14,44 +14,6 @@ from ultralytics import YOLO
 import multiprocessing as mp
 from numpy import vstack
 
-
-
-def handle_yolo(detector, image_path):
-    """
-    Args:
-        - detector (str): name of the detector file used
-        - image_path: path of the image of whose to get detections
-        
-    Returns:
-        - result: dict representing detections on one image
-    """
-    
-    try:
-        result = {'file': image_path}
-        detections = []
-        max_conf = 0.0
-
-        results = detector(image_path)
-        for det in results:
-            detections.append({
-                                'category': det.boxes.cls.item(),
-                                'conf': det.boxes.conf.item(),
-                                'bbox1': det.boxes.xywhn[0][0].item(),
-                                'bbox2': det.boxes.xywhn[0][1].item(),
-                                'bbox3': det.boxes.xywhn[0][2].item(),
-                                'bbox4': det.boxes.xywhn[0][3].item(),
-                            })
-            max_conf = max(max_conf, det.boxes.conf)
-
-        result['max_detection_conf'] = max_conf.item()
-        result['detections'] = detections
-    
-        #result = list(filter(lambda item: item is not None, result))
-        return result
-
-    except Exception as e:
-        print(e)
-
 def process_image(im_file, detector, confidence_threshold, quiet=True,
                   image_size=None, skip_image_resize=False):
     """
