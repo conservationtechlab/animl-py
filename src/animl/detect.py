@@ -292,3 +292,41 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, pa
         file_management.save_data(df, out_file)
 
     return df
+def MD_JSON_TO_DF(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
+
+    if file_management.check_file(out_file):
+        df = file_management.load_data(out_file)
+        already_processed = set([i['file'] for i in df])
+        
+    else:
+        df = pd.DataFrame(columns=('file', 'max_detection_conf',
+                               'category', 'conf', 'bbox1',
+                               'bbox2', 'bbox3', 'bbox4'))
+        already_processed = set()
+    
+    if not isinstance(results, list):
+        raise AssertionError("MD results input must be list")
+
+    if len(results) == 0:
+        raise AssertionError("'results' contains no detections")
+
+    count = 0
+    for frame in tqdm(results):
+        if frame['file'] in already_processed:
+            continue
+        count += 1
+        data = process_frame(frame, threshold, buffer)
+        df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
+        if count % 5000 == 0:
+            file_management.flush_data(df, out_file)
+            df = df[0:0]
+    file_management.flush_data(df, out_file)
+    df = df[0:0]
+
+    df = pd.read_csv(out_file)
+
+    if isinstance(manifest, pd.DataFrame):
+        df = manifest.merge(df, left_on="Frame", right_on="file")
+        df.to_csv(out_file)
+
+    return df
