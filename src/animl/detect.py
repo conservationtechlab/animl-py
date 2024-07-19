@@ -128,10 +128,13 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
         with open(checkpoint_path, 'r') as f:
             data = json.load(f)
             results = data['images']
+            
     else:
         results = []
 
+    to_process = set(image_file_names)
     already_processed = set([i['file'] for i in results])
+    image_file_names = to_process - already_processed
 
     count = 0
     for im_file in tqdm(image_file_names):
