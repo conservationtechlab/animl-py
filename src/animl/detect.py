@@ -124,7 +124,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
         raise ValueError('image_file_names is not a recognized object')
 
     if file_management.check_file(checkpoint_path):  # checkpoint comes back empty
-        with open(checkpoint_path, 'w') as f:
+        with open(checkpoint_path, 'r') as f:
             data = json.load(f)
             results = data['images']
     else:
