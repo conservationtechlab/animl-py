@@ -10,9 +10,8 @@ import pandas as pd
 from shutil import copyfile
 from PIL import Image
 from . import file_management
-from ultralytics import YOLO
 import multiprocessing as mp
-from numpy import vstack
+
 
 def process_image(im_file, detector, confidence_threshold, quiet=True,
                   image_size=None, skip_image_resize=False):
