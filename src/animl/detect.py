@@ -131,7 +131,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     else:
         results = []
 
-    already_processed = set([i[file_col] for i in results])
+    already_processed = set([i['file'] for i in results])
 
     count = 0
     for im_file in tqdm(image_file_names):
