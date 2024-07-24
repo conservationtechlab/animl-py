@@ -76,10 +76,10 @@ class WorkingDirectory():
         if not working_dir.is_dir():
             raise FileNotFoundError("The given directory does not exist.")
 
-        self.basedir = working_dir / "Animl-Directory/"
-        self.datadir = self.basedir / "Data/"
-        self.vidfdir = self.basedir / "Frames/"
-        self.linkdir = self.basedir / "Sorted/"
+        self.basedir = working_dir / Path("Animl-Directory/")
+        self.datadir = self.basedir / Path("Data/")
+        self.vidfdir = self.basedir / Path("Frames/")
+        self.linkdir = self.basedir / Path("Sorted/")
 
         # Create directories if they do not already exist
         self.basedir.mkdir(exist_ok=True)

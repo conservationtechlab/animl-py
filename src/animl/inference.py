@@ -56,6 +56,8 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
 
     if isinstance(detections, pd.DataFrame):
         # initialize lists
+        
+        detections = detections.reset_index(drop=True)
         predictions = []
         probabilities = []
         if raw:
