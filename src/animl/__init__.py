@@ -14,12 +14,13 @@ from animl import timelapse
 from animl import train
 from animl import utils
 from animl import video_processing
-#from animl import zooniverse
+from animl import zooniverse
 
 from animl.animl_to_md import (animl_results_to_md_results,
                                detection_category_id_to_name, main,)
 from animl.classifiers import (EfficientNet, load_model, save_model,)
-from animl.detect import (detect_MD_batch, parse_MD, process_image,)
+from animl.detect import (detect_MD_batch, list_detections, parse_MD,
+                          process_image,)
 from animl.file_management import (WorkingDirectory, active_times,
                                    build_file_manifest, check_file, load_data,
                                    save_data,)
@@ -40,9 +41,9 @@ from animl.timelapse import (csv_converter,)
 from animl.train import (init_seed, main, train, validate,)
 from animl.utils import (notebook_init,)
 from animl.video_processing import (extract_frame_single, extract_frames,)
-#from animl.zooniverse import (connect_to_Panoptes, copy_image,
-#                              create_SubjectSet, upload_to_Zooniverse,
-#                              upload_to_Zooniverse_Simple,)
+from animl.zooniverse import (connect_to_Panoptes, copy_image,
+                              create_SubjectSet, upload_to_Zooniverse,
+                              upload_to_Zooniverse_Simple,)
 
 __all__ = ['CONF_DIGITS', 'COORD_DIGITS', 'EfficientNet', 'ImageGenerator',
            'MegaDetector', 'ResizeWithPadding', 'TrainGenerator',
@@ -53,13 +54,14 @@ __all__ = ['CONF_DIGITS', 'COORD_DIGITS', 'EfficientNet', 'ImageGenerator',
            'detect_MD_batch', 'detection_category_id_to_name',
            'draw_bounding_boxes', 'extract_frame_single', 'extract_frames',
            'file_management', 'generator', 'get_animals', 'get_empty',
-           'inference', 'init_seed', 'load_data', 'load_model', 'main',
-           'manifest_dataloader', 'megadetector', 'notebook_init', 'parse_MD',
-           'plot_boxes', 'predict_species', 'process_image', 'remove_symlink',
-           'resize_with_padding', 'save_data', 'save_model',
-           'sequence_classification', 'softmax', 'split', 'symlink',
-           'symlink_MD', 'symlink_species', 'tensor_to_onnx', 'test',
-           'timelapse', 'train', 'train_dataloader', 'train_val_test',
-           'truncate_float', 'truncate_float_array', 'update_labels',
-           'upload_to_Zooniverse', 'upload_to_Zooniverse_Simple', 'utils',
-           'validate', 'video_processing', 'zooniverse']
+           'inference', 'init_seed', 'list_detections', 'load_data',
+           'load_model', 'main', 'manifest_dataloader', 'megadetector',
+           'notebook_init', 'parse_MD', 'plot_boxes', 'predict_species',
+           'process_image', 'remove_symlink', 'resize_with_padding',
+           'save_data', 'save_model', 'sequence_classification', 'softmax',
+           'split', 'symlink', 'symlink_MD', 'symlink_species',
+           'tensor_to_onnx', 'test', 'timelapse', 'train', 'train_dataloader',
+           'train_val_test', 'truncate_float', 'truncate_float_array',
+           'update_labels', 'upload_to_Zooniverse',
+           'upload_to_Zooniverse_Simple', 'utils', 'validate',
+           'video_processing', 'zooniverse']
