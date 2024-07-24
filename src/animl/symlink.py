@@ -45,7 +45,7 @@ def symlink_species(manifest, linkdir, file_col="FilePath", copy=False):
                 link.symlink_to(row[file_col])
                 #os.symlink(row[file_col], link)
             except Exception as e:
-                print('File already exists. Exception: {}'.format(e))
+                print('Exception: {}'.format(e))
                 continue
 
     return manifest
@@ -85,7 +85,7 @@ def symlink_MD(manifest, linkdir, file_col="file", copy=False):
                 link.symlink_to(row[file_col])
                 #os.symlink(row[file_col], link)
             except Exception as e:
-                print('File already exists. Exception: {}'.format(e))
+                print('Exception: {}'.format(e))
                 continue
 
     return manifest
