@@ -94,7 +94,7 @@ class WorkingDirectory():
         self.imageframes = self.datadir / Path("ImageFrames.csv")
         self.results = self.datadir / Path("Results.csv")
         self.predictions = self.datadir / Path("Predictions.csv")
-        self.mdresults = self.datadir / Path("Detections.csv")
+        self.detections = self.datadir / Path("Detections.csv")
         self.mdraw = self.datadir / Path("MD_Raw.json")
 
 

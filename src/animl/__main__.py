@@ -63,8 +63,8 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
 
     # Run all images and video frames through MegaDetector
     print("Running images and video frames through MegaDetector...")
-    if (file_management.check_file(working_dir.mdresults)):
-        detections = file_management.load_data(working_dir.mdresults)
+    if (file_management.check_file(working_dir.detections)):
+        detections = file_management.load_data(working_dir.detections)
     else:
         detector = megadetector.MegaDetector(detector_file, device=device)
         md_results = detect.detect_MD_batch(detector, all_frames["Frame"],
@@ -72,7 +72,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_MD(md_results, manifest=all_frames,
-                                     out_file=working_dir.mdresults, parallel=md_parallel)
+                                     out_file=working_dir.detections, parallel=md_parallel)
 
     # Extract animal detections from the rest
     print("Extracting animal detections...")
