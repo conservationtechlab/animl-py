@@ -8,7 +8,7 @@ from numpy import vstack
 from . import file_management
 
 
-def extract_frames(file_path, out_dir, fps=None, frames=None):
+def extract_frame_single(file_path, out_dir, fps=None, frames=None):
     """
     Extract frames from video for classification
 
@@ -37,7 +37,7 @@ def extract_frames(file_path, out_dir, fps=None, frames=None):
             if not ret:
                 break
 
-            out_path = (out_dir + filename + "-" +
+            out_path = (str(out_dir) + filename + "-" +
                         uniqueid + "-" +
                         str(frame_capture) + '.jpg')
             cv2.imwrite(out_path, frame)
@@ -52,7 +52,7 @@ def extract_frames(file_path, out_dir, fps=None, frames=None):
             if not ret:
                 break
 
-            out_path = (out_dir + filename + "-" +
+            out_path = (str(out_dir) + filename + "-" +
                         '{:05}'.format(randrange(1, 10 ** 5)) + "-" +
                         str(frame_capture) + '.jpg')
             cv2.imwrite(out_path, frame)
@@ -68,9 +68,9 @@ def extract_frames(file_path, out_dir, fps=None, frames=None):
         return frames_saved
 
 
-def images_from_videos(files, out_dir, out_file=None, format="jpg",
-                       fps=None, frames=None, parallel=False,
-                       workers=mp.cpu_count(), checkpoint=1000):
+# TO DO: IMPLEMENT CHECKPOINT
+def extract_frames(files, out_dir, out_file=None, fps=None, frames=None,
+                   parallel=False, workers=mp.cpu_count(), checkpoint=1000):
     """
     Extract frames from video for classification
 
@@ -78,7 +78,6 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
         - files: dataframe of videos
         - out_dir: directory to save frames to
         - out_file: file to which results will be saved
-        - format: output format for frames, defaults to jpg
         - fps: frames per second, otherwise determine mathematically
         - frames: number of frames to sample
         - parallel: Toggle for parallel processing, defaults to FALSE
@@ -108,10 +107,11 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
         lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",
                                                         ".mpg", ".mpeg", ".asf", ".m4v"])]
     if not videos.empty:
+        # TODO add checkpoint to parallel
         if parallel:
             pool = mp.Pool(workers)
 
-            video_frames = vstack([pool.apply(extract_frames, args=(video, out_dir, fps, frames))
+            video_frames = vstack([pool.apply(extract_frame_single, args=(video, out_dir, fps, frames))
                                    for video in tqdm(videos["FilePath"])])
 
             video_frames = pd.DataFrame(video_frames, columns=["Frame", "FilePath"])
@@ -121,8 +121,8 @@ def images_from_videos(files, out_dir, out_file=None, format="jpg",
         else:
             video_frames = []
             for i, video in tqdm(videos.iterrows()):
-                video_frames += extract_frames(video["FilePath"], out_dir=out_dir,
-                                               fps=fps, frames=frames)
+                video_frames += extract_frame_single(video["FilePath"], out_dir=out_dir,
+                                                     fps=fps, frames=frames)
 
                 if (i % checkpoint == 0) and (out_file is not None):
                     file_management.save_data(images, out_file)

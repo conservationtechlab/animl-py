@@ -10,6 +10,7 @@ import pandas as pd
 from shutil import copyfile
 from PIL import Image
 from . import file_management
+import multiprocessing as mp
 
 
 def process_image(im_file, detector, confidence_threshold, quiet=True,
@@ -64,7 +65,7 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
 
 
 def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint_frequency=-1,
-                    confidence_threshold=0.1, quiet=True, image_size=None):
+                    confidence_threshold=0.1, quiet=True, image_size=None, file_col='Frame'):
     """
     From AgentMorris/MegaDetector
     Runs MegaDetector on a batch of image files.
@@ -104,33 +105,41 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
                 image_file_names = json.load(f)
             print('Loaded {} image filenames from list file {}'.format(len(image_file_names), list_file))
 
-        # column from pd.DataFrame, expected input
-        elif isinstance(image_file_names, pd.Series):
-            pass
-
         # A single image file
         elif os.path.isfile(image_file_names):
             image_file_names = [image_file_names]
+
         else:
             raise ValueError('image_file_names is a string, but is not a directory, a json ' +
                              'list (.json), or an image file (png/jpg/jpeg/gif)')
 
-    results = file_management.check_file(checkpoint_path)
-    if not results:  # checkpoint comes back empty
+    # full manifest, select file_col
+    elif isinstance(image_file_names, pd.DataFrame):
+        image_file_names = image_file_names[file_col]
+
+    # column from pd.DataFrame, expected input
+    elif isinstance(image_file_names, pd.Series):
+        pass
+
+    else:
+        raise ValueError('image_file_names is not a recognized object')
+
+    if file_management.check_file(checkpoint_path):  # checkpoint comes back empty
+        with open(checkpoint_path, 'r') as f:
+            data = json.load(f)
+            results = data['images']
+
+    else:
         results = []
 
-    already_processed = set([i['Frame'] for i in results])
+    to_process = set(image_file_names)
+    already_processed = set([i['file'] for i in results])
+    image_file_names = to_process - already_processed
 
     count = 0
     for im_file in tqdm(image_file_names):
-        # Will not add additional entries not in the starter checkpoint
-        if im_file in already_processed:
-            if not quiet:
-                print('Bypassing image {}'.format(im_file))
-            continue
-
+        # process single image
         count += 1
-
         result = process_image(im_file, detector,
                                confidence_threshold, quiet=quiet,
                                image_size=image_size)
@@ -159,7 +168,48 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     return results
 
 
-def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
+def list_detections(frame, threshold=0.5, buffer=0.02):
+    """
+    Takes in a single frame and returns a DataFrame of its detections
+
+        Args:
+            - frame (dict): single md output
+            - buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
+            - threshold (float): parse only detections above given confidence threshold
+
+        Returns:
+            - results: list of dict, each dict represents detections on one image
+    """
+    try:
+        detections = frame['detections']
+    except KeyError:
+        print('File error ', frame['file'])
+        return None
+
+    data = []
+
+    if len(detections) == 0:
+        data.append({'file': frame['file'],
+                     'max_detection_conf': frame['max_detection_conf'],
+                     'category': 0, 'conf': None, 'bbox1': None,
+                     'bbox2': None, 'bbox3': None, 'bbox4': None})
+    else:
+        for detection in detections:
+            if detection['conf'] > threshold:
+                bbox1 = min(max(detection['bbox1'], buffer), 1 - buffer)
+                bbox2 = min(max(detection['bbox2'], buffer), 1 - buffer)
+                bbox3 = min(max(detection['bbox3'], buffer), 1 - buffer)
+                bbox4 = min(max(detection['bbox4'], buffer), 1 - buffer)
+
+                data.append({'file': frame['file'],
+                             'max_detection_conf': frame['max_detection_conf'],
+                             'category': detection['category'], 'conf': detection['conf'],
+                             'bbox1': bbox1, 'bbox2': bbox2, 'bbox3': bbox3, 'bbox4': bbox4})
+    return data
+
+
+def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0,
+             parallel=False, workers=mp.cpu_count(), checkpoint_frequency=-1):
     """
     Converts numerical output from classifier to common name species label
 
@@ -169,12 +219,22 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
         - out_file (str): path to save dataframe
         - buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
         - threshold (float): parse only detections above given confidence threshold
+        - parallel (boolean): parallelization enabled
+        - workers (int): number of threads running
+        - checkpoint_frequency (int): write results to checkpoint file every N images
 
     Returns:
         - df (pd.DataFrame): formatted md outputs, one row per detection
     """
-    if file_management.check_file(out_file):
-        return file_management.load_data(out_file)
+    # load checkpoint
+    if file_management.check_file(out_file):  # checkpoint comes back empty
+        df = file_management.load_data(out_file)
+        already_processed = set([i['file'] for i in df])
+
+    else:
+        df = pd.DataFrame(columns=('file', 'max_detection_conf', 'category', 'conf',
+                                   'bbox1', 'bbox2', 'bbox3', 'bbox4'))
+        already_processed = set()
 
     if not isinstance(results, list):
         raise AssertionError("MD results input must be list")
@@ -182,42 +242,43 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
     if len(results) == 0:
         raise AssertionError("'results' contains no detections")
 
-    df = pd.DataFrame(columns=('file', 'max_detection_conf',
-                               'category', 'conf', 'bbox1',
-                               'bbox2', 'bbox3', 'bbox4'))
-    for frame in tqdm(results):
-        try:
-            detections = frame['detections']
-        except KeyError:
-            print('File error ', frame['file'])
-            continue
-        if len(detections) == 0:
-            data = {'file': [frame['file']],
-                    'max_detection_conf': [frame['max_detection_conf']],
-                    'category': [0], 'conf': [None], 'bbox1': [None],
-                    'bbox2': [None], 'bbox3': [None], 'bbox4': [None]}
+    # parallel
+    if parallel:
+        pool = mp.Pool(workers)
+        processed_data = list([pool.apply(list_detections, args=(frame, threshold, buffer)) for frame in tqdm(results)])
+        processed_data = list(filter(lambda item: item is not None, processed_data))  # remove errors
+        processed_data = [item for sublist in processed_data for item in sublist]
+        df = pd.DataFrame(processed_data, columns=['file', 'max_detection_conf', 'category', 'conf',
+                                                   'bbox1', 'bbox2', 'bbox3', 'bbox4'])
+        pool.close()
+    # traditional
+    else:
+        count = 0
+        for frame in tqdm(results):
+            # Bypass checkpointed images
+            if frame['file'] in already_processed:
+                continue
+            count += 1
+
+            data = list_detections(frame)
             df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
 
-        else:
-            for detection in detections:
-                if (detection['conf'] > threshold):
-                    data = {'file': [frame['file']],
-                            'max_detection_conf': [frame['max_detection_conf']],
-                            'category': [detection['category']], 'conf': [detection['conf']],
-                            'bbox1': [detection['bbox1']], 'bbox2': [detection['bbox2']],
-                            'bbox3': [detection['bbox3']], 'bbox4': [detection['bbox4']]}
-                    df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
+            if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
+                print('Writing a new checkpoint after having processed {} images since last restart'.format(count))
 
-    # adjust boxes with 2% buffer from image edge
-    df.loc[df["bbox1"] > (1 - buffer), "bbox1"] = (1 - buffer)
-    df.loc[df["bbox2"] > (1 - buffer), "bbox2"] = (1 - buffer)
-    df.loc[df["bbox3"] > (1 - buffer), "bbox3"] = (1 - buffer)
-    df.loc[df["bbox4"] > (1 - buffer), "bbox4"] = (1 - buffer)
+                assert out_file is not None
+                # Move previous checkpoint to temp file
+                checkpoint_tmp_path = None
+                if os.path.isfile(out_file):
+                    checkpoint_tmp_path = out_file + '_tmp'
+                    copyfile(out_file, checkpoint_tmp_path)
 
-    df.loc[df["bbox1"] < buffer, "bbox1"] = buffer
-    df.loc[df["bbox2"] < buffer, "bbox2"] = buffer
-    df.loc[df["bbox3"] < buffer, "bbox3"] = buffer
-    df.loc[df["bbox4"] < buffer, "bbox4"] = buffer
+                # Write the new checkpoint
+                file_management.save_data(df, out_file, prompt=False)
+
+                # Remove the backup checkpoint if it exists
+                if checkpoint_tmp_path is not None:
+                    os.remove(checkpoint_tmp_path)
 
     if isinstance(manifest, pd.DataFrame):
         df = manifest.merge(df, left_on="Frame", right_on="file")

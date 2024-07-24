@@ -3,6 +3,7 @@ Based on MegaDetector/detections/pytorch_detector.py
 '''
 import math
 import torch
+from pathlib import Path
 import numpy as np
 import traceback
 from .utils import general, augmentations
@@ -19,19 +20,17 @@ class MegaDetector:
     STRIDE = 64
 
     def __init__(self, model_path: str, device=None):
-        if torch.cuda.is_available() and device is None:
-            self.device = torch.device('cuda:0')
-#             try:
-#                if torch.backends.mps.is_built and torch.backends.mps.is_available():
-#                    self.device = 'mps'
-#             except AttributeError:
-#                pass
-        else:
+        if not torch.cuda.is_available():
             self.device = 'cpu'
-        self.model = MegaDetector._load_model(model_path, self.device)
-        if (self.device != 'cpu'):
-            print('Sending model to GPU')
-            self.model.to(self.device)
+        elif torch.cuda.is_available() and device is None:
+            self.device = 'cuda:0'
+        else:
+            self.device = device
+
+        print('Sending model to %s' % self.device)
+
+        self.model = MegaDetector._load_model(Path(r""+model_path), self.device)
+        self.model.to(device)
 
         self.printed_image_size_warning = False
 

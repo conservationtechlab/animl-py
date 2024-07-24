@@ -8,6 +8,7 @@ import glob
 import pandas as pd
 import torch
 import torch.nn as nn
+from pathlib import Path
 from time import time
 from torchvision.models import efficientnet
 # import tensorflow.keras
@@ -37,7 +38,7 @@ def save_model(out_dir, epoch, model, stats):
     torch.save(stats, open(f'{out_dir}/{epoch}.pt', 'wb'))
 
 
-def load_model(model_path, class_file, device="cpu", architecture="CTL", overwrite=False):
+def load_model(model_path, class_file, device="cpu", architecture="CTL"):
     '''
     Creates a model instance and loads the latest model state weights.
 
@@ -46,7 +47,6 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
         - class_file (str): path to associated class list
         - device (str): specify to run on cpu or gpu
         - architecture (str): expected model architecture
-        - overwrite (bool): overwrite existing model files within path if true
 
     Returns:
         - model: model object of given architecture with loaded weights
@@ -54,17 +54,19 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
         - start_epoch (int): current epoch, 0 if not resuming training
     '''
     # read class file
-    classes = pd.read_csv(class_file)
+    model_path = Path(r""+model_path)
+    classes = pd.read_csv(Path(r""+class_file))
 
     # check to make sure GPU is available if chosen
     if device != 'cpu' and not torch.cuda.is_available():
-        print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
+        print(f'WARNING: device set to "{device}" but is not available; falling back to CPU...')
         device = 'cpu'
     else:
         print('Device set to', device)
 
     # load latest model state from given folder
     if os.path.isdir(model_path):
+        model_path = str(model_path)
         start_epoch = 0
         if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
             model = EfficientNet(len(classes))
@@ -73,7 +75,7 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
 
         model_states = glob.glob(model_path + '*.pt')
 
-        if len(model_states) and not overwrite:
+        if len(model_states):
             # at least one save state found; get latest
             model_epochs = [int(m.replace(model_path, '').replace('.pt', '')) for m in model_states]
             start_epoch = max(model_epochs)
@@ -83,8 +85,8 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
             state = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'))
             model.load_state_dict(state['model'])
         else:
-            # no save state found/overwrite; start anew
-            print('Model found but overwrite enabled, starting new model')
+            # no save state found; start anew
+            print('No model state found, starting new model')
 
         return model, classes, start_epoch
 
@@ -96,25 +98,24 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL", overwri
         # if model_path.endswith('.h5'):
         #    model = keras.models.load_model(model_path)
         # PyTorch dict
-        if model_path.endswith('.pt'):
+        if model_path.suffix == '.pt':
             model = EfficientNet(len(classes), tune=False)
-            checkpoint = torch.load(model_path)
+            checkpoint = torch.load(model_path, map_location=device)
             model.load_state_dict(checkpoint['model'])
             model.to(device)
             model.eval()
             model.framework = "EfficientNet"
         # PyTorch full model
-        elif model_path.endswith('.pth'):
-            model = torch.load(model_path)
+        elif model_path.suffix == '.pth':
+            model = torch.load(model_path, map_location=device)
             model.to(device)
             model.eval()
             model.framework = "pytorch"
-        elif model_path.endswith('.onnx'):
-            #onnx.checker.check_model(model_path)
-            if device == "gpu":
-                model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider"])
-            else:
+        elif model_path.suffix == '.onnx':
+            if device == "cpu":
                 model = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+            else:
+                model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider"])
             model.framework = "onnx"
         else:
             raise ValueError('Unrecognized model format: {}'.format(model_path))
@@ -138,7 +139,7 @@ class EfficientNet(nn.Module):
         super(EfficientNet, self).__init__()
         self.avgpool = nn.AdaptiveAvgPool2d(1)
 
-        self.model = efficientnet.efficientnet_v2_m(weights=efficientnet.EfficientNet_V2_M_Weights)       # "pretrained": use weights pre-trained on ImageNet
+        self.model = efficientnet.efficientnet_v2_m(weights=efficientnet.EfficientNet_V2_M_Weights.DEFAULT)       # "pretrained": use weights pre-trained on ImageNet
         if tune:
             for params in self.model.parameters():
                 params.requires_grad = True

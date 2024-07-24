@@ -30,7 +30,8 @@ def tensor_to_onnx(tensor):
 
 
 def predict_species(detections, model, classes, device='cpu', out_file=None,
-                    file_col='Frame', crop=True, resize=299, batch_size=1, workers=1, raw=False):
+                    file_col='Frame', crop=True, resize=299, standardize=True,
+                    batch_size=1, workers=1, channel_last=False, raw=False):
     """
     Predict species using classifier model
 
@@ -44,6 +45,8 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
         - resize (int): image input size
         - batch_size (int): data generator batch size
         - workers (int): number of cores
+        - channel_last (bool): swap dims for onnx models trained with BHWC order
+        - raw (bool): return raw logits instead of applying labels
 
     Returns
         - detections (pd.DataFrame): MD detections with classifier prediction and confidence
@@ -52,64 +55,62 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
         return file_management.load_data(out_file)
 
     if isinstance(detections, pd.DataFrame):
-        # tensorflow
-        if model.framework == "tensorflow":
-            dataset = generator.TFGenerator(detections, file_col=file_col, resize=resize, batch_size=batch_size)
-            output = model.predict(dataset, workers=workers, verbose=1)
+        # initialize lists
+        predictions = []
+        probabilities = []
+        if raw:
+            raw_output = []
 
-            detections['prediction'] = [classes['species'].values[int(np.argmax(x))] for x in output]
-            detections['confidence'] = [np.max(x) for x in output]
-        # pytorch or onnx
-        else:
-            predictions = []
-            probabilities = []
-            if raw:
-                raw_output = []
+        dataset = generator.manifest_dataloader(detections, file_col=file_col,
+                                                crop=crop, resize=resize, standardize=standardize,
+                                                batch_size=batch_size, workers=workers)
 
-            dataset = generator.manifest_dataloader(detections, batch_size=batch_size, workers=workers,
-                                                    file_col=file_col, crop=crop, resize=resize)
+        with torch.no_grad():
+            for _, batch in tqdm(enumerate(dataset)):
+                # pytorch
+                if model.framework == "pytorch" or model.framework == "EfficientNet":
+                    data = batch[0]
+                    data = data.to(device)
+                    output = model(data)
+                    if raw:
+                        raw_output.extend(output.cpu().detach().numpy())
 
-            with torch.no_grad():
-                for _, batch in tqdm(enumerate(dataset)):
-                    # pytorch
-                    if model.framework == "pytorch" or model.framework == "EfficientNet":
-                        data = batch[0]
-                        data = data.to(device)
-                        output = model(data)
-                        if raw:
-                            raw_output.extend(output.cpu().detach().numpy())
+                    labels = torch.argmax(output, dim=1).cpu().detach().numpy()
+                    pred = classes['Code'].values[labels]
+                    predictions.extend(pred)
 
-                        labels = torch.argmax(output, dim=1).cpu().detach().numpy()
-                        pred = classes['Code'].values[labels]
-                        predictions.extend(pred)
+                    probs = torch.max(torch.nn.functional.softmax(output, dim=1), 1)[0]
+                    probabilities.extend(probs.cpu().detach().numpy())
 
-                        probs = torch.max(torch.nn.functional.softmax(output, dim=1), 1)[0]
-                        probabilities.extend(probs.cpu().detach().numpy())
+                # onnx
+                elif model.framework == "onnx":
+                    device = "cpu"
 
-                    # onnx
-                    elif model.framework == "onnx":
-                        device = "cpu"
+                    data = batch[0]
 
-                        data = batch[0]
-
+                    # TODO: RUN ON GPU
+                    if channel_last:
                         inputs = {model.get_inputs()[0].name: tensor_to_onnx(data)}
-                        output = model.run(None, inputs)[0]
-                        if raw:
-                            raw_output.extend(output)
-
-                        labels = np.argmax(output, axis=1)
-                        pred = classes['Code'].values[labels]
-                        predictions.extend(pred)
-
-                        # onnx_probs = np.max(softmax(output),axis=1)
-                        onnx_probs = np.max(output, axis=1)
-                        probabilities.extend(onnx_probs)
-
                     else:
-                        raise AssertionError("Model architechture not supported.")
+                        inputs = {model.get_inputs()[0].name: data.cpu().detach().numpy()}
 
-                detections['prediction'] = predictions
-                detections['confidence'] = probabilities
+                    output = model.run(None, inputs)[0]
+                    if raw:
+                        raw_output.extend(output)
+
+                    labels = np.argmax(output, axis=1)
+                    pred = classes['Code'].values[labels]
+                    predictions.extend(pred)
+
+                    # onnx_probs = np.max(softmax(output),axis=1)
+                    onnx_probs = np.max(output, axis=1)
+                    probabilities.extend(onnx_probs)
+
+                else:
+                    raise AssertionError("Model architechture not supported.")
+
+            detections['prediction'] = predictions
+            detections['confidence'] = probabilities
 
     else:
         raise AssertionError("Input must be a data frame of crops or vector of file names.")

@@ -22,7 +22,7 @@ from PIL import Image
 from torch.cuda import amp
 
 from utils.dataloaders import exif_transpose, letterbox
-from utils.general import (LOGGER, check_requirements, check_suffix, check_version, colorstr, increment_path,
+from utils.general import (LOGGER, check_requirements, check_suffix, check_version, increment_path,
                            make_divisible, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh)
 from utils.torch_utils import copy_attr, time_sync
 
@@ -692,3 +692,14 @@ class Classify(nn.Module):
     def forward(self, x):
         z = torch.cat([self.aap(y) for y in (x if isinstance(x, list) else [x])], 1)  # cat if list
         return self.flat(self.conv(z))  # flatten to x(b,c2)
+
+
+# FROM autoanchor.py
+def check_anchor_order(m):
+    # Check anchor order against stride order for YOLOv5 Detect() module m, and correct if necessary
+    a = m.anchors.prod(-1).mean(-1).view(-1)  # mean anchor area per output layer
+    da = a[-1] - a[0]  # delta a
+    ds = m.stride[-1] - m.stride[0]  # delta s
+    if da and (da.sign() != ds.sign()):  # same order
+        LOGGER.info(f'{PREFIX}Reversing anchor order')
+        m.anchors[:] = m.anchors.flip(0)
