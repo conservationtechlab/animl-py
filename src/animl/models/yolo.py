@@ -147,7 +147,7 @@ class Model(nn.Module):
         y = self._clip_augmented(y)  # clip augmented tails
         return torch.cat(y, 1), None  # augmented inference, train
 
-    def _forward_once(self, x, profile=False, visualize=False):
+    def _forward_once(self, x, profile=False):
         y, dt = [], []  # outputs
         for m in self.model:
             if m.f != -1:  # if not from previous layer

@@ -5,6 +5,167 @@ Functionality to draw bounding boxes and labels provided image DataFrame.
 import cv2
 import argparse
 import pandas as pd
+import os
+import numpy as np
+
+
+def plot_all_bounding_boxes(data_frame, output_dir, file_col, min_conf=0, prediction=False):
+    """
+    This function takes the data frame output from MegaDetector, makes a copy of each image,
+    plots the boxes in the new image, and saves it the specified directory.
+
+    Parameters:
+    - data_frame (Pandas DataFrame): Output of Mega Detector
+    - output_dir (String): Name of the output directory
+    - min_conf (Optional) (Int or Float): Confidence threshold to plot the box
+    - prediction (Optional) (Boolean): Should the prediction be printed alongside bounding box
+
+    Raises:
+    - Exception: If 'data_frame' is not a pandas DataFrame
+    - Exception: If 'min_conf' is not a number between [0,1]
+    - Exception: If 'prediction' is not a boolean
+    """
+
+    # Sanity check to verify that data_frame is a Pandas DataFrame
+    if not isinstance(data_frame, pd.DataFrame):
+        raise Exception("'data_frame' must be a DataFrame")
+
+    # If the specified output directory does not exist, make it
+    if not os.path.exists(output_dir) or not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+
+    # Sanity check to verify that maxdiff is a positive number
+    if not isinstance(min_conf, (int, float)) or min_conf < 0 or min_conf > 1:
+        raise Exception("'min_conf' must be a number between [0,1]")
+
+    # Sanity check to verify prediction is a boolean
+    if not isinstance(prediction, bool):
+        raise Exception("'prediction' must be a boolean value")
+
+    # Sorting by file path to accumulate all rows belonging to the same image
+    data_frame[file_col] = data_frame[file_col].astype(str)
+    data_frame = data_frame.sort_values(by=file_col)
+
+    # List to store all the rows which have the same file name
+    curr_picture = []
+
+    # Iterating through all rows and gathering the ones which belong to the same image
+    for index, row in data_frame.iterrows():
+        # Initializing the list when it's empty
+        if len(curr_picture) == 0:
+            curr_picture.append(row)
+
+        # Check if row belongs to the same image
+        elif row[file_col] == curr_picture[0][file_col]:
+            curr_picture.append(row)
+
+        # All rows for the current image have been collected
+        else:
+            if not os.path.exists(curr_picture[0][file_col]):
+                continue
+            # Loading the image
+            img = cv2.imread(curr_picture[0][file_col])
+
+            # Getting the output destination
+            file_path = curr_picture[0][file_col]
+            dir_path, file_name = os.path.split(file_path)
+            file_name_no_ext, file_ext = os.path.splitext(file_name)
+            new_file_name = f"{file_name_no_ext}_box{file_ext}"
+            write_dir = output_dir
+            new_file_path = os.path.join(write_dir, new_file_name)
+
+            # If the file is not an image, skipping it
+            if file_ext.lower() not in ['.jpg', '.jpeg', '.png']:
+                curr_picture = [row]
+                continue
+
+            # Plotting individual boxes in an image
+            for i in curr_picture:
+                # Skipping the box if the confidence threshold is not met
+                if (i['max_detection_conf']) < min_conf:
+                    continue
+
+                # If any of the box isn't defined, jump to next one
+                if np.isnan(i['bbox1']).any() or np.isnan(i['bbox2']).any() or np.isnan(i['bbox3']).any() or np.isnan(i['bbox4']).any():
+                    continue
+
+                # Calculations required for plotting
+                height, width, _ = img.shape
+                left = int(i['bbox1'] * width)
+                top = int(i['bbox2'] * height)
+                right = int((i['bbox1'] + i['bbox3']) * width)
+                bottom = int((i['bbox2'] + i['bbox4']) * height)
+                thick = int((height + width) // 900)
+
+                # Plotting the box
+                cv2.rectangle(img, (left, top), (right, bottom), (90, 255, 0), thick)
+
+                # Printing prediction if enabled
+                if prediction:
+                    label = i['prediction']
+                    text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
+                    text_size_width, text_size_height = text_size
+
+                    box_right = (right if (right - left) < (text_size_width * 3) else left + (text_size_width * 3))
+                    cv2.rectangle(img, (left, top), (box_right, top - (text_size_height * 2)), (90, 255, 0), -1)
+                    cv2.putText(img, label, (left, top - 12), 0, 1e-3 * height, (0, 0, 0), thick // 3)
+
+            # Saving the image
+            cv2.imwrite(new_file_path, img)
+
+            # Reset list for next image
+            curr_picture = [row]
+
+    if not os.path.exists(curr_picture[0][file_col]):
+        return
+
+    # Loading the image
+    img = cv2.imread(curr_picture[0][file_col])
+
+    # Getting the output destination
+    file_path = curr_picture[0][file_col]
+    dir_path, file_name = os.path.split(file_path)
+    file_name_no_ext, file_ext = os.path.splitext(file_name)
+    new_file_name = f"{file_name_no_ext}_box{file_ext}"
+    write_dir = output_dir
+    new_file_path = os.path.join(write_dir, new_file_name)
+
+    # If the file is not an image, skipping it
+    if file_ext.lower() in ['.jpg', '.jpeg', '.png']:
+
+        # Plotting individual boxes in an image
+        for i in curr_picture:
+            # Skipping the box if the confidence threshold is not met
+            if (i['max_detection_conf']) < min_conf:
+                continue
+
+            # If any of the box isn't defined, jump to next one
+            if np.isnan(i['bbox1']).any() or np.isnan(i['bbox2']).any() or np.isnan(i['bbox3']).any() or np.isnan(i['bbox4']).any():
+                continue
+
+            # Calculations required for plotting
+            height, width, _ = img.shape
+            left = int(i['bbox1'] * width)
+            top = int(i['bbox2'] * height)
+            right = int((i['bbox1'] + i['bbox3']) * width)
+            bottom = int((i['bbox2'] + i['bbox4']) * height)
+            thick = int((height + width) // 900)
+
+            # Plotting the box
+            cv2.rectangle(img, (left, top), (right, bottom), (90, 255, 0), thick)
+
+            # Printing prediction if enabled
+            if prediction:
+                label = i['prediction']
+                text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
+                text_size_width, text_size_height = text_size
+
+                box_right = (right if (right - left) < (text_size_width * 3) else left + (text_size_width * 3))
+                cv2.rectangle(img, (left, top), (box_right, top - (text_size_height * 2)), (90, 255, 0), -1)
+                cv2.putText(img, label, (left, top - 12), 0, 1e-3 * height, (0, 0, 0), thick // 3)
+
+        # Saving the image
+        cv2.imwrite(new_file_path, img)
 
 
 def draw_bounding_boxes(row, box_number, image_output_path=None, prediction=False):
@@ -52,7 +213,7 @@ def draw_bounding_boxes(row, box_number, image_output_path=None, prediction=Fals
         cv2.imwrite(filename, img)
 
 
-def demo_boxes(manifest, min_conf=0.9, prediction=True):
+def demo_boxes(manifest, file_col, min_conf=0.9, prediction=True):
     """
     Draws bounding boxes and labels on image DataFrame.
 
@@ -71,7 +232,7 @@ def demo_boxes(manifest, min_conf=0.9, prediction=True):
     Returns:
         None
     """
-    images = manifest["FilePath"].unique()
+    images = manifest[file_col].unique()
 
     for image_path in images:
         # display the image, wait for key
@@ -80,7 +241,7 @@ def demo_boxes(manifest, min_conf=0.9, prediction=True):
         cv2.imshow('Display', img)
         cv2.waitKey(0)
 
-        boxes = manifest[manifest["FilePath"] == image_path]
+        boxes = manifest[manifest[file_col] == image_path]
         print(boxes)
         for _, row in boxes.iterrows():
             confidence = row["confidence"]

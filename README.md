@@ -25,14 +25,14 @@ pip install -e .
 ### From PyPi
 With NVIDIA GPU
 ```
-conda create -n animl-gpu python=3.7
+conda create -n animl-gpu python=3.12
 conda activate animl-gpu
 conda install cudatoolkit=11.3.1 cudnn=8.2.1
 pip install animl
 ```
 CPU only
 ```
-conda create -n animl-cpu python=3.7
+conda create -n animl-cpu python=3.12
 conda activate animl-cpu
 pip install animl
 ```
@@ -51,6 +51,8 @@ Python Package Dependencies
 - cudnn = 8.2.1 **
 
 A full list of dependencies can be found in environment.yml
+
+Animl also depends on [exiftool](https://exiftool.org/index.html) for accessing file metadata. 
 
 ### Verify Install 
 We recommend you download the [examples](https://github.com/conservationtechlab/animl-py/blob/main/examples/Southwest.zip) folder within this repository.

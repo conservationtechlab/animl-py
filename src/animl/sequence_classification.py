@@ -3,9 +3,10 @@
 """
 
 import pandas as pd
+import numpy as np
 
 
-def sequence_classification(animals, sortcolumns, empty=None, maxdiff=60):
+def sequence_classification(animals, sortcolumns, predictions, species, station_name, empty=None, maxdiff=60):
 
     """
     This function applies image classifications at a sequence level by leveraging information from
@@ -17,12 +18,16 @@ def sequence_classification(animals, sortcolumns, empty=None, maxdiff=60):
     Parameters:
     - animals (Pandas DataFrame): Sub-selection of all images that contain animals
     - sortcolumns (List of Strings): Defines sorting order for the DataFrame
+    - predictions (Numpy Array of Numpy Arrays): Logits of all entries in "animals"
+    - species (CSV File): File mapping index to species
+    - station_name (String): The name of the station column
     - empty (Optional) (Pandas DataFrame): Sub-selection of all images that do not contain animals
     - maxdiff (float) (Optional): Maximum time difference between any two images in a sequence
 
     Raises:
     - Exception: If 'animals' is not a pandas DataFrame
     - Exception: If 'sortcolumns' is not a list or is empty
+    - Exception: If 'station_name' is not a string or is empty
     - Exception: If 'empty' is defined and is not a pandas DataFrame
     - Exception: If maxdiff is defined and is not a positive number
 
@@ -38,6 +43,9 @@ def sequence_classification(animals, sortcolumns, empty=None, maxdiff=60):
     if not isinstance(sortcolumns, list) or len(sortcolumns) == 0:
         raise Exception("'sortcolumns' must be a non-empty list of strings")
 
+    if not isinstance(station_name, str) or station_name == '':
+        raise Exception("'station_name' must be a non-empty string")
+
     # Sanity check to verify that empty is a Pandas DataFrame, if defined
     if empty is not None and not isinstance(animals, pd.DataFrame):
         raise Exception("'empty' must be a DataFrame")
@@ -46,14 +54,24 @@ def sequence_classification(animals, sortcolumns, empty=None, maxdiff=60):
     if not isinstance(maxdiff, (int, float)) or maxdiff < 0:
         raise Exception("'maxdiff' must be a number >= 0")
 
-    # Column to indicate the origin DataFrame of a row, used for distinction between animal and empty rows
-    animals['df'] = "animals"
+    # Assigning each entry its logits
+    animals['logits'] = pd.Series(predictions.tolist())
+
+    # Column to track the DataFrame of origin
+    animals['df'] = 'animals'
 
     # DataFrame to hold the merged data from animals and empty
     if empty is not None:
-        empty['df'] = "empty"
-        empty['confidence'] = empty['confidence'].astype('float32')
+        # Making the logits of empty-entries all zeros
+        zero_matrix = np.zeros((empty.shape[0], species.shape[0]))
+        empty['logits'] = pd.Series(zero_matrix.tolist())
+
+        # Column to track the DataFrame of origin
+        empty['df'] = 'empty'
+
+        # Merging the two DataFrames
         merged_df = pd.concat([animals, empty])
+
     else:
         merged_df = animals
 
@@ -68,77 +86,102 @@ def sequence_classification(animals, sortcolumns, empty=None, maxdiff=60):
 
     # List to store all rows which are a part of the current sequence
     curr_sequence = []
+    curr_sequence_logits = []
+
+    empty_id = species.loc[species['species'] == 'empty', 'id'].iloc[0]
 
     # Iterating through all entries, one at a time
     for index, row in merged_df.iterrows():
         # If the current sequence is empty, initialize it with current row
         if len(curr_sequence) == 0:
             curr_sequence.append(row)
+            curr_sequence_logits.append(row['logits'])
 
         # Check if current row is a part of the current sequence
-        elif (row['Station'] == curr_sequence[0]['Station']) and (row["FileModifyDate"] - curr_sequence[0]["FileModifyDate"]).total_seconds() <= maxdiff:
+        elif (row[station_name] == curr_sequence[0][station_name]) and (row["FileModifyDate"] - curr_sequence[0]["FileModifyDate"]).total_seconds() <= maxdiff:
             curr_sequence.append(row)
+            curr_sequence_logits.append(row['logits'])
 
         # All rows for the current sequence have been collected
         else:
-            # Flag to handel the corner case of all entries belonging to the empty DataFrame
-            flag = True
+            matrix = np.stack(curr_sequence_logits, axis=0)
 
-            # Variables to store the highest confidence seen and its corresponding label
-            highest_confidence_value = -float('inf')
-            highest_confidence_label = ""
+            # Getting the max prediction from each row, used in case when all entries are empty in sequence
+            max_each_row = np.argmax(matrix, axis=1)
 
-            # Calculating the highest confidence and its label in the sequence, excluding entries from empty DataFrame
+            # Checking if the entire sequence is from empty df
+            all_from_empty_df = all(element['df'] != 'animals' for element in curr_sequence)
+
+            # Checking if all entries of the sequence are classified as empty
+            all_empty_id = not any(idx + 1 != empty_id for idx in max_each_row)
+
+            # If the entire sequence is from empty dataFrame or all entries are empty, prediction becomes empty
+            if (all_from_empty_df or all_empty_id):
+                highest_confidence_label = 'empty'
+
+            # Otherwise, pick the highest non-empty prediction
+            else:
+                # Summing the logits column-wise
+                col_sums = np.sum(matrix, axis=0)
+
+                # Getting the sorted order of indices (increasing)
+                col_sums = np.argsort(col_sums)
+
+                # Assigning the prediction label
+                if (col_sums[-1] + 1) != empty_id:
+                    highest_confidence_label = species.loc[species['id'] == col_sums[-1] + 1, 'species'].iloc[0]
+                else:
+                    highest_confidence_label = species.loc[species['id'] == col_sums[-2] + 1, 'species'].iloc[0]
+
+            # Adding the sequence to final_df
             for element in curr_sequence:
-                if element['confidence'] > highest_confidence_value and element['df'] != "empty":
-                    flag = False
-                    highest_confidence_value = element['confidence']
-                    highest_confidence_label = element['prediction']
-
-            # Corner case when the entire sequence belongs to empty DataFrame, calculating confidence and lable for the case
-            if flag:
-                for element in curr_sequence:
-                    if element['confidence'] > highest_confidence_value:
-                        highest_confidence_value = element['confidence']
-                        highest_confidence_label = element['prediction']
-
-            # Setting the values of confidence and prediction to highest_confidence_value and highest_confidence_label for all elements in a sequence
-            for element in curr_sequence:
-                element['confidence'] = highest_confidence_value
                 element['prediction'] = highest_confidence_label
                 final_df = pd.concat([final_df, pd.DataFrame([element])])
 
             # Re-initializing the current sequence
             curr_sequence = [row]
+            curr_sequence_logits = [row['logits']]
 
-    # Handeling the last batch missed by the while loop
-    # Flag to handel the corner case of all entries belonging to the empty DataFrame
-    flag = True
+    # Handeling the last batch
+    matrix = np.stack(curr_sequence_logits, axis=0)
 
-    # Variables to store the highest confidence seen and its corresponding label
-    highest_confidence_value = -float('inf')
-    highest_confidence_label = ""
+    # Getting the max prediction from each row, used in case when all entries are empty in sequence
+    max_each_row = np.argmax(matrix, axis=1)
 
-    # Calculating the highest confidence and its label in the sequence, excluding entries from empty DataFrame
+    # Checking if the entire sequence is from empty df
+    all_from_empty_df = all(element['df'] != 'animals' for element in curr_sequence)
+
+    # Checking if all entries of the sequence are classified as empty
+    all_empty_id = not any(idx + 1 != empty_id for idx in max_each_row)
+
+    # If the entire sequence is from empty dataFrame or all entries are empty, prediction becomes empty
+    if (all_from_empty_df or all_empty_id):
+        highest_confidence_label = 'empty'
+
+    # Otherwise, pick the highest non-empty prediction
+    else:
+        # Summing the logits column-wise
+        col_sums = np.sum(matrix, axis=0)
+
+        # Getting the sorted order of indices (increasing)
+        col_sums = np.argsort(col_sums)
+
+        # Assigning the prediction label
+        if (col_sums[-1] + 1) != empty_id:
+            highest_confidence_label = species.loc[species['id'] == col_sums[-1] + 1, 'species'].iloc[0]
+        else:
+            highest_confidence_label = species.loc[species['id'] == col_sums[-2] + 1, 'species'].iloc[0]
+
+    # Adding the sequence to final_df
     for element in curr_sequence:
-        if element['confidence'] > highest_confidence_value and element['df'] != "empty":
-            flag = False
-            highest_confidence_value = element['confidence']
-            highest_confidence_label = element['prediction']
-
-    # Corner case when the entire sequence belongs to empty DataFrame, calculating confidence and lable for the case
-    if flag:
-        for element in curr_sequence:
-            if element['confidence'] > highest_confidence_value:
-                highest_confidence_value = element['confidence']
-                highest_confidence_label = element['prediction']
-
-    # Setting the values of confidence and prediction to highest_confidence_value and highest_confidence_label for all elements in a sequence
-    for element in curr_sequence:
-        element['confidence'] = highest_confidence_value
         element['prediction'] = highest_confidence_label
         final_df = pd.concat([final_df, pd.DataFrame([element])])
 
-    # Returning the result, as per the flag specified
-    final_df = final_df.drop(columns=['df'])
+    animals = animals.drop(['df', 'logits'], axis=1)
+
+    if empty is not None:
+        empty = empty.drop(['df', 'logits'], axis=1)
+
+    final_df = final_df.drop(['df', 'logits'], axis=1)
+
     return final_df
