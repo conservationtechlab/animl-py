@@ -27,7 +27,7 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive
     Returns:
         - files (pd.DataFrame): list of files with or without file modify dates
     """
-    image_dir = Path(r""+image_dir) #  OS-agnostic path
+    image_dir = Path(r""+image_dir)  # OS-agnostic path
     if check_file(out_file):
         return load_data(out_file)  # load_data(outfile) load file manifest
     if not os.path.isdir(image_dir):
@@ -72,11 +72,9 @@ class WorkingDirectory():
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self, working_dir):
-        working_dir = Path(r""+working_dir) #  OS-agnostic path
+        working_dir = Path(r"" + working_dir)  # OS-agnostic path
         if not working_dir.is_dir():
             raise FileNotFoundError("The given directory does not exist.")
-        #if not working_dir.endswith("/"):
-        #    working_dir = working_dir + "/"
 
         self.basedir = working_dir / "Animl-Directory/"
         self.datadir = self.basedir / "Data/"

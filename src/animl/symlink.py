@@ -8,7 +8,6 @@
 
 import os
 from pathlib import Path
-from shutil import copy2
 
 
 def symlink_species(manifest, linkdir, file_col="FilePath", copy=False):
@@ -24,9 +23,10 @@ def symlink_species(manifest, linkdir, file_col="FilePath", copy=False):
     Returns
         copy of manifest with link path column
     """
+    linkdir = Path(linkdir)
     # Create species folders
     for species in manifest['prediction'].unique():
-        path = linkdir / Path(species) 
+        path = linkdir / Path(species)
         path.mkdir(exist_ok=True)
 
     # create new column
@@ -38,12 +38,11 @@ def symlink_species(manifest, linkdir, file_col="FilePath", copy=False):
         manifest.loc[i, 'Link'] = str(link)
         if copy:
             print("Hard copy enabled. This will overwrite existing files.")
-            # copy2(row[file_col], link)
+
             link.hardlink_to(row[file_col])
         else:
             try:
                 link.symlink_to(row[file_col])
-                #os.symlink(row[file_col], link)
             except Exception as e:
                 print('Exception: {}'.format(e))
                 continue
@@ -64,10 +63,11 @@ def symlink_MD(manifest, linkdir, file_col="file", copy=False):
     Returns
         copy of manifest with link path column
     """
+    linkdir = Path(linkdir)
     # Create class subfolders
     classes = ["empty", "animal", "human", "vehicle"]
     for i in range(classes):
-        path = linkdir / Path(classes) 
+        path = linkdir / Path(classes)
         path.mkdir(exist_ok=True)
 
     # create new column
@@ -78,12 +78,10 @@ def symlink_MD(manifest, linkdir, file_col="file", copy=False):
         manifest.loc[i, 'Link'] = str(link)
         if copy:
             print("Hard copy enabled. This will overwrite existing files.")
-            # copy2(row[file_col], link)
             link.hardlink_to(row[file_col])
         else:
             try:
                 link.symlink_to(row[file_col])
-                #os.symlink(row[file_col], link)
             except Exception as e:
                 print('Exception: {}'.format(e))
                 continue
