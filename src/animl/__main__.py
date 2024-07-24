@@ -70,7 +70,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_MD(md_results, manifest=all_frames,
-                                     out_file=working_dir.mdresults)
+                                     out_file=working_dir.mdresults, parallel=True)
 
     # Extract animal detections from the rest
     print("Extracting animal detections...")
