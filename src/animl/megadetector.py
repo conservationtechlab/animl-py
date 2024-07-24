@@ -3,6 +3,7 @@ Based on MegaDetector/detections/pytorch_detector.py
 '''
 import math
 import torch
+from pathlib import Path
 import numpy as np
 import traceback
 from .utils import general, augmentations
@@ -28,7 +29,7 @@ class MegaDetector:
 
         print('Sending model to %s' % self.device)
 
-        self.model = MegaDetector._load_model(model_path, self.device)
+        self.model = MegaDetector._load_model(Path(r""+model_path), self.device)
         self.model.to(device)
 
         self.printed_image_size_warning = False

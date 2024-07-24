@@ -7,6 +7,7 @@
 """
 
 import os
+from pathlib import Path
 from shutil import copy2
 
 
@@ -25,21 +26,24 @@ def symlink_species(manifest, linkdir, file_col="FilePath", copy=False):
     """
     # Create species folders
     for species in manifest['prediction'].unique():
-        os.makedirs(linkdir + species, exist_ok=True)
+        path = linkdir / Path(species) 
+        path.mkdir(exist_ok=True)
 
     # create new column
     manifest['Link'] = linkdir
 
     for i, row in manifest.iterrows():
         name = row['UniqueName'] if 'UniqueName' in manifest.columns else os.path.basename(row[file_col])
-        link = linkdir + row['prediction'] + "/" + name
-        manifest.loc[i, 'Link'] = link
+        link = linkdir / Path(row['prediction']) / Path(name)
+        manifest.loc[i, 'Link'] = str(link)
         if copy:
             print("Hard copy enabled. This will overwrite existing files.")
-            copy2(row[file_col], link)
+            # copy2(row[file_col], link)
+            link.hardlink_to(row[file_col])
         else:
             try:
-                os.symlink(row[file_col], link)
+                link.symlink_to(row[file_col])
+                #os.symlink(row[file_col], link)
             except Exception as e:
                 print('File already exists. Exception: {}'.format(e))
                 continue
@@ -63,20 +67,23 @@ def symlink_MD(manifest, linkdir, file_col="file", copy=False):
     # Create class subfolders
     classes = ["empty", "animal", "human", "vehicle"]
     for i in range(classes):
-        os.makedirs(linkdir + i, exist_ok=True)
+        path = linkdir / Path(classes) 
+        path.mkdir(exist_ok=True)
 
     # create new column
     manifest['Link'] = linkdir
     for i, row in manifest.iterrows():
         name = row['UniqueName'] if 'UniqueName' in manifest.columns else os.path.basename(row[file_col])
-        link = linkdir + str(row['category']) + "/" + name
-        manifest.loc[i, 'Link'] = link
+        link = linkdir / Path(row['category']) / Path(name)
+        manifest.loc[i, 'Link'] = str(link)
         if copy:
             print("Hard copy enabled. This will overwrite existing files.")
-            copy2(row[file_col], link)
+            # copy2(row[file_col], link)
+            link.hardlink_to(row[file_col])
         else:
             try:
-                os.symlink(row[file_col], link)
+                link.symlink_to(row[file_col])
+                #os.symlink(row[file_col], link)
             except Exception as e:
                 print('File already exists. Exception: {}'.format(e))
                 continue

@@ -44,6 +44,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         device = "cuda:0"
     else:
         device = 'cpu'
+        md_parallel = False
 
     print("Searching directory...")
     # Create a working directory, build the file manifest from img_dir
@@ -70,7 +71,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_MD(md_results, manifest=all_frames,
-                                     out_file=working_dir.mdresults, parallel=True)
+                                     out_file=working_dir.mdresults, parallel=md_parallel)
 
     # Extract animal detections from the rest
     print("Extracting animal detections...")
@@ -91,7 +92,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         manifest = symlink.symlink_species(manifest, working_dir.linkdir)
 
     file_management.save_data(manifest, working_dir.results)
-    print("Final Results in " + working_dir.results)
+    print("Final Results in " + str(working_dir.results))
 
     return manifest
 

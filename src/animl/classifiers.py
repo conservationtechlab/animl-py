@@ -8,6 +8,7 @@ import glob
 import pandas as pd
 import torch
 import torch.nn as nn
+from pathlib import Path
 from time import time
 from torchvision.models import efficientnet
 # import tensorflow.keras
@@ -53,7 +54,8 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL"):
         - start_epoch (int): current epoch, 0 if not resuming training
     '''
     # read class file
-    classes = pd.read_csv(class_file)
+    model_path = Path(r""+model_path)
+    classes = pd.read_csv(Path(r""+class_file))
 
     # check to make sure GPU is available if chosen
     if device != 'cpu' and not torch.cuda.is_available():
@@ -64,6 +66,7 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL"):
 
     # load latest model state from given folder
     if os.path.isdir(model_path):
+        model_path = str(model_path)
         start_epoch = 0
         if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
             model = EfficientNet(len(classes))
@@ -95,7 +98,7 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL"):
         # if model_path.endswith('.h5'):
         #    model = keras.models.load_model(model_path)
         # PyTorch dict
-        if model_path.endswith('.pt'):
+        if model_path.suffix == '.pt':
             model = EfficientNet(len(classes), tune=False)
             checkpoint = torch.load(model_path, map_location=device)
             model.load_state_dict(checkpoint['model'])
@@ -103,12 +106,12 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL"):
             model.eval()
             model.framework = "EfficientNet"
         # PyTorch full model
-        elif model_path.endswith('.pth'):
+        elif model_path.suffix == '.pth':
             model = torch.load(model_path, map_location=device)
             model.to(device)
             model.eval()
             model.framework = "pytorch"
-        elif model_path.endswith('.onnx'):
+        elif model_path.suffix == '.onnx':
             if device == "cpu":
                 model = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
             else:

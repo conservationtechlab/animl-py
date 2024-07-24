@@ -6,6 +6,7 @@
     @ Kyra Swanson 2023
 """
 import os
+from pathlib import Path
 from glob import glob
 from datetime import datetime, timedelta
 import pandas as pd
@@ -26,6 +27,7 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive
     Returns:
         - files (pd.DataFrame): list of files with or without file modify dates
     """
+    image_dir = Path(r""+image_dir) #  OS-agnostic path
     if check_file(out_file):
         return load_data(out_file)  # load_data(outfile) load file manifest
     if not os.path.isdir(image_dir):
@@ -70,32 +72,30 @@ class WorkingDirectory():
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self, working_dir):
-
-        if not os.path.isdir(working_dir):
+        working_dir = Path(r""+working_dir) #  OS-agnostic path
+        if not working_dir.is_dir():
             raise FileNotFoundError("The given directory does not exist.")
-        if not working_dir.endswith("/"):
-            working_dir = working_dir + "/"
+        #if not working_dir.endswith("/"):
+        #    working_dir = working_dir + "/"
 
-        self.basedir = working_dir + "Animl-Directory/"
-        self.datadir = self.basedir + "Data/"
-        self.vidfdir = self.basedir + "Frames/"
-        self.linkdir = self.basedir + "Sorted/"
+        self.basedir = working_dir / "Animl-Directory/"
+        self.datadir = self.basedir / "Data/"
+        self.vidfdir = self.basedir / "Frames/"
+        self.linkdir = self.basedir / "Sorted/"
 
         # Create directories if they do not already exist
-        if not os.path.exists(self.datadir):
-            os.makedirs(self.datadir)
-        if not os.path.exists(self.vidfdir):
-            os.makedirs(self.vidfdir)
-        if not os.path.exists(self.linkdir):
-            os.makedirs(self.linkdir)
+        self.basedir.mkdir(exist_ok=True)
+        self.datadir.mkdir(exist_ok=True)
+        self.vidfdir.mkdir(exist_ok=True)
+        self.linkdir.mkdir(exist_ok=True)
 
         # Assign specific file paths
-        self.filemanifest = self.datadir + "FileManifest.csv"
-        self.imageframes = self.datadir + "ImageFrames.csv"
-        self.results = self.datadir + "Results.csv"
-        self.predictions = self.datadir + "Predictions.csv"
-        self.mdresults = self.datadir + "Detections.csv"
-        self.mdraw = self.datadir + "MD_Raw.json"
+        self.filemanifest = self.datadir / Path("FileManifest.csv")
+        self.imageframes = self.datadir / Path("ImageFrames.csv")
+        self.results = self.datadir / Path("Results.csv")
+        self.predictions = self.datadir / Path("Predictions.csv")
+        self.mdresults = self.datadir / Path("Detections.csv")
+        self.mdraw = self.datadir / Path("MD_Raw.json")
 
 
 def save_data(data, out_file, prompt=True):
