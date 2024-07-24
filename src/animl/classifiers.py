@@ -38,7 +38,7 @@ def save_model(out_dir, epoch, model, stats):
     torch.save(stats, open(f'{out_dir}/{epoch}.pt', 'wb'))
 
 
-def load_model(model_path, class_file, device="cpu", architecture="CTL"):
+def load_model(model_path, class_file, device=None, architecture="CTL"):
     '''
     Creates a model instance and loads the latest model state weights.
 
@@ -58,11 +58,14 @@ def load_model(model_path, class_file, device="cpu", architecture="CTL"):
     classes = pd.read_csv(Path(r""+class_file))
 
     # check to make sure GPU is available if chosen
-    if device != 'cpu' and not torch.cuda.is_available():
-        print(f'WARNING: device set to "{device}" but is not available; falling back to CPU...')
+    if not torch.cuda.is_available():
         device = 'cpu'
+    elif torch.cuda.is_available() and device is None:
+        device = 'cuda:0'
     else:
-        print('Device set to', device)
+        device = device
+
+    print('Device set to', device)
 
     # load latest model state from given folder
     if os.path.isdir(model_path):
