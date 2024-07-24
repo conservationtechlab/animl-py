@@ -42,6 +42,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     """
     if torch.cuda.is_available():
         device = "cuda:0"
+        md_parallel = True
     else:
         device = 'cpu'
         md_parallel = False
