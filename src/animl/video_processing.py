@@ -37,9 +37,9 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
             if not ret:
                 break
 
-            out_path = (str(out_dir) + filename + "-" +
-                        uniqueid + "-" +
-                        str(frame_capture) + '.jpg')
+            frame_name = filename + "-" + uniqueid + "-" + \
+                        str(frame_capture) + '.jpg'
+            out_path = os.path.join(str(out_dir),frame_name)
             cv2.imwrite(out_path, frame)
             frames_saved.append([out_path, file_path])
             frame_capture += increment
@@ -51,10 +51,9 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
             cap.set(cv2.CAP_PROP_POS_MSEC, (frame_capture * 1000))
             if not ret:
                 break
-
-            out_path = (str(out_dir) + filename + "-" +
-                        '{:05}'.format(randrange(1, 10 ** 5)) + "-" +
-                        str(frame_capture) + '.jpg')
+            frame_name = filename + "-" + '{:05}'.format(randrange(1, 10 ** 5)) + \
+                         "-" + str(frame_capture) + '.jpg'
+            out_path = os.path.join(str(out_dir),frame_name)
             cv2.imwrite(out_path, frame)
             frames_saved.append([out_path, file_path])
             frame_capture += fps

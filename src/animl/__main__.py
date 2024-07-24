@@ -67,7 +67,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
         detections = file_management.load_data(working_dir.detections)
     else:
         detector = megadetector.MegaDetector(detector_file, device=device)
-        md_results = detect.detect_MD_batch(detector, all_frames["Frame"],
+        md_results = detect.detect_MD_batch(detector, all_frames, file_col="Frame",
                                             checkpoint_path=working_dir.mdraw, quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
@@ -83,7 +83,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
     print("Predicting species of animal detections...")
     print(class_list)
     classifier, classes = classifiers.load_model(classifier_file, class_list, device=device)
-    animals = inference.predict_species(animals.reset_index(drop=True), classifier, classes, device=device,
+    animals = inference.predict_species(animals, classifier, classes, device=device,
                                         file_col="Frame", batch_size=4, out_file=working_dir.predictions)
 
     # merge animal and empty, create symlinks
