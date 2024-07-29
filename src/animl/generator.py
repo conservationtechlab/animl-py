@@ -151,6 +151,7 @@ class ImageGenerator(Dataset):
             img = img.crop((left, top, right, bottom))
 
         img_tensor = self.transform(img)
+        img.close()
 
         return img_tensor, image_name
 
@@ -215,11 +216,12 @@ class TrainGenerator(Dataset):
             img = img.crop((left, top, right, bottom))
 
         img_tensor = self.transform(img)
+        img.close()
 
         return img_tensor, label, image_name
 
 
-'''
+'''dataloader get item close file
 class TFGenerator(Sequence):
 
     Generator for TensorFlow/Keras models
@@ -303,7 +305,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
             dataset=dataset_instance,
             batch_size=batch_size,
             shuffle=True,
-            num_workers=workers
+            num_workers=workers,
         )
     return dataLoader
 
