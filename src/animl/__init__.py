@@ -19,8 +19,7 @@ from animl import zooniverse
 from animl.animl_to_md import (animl_results_to_md_results,
                                detection_category_id_to_name, main,)
 from animl.classifiers import (EfficientNet, load_model, save_model,)
-from animl.detect import (detect_MD_batch, list_detections, parse_MD,
-                          process_image,)
+from animl.detect import (detect_MD_batch, parse_MD, process_image,)
 from animl.file_management import (WorkingDirectory, active_times,
                                    build_file_manifest, check_file, load_data,
                                    save_data,)

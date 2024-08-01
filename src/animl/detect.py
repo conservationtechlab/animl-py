@@ -207,7 +207,6 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0,
     for frame in tqdm(results):
         if frame['file'] in already_processed:
             continue
-        count += 1
 
         try:
             detections = frame['detections']
@@ -216,20 +215,20 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0,
             continue
 
         if len(detections) == 0:
-            data = {'file': [frame['file']],
-                    'max_detection_conf': [frame['max_detection_conf']],
-                    'category': [0], 'conf': [None], 'bbox1': [None],
-                    'bbox2': [None], 'bbox3': [None], 'bbox4': [None]}
+            data = {'file': frame['file'],
+                    'max_detection_conf': frame['max_detection_conf'],
+                    'category': 0, 'conf': None, 'bbox1': None,
+                    'bbox2': None, 'bbox3': None, 'bbox4': None}
             lst.append(data)
 
         else:
             for detection in detections:
                 if (detection['conf'] > 0.1):
-                    data = {'file': [frame['file']],
-                            'max_detection_conf': [frame['max_detection_conf']],
-                            'category': [detection['category']], 'conf': [detection['conf']],
-                            'bbox1': [detection['bbox1']], 'bbox2': [detection['bbox2']],
-                            'bbox3': [detection['bbox3']], 'bbox4': [detection['bbox4']]}
+                    data = {'file': frame['file'],
+                            'max_detection_conf': frame['max_detection_conf'],
+                            'category': detection['category'], 'conf': detection['conf'],
+                            'bbox1': detection['bbox1'], 'bbox2': detection['bbox2'],
+                            'bbox3': detection['bbox3'], 'bbox4': detection['bbox4']}
                     lst.append(data)
     
     df = pd.DataFrame(lst)
