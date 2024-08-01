@@ -168,46 +168,6 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     return results
 
 
-def list_detections(frame, threshold=0.5, buffer=0.02):
-    """
-    Takes in a single frame and returns a DataFrame of its detections
-
-        Args:
-            - frame (dict): single md output
-            - buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
-            - threshold (float): parse only detections above given confidence threshold
-
-        Returns:
-            - results: list of dict, each dict represents detections on one image
-    """
-    try:
-        detections = frame['detections']
-    except KeyError:
-        print('File error ', frame['file'])
-        return None
-
-    data = []
-
-    if len(detections) == 0:
-        data.append({'file': frame['file'],
-                     'max_detection_conf': frame['max_detection_conf'],
-                     'category': 0, 'conf': None, 'bbox1': None,
-                     'bbox2': None, 'bbox3': None, 'bbox4': None})
-    else:
-        for detection in detections:
-            if detection['conf'] > threshold:
-                bbox1 = min(max(detection['bbox1'], buffer), 1 - buffer)
-                bbox2 = min(max(detection['bbox2'], buffer), 1 - buffer)
-                bbox3 = min(max(detection['bbox3'], buffer), 1 - buffer)
-                bbox4 = min(max(detection['bbox4'], buffer), 1 - buffer)
-
-                data.append({'file': frame['file'],
-                             'max_detection_conf': frame['max_detection_conf'],
-                             'category': detection['category'], 'conf': detection['conf'],
-                             'bbox1': bbox1, 'bbox2': bbox2, 'bbox3': bbox3, 'bbox4': bbox4})
-    return data
-
-
 def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0,
              parallel=False, workers=mp.cpu_count(), checkpoint_frequency=-1):
     """
@@ -242,44 +202,38 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0,
     if len(results) == 0:
         raise AssertionError("'results' contains no detections")
 
-    # parallel
-    if parallel:
-        pool = mp.Pool(workers)
-        processed_data = list([pool.apply(list_detections, args=(frame, threshold, buffer)) for frame in tqdm(results)])
-        processed_data = list(filter(lambda item: item is not None, processed_data))  # remove errors
-        processed_data = [item for sublist in processed_data for item in sublist]
-        df = pd.DataFrame(processed_data, columns=['file', 'max_detection_conf', 'category', 'conf',
-                                                   'bbox1', 'bbox2', 'bbox3', 'bbox4'])
-        pool.close()
-    # traditional
-    else:
-        count = 0
-        for frame in tqdm(results):
-            # Bypass checkpointed images
-            if frame['file'] in already_processed:
-                continue
-            count += 1
+    lst = []
 
-            data = list_detections(frame)
-            df = pd.concat([df, pd.DataFrame(data)]).reset_index(drop=True)
+    for frame in tqdm(results):
+        if frame['file'] in already_processed:
+            continue
+        count += 1
 
-            if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
-                print('Writing a new checkpoint after having processed {} images since last restart'.format(count))
+        try:
+            detections = frame['detections']
+        except KeyError:
+            print('File error ', frame['file'])
+            continue
 
-                assert out_file is not None
-                # Move previous checkpoint to temp file
-                checkpoint_tmp_path = None
-                if os.path.isfile(out_file):
-                    checkpoint_tmp_path = out_file + '_tmp'
-                    copyfile(out_file, checkpoint_tmp_path)
+        if len(detections) == 0:
+            data = {'file': [frame['file']],
+                    'max_detection_conf': [frame['max_detection_conf']],
+                    'category': [0], 'conf': [None], 'bbox1': [None],
+                    'bbox2': [None], 'bbox3': [None], 'bbox4': [None]}
+            lst.append(data)
 
-                # Write the new checkpoint
-                file_management.save_data(df, out_file, prompt=False)
-
-                # Remove the backup checkpoint if it exists
-                if checkpoint_tmp_path is not None:
-                    os.remove(checkpoint_tmp_path)
-
+        else:
+            for detection in detections:
+                if (detection['conf'] > 0.1):
+                    data = {'file': [frame['file']],
+                            'max_detection_conf': [frame['max_detection_conf']],
+                            'category': [detection['category']], 'conf': [detection['conf']],
+                            'bbox1': [detection['bbox1']], 'bbox2': [detection['bbox2']],
+                            'bbox3': [detection['bbox3']], 'bbox4': [detection['bbox4']]}
+                    lst.append(data)
+    
+    df = pd.DataFrame(lst)
+          
     if isinstance(manifest, pd.DataFrame):
         df = manifest.merge(df, left_on="Frame", right_on="file")
 
