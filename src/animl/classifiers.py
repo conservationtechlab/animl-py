@@ -75,8 +75,12 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
             model = EfficientNet(len(classes))
         else:  # can only resume CTL models from a directory at this time
             raise AssertionError('Please provide the correct model')
-
-        model_states = glob.glob(model_path + '*.pt')
+        
+        files = os.listdir(model_path)
+        model_states = []
+        for i in files:
+            if('.pt') in i:
+                model_states.append(i)
 
         if len(model_states):
             # at least one save state found; get latest
