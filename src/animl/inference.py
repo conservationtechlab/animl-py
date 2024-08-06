@@ -19,19 +19,21 @@ def softmax(x):
     return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
 
 
-def tensor_to_onnx(tensor):
+def tensor_to_onnx(tensor, channel_last=True):
     '''
     Helper function for onnx, shifts dims to BxHxWxC
     '''
-    tensor = tensor.permute(0, 2, 3, 1)  # reorder BxCxHxW to BxHxWxC
-    tensor = tensor.cpu().detach().numpy()
-    # tensor = np.asarray(tensor, dtype='float32')
+    if channel_last:
+        tensor = tensor.permute(0, 2, 3, 1)  # reorder BxCxHxW to BxHxWxC
+
+    tensor = tensor.numpy()
+
     return tensor
 
 
-def predict_species(detections, model, classes, device='cpu', out_file=None,
-                    file_col='Frame', crop=True, resize=299, standardize=True,
-                    batch_size=1, workers=1, channel_last=False, raw=False):
+def predict_species(detections, model, classes, device='cpu', out_file=None, raw=False,
+                    file_col='Frame', crop=True, resize_width=299, resize_height=299,
+                    normalize=True, batch_size=1, workers=1):
     """
     Predict species using classifier model
 
@@ -56,16 +58,15 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
 
     if isinstance(detections, pd.DataFrame):
         # initialize lists
-        
         detections = detections.reset_index(drop=True)
         predictions = []
         probabilities = []
         if raw:
             raw_output = []
 
-        dataset = generator.manifest_dataloader(detections, file_col=file_col,
-                                                crop=crop, resize=resize, standardize=standardize,
-                                                batch_size=batch_size, workers=workers)
+        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=crop,
+                                                resize_width=resize_width, resize_height=resize_height,
+                                                normalize=normalize, batch_size=batch_size, workers=workers)
 
         with torch.no_grad():
             for _, batch in tqdm(enumerate(dataset)):
@@ -86,17 +87,9 @@ def predict_species(detections, model, classes, device='cpu', out_file=None,
 
                 # onnx
                 elif model.framework == "onnx":
-                    device = "cpu"
-
                     data = batch[0]
-
-                    # TODO: RUN ON GPU
-                    if channel_last:
-                        inputs = {model.get_inputs()[0].name: tensor_to_onnx(data)}
-                    else:
-                        inputs = {model.get_inputs()[0].name: data.cpu().detach().numpy()}
-
-                    output = model.run(None, inputs)[0]
+                    data = tensor_to_onnx(data)
+                    output = model.run(None, {model.get_inputs()[0].name: data})[0]
                     if raw:
                         raw_output.extend(output)
 

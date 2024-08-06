@@ -4,7 +4,6 @@
     @ Kyra Swanson 2023
 '''
 import os
-import glob
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -75,12 +74,11 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
             model = EfficientNet(len(classes))
         else:  # can only resume CTL models from a directory at this time
             raise AssertionError('Please provide the correct model')
-        
-        files = os.listdir(model_path)
+
         model_states = []
-        for i in files:
-            if('.pt') in i:
-                model_states.append(i)
+        for file in os.listdir(model_path):
+            if os.path.splitext(file)[1] == ".pt":
+                model_states.append(file)
 
         if len(model_states):
             # at least one save state found; get latest
@@ -122,7 +120,7 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
             if device == "cpu":
                 model = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
             else:
-                model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider"])
+                model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider", 'CPUExecutionProvider'])
             model.framework = "onnx"
         else:
             raise ValueError('Unrecognized model format: {}'.format(model_path))
