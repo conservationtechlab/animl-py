@@ -38,6 +38,9 @@ pip install animl
 ```
 
 ### Dependencies
+
+Python >= 3.9
+
 We recommend running AniML on GPU-enabled hardware. **If using an NVIDIA GPU, ensure driviers, cuda-toolkit and cudnn are installed.
 The /models/ and /utils/ modules are from the YOLOv5 repository.  https://github.com/ultralytics/yolov5
 
