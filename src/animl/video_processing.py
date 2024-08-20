@@ -37,9 +37,8 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
             if not ret:
                 break
 
-            frame_name = filename + "-" + uniqueid + "-" + \
-                        str(frame_capture) + '.jpg'
-            out_path = os.path.join(str(out_dir),frame_name)
+            frame_name = filename + "-" + uniqueid + "-" + str(frame_capture) + '.jpg'
+            out_path = os.path.join(str(out_dir), frame_name)
             cv2.imwrite(out_path, frame)
             frames_saved.append([out_path, file_path])
             frame_capture += increment
@@ -53,7 +52,7 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
                 break
             frame_name = filename + "-" + '{:05}'.format(randrange(1, 10 ** 5)) + \
                          "-" + str(frame_capture) + '.jpg'
-            out_path = os.path.join(str(out_dir),frame_name)
+            out_path = os.path.join(str(out_dir), frame_name)
             cv2.imwrite(out_path, frame)
             frames_saved.append([out_path, file_path])
             frame_capture += fps
