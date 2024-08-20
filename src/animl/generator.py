@@ -90,7 +90,6 @@ class ResizeWithPadding(torch.nn.Module):
         return f"{self.__class__.__name__}(size={self.size})"
 
 
-# HOW TO HANDLE NON-SQUARE SIZES?
 class ImageGenerator(Dataset):
     '''
     Data generator that crops images on the fly, requires relative bbox coordinates,
@@ -270,7 +269,8 @@ class LegacyGenerator(Dataset):
 '''
 
 
-def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath", crop=False):
+def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath",
+                     crop=False, resize_height=299, resize_width=299):
     '''
         Loads a dataset for training and wraps it in a
         PyTorch DataLoader object. Shuffles the data before loading.
@@ -282,11 +282,14 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
             - workers (int): number of processes to handle the data
             - file_col (str): column name containing full file paths
             - crop (bool): if true, dynamically crop images
+            - resize_width (int): size in pixels for input width
+            - resize_height (int): size in pixels for input height
 
         Returns:
             dataloader object
     '''
-    dataset_instance = TrainGenerator(manifest, classes, file_col, crop=crop)
+    dataset_instance = TrainGenerator(manifest, classes, file_col, crop=crop,
+                                      resize_height=resize_height, resize_width=resize_width)
 
     dataLoader = DataLoader(
             dataset=dataset_instance,
