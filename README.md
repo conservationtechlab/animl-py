@@ -17,45 +17,37 @@ time you want to run AniML from a new terminal.
 ```
 git clone https://github.com/conservationtechlab/animl-py.git
 cd animl-py
-conda env create --file environment.yml
-conda activate animl-gpu
 pip install -e .
 ```
 
 ### From PyPi
-With NVIDIA GPU
 ```
-conda create -n animl-gpu python=3.12
-conda activate animl-gpu
-conda install cudatoolkit=11.3.1 cudnn=8.2.1
-pip install animl
-```
-CPU only
-```
-conda create -n animl-cpu python=3.12
-conda activate animl-cpu
 pip install animl
 ```
 
 ### Dependencies
+We recommend running AniML on GPU-enabled hardware. **If using an NVIDIA GPU, ensure driviers, cuda-toolkit and cudnn are installed.
+PyTorch will install these automatically if using a conda environment. 
+The /models/ and /utils/ modules are from the YOLOv5 repository.  https://github.com/ultralytics/yolov5
 
 Python >= 3.9
 
-We recommend running AniML on GPU-enabled hardware. **If using an NVIDIA GPU, ensure driviers, cuda-toolkit and cudnn are installed.
-The /models/ and /utils/ modules are from the YOLOv5 repository.  https://github.com/ultralytics/yolov5
-
 Python Package Dependencies
-- pandas = 1.3.5
-- tensorflow = 2.6
-- torch = 1.13.1
-- torchvision = 0.14.1
-- numpy = 1.19.5
-- cudatoolkit = 11.3.1 **
-- cudnn = 8.2.1 **
+* numpy >= 1.26.4
+* onnxruntime-gpu >= 1.18.0
+* pandas >= 2.2.2
+* panoptes_client >= 1.6.2
+* pillow > 10.3.0
+* pyexiftool >= 0.5.6
+* opencv-python >= 4.10.0.82
+* scikit-learn >= 1.5.0
+* torch >= 2.2.2
+* torchvision >= 0.17.2
+* tqdm >= 4.66.4
+* wget >= 3.2
 
-A full list of dependencies can be found in environment.yml
+Animl also depends on [exiftool](https://exiftool.org/index.html) for accessing file metadata.
 
-Animl also depends on [exiftool](https://exiftool.org/index.html) for accessing file metadata. 
 
 ### Verify Install 
 We recommend you download the [examples](https://github.com/conservationtechlab/animl-py/blob/main/examples/Southwest.zip) folder within this repository.
@@ -69,8 +61,9 @@ the example folder.
 Or, if using your own data/models, animl can be given the paths to those files:
 Download and unarchive the zip folder. Then with the conda environment active:
 ```
-python -m animl /path/to/example/folder /path/to/megadetector /path/to/classifier /path/to/classlist.txt
+python -m animl /example/folder --detector /path/to/megadetector --classifier /path/to/classifier --classlist /path/to/classlist.txt
 ```
+You can use animl in this fashion on any image directory.
 
 ## Usage
 
@@ -81,7 +74,7 @@ The sandbox.ipynb notebook has all of these steps available for further explorat
 1. It is recommended that you use the animl working directory for storing intermediate steps.
 ```python
 from animl import file_management
-workingdir = file_management.WorkingDirectory(imagedir)
+workingdir = file_management.WorkingDirectory('/path/to/save/data')
 ```
 
 2. Build the file manifest of your given directory. This will find both images and videos.
@@ -94,34 +87,34 @@ files = file_management.build_file_manifest('/path/to/images', out_file = workin
    The other option can be set to None or removed.
 ```python
 from animl import video_processing
-allframes = video_processing.images_from_videos(files, out_dir=workingdir.vidfdir,
-                                                out_file=workingdir.imageframes,
-                                                parallel=True, frames=3, fps=None)
+allframes = video_processing.extract_frames(files, out_dir=workingdir.vidfdir, out_file=workingdir.imageframes,
+                                            parallel=True, frames=3, fps=None)
 ```
-4. Pass all images into MegaDetector. We recommend [MDv5a](https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt)
-   parseMD will merge detections with the original file manifest, if provided.
+
+4. Pass all images into MegaDetector. We recommend [MDv5a](https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt).
+   The function parse_MD will convert the json to a pandas DataFrame and merge detections with the original file manifest, if provided.
 
 ```python
 from animl import detect, megadetector
 detector = megadetector.MegaDetector('/path/to/mdmodel.pt')
-mdresults = detect.detect_MD_batch(detector, allframes["Frame"], quiet=True)
-mdres = detect.parse_MD(mdresults, out_file=workingdir.mdresults, threshold=0)
-frame_bbox = allframes.merge(mdres, left_on="Frame", right_on="file")
+mdresults = detect.detect_MD_batch(detector, allframes["Frame"], checkpoint_path=working_dir.mdraw, quiet=True)
+detections = detect.parse_MD(mdresults, manifest=all_frames, out_file=workingdir.detections, parallel=True)
 ```
+
 5. For speed and efficiency, extract the empty/human/vehicle detections before classification.
 ```python
 from animl import split
-animals = split.get_animals(frame_bbox)
-empty = split.get_empty(frame_bbox)
+animals = split.get_animals(detections)
+empty = split.get_empty(detections)
 ```
 6. Classify using the appropriate species model. Merge the output with the rest of the detections
    if desired.
 ```python
 from animl import classifiers, inference
-classifier, class_list = classifiers.load_model('/path/to/model, '/path/to/classlist.txt')
-predresults = inference.predict_species(animals, classifier, class_list, batch = 16)
-manifest = pd.concat([animals,empty])
-pd.to_csv(manifest, workindir.results)
+classifier, class_list = classifiers.load_model('/path/to/model', '/path/to/classlist.txt')
+animals = inference.predict_species(animals, classifier, class_list, file_col="Frame",
+                                    batch_size=4, out_file=working_dir.predictions)
+manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 ```
 
 7. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
@@ -147,7 +140,7 @@ Training workflows are still under development. Please submit Issues as you come
    This function splits each label proportionally by the given percentages, by default 0.7 training, 0.2 validation, 0.1 Test.
 ```python
 from animl import split
-train, val, test, stats = train_val_test(manifest, out_dir='path/to/save/data/, label_col="species",
+train, val, test, stats = train_val_test(manifest, out_dir='path/to/save/data/', label_col="species",
                    percentage=(0.7, 0.2, 0.1), seed=None)
 ```
 
@@ -182,9 +175,9 @@ experiment_folder: '/home/usr/machinelearning/Models/Animl-Test/'
 class_file refers to a flle that contains index,label pairs. For example:<br>
 test_class.txt
 ```
-id,species
-1,cat
-2,dog
+id,Code,Species,Common
+1,cat, Felis catus, domestic cat
+2,dog, Canis familiaris, domestic dog
 ```
 
 3. (Optional) Update train.py to include MLOPS connection. 
@@ -206,7 +199,8 @@ python -m animl.test --config /path/to/config.yaml
 
 The Conservation Technology Lab has several models available for use. 
 
-* Southwest United States [v2](https://sandiegozoo.box.com/s/mzhv08cxcbunsjuh2yp6o7aa5ueetua6) [v3](https://sandiegozoo.box.com/s/p4ws6v5qnoi87otsie0ckmie0izxzqwo)
+* Southwest United States [v3](https://sandiegozoo.box.com/s/p4ws6v5qnoi87otsie0ckmie0izxzqwo)
 * [Amazon](https://sandiegozoo.box.com/s/dfc3ozdslku1ekahvz635kjloaaeopfl)
 * [Savannah](https://sandiegozoo.box.com/s/ai6yu45jgvc0to41xzd26moqh8amb4vw)
+* [Andes](https://sandiegozoo.box.com/s/kvg89qh5xcg1m9hqbbvftw1zd05uwm07)
 * [MegaDetector](https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt)
