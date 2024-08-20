@@ -5,6 +5,7 @@ from animl import file_management
 from animl import generator
 from animl import inference
 from animl import megadetector
+from animl import multi_species
 from animl import plot_boxes
 from animl import sequence_classification
 from animl import split
@@ -19,8 +20,7 @@ from animl import zooniverse
 from animl.animl_to_md import (animl_results_to_md_results,
                                detection_category_id_to_name, main,)
 from animl.classifiers import (EfficientNet, load_model, save_model,)
-from animl.detect import (detect_MD_batch, list_detections, parse_MD,
-                          process_image,)
+from animl.detect import (detect_MD_batch, parse_MD, process_image,)
 from animl.file_management import (WorkingDirectory, active_times,
                                    build_file_manifest, check_file, load_data,
                                    save_data,)
@@ -31,7 +31,9 @@ from animl.inference import (predict_species, softmax, tensor_to_onnx,)
 from animl.megadetector import (CONF_DIGITS, COORD_DIGITS, MegaDetector,
                                 convert_yolo_to_xywh, truncate_float,
                                 truncate_float_array,)
-from animl.plot_boxes import (demo_boxes, draw_bounding_boxes, main,)
+from animl.multi_species import (multi_species_detection,)
+from animl.plot_boxes import (demo_boxes, draw_bounding_boxes, main,
+                              plot_all_bounding_boxes,)
 from animl.sequence_classification import (sequence_classification,)
 from animl.split import (get_animals, get_empty, train_val_test,)
 from animl.symlink import (remove_symlink, symlink_MD, symlink_species,
@@ -54,9 +56,10 @@ __all__ = ['CONF_DIGITS', 'COORD_DIGITS', 'EfficientNet', 'ImageGenerator',
            'detect_MD_batch', 'detection_category_id_to_name',
            'draw_bounding_boxes', 'extract_frame_single', 'extract_frames',
            'file_management', 'generator', 'get_animals', 'get_empty',
-           'inference', 'init_seed', 'list_detections', 'load_data',
-           'load_model', 'main', 'manifest_dataloader', 'megadetector',
-           'notebook_init', 'parse_MD', 'plot_boxes', 'predict_species',
+           'inference', 'init_seed', 'load_data', 'load_model', 'main',
+           'manifest_dataloader', 'megadetector', 'multi_species',
+           'multi_species_detection', 'notebook_init', 'parse_MD',
+           'plot_all_bounding_boxes', 'plot_boxes', 'predict_species',
            'process_image', 'remove_symlink', 'resize_with_padding',
            'save_data', 'save_model', 'sequence_classification', 'softmax',
            'split', 'symlink', 'symlink_MD', 'symlink_species',

@@ -30,9 +30,11 @@ We recommend running AniML on GPU-enabled hardware. **If using an NVIDIA GPU, en
 PyTorch will install these automatically if using a conda environment. 
 The /models/ and /utils/ modules are from the YOLOv5 repository.  https://github.com/ultralytics/yolov5
 
+Python >= 3.9
+
 Python Package Dependencies
 * numpy >= 1.26.4
-* onnxruntime-gpu >= 1.18.0
+* onnxruntime-gpu == 1.18.0
 * pandas >= 2.2.2
 * panoptes_client >= 1.6.2
 * pillow > 10.3.0
@@ -45,7 +47,6 @@ Python Package Dependencies
 * wget >= 3.2
 
 Animl also depends on [exiftool](https://exiftool.org/index.html) for accessing file metadata.
-
 
 ### Verify Install 
 We recommend you download the [examples](https://github.com/conservationtechlab/animl-py/blob/main/examples/Southwest.zip) folder within this repository.
