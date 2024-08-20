@@ -34,7 +34,7 @@ Python >= 3.9
 
 Python Package Dependencies
 * numpy >= 1.26.4
-* onnxruntime-gpu >= 1.18.0
+* onnxruntime-gpu == 1.18.0
 * pandas >= 2.2.2
 * panoptes_client >= 1.6.2
 * pillow > 10.3.0
