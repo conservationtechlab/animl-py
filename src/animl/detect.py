@@ -10,7 +10,6 @@ import pandas as pd
 from shutil import copyfile
 from PIL import Image
 from . import file_management
-import multiprocessing as mp
 
 
 def process_image(im_file, detector, confidence_threshold, quiet=True,
@@ -128,13 +127,12 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
         with open(checkpoint_path, 'r') as f:
             data = json.load(f)
             results = data['images']
-
     else:
         results = []
 
-    to_process = set(image_file_names)
+    # remove loaded images
     already_processed = set([i['file'] for i in results])
-    image_file_names = to_process - already_processed
+    image_file_names = set(image_file_names) - already_processed
 
     count = 0
     for im_file in tqdm(image_file_names):
@@ -168,8 +166,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     return results
 
 
-def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0,
-             parallel=False, workers=mp.cpu_count(), checkpoint_frequency=-1):
+def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
     """
     Converts numerical output from classifier to common name species label
 
@@ -179,9 +176,6 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0,
         - out_file (str): path to save dataframe
         - buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
         - threshold (float): parse only detections above given confidence threshold
-        - parallel (boolean): parallelization enabled
-        - workers (int): number of threads running
-        - checkpoint_frequency (int): write results to checkpoint file every N images
 
     Returns:
         - df (pd.DataFrame): formatted md outputs, one row per detection
@@ -202,12 +196,10 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0,
     if len(results) == 0:
         raise AssertionError("'results' contains no detections")
 
+    results = set(results) - already_processed
     lst = []
 
     for frame in tqdm(results):
-        if frame['file'] in already_processed:
-            continue
-
         try:
             detections = frame['detections']
         except KeyError:
@@ -223,16 +215,18 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0,
 
         else:
             for detection in detections:
-                if (detection['conf'] > 0.1):
+                if (detection['conf'] > threshold):
                     data = {'file': frame['file'],
                             'max_detection_conf': frame['max_detection_conf'],
                             'category': detection['category'], 'conf': detection['conf'],
-                            'bbox1': detection['bbox1'], 'bbox2': detection['bbox2'],
-                            'bbox3': detection['bbox3'], 'bbox4': detection['bbox4']}
+                            'bbox1': min(max(detection['bbox1'], buffer), 1 - buffer),
+                            'bbox2': min(max(detection['bbox2'], buffer), 1 - buffer),
+                            'bbox3': min(max(detection['bbox3'], buffer), 1 - buffer),
+                            'bbox4': min(max(detection['bbox4'], buffer), 1 - buffer)}
                     lst.append(data)
-    
+
     df = pd.DataFrame(lst)
-          
+
     if isinstance(manifest, pd.DataFrame):
         df = manifest.merge(df, left_on="Frame", right_on="file")
 
