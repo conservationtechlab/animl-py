@@ -54,9 +54,12 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive
         # get filemodifydate as backup (videos, etc)
         files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)))
         files["FileModifyDate"] = files["FileModifyDate"] + timedelta(hours=offset)
-        # select createdate if exists, else choose filemodify date
-        files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
-        files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
+        try:
+            # select createdate if exists, else choose filemodify date
+            files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
+            files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
+        except KeyError:
+            files["DateTime"] = files["FileModifyDate"]
 
     if out_file:
         save_data(files, out_file)

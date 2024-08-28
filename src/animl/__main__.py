@@ -71,8 +71,7 @@ def main(image_dir, detector_file, classifier_file, class_list, sort=True):
                                             checkpoint_path=working_dir.mdraw, quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
-        detections = detect.parse_MD(md_results, manifest=all_frames,
-                                     out_file=working_dir.detections, parallel=md_parallel)
+        detections = detect.parse_MD(md_results, manifest=all_frames, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
     print("Extracting animal detections...")

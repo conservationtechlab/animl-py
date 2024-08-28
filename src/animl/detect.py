@@ -183,7 +183,7 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
     # load checkpoint
     if file_management.check_file(out_file):  # checkpoint comes back empty
         df = file_management.load_data(out_file)
-        already_processed = set([i['file'] for i in df])
+        already_processed = set([row['file'] for row in df])
 
     else:
         df = pd.DataFrame(columns=('file', 'max_detection_conf', 'category', 'conf',
@@ -196,10 +196,13 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
     if len(results) == 0:
         raise AssertionError("'results' contains no detections")
 
-    results = set(results) - already_processed
     lst = []
 
     for frame in tqdm(results):
+        # pass if already analyzed
+        if frame['file'] in already_processed:
+            continue
+
         try:
             detections = frame['detections']
         except KeyError:
