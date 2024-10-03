@@ -21,14 +21,8 @@ def filter(manifest, value=None):
     return filter
 
 
-def loadable_path():
-  """ Returns the full path to the sqlite-vec loadable SQLite extension bundled with this package """
-  loadable_path = os.path.join(os.getcwd(), "viewpoint_jaguar.pt")
-  return os.path.normpath(loadable_path)
-
-
-def load(device):
-    weights = torch.load(loadable_path(), weights_only=False)
+def load(file_path, device='cpu'):
+    weights = torch.load(file_path, weights_only=False)
     viewpoint_model = ViewpointModel()
     viewpoint_model.to(device)
     viewpoint_model.load_state_dict(weights, strict=False)

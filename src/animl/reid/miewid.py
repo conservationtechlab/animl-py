@@ -15,19 +15,14 @@ from .heads import ElasticArcFace, ArcFaceSubCenterDynamic
 IMAGE_HEIGHT = 440
 IMAGE_WIDTH = 440
 
-def loadable_path():
-  """ Returns the full path to the miewid model """
-  loadable_path = os.path.join(os.getcwd(), "miewid_9cats.bin")
-  return os.path.normpath(loadable_path)
-
 
 def filter(rois):
     return rois[rois['emb_id'] == 0]
 
 
-def load(device):
+def load(file_path, device='cpu'):
     # TODO: check device
-    weights = torch.load(loadable_path(),weights_only=True)
+    weights = torch.load(file_path, weights_only=True)
     miew = MiewIdNet()
     miew.to(device)
     miew.load_state_dict(weights, strict=False)
