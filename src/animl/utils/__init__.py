@@ -2,26 +2,6 @@
 """
 utils/initialization
 """
-
-
-def notebook_init(verbose=True):
-    # Check system software and hardware
-    print('Checking setup...')
-
-    import os
-    import shutil
-
-    from ..utils.general import check_requirements, emojis, is_colab
-    from ..utils.torch_utils import select_device  # imports
-
-    check_requirements(('psutil', 'IPython'))
-    import psutil
-    from IPython import display  # to display images and clear console output
-
-    if is_colab():
-        shutil.rmtree('/content/sample_data', ignore_errors=True)  # remove colab /sample_data directory
-
-    # System info
 from animl.utils import augmentations
 from animl.utils import dataloaders
 from animl.utils import general
@@ -95,8 +75,8 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'BAR_FORMAT', 'CONFIG_DIR',
            'is_colab', 'is_docker', 'is_kaggle', 'is_parallel', 'is_pip',
            'is_writeable', 'labels_to_class_weights',
            'labels_to_image_weights', 'letterbox', 'make_divisible', 'methods',
-           'mixup', 'model_info', 'non_max_suppression', 'notebook_init',
-           'one_cycle', 'print_args', 'print_mutation', 'profile', 'prune',
+           'mixup', 'model_info', 'non_max_suppression', 'one_cycle',
+           'print_args', 'print_mutation', 'profile', 'prune',
            'random_perspective', 'replicate', 'resample_segments',
            'scale_coords', 'scale_img', 'segment2box', 'segments2boxes',
            'select_device', 'set_logging', 'sparsity', 'strip_optimizer',
@@ -104,3 +84,4 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'BAR_FORMAT', 'CONFIG_DIR',
            'torch_utils', 'try_except', 'url2file', 'user_config_dir',
            'verify_image_label', 'xyn2xy', 'xywh2xyxy', 'xywhn2xyxy',
            'xyxy2xywh', 'xyxy2xywhn']
+
