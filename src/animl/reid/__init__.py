@@ -1,9 +1,7 @@
-from animl.reid import generator
 from animl.reid import heads
 from animl.reid import miewid
 from animl.reid import viewpoint
 
-from animl.reid.generator import (ImageGenerator, dataloader,)
 from animl.reid.heads import (ArcFaceLossAdaptiveMargin,
                               ArcFaceSubCenterDynamic, ArcMarginProduct,
                               ArcMarginProduct_subcenter, ElasticArcFace,
@@ -16,7 +14,6 @@ from animl.reid.viewpoint import (IMAGE_HEIGHT, IMAGE_WIDTH, ViewpointModel,
 
 __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'ArcMarginProduct', 'ArcMarginProduct_subcenter', 'ElasticArcFace',
-           'GeM', 'IMAGE_HEIGHT', 'IMAGE_WIDTH', 'ImageGenerator', 'MiewIdNet',
-           'ViewpointModel', 'dataloader', 'generator', 'heads', 'l2_norm',
-           'load', 'loadable_path', 'miewid', 'predict', 'viewpoint',
-           'weights_init_classifier', 'weights_init_kaiming']
+           'GeM', 'IMAGE_HEIGHT', 'IMAGE_WIDTH', 'MiewIdNet', 'ViewpointModel',
+           'heads', 'l2_norm', 'load', 'loadable_path', 'miewid', 'predict',
+           'viewpoint', 'weights_init_classifier', 'weights_init_kaiming']

@@ -23,7 +23,7 @@ def filter(manifest, value=None):
 
 def loadable_path():
   """ Returns the full path to the sqlite-vec loadable SQLite extension bundled with this package """
-  loadable_path = os.path.join(os.getcwd(), "matchypatchy/models/viewpoint_jaguar.pt")
+  loadable_path = os.path.join(os.getcwd(), "viewpoint_jaguar.pt")
   return os.path.normpath(loadable_path)
 
 

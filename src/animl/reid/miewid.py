@@ -16,8 +16,8 @@ IMAGE_HEIGHT = 440
 IMAGE_WIDTH = 440
 
 def loadable_path():
-  """ Returns the full path to the sqlite-vec loadable SQLite extension bundled with this package """
-  loadable_path = os.path.join(os.getcwd(), "matchypatchy/models/miewid.bin")
+  """ Returns the full path to the miewid model """
+  loadable_path = os.path.join(os.getcwd(), "miewid_9cats.bin")
   return os.path.normpath(loadable_path)
 
 
@@ -27,7 +27,7 @@ def filter(rois):
 
 def load(device):
     # TODO: check device
-    weights = torch.load(loadable_path())
+    weights = torch.load(loadable_path(),weights_only=True)
     miew = MiewIdNet()
     miew.to(device)
     miew.load_state_dict(weights, strict=False)
@@ -57,6 +57,7 @@ def weights_init_classifier(m):
         if m.bias:
             nn.init.constant_(m.bias, 0.0)
 
+
 class GeM(nn.Module):
     def __init__(self, p=3, eps=1e-6):
         super(GeM, self).__init__()
@@ -74,8 +75,7 @@ class GeM(nn.Module):
                 '(' + 'p=' + '{:.4f}'.format(self.p.data.tolist()[0]) + \
                 ', ' + 'eps=' + str(self.eps) + ')'
     
-
-            
+          
 class MiewIdNet(nn.Module):
 
     def __init__(self,
@@ -99,16 +99,16 @@ class MiewIdNet(nn.Module):
 
         self.model_name = model_name
 
+        self.backbone = timm.create_model(model_name, pretrained=pretrained)
+        if model_name.startswith('efficientnetv2_rw'):
+            final_in_features = self.backbone.classifier.in_features
+        if model_name.startswith('swinv2'):
+            final_in_features = self.backbone.norm.normalized_shape[0]
         
-        self.backbone = timm.create_model(model_name, pretrained=pretrained, num_classes=0)
-        final_in_features = 2152#self.backbone.classifier.in_features
-
-        print('final_in_features', final_in_features)
+        self.backbone.classifier = nn.Identity()
+        self.backbone.global_pool = nn.Identity()
         
-        # self.backbone.classifier = nn.Identity()
-        self.backbone.global_pool =  GeM()#nn.Identity()
-        
-        # self.pooling =  GeM()
+        self.pooling =  GeM()
         self.bn = nn.BatchNorm1d(final_in_features)
         self.use_fc = use_fc
         if use_fc:
@@ -148,7 +148,6 @@ class MiewIdNet(nn.Module):
 
     def forward(self, x, label=None):
         feature = self.extract_feat(x)
-        
         return feature
         # if not self.training:
         #     return feature
@@ -158,13 +157,16 @@ class MiewIdNet(nn.Module):
         #     logits = self.final(feature, label)
         # else:
         #     logits = self.final(feature)
-
+        # 
         # return logits
 
     def extract_feat(self, x):
         batch_size = x.shape[0]
-        x = self.backbone(x).view(batch_size, -1)
-        # x = self.pooling(x).view(batch_size, -1)
+        x = self.backbone.forward_features(x)
+        if self.model_name.startswith('swinv2'):
+            x = x.permute(0, 3, 1, 2)
+
+        x = self.pooling(x).view(batch_size, -1)
         x = self.bn(x)
         if self.use_fc:
             x1 = self.dropout(x)
