@@ -57,9 +57,13 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive
         try:
             # select createdate if exists, else choose filemodify date
             files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
+            files["CreateDate"] = files['CreateDate'].apply(lambda x: datetime.strptime(str(x), '%Y:%m:%d %H:%M:%S') if isinstance(x,str) else x)
             files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
+            
         except KeyError:
             files["DateTime"] = files["FileModifyDate"]
+
+    
 
     if out_file:
         save_data(files, out_file)
