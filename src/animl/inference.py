@@ -12,6 +12,13 @@ from tqdm import tqdm
 from . import generator, file_management
 
 
+def get_device():
+    """
+    Get Torch device if available
+    """
+    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
 def softmax(x):
     '''
     Helper function to softmax

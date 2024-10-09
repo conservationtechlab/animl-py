@@ -4,13 +4,15 @@ Code to run Miew_ID
 (source)
 
 """
-import os
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
 from .heads import ElasticArcFace, ArcFaceSubCenterDynamic
 
+from animl.inference import get_device
+from animl.generator import reid_dataloader
 
 IMAGE_HEIGHT = 440
 IMAGE_WIDTH = 440
@@ -28,6 +30,23 @@ def load(file_path, device='cpu'):
     miew.load_state_dict(weights, strict=False)
     miew.eval()
     return miew
+
+def matchypatchy(rois, image_paths, miew_filepath):
+    device = get_device()
+    rois = filter(rois)
+    output = []
+    if len(rois) > 0:
+        miew_dl = reid_dataloader(rois, image_paths, IMAGE_HEIGHT, IMAGE_WIDTH)
+        model = load(miew_filepath, device=device)
+        with torch.no_grad():
+            for _, batch in tqdm(enumerate(miew_dl)):
+                img = batch[0]
+                roi_id = batch[1].numpy()[0]
+                emb = model.extract_feat(img.to(device))
+                emb = emb.cpu().detach().numpy()[0]
+                output.append([roi_id, emb])
+    return output
+
 
 
 def weights_init_kaiming(m):

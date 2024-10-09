@@ -48,7 +48,7 @@ from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         ArcMarginProduct, ArcMarginProduct_subcenter,
                         ElasticArcFace, GeM, IMAGE_HEIGHT, IMAGE_WIDTH,
                         MiewIdNet, ViewpointModel, heads, l2_norm, load,
-                        miewid, predict, viewpoint,
+                        miewid, matchypatchy, viewpoint,
                         weights_init_classifier, weights_init_kaiming,)
 from animl.sequence_classification import (sequence_classification,)
 from animl.split import (get_animals, get_empty, train_val_test,)
@@ -128,7 +128,7 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'dataloaders', 'dataset_stats', 'de_parallel', 'demo_boxes',
            'detect', 'detect_MD_batch', 'detection_category_id_to_name',
            'device_count', 'download', 'draw_bounding_boxes', 'emojis',
-           'exif_size', 'exif_transpose', 'extract_boxes',
+           'exif_size', 'exif_transpose', 'extract_boxes', "matchypatchy"
            'extract_frame_single', 'extract_frames', 'file_age', 'file_date',
            'file_management', 'file_size', 'find_modules', 'fitness',
            'flatten_recursive', 'fuse_conv_and_bn', 'general', 'generator',
