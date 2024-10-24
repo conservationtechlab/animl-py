@@ -179,7 +179,7 @@ class MiewGenerator(Dataset):
         id = self.x.loc[idx, 'id']
         media_id = self.x.loc[idx, 'media_id']
         image_name = self.image_path_dict[media_id]
-        print(image_name)
+        #print(image_name)
 
         try:
             img = Image.open(image_name).convert('RGB')

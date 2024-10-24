@@ -21,7 +21,7 @@ def filter(manifest, value=None):
         filter = manifest[manifest["viewpoint"].isna()]
     else:
         filter = manifest[manifest["viewpoint"] == value]
-    return filter
+    return filter.reset_index(drop=True)
 
 
 def load(file_path, device='cpu'):

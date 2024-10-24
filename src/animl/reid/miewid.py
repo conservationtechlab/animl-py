@@ -19,7 +19,7 @@ IMAGE_WIDTH = 440
 
 
 def filter(rois):
-    return rois[rois['emb_id'] == 0]
+    return rois[rois['emb_id'] == 0].reset_index(drop=True)
 
 
 def load(file_path, device='cpu'):
