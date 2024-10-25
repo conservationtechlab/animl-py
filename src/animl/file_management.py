@@ -18,7 +18,6 @@ VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
 
 
-
 def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive=True):
     """
     Find Image/Video Files and Gather exif Data
@@ -43,7 +42,6 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive
 
     # only keep images and vidoes 
     files = [f for f in files if os.path.splitext(os.path.basename(f))[1].lower() in VALID_EXTENSIONS]
-    print(files)
 
     # no files found, return empty dataframe
     if not files:
