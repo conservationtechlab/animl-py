@@ -39,7 +39,7 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
             frame_name = filename + "-" + uniqueid + "-" + str(frame_capture) + '.jpg'
             out_path = os.path.join(str(out_dir), frame_name)
             cv2.imwrite(out_path, frame)
-            frames_saved.append([out_path, file_path])
+            frames_saved.append([out_path, file_path, frame_capture])
             frame_capture += increment
 
     else:  # select by fps
@@ -52,7 +52,7 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
             frame_name = filename + "-" + uniqueid + "-" + str(frame_capture) + '.jpg'
             out_path = os.path.join(str(out_dir), frame_name)
             cv2.imwrite(out_path, frame)
-            frames_saved.append([out_path, file_path])
+            frames_saved.append([out_path, file_path, frame_capture])
             frame_capture += fps
 
     cap.release()
@@ -64,7 +64,8 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
         return frames_saved
 
 
-# TO DO: IMPLEMENT CHECKPOINT
+# TODO: IMPLEMENT CHECKPOINT
+# TODO: UPDATE TO INCLUDE FRAME NUMBER 
 def extract_frames(files, out_dir, out_file=None, fps=None, frames=None,
                    parallel=False, workers=mp.cpu_count(), checkpoint=1000):
     """
@@ -123,7 +124,7 @@ def extract_frames(files, out_dir, out_file=None, fps=None, frames=None,
                 if (i % checkpoint == 0) and (out_file is not None):
                     file_management.save_data(images, out_file)
 
-            video_frames = pd.DataFrame(video_frames, columns=["Frame", "FilePath"])
+            video_frames = pd.DataFrame(video_frames, columns=["Frame", "FilePath", "Frame_Number"])
 
         videos = videos.merge(video_frames, on="FilePath")
 
