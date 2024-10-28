@@ -2,14 +2,10 @@
 Viewpoint Estimators
 
 """
-from tqdm import tqdm 
 import torch
 import torch.nn as nn
 from torchvision.models import efficientnet
 import torch.onnx
-
-from animl.inference import get_device
-from animl.generator import reid_dataloader
 
 
 IMAGE_HEIGHT = 480
@@ -32,24 +28,6 @@ def load(file_path, device='cpu'):
     viewpoint_model.eval()
     return viewpoint_model
 
-
-def matchypatchy(rois, image_paths, viewpoint_filepath):
-    device = get_device()
-    rois = filter(rois)
-    output = []
-    if len(rois) > 0:
-        viewpoint_dl = reid_dataloader(rois, image_paths, IMAGE_HEIGHT, IMAGE_WIDTH)
-        model = load(viewpoint_filepath, device=device)
-        with torch.no_grad():
-            for _, batch in tqdm(enumerate(viewpoint_dl)):
-                img = batch[0]
-                roi_id = batch[1].numpy()[0]
-                vp = model(img.to(device))
-                value = torch.argmax(vp, dim=1).cpu().detach().numpy()[0]
-                prob = torch.max(torch.nn.functional.softmax(vp, dim=1), 1)[0]
-                prob = prob.cpu().detach().numpy()[0]
-                output.append([roi_id,value,prob])
-    return output
 
 class ViewpointModel(nn.Module):
 

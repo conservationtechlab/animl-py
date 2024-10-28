@@ -9,7 +9,9 @@ import os
 import pandas as pd
 from shutil import copyfile
 from PIL import Image
-from . import file_management
+
+from animl import file_management
+
 
 
 def process_image(im_file, detector, confidence_threshold, quiet=True,
@@ -237,3 +239,5 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
         file_management.save_data(df, out_file)
 
     return df
+
+
