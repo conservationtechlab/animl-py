@@ -52,7 +52,7 @@ from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         ArcMarginProduct, ArcMarginProduct_subcenter,
                         ElasticArcFace, GeM, IMAGE_HEIGHT, IMAGE_WIDTH,
                         MiewIdNet, ViewpointModel, heads, l2_norm, load,
-                        matchypatchy, miewid, viewpoint,
+                        miewid, viewpoint,
                         weights_init_classifier, weights_init_kaiming,)
 from animl.sequence_classification import (sequence_classification,)
 from animl.split import (get_animals, get_empty, train_val_test,)
