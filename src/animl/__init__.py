@@ -4,6 +4,7 @@ from animl import detect
 from animl import file_management
 from animl import generator
 from animl import inference
+from animl import matchypatchy
 from animl import megadetector
 from animl import models
 from animl import multi_species
@@ -23,14 +24,17 @@ from animl.animl_to_md import (animl_results_to_md_results,
                                detection_category_id_to_name, main,)
 from animl.classifiers import (EfficientNet, load_model, save_model,)
 from animl.detect import (detect_MD_batch, parse_MD, process_image,)
-from animl.file_management import (WorkingDirectory, active_times,
-                                   build_file_manifest, check_file, load_data,
-                                   save_data,)
+from animl.file_management import (VALID_EXTENSIONS, WorkingDirectory,
+                                   active_times, build_file_manifest,
+                                   check_file, load_data, save_data,)
 from animl.generator import (ImageGenerator, MiewGenerator, ResizeWithPadding,
                              TrainGenerator, manifest_dataloader,
                              reid_dataloader, resize_with_padding,
                              train_dataloader,)
-from animl.inference import (predict_species, softmax, tensor_to_onnx,)
+from animl.inference import (get_device, predict_species, softmax,
+                             tensor_to_onnx,)
+from animl.matchypatchy import (detect, extract_frames, miew_embedding,
+                                viewpoint_estimator,)
 from animl.megadetector import (CONF_DIGITS, COORD_DIGITS, MegaDetector,
                                 convert_yolo_to_xywh, truncate_float,
                                 truncate_float_array,)
@@ -48,7 +52,7 @@ from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         ArcMarginProduct, ArcMarginProduct_subcenter,
                         ElasticArcFace, GeM, IMAGE_HEIGHT, IMAGE_WIDTH,
                         MiewIdNet, ViewpointModel, heads, l2_norm, load,
-                        miewid, matchypatchy, viewpoint,
+                        matchypatchy, miewid, viewpoint,
                         weights_init_classifier, weights_init_kaiming,)
 from animl.sequence_classification import (sequence_classification,)
 from animl.split import (get_animals, get_empty, train_val_test,)
@@ -113,38 +117,39 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'MiewGenerator', 'MiewIdNet', 'Model', 'ModelEMA', 'NCOLS',
            'NUM_THREADS', 'Profile', 'RANK', 'ROOT', 'ResizeWithPadding',
            'SPP', 'SPPF', 'Timeout', 'TrainGenerator', 'TransformerBlock',
-           'TransformerLayer', 'VERBOSE', 'VID_FORMATS', 'ViewpointModel',
-           'WorkingDirectory', 'active_times', 'animl_results_to_md_results',
-           'animl_to_md', 'apply_classifier', 'augment_hsv', 'augmentations',
-           'autopad', 'autosplit', 'bbox_iou', 'box_area', 'box_candidates',
-           'box_iou', 'build_file_manifest', 'check_amp', 'check_anchor_order',
-           'check_dataset', 'check_file', 'check_font', 'check_git_status',
-           'check_img_size', 'check_imshow', 'check_online', 'check_python',
-           'check_requirements', 'check_suffix', 'check_version', 'check_yaml',
-           'classifiers', 'clean_str', 'clip_coords', 'coco80_to_coco91_class',
-           'colorstr', 'common', 'connect_to_Panoptes', 'convert_yolo_to_xywh',
+           'TransformerLayer', 'VALID_EXTENSIONS', 'VERBOSE', 'VID_FORMATS',
+           'ViewpointModel', 'WorkingDirectory', 'active_times',
+           'animl_results_to_md_results', 'animl_to_md', 'apply_classifier',
+           'augment_hsv', 'augmentations', 'autopad', 'autosplit', 'bbox_iou',
+           'box_area', 'box_candidates', 'box_iou', 'build_file_manifest',
+           'check_amp', 'check_anchor_order', 'check_dataset', 'check_file',
+           'check_font', 'check_git_status', 'check_img_size', 'check_imshow',
+           'check_online', 'check_python', 'check_requirements',
+           'check_suffix', 'check_version', 'check_yaml', 'classifiers',
+           'clean_str', 'clip_coords', 'coco80_to_coco91_class', 'colorstr',
+           'common', 'connect_to_Panoptes', 'convert_yolo_to_xywh',
            'copy_attr', 'copy_image', 'copy_paste', 'create_SubjectSet',
            'create_dataloader', 'create_folder', 'csv_converter', 'cutout',
            'dataloaders', 'dataset_stats', 'de_parallel', 'demo_boxes',
            'detect', 'detect_MD_batch', 'detection_category_id_to_name',
            'device_count', 'download', 'draw_bounding_boxes', 'emojis',
-           'exif_size', 'exif_transpose', 'extract_boxes', "matchypatchy"
+           'exif_size', 'exif_transpose', 'extract_boxes',
            'extract_frame_single', 'extract_frames', 'file_age', 'file_date',
            'file_management', 'file_size', 'find_modules', 'fitness',
            'flatten_recursive', 'fuse_conv_and_bn', 'general', 'generator',
-           'get_animals', 'get_empty', 'get_hash', 'get_latest_run',
-           'git_describe', 'gsutil_getsize', 'heads', 'hist_equalize',
-           'img2label_paths', 'imread', 'imshow', 'imshow_', 'imwrite',
-           'increment_path', 'inference', 'init_seed', 'init_seeds',
+           'get_animals', 'get_device', 'get_empty', 'get_hash',
+           'get_latest_run', 'git_describe', 'gsutil_getsize', 'heads',
+           'hist_equalize', 'img2label_paths', 'imread', 'imshow', 'imshow_',
+           'imwrite', 'increment_path', 'inference', 'init_seed', 'init_seeds',
            'initialize_weights', 'intersect_dicts', 'is_ascii', 'is_chinese',
            'is_colab', 'is_docker', 'is_kaggle', 'is_parallel', 'is_pip',
            'is_writeable', 'l2_norm', 'labels_to_class_weights',
            'labels_to_image_weights', 'letterbox', 'load', 'load_data',
-           'load_model', 'loadable_path', 'main', 'make_divisible',
-           'manifest_dataloader', 'megadetector', 'methods', 'miewid', 'mixup',
-           'model_info', 'models', 'multi_species', 'multi_species_detection',
-           'non_max_suppression', 'one_cycle', 'parse_MD', 'parse_model',
-           'plot_all_bounding_boxes', 'plot_boxes', 'predict',
+           'load_model', 'main', 'make_divisible', 'manifest_dataloader',
+           'matchypatchy', 'megadetector', 'methods', 'miew_embedding',
+           'miewid', 'mixup', 'model_info', 'models', 'multi_species',
+           'multi_species_detection', 'non_max_suppression', 'one_cycle',
+           'parse_MD', 'parse_model', 'plot_all_bounding_boxes', 'plot_boxes',
            'predict_species', 'print_args', 'print_mutation', 'process_image',
            'profile', 'prune', 'random_perspective', 'reid', 'reid_dataloader',
            'remove_symlink', 'replicate', 'resample_segments',
@@ -159,7 +164,6 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'update_labels', 'upload_to_Zooniverse',
            'upload_to_Zooniverse_Simple', 'url2file', 'user_config_dir',
            'utils', 'validate', 'verify_image_label', 'video_processing',
-           'viewpoint', 'weights_init_classifier', 'weights_init_kaiming',
-           'xyn2xy', 'xywh2xyxy', 'xywhn2xyxy', 'xyxy2xywh', 'xyxy2xywhn',
-           'yolo', 'zooniverse']
-
+           'viewpoint', 'viewpoint_estimator', 'weights_init_classifier',
+           'weights_init_kaiming', 'xyn2xy', 'xywh2xyxy', 'xywhn2xyxy',
+           'xyxy2xywh', 'xyxy2xywhn', 'yolo', 'zooniverse']
