@@ -66,7 +66,7 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
 
 # TODO: IMPLEMENT CHECKPOINT
 # TODO: UPDATE TO INCLUDE FRAME NUMBER 
-def extract_frames(files, out_dir, out_file=None, fps=None, frames=None,
+def extract_frames(files, out_dir, out_file=None, fps=None, frames=None, file_col="FileName",
                    parallel=False, workers=mp.cpu_count(), checkpoint=1000):
     """
     Extract frames from video for classification
@@ -96,11 +96,11 @@ def extract_frames(files, out_dir, out_file=None, fps=None, frames=None,
     #    temporary = fileManagement.load_data(outfile)
     #    check against checkpoint
 
-    images = files[files["FileName"].apply(
+    images = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin([".jpg", ".jpeg", ".png"])]
-    images = images.assign(Frame=images["FilePath"])
+    images = images.assign(Frame=images[file_col])
 
-    videos = files[files["FileName"].apply(
+    videos = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",
                                                         ".mpg", ".mpeg", ".asf", ".m4v"])]
     if not videos.empty:
@@ -109,24 +109,24 @@ def extract_frames(files, out_dir, out_file=None, fps=None, frames=None,
             pool = mp.Pool(workers)
 
             video_frames = vstack([pool.apply(extract_frame_single, args=(video, out_dir, fps, frames))
-                                   for video in tqdm(videos["FilePath"])])
+                                   for video in tqdm(videos[file_col])])
 
-            video_frames = pd.DataFrame(video_frames, columns=["Frame", "FilePath"])
+            video_frames = pd.DataFrame(video_frames, columns=["Frame", file_col, "FrameNumber"])
 
             pool.close()
 
         else:
             video_frames = []
             for i, video in tqdm(videos.iterrows()):
-                video_frames += extract_frame_single(video["FilePath"], out_dir=out_dir,
+                video_frames += extract_frame_single(video[file_col], out_dir=out_dir,
                                                      fps=fps, frames=frames)
 
                 if (i % checkpoint == 0) and (out_file is not None):
                     file_management.save_data(images, out_file)
 
-            video_frames = pd.DataFrame(video_frames, columns=["Frame", "FilePath", "Frame_Number"])
+            video_frames = pd.DataFrame(video_frames, columns=["Frame", file_col, "FrameNumber"])
 
-        videos = videos.merge(video_frames, on="FilePath")
+        videos = videos.merge(video_frames, on=file_col)
 
     allframes = pd.concat([images, videos]).reset_index()
 

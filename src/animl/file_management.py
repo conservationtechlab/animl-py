@@ -32,7 +32,9 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive
     Returns:
         - files (pd.DataFrame): list of files with or without file modify dates
     """
-    image_dir = Path(r""+image_dir)  # OS-agnostic path
+    #image_dir = Path(r""+str(image_dir))  # OS-agnostic path
+    #image_dir =  Path(r""+image_dir) if isinstance(image_dir, str) else image_dir
+    image_dir = Path(image_dir)
     if check_file(out_file):
         return load_data(out_file)  # load_data(outfile) load file manifest
     if not os.path.isdir(image_dir):

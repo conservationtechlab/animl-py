@@ -28,8 +28,9 @@ class MegaDetector:
             self.device = device
 
         print('Sending model to %s' % self.device)
-
-        self.model = MegaDetector._load_model(Path(r""+model_path), self.device)
+        #model_path = str(model_path) if isinstance(model_path, Path) else model_path
+        self.model = MegaDetector._load_model(Path(model_path), self.device)
+        #self.model = MegaDetector._load_model(Path(r""+model_path), self.device)
         self.model.to(device)
 
         self.printed_image_size_warning = False

@@ -11,13 +11,15 @@ from animl.video_processing import extract_frames
 from animl.detect import detect_MD_batch, parse_MD
 from animl.inference import get_device
 from animl.split import get_animals
+from animl.classifiers import load_model
+from animl.inference import predict_species
 
 from animl.generator import reid_dataloader
 from animl.reid import viewpoint, miewid
 
 
-def extract_frames(media, frame_dir):
-    frames = extract_frames(media, frame_dir, frames=1)
+def process_videos(media, frame_dir):
+    frames = extract_frames(media, frame_dir, frames=1, file_col="filepath")
     return frames
 
 
@@ -32,9 +34,17 @@ def detect(detector_file, media):
     return detections
 
 
+def classify(classifier_file, classlist_file):
+    """
+    Function for integration with MatchyPatchy
+    """
+    classifier, classes = load_model(classifier_file, classlist_file, device=get_device())
+    animals = predict_species(animals, classifier, classes, device=get_device(),
+                              file_col="filepath", batch_size=4)
+
+
 def viewpoint_estimator(rois, image_paths, viewpoint_filepath):
     device = get_device()
-    rois = filter(rois)
     output = []
     if len(rois) > 0:
         viewpoint_dl = reid_dataloader(rois, image_paths, viewpoint.IMAGE_HEIGHT, viewpoint.IMAGE_WIDTH)
@@ -48,12 +58,12 @@ def viewpoint_estimator(rois, image_paths, viewpoint_filepath):
                 prob = torch.max(torch.nn.functional.softmax(vp, dim=1), 1)[0]
                 prob = prob.cpu().detach().numpy()[0]
                 output.append([roi_id,value,prob])
-    return output
+    viewpoints = pd.DataFrame(output, columns = ['id', 'value', 'prob'])
+    return viewpoints
 
 
 def miew_embedding(rois, image_paths, miew_filepath):
     device = get_device()
-    rois = filter(rois)
     output = []
     if len(rois) > 0:
         dataloader = reid_dataloader(rois, image_paths, miewid.IMAGE_HEIGHT, miewid.IMAGE_WIDTH)
@@ -65,5 +75,5 @@ def miew_embedding(rois, image_paths, miew_filepath):
                 emb = model.extract_feat(img.to(device))
                 emb = emb.cpu().detach().numpy()[0]
                 output.append([roi_id, emb])
-    viewpoints = pd.DataFrame(output, columns = ['id', 'value', 'prob'])
-    return viewpoint
+
+                
