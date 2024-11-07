@@ -53,8 +53,8 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
         - start_epoch (int): current epoch, 0 if not resuming training
     '''
     # read class file
-    model_path = Path(r""+model_path)
-    classes = pd.read_csv(Path(r""+class_file))
+    model_path = Path(model_path)
+    classes = pd.read_csv(Path(class_file))
 
     # check to make sure GPU is available if chosen
     if not torch.cuda.is_available():

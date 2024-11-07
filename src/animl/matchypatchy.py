@@ -34,13 +34,14 @@ def detect(detector_file, media):
     return detections
 
 
-def classify(classifier_file, classlist_file):
+def classify(animals, classifier_file, classlist_file):
     """
     Function for integration with MatchyPatchy
     """
     classifier, classes = load_model(classifier_file, classlist_file, device=get_device())
     animals = predict_species(animals, classifier, classes, device=get_device(),
                               file_col="filepath", batch_size=4)
+    return animals
 
 
 def viewpoint_estimator(rois, image_paths, viewpoint_filepath):
@@ -74,6 +75,7 @@ def miew_embedding(rois, image_paths, miew_filepath):
                 roi_id = batch[1].numpy()[0]
                 emb = model.extract_feat(img.to(device))
                 emb = emb.cpu().detach().numpy()[0]
-                output.append([roi_id, emb])
 
+                output.append([roi_id, emb])
+    return output
                 
