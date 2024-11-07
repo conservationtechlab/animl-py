@@ -81,7 +81,7 @@ def main():
 
     # initialize model and get class list
     model, classes = load_model(cfg['active_model'], cfg['class_file'], device=device, architecture=cfg['architecture'])
-    categories = dict([[x["species"], x["id"]] for _, x in classes.iterrows()])
+    categories = dict([[x["class"], x["id"]] for _, x in classes.iterrows()])
 
     # initialize data loaders for training and validation set
     test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
@@ -101,7 +101,7 @@ def main():
     results.to_csv(cfg['experiment_folder'] + "/test_results.csv")
 
     cm = confusion_matrix(true, pred)
-    confuse = pd.DataFrame(cm, columns=classes['species'], index=classes['species'])
+    confuse = pd.DataFrame(cm, columns=classes['class'], index=classes['class'])
     confuse.to_csv(cfg['experiment_folder'] + "/confusion_matrix.csv")
 
 
