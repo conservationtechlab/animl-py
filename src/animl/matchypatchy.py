@@ -2,9 +2,10 @@
 API for MatchyPatchy
 
 """
-
 import torch
+import yaml
 import pandas as pd
+from pathlib import Path
 from tqdm import tqdm
 from animl.megadetector import MegaDetector
 from animl.video_processing import extract_frames
@@ -34,13 +35,21 @@ def detect(detector_file, media):
     return detections
 
 
-def classify(animals, classifier_file, classlist_file):
+def classify(animals, config_file):
     """
     Function for integration with MatchyPatchy
     """
+    try:
+        cfg = yaml.safe_load(open(config_file, 'r'))
+    except yaml.YAMLError as exc:
+        print(exc)
+    classifier_file = config_file.parent / Path(cfg.get('file_name'))
+    classlist_file = config_file.parent  / Path(cfg.get('class_file'))
+    print(classifier_file, classlist_file)
     classifier, classes = load_model(classifier_file, classlist_file, device=get_device())
     animals = predict_species(animals, classifier, classes, device=get_device(),
-                              file_col="filepath", batch_size=4)
+                              file_col="filepath", resize_width=cfg.get('resize_width'),
+                              resize_height=cfg.get('resize_height'), batch_size=4)
     return animals
 
 

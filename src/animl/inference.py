@@ -104,8 +104,8 @@ def predict_species(detections, model, classes, device='cpu', out_file=None, raw
                     pred = classes['Code'].values[labels]
                     predictions.extend(pred)
 
-                    # onnx_probs = np.max(softmax(output),axis=1)
-                    onnx_probs = np.max(output, axis=1)
+                    onnx_probs = np.max(softmax(output),axis=1)
+                    #onnx_probs = np.max(output, axis=1)
                     probabilities.extend(onnx_probs)
 
                 else:
