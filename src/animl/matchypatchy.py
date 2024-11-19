@@ -45,11 +45,10 @@ def classify(animals, config_file):
         print(exc)
     classifier_file = config_file.parent / Path(cfg.get('file_name'))
     classlist_file = config_file.parent  / Path(cfg.get('class_file'))
-    print(classifier_file, classlist_file)
     classifier, classes = load_model(classifier_file, classlist_file, device=get_device())
-    animals = predict_species(animals, classifier, classes, device=get_device(),
-                              file_col="filepath", resize_width=cfg.get('resize_width'),
-                              resize_height=cfg.get('resize_height'), batch_size=4)
+    animals = predict_species(animals, classifier, classes, device=get_device(), file_col="filepath", 
+                              resize_width=cfg.get('resize_width'), resize_height=cfg.get('resize_height'), 
+                              normalize=cfg.get('normalize'), batch_size=4)
     return animals
 
 
