@@ -24,7 +24,7 @@ def process_videos(media, frame_dir):
     return frames
 
 
-def detect(detector_file, media):
+def detect_mp(detector_file, media):
     """
     Function for integration with MatchyPatchy
     """
@@ -35,7 +35,7 @@ def detect(detector_file, media):
     return detections
 
 
-def classify(animals, config_file):
+def classify_mp(animals, config_file):
     """
     Function for integration with MatchyPatchy
     """

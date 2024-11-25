@@ -21,8 +21,7 @@ import os
 import wget
 import torch
 import pandas as pd
-from . import (file_management, video_processing, megadetector,
-               detect, split, classifiers, inference, symlink)
+from animl import (file_management, video_processing, megadetector, detect, split, classifiers, inference, symlink)
 
 
 def main(image_dir, detector_file, classifier_file, class_list, sort=True):

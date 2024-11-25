@@ -66,7 +66,7 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
 
 # TODO: IMPLEMENT CHECKPOINT
 # TODO: UPDATE TO INCLUDE FRAME NUMBER 
-def extract_frames(files, out_dir, out_file=None, fps=None, frames=None, file_col="FileName",
+def extract_frames(files, out_dir, out_file=None, fps=None, frames=None, file_col="FilePath",
                    parallel=False, workers=mp.cpu_count(), checkpoint=1000):
     """
     Extract frames from video for classification
