@@ -139,7 +139,7 @@ Training workflows are still under development. Please submit Issues as you come
    This function splits each label proportionally by the given percentages, by default 0.7 training, 0.2 validation, 0.1 Test.
 ```python
 from animl import split
-train, val, test, stats = train_val_test(manifest, out_dir='path/to/save/data/', label_col="species",
+train, val, test, stats = split.train_val_test(manifest, out_dir='path/to/save/data/', label_col="species",
                    percentage=(0.7, 0.2, 0.1), seed=None)
 ```
 
