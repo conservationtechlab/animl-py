@@ -19,6 +19,7 @@ dependencies = [
     "pyexiftool>=0.5.6",
     "opencv-python>=4.10.0.82", 
     "scikit-learn>=1.5.0", 
+    "timm>=1.0",
     "torch>=2.2.2", 
     "torchvision>=0.17.2",
     "tqdm>=4.66.4", 
