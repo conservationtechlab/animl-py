@@ -198,7 +198,18 @@ def main():
     # set up model optimizer
     optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
 
+    # initialize training arguments
     numEpochs = cfg['num_epochs']
+    if 'patience' in cfg:
+        patience = cfg['patience']
+        early_stopping = True
+        best_val_loss = float('inf')
+        epochs_no_improve = 0
+        print(f"Early stopping enabled with a patience of {patience} epochs")
+    else:
+        early_stopping = False
+
+    # training loop
     while current_epoch < numEpochs:
         current_epoch += 1
         print(f'Epoch {current_epoch}/{numEpochs}')
@@ -217,11 +228,31 @@ def main():
             'recall': recall
         }
 
+        # <current_epoch>.pt checkpoint saving every *checkpoint_frequency* epochs
         checkpoint = cfg.get('checkpoint_frequency', 10)
         # experiment.log_metrics(stats, step=current_epoch)
         if current_epoch % checkpoint == 0:
             save_model(cfg['experiment_folder'], current_epoch, model, stats)
+        
+        # if user specified early stopping
+        if early_stopping:
+            
+            # best.pt saving
+            if loss_val < best_val_loss:
+                best_val_loss = loss_val
+                epochs_no_improve = 0
+                save_model(cfg['experiment_folder'], 'best', model, stats)
+                print(f"Current best model saved at epoch {current_epoch} with val loss {best_val_loss:.3f}, val OA {oa_val:.3f}, val precision {precision:.3f}, val recall {recall:.3f}")
+            else:
+                epochs_no_improve += 1
 
+            # last.pt saving
+            save_model(cfg['experiment_folder'], 'last', model, stats)
+        
+            # check patience
+            if epochs_no_improve >= patience:
+                print(f"Early stopping triggered after {patience} epochs without improvement.")
+                break
 
 if __name__ == '__main__':
     main()
