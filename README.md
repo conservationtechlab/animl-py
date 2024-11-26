@@ -150,31 +150,34 @@ device: cuda:0  # set to local gpu device
 num_workers: 8  # number of cores
 
 # dataset parameters
-num_classes: 53 #might need to be adjusted based on the classes file
+num_classes: 53 # might need to be adjusted based on the classes file
 training_set: "/path/to/save/train_data.csv"
 validate_set: "/path/to/save/validate_data.csv"
 test_set: "/path/to/save/test_data.csv"
 class_file: "/home/usr/machinelearning/Models/Animl-Test/test_classes.txt" 
 
 # training hyperparameters
-architecture: "efficientnet_v2_m"
+architecture: "efficientnet_v2_m" # or choose "convnext_base"
 image_size: [299, 299]
-num_epochs: 100
 batch_size: 16
-
+num_epochs: 100
+checkpoint_frequency: 10
+patience: 10 # remove from config file to disable
 learning_rate: 0.003
 weight_decay: 0.001
 
 # overwrite .pt files
 overwrite: False
-
 experiment_folder: '/home/usr/machinelearning/Models/Animl-Test/'
+
+# model to test
+active_model: '/home/usr/machinelearning/Models/Animl-Test/best.pt' 
 ```
 
 class_file refers to a flle that contains index,label pairs. For example:<br>
 test_class.txt
 ```
-id,Code,Species,Common
+id,class,Species,Common
 1,cat, Felis catus, domestic cat
 2,dog, Canis familiaris, domestic dog
 ```
@@ -185,7 +188,7 @@ id,Code,Species,Common
 ```bash
 python -m animl.train --config /path/to/config.yaml
 ```
-Every 10 epochs, the model will be checkpointed to the 'experiment_folder' parameter in the config file, and will contain performance metrics for selection.
+Every 10 epochs (or define custom 'checkpoint_frequency'), the model will be checkpointed to the 'experiment_folder' parameter in the config file, and will contain performance metrics for selection.
 
 
 5. Testing of a model checkpoint can be done with the "test.py" module.  Add an 'active_model' parameter to the config file that contains the path of the checkpoint to test.
