@@ -231,30 +231,28 @@ class TrainGenerator(Dataset):
         self.label_col = label_col
         self.buffer = 0
         self.crop = crop
+        self.augment = augment
         augmentations = Compose([
-            # rotate between -10 to 10 degrees and shear between -5 to 5
-            RandomAffine(degrees=10, shear=(-5, 5)),
-            # convert images to grayscale with 50% probability
-            RandomGrayscale(p=0.5),
-            # apply gaussian blur with 50% probability 
-            RandomApply([GaussianBlur(kernel_size=3, sigma=(0.1, 0.5))], p=0.5),
-            # adjust brightness and contrast
-            ColorJitter(brightness=0.1, contrast=0.1),
+            # rotate ± 15 degrees and shear ± 7 degrees
+            RandomAffine(degrees=15, shear=(-7, 7)),
+            # convert images to grayscale with 20% probability
+            RandomGrayscale(p=0.2),
+            # apply gaussian blur with 30% probability 
+            RandomApply([GaussianBlur(kernel_size=3, sigma=(0.1, 1.0))], p=0.3),
+            # adjust brightness and contrast for varying lighting conditions
+            ColorJitter(brightness=0.2, contrast=0.2),
         ])
-        if augment:
-            print("Augmenting images")
+        if self.augment:
+            print("Applying augmentations")
             self.transform = Compose([
-                # add augmentations
-                augmentations,
-                # add random horizontal flip
-                RandomHorizontalFlip(p=0.5),
+                augmentations, # augmentations
+                RandomHorizontalFlip(p=0.5), # random horizontal flip
                 Resize((self.resize_height, self.resize_width)),
                 ToTensor(),
             ])
         else:
             self.transform = Compose([
-                # add random horizontal flip
-                RandomHorizontalFlip(p=0.5),
+                RandomHorizontalFlip(p=0.5), # random horizontal flip
                 Resize((self.resize_height, self.resize_width)),
                 ToTensor(),
             ])
