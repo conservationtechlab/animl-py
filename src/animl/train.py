@@ -15,6 +15,8 @@ import torch
 from torch.backends import cudnn
 from torch.optim import SGD
 from sklearn.metrics import precision_score, recall_score
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 
 from .generator import train_dataloader
 from .classifiers import save_model, load_model
@@ -197,6 +199,9 @@ def main():
 
     # set up model optimizer
     optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
+    
+    # initialize scheduler
+    scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=5, verbose=True)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
@@ -253,6 +258,9 @@ def main():
             if epochs_no_improve >= patience:
                 print(f"Early stopping triggered after {patience} epochs without improvement.")
                 break
+        
+        # step the scheduler with the validation loss
+        scheduler.step(loss_val)
 
 if __name__ == '__main__':
     main()
