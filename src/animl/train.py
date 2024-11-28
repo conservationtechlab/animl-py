@@ -5,6 +5,9 @@
     Original script from
     2022 Benjamin Kellenberger
 '''
+
+# TODO: get scheduler bool from config file... now it is hard coded.
+
 import argparse
 import yaml
 from tqdm import trange
