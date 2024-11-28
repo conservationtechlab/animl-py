@@ -143,7 +143,7 @@ def validate(data_loader, model, device="cpu"):
             pred_labels.extend(pred_label_np)
 
             progressBar.set_description(
-                '[Val ] Loss: {:.2f}; OA: {:.2f}%'.format(
+                '[Val  ] Loss: {:.2f}; OA: {:.2f}%'.format(
                     loss_total/(idx+1),
                     100*oa_total/(idx+1)
                 )
@@ -264,7 +264,7 @@ def main():
         
         # step the scheduler with the validation loss
         scheduler.step(loss_val)
-        print(f"Learning rate: {print(scheduler.get_last_lr())}")
+        print(f"Learning rate for next epoch: {scheduler.get_last_lr()[0]}")
 
 if __name__ == '__main__':
     main()
