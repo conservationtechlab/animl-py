@@ -201,7 +201,7 @@ def main():
     optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
     
     # initialize scheduler
-    scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=5, verbose=True)
+    scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=5)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
@@ -261,6 +261,7 @@ def main():
         
         # step the scheduler with the validation loss
         scheduler.step(loss_val)
+        print(f"Learning rate: {print(scheduler.get_last_lr())}")
 
 if __name__ == '__main__':
     main()
