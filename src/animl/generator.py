@@ -2,7 +2,10 @@
 from PIL import Image, ImageOps, ImageFile
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip, Normalize)
+from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip,
+                                    Normalize, RandomHorizontalFlip, RandomAffine,
+                                    RandomGrayscale, RandomApply, ColorJitter,
+                                    GaussianBlur)
 from .utils.torch_utils import _setup_size
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -220,7 +223,7 @@ class TrainGenerator(Dataset):
         - resize: dynamically resize images to target (square)
     '''
     def __init__(self, x, classes, file_col='FilePath', label_col='species',
-                 crop=True, resize_height=299, resize_width=299):
+                 crop=True, resize_height=299, resize_width=299, augment=False):
         self.x = x
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
@@ -228,12 +231,31 @@ class TrainGenerator(Dataset):
         self.label_col = label_col
         self.buffer = 0
         self.crop = crop
-        self.transform = Compose([
-            # add augmentations
-            RandomHorizontalFlip(p=0.5),
-            Resize((self.resize_height, self.resize_width)),
-            ToTensor(),
+        self.augment = augment
+        augmentations = Compose([
+            # rotate ± 15 degrees and shear ± 7 degrees
+            RandomAffine(degrees=15, shear=(-7, 7)),
+            # convert images to grayscale with 20% probability
+            RandomGrayscale(p=0.2),
+            # apply gaussian blur with 30% probability 
+            RandomApply([GaussianBlur(kernel_size=3, sigma=(0.1, 1.0))], p=0.3),
+            # adjust brightness and contrast for varying lighting conditions
+            ColorJitter(brightness=0.2, contrast=0.2),
         ])
+        if self.augment:
+            print("Applying augmentations")
+            self.transform = Compose([
+                augmentations, # augmentations
+                RandomHorizontalFlip(p=0.5), # random horizontal flip
+                Resize((self.resize_height, self.resize_width)),
+                ToTensor(),
+            ])
+        else:
+            self.transform = Compose([
+                RandomHorizontalFlip(p=0.5), # random horizontal flip
+                Resize((self.resize_height, self.resize_width)),
+                ToTensor(),
+            ])
         self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
 
     def __len__(self):
@@ -324,7 +346,7 @@ class LegacyGenerator(Dataset):
 
 
 def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath",
-                     crop=False, resize_height=299, resize_width=299):
+                     crop=False, resize_height=299, resize_width=299, augment=False):
     '''
         Loads a dataset for training and wraps it in a
         PyTorch DataLoader object. Shuffles the data before loading.
@@ -343,7 +365,8 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
             dataloader object
     '''
     dataset_instance = TrainGenerator(manifest, classes, file_col, crop=crop,
-                                      resize_height=resize_height, resize_width=resize_width)
+                                      resize_height=resize_height, resize_width=resize_width,
+                                      augment=augment)
 
     dataLoader = DataLoader(
             dataset=dataset_instance,

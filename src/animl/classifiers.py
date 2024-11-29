@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 from pathlib import Path
 from time import time
-from torchvision.models import efficientnet
+from torchvision.models import efficientnet, convnext_base, ConvNeXt_Base_Weights
 # import tensorflow.keras
 # import onnx
 import torch.onnx
@@ -72,7 +72,9 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
         start_epoch = 0
         if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
             model = EfficientNet(len(classes))
-        else:  # can only resume CTL models from a directory at this time
+        elif architecture == "convnext_base":
+            model = ConvNeXtBase(len(classes))
+        else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
 
         model_states = []
@@ -104,12 +106,20 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
         #    model = keras.models.load_model(model_path)
         # PyTorch dict
         if model_path.suffix == '.pt':
-            model = EfficientNet(len(classes), tune=False)
-            checkpoint = torch.load(model_path, map_location=device)
-            model.load_state_dict(checkpoint['model'])
-            model.to(device)
-            model.eval()
-            model.framework = "EfficientNet"
+            if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
+                model = EfficientNet(len(classes), tune=False)
+                checkpoint = torch.load(model_path, map_location=device)
+                model.load_state_dict(checkpoint['model'])
+                model.to(device)
+                model.eval()
+                model.framework = "EfficientNet"
+            elif architecture == "convnext_base":
+                model = ConvNeXtBase(len(classes), tune=False)
+                checkpoint = torch.load(model_path, map_location=device)
+                model.load_state_dict(checkpoint['model'])
+                model.to(device)
+                model.eval()
+                model.framework = "ConvNeXt-Base"
         # PyTorch full model
         elif model_path.suffix == '.pth':
             model = torch.load(model_path, map_location=device)
@@ -134,12 +144,11 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
     else:
         raise ValueError("Model not found at given path")
 
-
 class EfficientNet(nn.Module):
 
     def __init__(self, num_classes, tune=True):
         '''
-            Construct the model architecture.
+            Construct the EfficientNet model architecture.
         '''
         super(EfficientNet, self).__init__()
         self.avgpool = nn.AdaptiveAvgPool2d(1)
@@ -165,3 +174,25 @@ class EfficientNet(nn.Module):
         prediction = self.model.classifier(x)  # prediction.size(): [B x num_classes]
 
         return prediction
+    
+class ConvNeXtBase(nn.Module):
+    def __init__(self, num_classes, tune=True):
+        '''
+        Construct the ConvNeXt-Base model architecture.
+        '''
+        super(ConvNeXtBase, self).__init__()
+
+        self.model = convnext_base(weights=ConvNeXt_Base_Weights.DEFAULT) # load the ConvNeXt-Base model pre-trained on ImageNet 1K
+        if not tune:
+            for param in self.model.parameters():
+                param.requires_grad = False
+
+        # Replace the last classifier layer
+        num_ftrs = self.model.classifier[2].in_features
+        self.model.classifier[2] = nn.Linear(in_features=num_ftrs, out_features=num_classes)
+
+    def forward(self, x):
+        '''
+        Forward pass (prediction).
+        '''
+        return self.model(x)
