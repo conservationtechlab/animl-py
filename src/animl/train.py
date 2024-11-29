@@ -204,7 +204,7 @@ def main():
     optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
     
     # initialize scheduler
-    scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=5)
+    scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=3)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
@@ -221,6 +221,7 @@ def main():
     while current_epoch < numEpochs:
         current_epoch += 1
         print(f'Epoch {current_epoch}/{numEpochs}')
+        print(f"Using learning rate : {scheduler.get_last_lr()[0]}")
 
         loss_train, oa_train = train(dl_train, model, optim, device)
         loss_val, oa_val, precision, recall = validate(dl_val, model, device)
@@ -250,7 +251,11 @@ def main():
                 best_val_loss = loss_val
                 epochs_no_improve = 0
                 save_model(cfg['experiment_folder'], 'best', model, stats)
-                print(f"Current best model saved at epoch {current_epoch} with val loss {best_val_loss:.3f}, val OA {oa_val:.3f}, val precision {precision:.3f}, val recall {recall:.3f}")
+                print(f"Current best model saved at epoch {current_epoch} with ...")
+                print(f"     val loss : {best_val_loss:.5f}")
+                print(f"       val OA : {oa_val:.5f}")
+                print(f"val precision : {precision:.5f}")
+                print(f"   val recall : {recall:.5f}\n")
             else:
                 epochs_no_improve += 1
 
@@ -264,7 +269,6 @@ def main():
         
         # step the scheduler with the validation loss
         scheduler.step(loss_val)
-        print(f"Learning rate for next epoch: {scheduler.get_last_lr()[0]}")
 
 if __name__ == '__main__':
     main()
