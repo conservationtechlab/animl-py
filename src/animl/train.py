@@ -4,10 +4,9 @@
 
     Original script from
     2022 Benjamin Kellenberger
+
+    Modiefied by Peter van Lunteren 2024
 '''
-
-# TODO: get scheduler bool from config file... now it is hard coded.
-
 import argparse
 import yaml
 from tqdm import trange
@@ -18,7 +17,7 @@ import torch
 from torch.backends import cudnn
 from torch.optim import SGD
 from sklearn.metrics import precision_score, recall_score
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR
 
 
 from .generator import train_dataloader
@@ -180,6 +179,7 @@ def main():
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
     crop = cfg.get('crop', False)
+    file_col = cfg.get('file_col', 'FilePath')
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -197,14 +197,19 @@ def main():
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
     
     # initialize data loaders for training and validation set
-    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], crop=crop, augment=cfg.get('augment', False))
-    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], crop=crop, augment=False)
+    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], 
+                                file_col=file_col, crop=crop, augment=cfg.get('augment', False))
+    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], 
+                              file_col=file_col, crop=crop, augment=False)
 
     # set up model optimizer
     optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
     
     # initialize scheduler
-    scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=3)
+    if cfg.get("scheduler", True):
+        scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=3)
+    else: # do nothing scheduler
+        scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
