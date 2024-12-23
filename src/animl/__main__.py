@@ -108,10 +108,10 @@ parser.add_argument('--detector', type=str, nargs='?',
                     default=os.path.join(home, 'md_v5a.0.0.pt'))
 parser.add_argument('--classifier', type=str, nargs='?',
                     help='Path to Class model',
-                    default=os.path.join(home, 'southwest_v3.pt'))
+                    default=os.path.join(home, 'sdzwa_southwest_v3.pt'))
 parser.add_argument('--classlist', type=str, nargs='?',
                     help='Path to class list',
-                    default=os.path.join(home, 'southwest_v3_classes.csv'))
+                    default=os.path.join(home, 'sdzwa_southwest_v3_classes.csv'))
 # Parse the command-line arguments
 
 args = parser.parse_args()
