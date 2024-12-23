@@ -5,6 +5,9 @@
     Original script from
     2022 Benjamin Kellenberger
 '''
+
+# TODO: get scheduler bool from config file... now it is hard coded.
+
 import argparse
 import yaml
 from tqdm import trange
@@ -15,6 +18,8 @@ import torch
 from torch.backends import cudnn
 from torch.optim import SGD
 from sklearn.metrics import precision_score, recall_score
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 
 from .generator import train_dataloader
 from .classifiers import save_model, load_model
@@ -138,7 +143,7 @@ def validate(data_loader, model, device="cpu"):
             pred_labels.extend(pred_label_np)
 
             progressBar.set_description(
-                '[Val ] Loss: {:.2f}; OA: {:.2f}%'.format(
+                '[Val  ] Loss: {:.2f}; OA: {:.2f}%'.format(
                     loss_total/(idx+1),
                     100*oa_total/(idx+1)
                 )
@@ -187,19 +192,36 @@ def main():
 
     categories = dict([[x["class"], x["id"]] for _, x in classes.iterrows()])
 
-    # initialize data loaders for training and validation set
+    # load datasets
     train_dataset = pd.read_csv(cfg['training_set']).reset_index(drop=True)
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
-    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], crop=crop)
-    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], crop=crop)
+    
+    # initialize data loaders for training and validation set
+    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], crop=crop, augment=cfg.get('augment', False))
+    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], crop=crop, augment=False)
 
     # set up model optimizer
     optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
+    
+    # initialize scheduler
+    scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=3)
 
+    # initialize training arguments
     numEpochs = cfg['num_epochs']
+    if 'patience' in cfg:
+        patience = cfg['patience']
+        early_stopping = True
+        best_val_loss = float('inf')
+        epochs_no_improve = 0
+        print(f"Early stopping enabled with a patience of {patience} epochs")
+    else:
+        early_stopping = False
+
+    # training loop
     while current_epoch < numEpochs:
         current_epoch += 1
         print(f'Epoch {current_epoch}/{numEpochs}')
+        print(f"Using learning rate : {scheduler.get_last_lr()[0]}")
 
         loss_train, oa_train = train(dl_train, model, optim, device)
         loss_val, oa_val, precision, recall = validate(dl_val, model, device)
@@ -215,11 +237,38 @@ def main():
             'recall': recall
         }
 
+        # <current_epoch>.pt checkpoint saving every *checkpoint_frequency* epochs
         checkpoint = cfg.get('checkpoint_frequency', 10)
         # experiment.log_metrics(stats, step=current_epoch)
         if current_epoch % checkpoint == 0:
             save_model(cfg['experiment_folder'], current_epoch, model, stats)
+        
+        # if user specified early stopping
+        if early_stopping:
+            
+            # best.pt saving
+            if loss_val < best_val_loss:
+                best_val_loss = loss_val
+                epochs_no_improve = 0
+                save_model(cfg['experiment_folder'], 'best', model, stats)
+                print(f"Current best model saved at epoch {current_epoch} with ...")
+                print(f"     val loss : {best_val_loss:.5f}")
+                print(f"       val OA : {oa_val:.5f}")
+                print(f"val precision : {precision:.5f}")
+                print(f"   val recall : {recall:.5f}\n")
+            else:
+                epochs_no_improve += 1
 
+            # last.pt saving
+            save_model(cfg['experiment_folder'], 'last', model, stats)
+        
+            # check patience
+            if epochs_no_improve >= patience:
+                print(f"Early stopping triggered after {patience} epochs without improvement.")
+                break
+        
+        # step the scheduler with the validation loss
+        scheduler.step(loss_val)
 
 if __name__ == '__main__':
     main()
