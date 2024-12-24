@@ -5,7 +5,7 @@ from random import randrange
 import multiprocessing as mp
 import pandas as pd
 from numpy import vstack
-from . import file_management
+from animl import file_management
 
 
 def extract_frame_single(file_path, out_dir, fps=None, frames=None):

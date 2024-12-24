@@ -1,0 +1,22 @@
+image_dir:  /home/kyra/animl-py/examples/Southwest
+working_dir: /home/kyra/animl-py/examples/Southwest
+detector_file: "/home/kyra/animl-py/models/md_v5a.0.0.pt"
+classifier_file: "/home/kyra/animl-py/models/sdzwa_southwest_v3.pt"
+class_list: "/home/kyra/animl-py/models/sdzwa_southwest_v3_classes.csv"
+
+exif: False
+device: cuda:0
+
+# video processing
+parallel: True
+frames: 1
+fps: None
+
+# inference
+checkpoint_frequency: 1000
+batch_size: 4
+file_col_detection: Frame
+file_col_classification: Frame
+
+# sort
+sort: False

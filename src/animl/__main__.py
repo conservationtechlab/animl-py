@@ -42,10 +42,8 @@ def main_paths(image_dir, detector_file, classifier_file, class_list, sort=True)
     """
     if torch.cuda.is_available():
         device = "cuda:0"
-        md_parallel = True
     else:
         device = 'cpu'
-        md_parallel = False
 
     print("Searching directory...")
     # Create a working directory, build the file manifest from img_dir
@@ -120,14 +118,11 @@ def main_config(config):
     image_dir = cfg['image_dir']
     device = cfg.get('device', 'cpu')
 
-    if device!='cpu' and torch.cuda.is_available():
+    if device != 'cpu' and torch.cuda.is_available():
         device = "cuda:0"
-        md_parallel = True
     else:
         device = 'cpu'
-        md_parallel = False
 
-    
     print("Searching directory...")
     # Create a working directory, default to image_dir
     working_dir = file_management.WorkingDirectory(cfg.get('working_dir', image_dir))
@@ -140,7 +135,7 @@ def main_config(config):
     print("Processing videos...")
     all_frames = video_processing.extract_frames(files, out_dir=working_dir.vidfdir,
                                                  out_file=working_dir.imageframes,
-                                                 parallel=cfg.get('parallel', True), 
+                                                 parallel=cfg.get('parallel', True),
                                                  frames=cfg.get('frames', 1), fps=cfg.get('fps', None))
 
     # Run all images and video frames through MegaDetector
@@ -149,8 +144,10 @@ def main_config(config):
         detections = file_management.load_data(working_dir.detections)
     else:
         detector = megadetector.MegaDetector(cfg['detector_file'], device=device)
-        md_results = detect.detect_MD_batch(detector, all_frames, cfg.get('file_col_detection', 'Frame'), 
-                                            checkpoint_path=working_dir.mdraw, quiet=True)
+        md_results = detect.detect_MD_batch(detector, all_frames, file_col=cfg.get('file_col_detection', 'Frame'),
+                                            checkpoint_path=working_dir.mdraw,
+                                            checkpoint_frequency=cfg.get('checkpoint_frequency', -1),
+                                            quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_MD(md_results, manifest=all_frames, out_file=working_dir.detections)
@@ -164,8 +161,8 @@ def main_config(config):
     print("Predicting species of animal detections...")
     classifier, classes = classifiers.load_model(cfg['classifier_file'], cfg['class_list'], device=device)
     animals = inference.predict_species(animals, classifier, classes, device=device,
-                                        file_col=cfg.get('file_col_classification', 'Frame'), 
-                                        batch_size=cfg.get('batch_size', 4), 
+                                        file_col=cfg.get('file_col_classification', 'Frame'),
+                                        batch_size=cfg.get('batch_size', 4),
                                         out_file=working_dir.predictions)
 
     # merge animal and empty, create symlinks
@@ -179,8 +176,8 @@ def main_config(config):
 
     return manifest
 
+
 # IF RUN FROM COMMAND LINE
-# Create an argument parser
 parser = argparse.ArgumentParser(description='Folder locations for the main script')
 home = os.path.join(os.getcwd(), 'models')
 # Create and parse arguements
@@ -195,8 +192,6 @@ parser.add_argument('--classifier', type=str, nargs='?',
 parser.add_argument('--classlist', type=str, nargs='?',
                     help='Path to class list',
                     default=os.path.join(home, 'sdzwa_southwest_v3_classes.csv'))
-# Parse the command-line arguments
-
 args = parser.parse_args()
 
 # first argument is config file
@@ -212,7 +207,7 @@ else:
                 os.mkdir(home)
             print('Saving to', home)
             wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt',
-                        out=home)
+                          out=home)
 
     if not os.path.isfile(args.classifier):
         prompt = "Classifier not found, would you like to download Southwest_v3? y/n: "
@@ -221,7 +216,7 @@ else:
                 os.mkdir(home)
             print('Saving to', home)
             wget.download('https://sandiegozoo.box.com/shared/static/ucbk8kc2h3qu15g4xbg0nvbghvo1cl97.pt',
-                        out=home)
+                          out=home)
 
     if not os.path.isfile(args.classlist):
         prompt = "Class list not found, would you like to download Southwest_v3? y/n: "
@@ -230,6 +225,6 @@ else:
                 os.mkdir(home)
             print('Saving to', home)
             wget.download('https://sandiegozoo.box.com/shared/static/tetfkotf295espoaw8jyco4tk1t0trtt.csv',
-                        out=home)
+                          out=home)
     # Call the main function
     main_paths(args.imagedir_config, args.detector, args.classifier, args.classlist)

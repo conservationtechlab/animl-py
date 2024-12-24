@@ -10,8 +10,6 @@ import torch.nn as nn
 from pathlib import Path
 from time import time
 from torchvision.models import efficientnet, convnext_base, ConvNeXt_Base_Weights
-# import tensorflow.keras
-# import onnx
 import torch.onnx
 import onnxruntime
 
@@ -29,7 +27,7 @@ def save_model(out_dir, epoch, model, stats):
     Returns:
         None
     '''
-    os.makedirs(out_dir, exist_ok=True)
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     # get model parameters and add to stats
     stats['model'] = model.state_dict()
@@ -67,7 +65,7 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
     print('Device set to', device)
 
     # load latest model state from given folder
-    if os.path.isdir(model_path):
+    if model_path.is_dir():
         model_path = str(model_path)
         start_epoch = 0
         if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
@@ -98,7 +96,7 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
         return model, classes, start_epoch
 
     # load a specific model file
-    elif os.path.isfile(model_path):
+    elif model_path.is_file():
         print(f'Loading model at {model_path}')
         start_time = time()
         # TensorFlow
@@ -144,6 +142,7 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
     else:
         raise ValueError("Model not found at given path")
 
+
 class EfficientNet(nn.Module):
 
     def __init__(self, num_classes, tune=True):
@@ -174,15 +173,16 @@ class EfficientNet(nn.Module):
         prediction = self.model.classifier(x)  # prediction.size(): [B x num_classes]
 
         return prediction
-    
+
+
 class ConvNeXtBase(nn.Module):
     def __init__(self, num_classes, tune=True):
         '''
         Construct the ConvNeXt-Base model architecture.
         '''
         super(ConvNeXtBase, self).__init__()
-
-        self.model = convnext_base(weights=ConvNeXt_Base_Weights.DEFAULT) # load the ConvNeXt-Base model pre-trained on ImageNet 1K
+        # load the ConvNeXt-Base model pre-trained on ImageNet 1K
+        self.model = convnext_base(weights=ConvNeXt_Base_Weights.DEFAULT)
         if not tune:
             for param in self.model.parameters():
                 param.requires_grad = False

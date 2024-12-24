@@ -32,17 +32,15 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive
     Returns:
         - files (pd.DataFrame): list of files with or without file modify dates
     """
-    #image_dir = Path(r""+str(image_dir))  # OS-agnostic path
-    #image_dir =  Path(r""+image_dir) if isinstance(image_dir, str) else image_dir
     image_dir = Path(image_dir)
     if check_file(out_file):
-        return load_data(out_file)  # load_data(outfile) load file manifest
-    if not os.path.isdir(image_dir):
+        return load_data(out_file)
+    if not image_dir.is_dir():
         raise FileNotFoundError("The given directory does not exist.")
 
     files = glob(os.path.join(image_dir, '**', '*.*'), recursive=recursive)
 
-    # only keep images and vidoes 
+    # only keep images and vidoes
     files = [f for f in files if os.path.splitext(os.path.basename(f))[1].lower() in VALID_EXTENSIONS]
 
     # no files found, return empty dataframe
@@ -71,13 +69,10 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive
         try:
             # select createdate if exists, else choose filemodify date
             files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
-            files["CreateDate"] = files['CreateDate'].apply(lambda x: datetime.strptime(str(x), '%Y:%m:%d %H:%M:%S') if isinstance(x,str) else x)
+            files["CreateDate"] = files['CreateDate'].apply(lambda x: datetime.strptime(str(x), '%Y:%m:%d %H:%M:%S') if isinstance(x, str) else x)
             files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
-            
         except KeyError:
             files["DateTime"] = files["FileModifyDate"]
-
-    
 
     if out_file:
         save_data(files, out_file)

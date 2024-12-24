@@ -44,10 +44,10 @@ def classify_mp(animals, config_file):
     except yaml.YAMLError as exc:
         print(exc)
     classifier_file = config_file.parent / Path(cfg.get('file_name'))
-    classlist_file = config_file.parent  / Path(cfg.get('class_file'))
+    classlist_file = config_file.parent / Path(cfg.get('class_file'))
     classifier, classes = load_model(classifier_file, classlist_file, device=get_device())
-    animals = predict_species(animals, classifier, classes, device=get_device(), file_col="filepath", 
-                              resize_width=cfg.get('resize_width'), resize_height=cfg.get('resize_height'), 
+    animals = predict_species(animals, classifier, classes, device=get_device(), file_col="filepath",
+                              resize_width=cfg.get('resize_width'), resize_height=cfg.get('resize_height'),
                               normalize=cfg.get('normalize'), batch_size=4)
     return animals
 
@@ -66,8 +66,8 @@ def viewpoint_estimator(rois, image_paths, viewpoint_filepath):
                 value = torch.argmax(vp, dim=1).cpu().detach().numpy()[0]
                 prob = torch.max(torch.nn.functional.softmax(vp, dim=1), 1)[0]
                 prob = prob.cpu().detach().numpy()[0]
-                output.append([roi_id,value,prob])
-    viewpoints = pd.DataFrame(output, columns = ['id', 'value', 'prob'])
+                output.append([roi_id, value, prob])
+    viewpoints = pd.DataFrame(output, columns=['id', 'value', 'prob'])
     return viewpoints
 
 
@@ -86,4 +86,3 @@ def miew_embedding(rois, image_paths, miew_filepath):
 
                 output.append([roi_id, emb])
     return output
-                

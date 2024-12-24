@@ -13,8 +13,8 @@ import torch
 import numpy as np
 from sklearn.metrics import confusion_matrix
 
-from .generator import train_dataloader
-from .classifiers import load_model
+from animl.generator import train_dataloader
+from animl.classifiers import load_model
 
 
 def test(data_loader, model, device='cpu'):

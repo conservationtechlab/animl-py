@@ -84,4 +84,3 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'BAR_FORMAT', 'CONFIG_DIR',
            'torch_utils', 'try_except', 'url2file', 'user_config_dir',
            'verify_image_label', 'xyn2xy', 'xywh2xyxy', 'xywhn2xyxy',
            'xyxy2xywh', 'xyxy2xywhn']
-

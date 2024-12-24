@@ -1,15 +1,14 @@
 """
-Code to run Miew_ID 
+Code to run Miew_ID
 
 (source)
 
 """
-from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
-from .heads import ElasticArcFace, ArcFaceSubCenterDynamic
+from animl.reid.heads import ElasticArcFace, ArcFaceSubCenterDynamic
 
 
 IMAGE_HEIGHT = 440
@@ -61,18 +60,17 @@ class GeM(nn.Module):
 
     def forward(self, x):
         return self.gem(x, p=self.p, eps=self.eps)
-        
+
     def gem(self, x, p=3, eps=1e-6):
         return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1./p)
-        
+
     def __repr__(self):
         return self.__class__.__name__ + \
                 '(' + 'p=' + '{:.4f}'.format(self.p.data.tolist()[0]) + \
                 ', ' + 'eps=' + str(self.eps) + ')'
-    
-          
-class MiewIdNet(nn.Module):
 
+
+class MiewIdNet(nn.Module):
     def __init__(self,
                  n_classes=10,
                  model_name='efficientnetv2_rw_m',
@@ -87,8 +85,7 @@ class MiewIdNet(nn.Module):
                  pretrained=True,
                  margins=None,
                  k=None):
-        """
-        """
+
         super(MiewIdNet, self).__init__()
         print('Building Model Backbone for {} model'.format(model_name))
 
@@ -99,18 +96,18 @@ class MiewIdNet(nn.Module):
             final_in_features = self.backbone.classifier.in_features
         if model_name.startswith('swinv2'):
             final_in_features = self.backbone.norm.normalized_shape[0]
-        
+
         self.backbone.classifier = nn.Identity()
         self.backbone.global_pool = nn.Identity()
-        
-        self.pooling =  GeM()
+
+        self.pooling = GeM()
         self.bn = nn.BatchNorm1d(final_in_features)
         self.use_fc = use_fc
         if use_fc:
             self.dropout = nn.Dropout(p=dropout)
             self.bn = nn.BatchNorm1d(fc_dim)
             self.bn.bias.requires_grad_(False)
-            self.fc = nn.Linear(final_in_features, n_classes, bias = False)            
+            self.fc = nn.Linear(final_in_features, n_classes, bias=False)
             self.bn.apply(weights_init_kaiming)
             self.fc.apply(weights_init_classifier)
             final_in_features = fc_dim
@@ -118,16 +115,13 @@ class MiewIdNet(nn.Module):
         self.loss_module = loss_module
         if loss_module == 'arcface':
             self.final = ElasticArcFace(final_in_features, n_classes,
-                                          s=s, m=margin)
+                                        s=s, m=margin)
         elif loss_module == 'arcface_subcenter_dynamic':
             if margins is None:
                 margins = [0.3] * n_classes
-            self.final = ArcFaceSubCenterDynamic(
-                embedding_dim=final_in_features, 
-                output_classes=n_classes, 
-                margins=margins,
-                s=s,
-                k=k )
+            self.final = ArcFaceSubCenterDynamic(embedding_dim=final_in_features,
+                                                 output_classes=n_classes,
+                                                 margins=margins, s=s, k=k)
         # elif loss_module == 'cosface':
         #     self.final = AddMarginProduct(final_in_features, n_classes, s=s, m=margin)
         # elif loss_module == 'adacos':
@@ -152,7 +146,7 @@ class MiewIdNet(nn.Module):
         #     logits = self.final(feature, label)
         # else:
         #     logits = self.final(feature)
-        # 
+        #
         # return logits
 
     def extract_feat(self, x):
@@ -167,7 +161,7 @@ class MiewIdNet(nn.Module):
             x1 = self.dropout(x)
             x1 = self.bn(x1)
             x1 = self.fc(x1)
-    
+
         return x
 
     def extract_logits(self, x, label=None):
@@ -177,5 +171,5 @@ class MiewIdNet(nn.Module):
             logits = self.final(feature, label)
         else:
             logits = self.final(feature)
-        
+
         return logits

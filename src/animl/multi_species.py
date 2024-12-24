@@ -5,24 +5,22 @@
 import pandas as pd
 
 
-"""
-This function applies image classifications at a image level. All images which have multiple
-species present with confidence above threshold, will be returned as a DataFrame
-
-Parameters:
-- animals (Pandas DataFrame): Sub-selection of all images that contain animals
-- threshold (float): Minimum confidence for the image to be considered
-
-Raises:
-- Exception: If 'animals' is not a pandas DataFrame
-- Exception: If threshold is not a float or threshold < 0 or threshold > 1
-
-Output:
-- result_df (Pandas DataFrame): Rows from images having more than one species
-"""
-
-
 def multi_species_detection(animals, threshold, file_col="FilePath"):
+    """
+    This function applies image classifications at a image level. All images which have multiple
+    species present with confidence above threshold, will be returned as a DataFrame
+
+    Parameters:
+    - animals (Pandas DataFrame): Sub-selection of all images that contain animals
+    - threshold (float): Minimum confidence for the image to be considered
+
+    Raises:
+    - Exception: If 'animals' is not a pandas DataFrame
+    - Exception: If threshold is not a float or threshold < 0 or threshold > 1
+
+    Output:
+    - result_df (Pandas DataFrame): Rows from images having more than one species
+    """
 
     # Sanity check to verify that animals is a Pandas DataFrame
     if not isinstance(animals, pd.DataFrame):

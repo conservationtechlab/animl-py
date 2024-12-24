@@ -7,10 +7,11 @@
 """
 
 import os
+from random import randrange
 from pathlib import Path
 
 
-def symlink_species(manifest, linkdir, file_col="FilePath", copy=False):
+def symlink_species(manifest, linkdir, file_col="FilePath", copy=False, unique_name=True):
     """
     Creates symbolic links of images into species folders
 
@@ -33,7 +34,17 @@ def symlink_species(manifest, linkdir, file_col="FilePath", copy=False):
     manifest['Link'] = linkdir
 
     for i, row in manifest.iterrows():
-        name = row['UniqueName'] if 'UniqueName' in manifest.columns else os.path.basename(row[file_col])
+        if unique_name:
+            if 'UniqueName' in manifest.columns:
+                name = row['UniqueName']
+            else:
+                uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
+                filename = os.path.basename(row[file_col])
+                filename, extension = os.path.splitext(filename)
+                name = "_".join([filename, uniqueid]) + extension
+        else:
+            name = os.path.basename(row[file_col])
+
         link = linkdir / Path(row['prediction']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
         if copy:
@@ -50,7 +61,7 @@ def symlink_species(manifest, linkdir, file_col="FilePath", copy=False):
     return manifest
 
 
-def symlink_MD(manifest, linkdir, file_col="file", copy=False):
+def symlink_MD(manifest, linkdir, file_col="file", copy=False, unique_name=True):
     """
     Creates symbolic links of images into species folders
 
@@ -73,7 +84,16 @@ def symlink_MD(manifest, linkdir, file_col="file", copy=False):
     # create new column
     manifest['Link'] = linkdir
     for i, row in manifest.iterrows():
-        name = row['UniqueName'] if 'UniqueName' in manifest.columns else os.path.basename(row[file_col])
+        if unique_name:
+            if 'UniqueName' in manifest.columns:
+                name = row['UniqueName']
+            else:
+                uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
+                filename = os.path.basename(row[file_col])
+                filename, extension = os.path.splitext(filename)
+                name = "_".join([filename, uniqueid]) + extension
+        else:
+            name = os.path.basename(row[file_col])
         link = linkdir / Path(row['category']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
         if copy:

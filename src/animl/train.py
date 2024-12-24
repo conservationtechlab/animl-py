@@ -19,9 +19,8 @@ from torch.optim import SGD
 from sklearn.metrics import precision_score, recall_score
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR
 
-
-from .generator import train_dataloader
-from .classifiers import save_model, load_model
+from animl.generator import train_dataloader
+from animl.classifiers import save_model, load_model
 
 # # log values using comet ml (comet.com)
 # from comet_ml import Experiment
@@ -195,20 +194,20 @@ def main():
     # load datasets
     train_dataset = pd.read_csv(cfg['training_set']).reset_index(drop=True)
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
-    
+
     # initialize data loaders for training and validation set
-    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], 
+    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
                                 file_col=file_col, crop=crop, augment=cfg.get('augment', False))
-    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], 
+    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
                               file_col=file_col, crop=crop, augment=False)
 
     # set up model optimizer
     optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
-    
+
     # initialize scheduler
     if cfg.get("scheduler", True):
         scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=3)
-    else: # do nothing scheduler
+    else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
     # initialize training arguments
@@ -247,10 +246,9 @@ def main():
         # experiment.log_metrics(stats, step=current_epoch)
         if current_epoch % checkpoint == 0:
             save_model(cfg['experiment_folder'], current_epoch, model, stats)
-        
+
         # if user specified early stopping
         if early_stopping:
-            
             # best.pt saving
             if loss_val < best_val_loss:
                 best_val_loss = loss_val
@@ -266,14 +264,15 @@ def main():
 
             # last.pt saving
             save_model(cfg['experiment_folder'], 'last', model, stats)
-        
+
             # check patience
             if epochs_no_improve >= patience:
                 print(f"Early stopping triggered after {patience} epochs without improvement.")
                 break
-        
+
         # step the scheduler with the validation loss
         scheduler.step(loss_val)
+
 
 if __name__ == '__main__':
     main()

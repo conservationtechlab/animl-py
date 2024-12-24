@@ -6,8 +6,8 @@ import torch
 from pathlib import Path
 import numpy as np
 import traceback
-from .utils import general, augmentations
-from .models import yolo
+from animl.utils import general, augmentations
+from animl.models import yolo
 
 
 CONF_DIGITS = 3
@@ -28,9 +28,9 @@ class MegaDetector:
             self.device = device
 
         print('Sending model to %s' % self.device)
-        #model_path = str(model_path) if isinstance(model_path, Path) else model_path
+        # model_path = str(model_path) if isinstance(model_path, Path) else model_path
         self.model = MegaDetector._load_model(Path(model_path), self.device)
-        #self.model = MegaDetector._load_model(Path(r""+model_path), self.device)
+        # self.model = MegaDetector._load_model(Path(r""+model_path), self.device)
         self.model.to(device)
 
         self.printed_image_size_warning = False

@@ -22,7 +22,8 @@ from animl import zooniverse
 
 from animl.animl_to_md import (animl_results_to_md_results,
                                detection_category_id_to_name, main,)
-from animl.classifiers import (EfficientNet, load_model, save_model,)
+from animl.classifiers import (ConvNeXtBase, EfficientNet, load_model,
+                               save_model,)
 from animl.detect import (detect_MD_batch, parse_MD, process_image,)
 from animl.file_management import (VALID_EXTENSIONS, WorkingDirectory,
                                    active_times, build_file_manifest,
@@ -107,11 +108,12 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'ArcMarginProduct_subcenter', 'AutoShape', 'BAR_FORMAT',
            'Bottleneck', 'BottleneckCSP', 'C3', 'C3Ghost', 'C3SPP', 'C3TR',
            'C3x', 'CONFIG_DIR', 'CONF_DIGITS', 'COORD_DIGITS', 'Classify',
-           'Concat', 'Contract', 'Conv', 'CrossConv', 'DATASETS_DIR', 'DWConv',
-           'DWConvTranspose2d', 'Detect', 'DetectMultiBackend', 'Detections',
-           'EarlyStopping', 'EfficientNet', 'ElasticArcFace', 'Expand', 'FILE',
-           'FONT', 'Focus', 'GeM', 'GhostBottleneck', 'GhostConv', 'HELP_URL',
-           'IMAGE_HEIGHT', 'IMAGE_WIDTH', 'IMG_FORMATS', 'ImageGenerator',
+           'Concat', 'Contract', 'Conv', 'ConvNeXtBase', 'CrossConv',
+           'DATASETS_DIR', 'DWConv', 'DWConvTranspose2d', 'Detect',
+           'DetectMultiBackend', 'Detections', 'EarlyStopping', 'EfficientNet',
+           'ElasticArcFace', 'Expand', 'FILE', 'FONT', 'Focus', 'GeM',
+           'GhostBottleneck', 'GhostConv', 'HELP_URL', 'IMAGE_HEIGHT',
+           'IMAGE_WIDTH', 'IMG_FORMATS', 'ImageGenerator',
            'InfiniteDataLoader', 'LOCAL_RANK', 'LOGGER', 'LoadImages',
            'LoadImagesAndLabels', 'LoadStreams', 'LoadWebcam', 'MegaDetector',
            'MiewGenerator', 'MiewIdNet', 'Model', 'ModelEMA', 'NCOLS',

@@ -1,11 +1,13 @@
-# import numpy as np
+"""
+Generators and Dataloaders
+
+"""
 from PIL import Image, ImageOps, ImageFile
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip,
-                                    Normalize, RandomHorizontalFlip, RandomAffine,
-                                    RandomGrayscale, RandomApply, ColorJitter,
-                                    GaussianBlur)
+                                    Normalize, RandomAffine, RandomGrayscale, RandomApply,
+                                    ColorJitter, GaussianBlur)
 from .utils.torch_utils import _setup_size
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -155,7 +157,7 @@ class ImageGenerator(Dataset):
             img_tensor = img_tensor * 255
 
         return img_tensor, image_name
-    
+
 
 class MiewGenerator(Dataset):
     '''
@@ -182,8 +184,6 @@ class MiewGenerator(Dataset):
         id = self.x.loc[idx, 'id']
         media_id = self.x.loc[idx, 'media_id']
         image_name = self.image_path_dict[media_id]
-        #print(image_name)
-
         try:
             img = Image.open(image_name).convert('RGB')
         except OSError:
@@ -237,25 +237,21 @@ class TrainGenerator(Dataset):
             RandomAffine(degrees=15, shear=(-7, 7)),
             # convert images to grayscale with 20% probability
             RandomGrayscale(p=0.2),
-            # apply gaussian blur with 30% probability 
+            # apply gaussian blur with 30% probability
             RandomApply([GaussianBlur(kernel_size=3, sigma=(0.1, 1.0))], p=0.3),
             # adjust brightness and contrast for varying lighting conditions
             ColorJitter(brightness=0.2, contrast=0.2),
         ])
         if self.augment:
             print("Applying augmentations")
-            self.transform = Compose([
-                augmentations, # augmentations
-                RandomHorizontalFlip(p=0.5), # random horizontal flip
-                Resize((self.resize_height, self.resize_width)),
-                ToTensor(),
-            ])
+            self.transform = Compose([augmentations,  # augmentations
+                                      RandomHorizontalFlip(p=0.5),  # random horizontal flip
+                                      Resize((self.resize_height, self.resize_width)),
+                                      ToTensor(),])
         else:
-            self.transform = Compose([
-                RandomHorizontalFlip(p=0.5), # random horizontal flip
-                Resize((self.resize_height, self.resize_width)),
-                ToTensor(),
-            ])
+            self.transform = Compose([RandomHorizontalFlip(p=0.5),  # random horizontal flip
+                                      Resize((self.resize_height, self.resize_width)),
+                                      ToTensor(),])
         self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
 
     def __len__(self):
@@ -346,7 +342,7 @@ class LegacyGenerator(Dataset):
 
 
 def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath",
-                     crop=False, resize_height=299, resize_width=299, augment=False):
+                     crop=False, resize_height=480, resize_width=480, augment=False):
     '''
         Loads a dataset for training and wraps it in a
         PyTorch DataLoader object. Shuffles the data before loading.
@@ -368,12 +364,10 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
                                       resize_height=resize_height, resize_width=resize_width,
                                       augment=augment)
 
-    dataLoader = DataLoader(
-            dataset=dataset_instance,
-            batch_size=batch_size,
-            shuffle=True,
-            num_workers=workers,
-        )
+    dataLoader = DataLoader(dataset=dataset_instance,
+                            batch_size=batch_size,
+                            shuffle=True,
+                            num_workers=workers)
     return dataLoader
 
 
@@ -403,14 +397,11 @@ def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file",
     dataset_instance = ImageGenerator(manifest, file_col=file_col, crop=crop, normalize=normalize,
                                       resize_width=resize_width, resize_height=resize_height)
 
-    dataLoader = DataLoader(
-            dataset=dataset_instance,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=workers
-        )
+    dataLoader = DataLoader(dataset=dataset_instance,
+                            batch_size=batch_size,
+                            shuffle=False,
+                            num_workers=workers)
     return dataLoader
-
 
 
 def reid_dataloader(rois, image_path_dict, resize_height, resize_width, batch_size=1, workers=1):
@@ -431,14 +422,12 @@ def reid_dataloader(rois, image_path_dict, resize_height, resize_width, batch_si
 
         MIEWIDNET - 440, 440
     '''
-    dataset_instance = MiewGenerator(rois, image_path_dict, 
-                                      resize_height=resize_height, 
-                                      resize_width=resize_width)
+    dataset_instance = MiewGenerator(rois, image_path_dict,
+                                     resize_height=resize_height,
+                                     resize_width=resize_width)
 
-    dataLoader = DataLoader(
-            dataset=dataset_instance,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=workers
-        )
+    dataLoader = DataLoader(dataset=dataset_instance,
+                            batch_size=batch_size,
+                            shuffle=False,
+                            num_workers=workers)
     return dataLoader

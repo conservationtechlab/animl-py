@@ -13,7 +13,6 @@ from PIL import Image
 from animl import file_management
 
 
-
 def process_image(im_file, detector, confidence_threshold, quiet=True,
                   image_size=None, skip_image_resize=False):
     """
@@ -239,5 +238,3 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
         file_management.save_data(df, out_file)
 
     return df
-
-
