@@ -11,7 +11,7 @@ from random import randrange
 from pathlib import Path
 
 
-def symlink_species(manifest, linkdir, file_col="FilePath", copy=False, unique_name=True):
+def sort_species(manifest, linkdir, file_col="FilePath", copy=True, unique_name=True):
     """
     Creates symbolic links of images into species folders
 
@@ -47,21 +47,13 @@ def symlink_species(manifest, linkdir, file_col="FilePath", copy=False, unique_n
 
         link = linkdir / Path(row['prediction']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
-        if copy:
-            print("Hard copy enabled. This will overwrite existing files.")
 
-            link.hardlink_to(row[file_col])
-        else:
-            try:
-                link.symlink_to(row[file_col])
-            except Exception as e:
-                print('Exception: {}'.format(e))
-                continue
+        os.link(row[file_col], link)
 
     return manifest
 
 
-def symlink_MD(manifest, linkdir, file_col="file", copy=False, unique_name=True):
+def sort_MD(manifest, linkdir, file_col="file", copy=False, unique_name=True):
     """
     Creates symbolic links of images into species folders
 
@@ -96,20 +88,13 @@ def symlink_MD(manifest, linkdir, file_col="file", copy=False, unique_name=True)
             name = os.path.basename(row[file_col])
         link = linkdir / Path(row['category']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
-        if copy:
-            print("Hard copy enabled. This will overwrite existing files.")
-            link.hardlink_to(row[file_col])
-        else:
-            try:
-                link.symlink_to(row[file_col])
-            except Exception as e:
-                print('Exception: {}'.format(e))
-                continue
+
+        os.link(row[file_col], link)
 
     return manifest
 
 
-def remove_symlink(manifest):
+def remove_link(manifest):
     """
     Deletes symbolic links of images
 

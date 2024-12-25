@@ -12,7 +12,7 @@ from animl import plot_boxes
 from animl import reid
 from animl import sequence_classification
 from animl import split
-from animl import symlink
+from animl import link
 from animl import test
 from animl import timelapse
 from animl import train
@@ -57,7 +57,7 @@ from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         weights_init_kaiming,)
 from animl.sequence_classification import (sequence_classification,)
 from animl.split import (get_animals, get_empty, train_val_test,)
-from animl.symlink import (remove_symlink, symlink_MD, symlink_species,
+from src.animl.link import (remove_link, sort_MD, sort_species,
                            update_labels,)
 from animl.test import (main, test,)
 from animl.timelapse import (csv_converter,)
@@ -154,12 +154,12 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'parse_MD', 'parse_model', 'plot_all_bounding_boxes', 'plot_boxes',
            'predict_species', 'print_args', 'print_mutation', 'process_image',
            'process_videos', 'profile', 'prune', 'random_perspective', 'reid',
-           'reid_dataloader', 'remove_symlink', 'replicate',
+           'reid_dataloader', 'replicate', 'remove_link', 'sort_MD', 'sort_species',
            'resample_segments', 'resize_with_padding', 'save_data',
            'save_model', 'scale_coords', 'scale_img', 'segment2box',
            'segments2boxes', 'select_device', 'sequence_classification',
            'set_logging', 'softmax', 'sparsity', 'split', 'strip_optimizer',
-           'symlink', 'symlink_MD', 'symlink_species', 'tensor_to_onnx',
+           'link', 'tensor_to_onnx',
            'test', 'threaded', 'time_sync', 'timelapse',
            'torch_distributed_zero_first', 'torch_utils', 'train',
            'train_dataloader', 'train_val_test', 'truncate_float',

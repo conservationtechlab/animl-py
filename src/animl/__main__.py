@@ -22,7 +22,8 @@ import wget
 import yaml
 import torch
 import pandas as pd
-from animl import (file_management, video_processing, megadetector, detect, split, classifiers, inference, symlink)
+from animl import (file_management, video_processing, megadetector, detect,
+                   split, classifiers, inference, link)
 
 
 def main_paths(image_dir, detector_file, classifier_file, class_list, sort=True):
@@ -87,7 +88,7 @@ def main_paths(image_dir, detector_file, classifier_file, class_list, sort=True)
     print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
     if sort:
-        manifest = symlink.symlink_species(manifest, working_dir.linkdir)
+        manifest = link.sort_species(manifest, working_dir.linkdir)
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
@@ -169,7 +170,7 @@ def main_config(config):
     print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
     if cfg.get('sort', False):
-        manifest = symlink.symlink_species(manifest, working_dir.linkdir)
+        manifest = link.sort_species(manifest, working_dir.linkdir)
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
