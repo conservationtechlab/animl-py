@@ -170,7 +170,8 @@ def main_config(config):
     print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
     if cfg.get('sort', False):
-        manifest = link.sort_species(manifest, cfg.get('link_dir', working_dir.linkdir))
+        manifest = link.sort_species(manifest, cfg.get('link_dir', working_dir.linkdir),
+                                     copy=cfg.get('copy', False))
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))

@@ -4,6 +4,7 @@ from animl import detect
 from animl import file_management
 from animl import generator
 from animl import inference
+from animl import link
 from animl import matchypatchy
 from animl import megadetector
 from animl import models
@@ -12,7 +13,6 @@ from animl import plot_boxes
 from animl import reid
 from animl import sequence_classification
 from animl import split
-from animl import link
 from animl import test
 from animl import timelapse
 from animl import train
@@ -34,6 +34,7 @@ from animl.generator import (ImageGenerator, MiewGenerator, ResizeWithPadding,
                              train_dataloader,)
 from animl.inference import (get_device, predict_species, softmax,
                              tensor_to_onnx,)
+from animl.link import (remove_link, sort_MD, sort_species, update_labels,)
 from animl.matchypatchy import (classify_mp, detect_mp, miew_embedding,
                                 process_videos, viewpoint_estimator,)
 from animl.megadetector import (CONF_DIGITS, COORD_DIGITS, MegaDetector,
@@ -57,8 +58,6 @@ from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         weights_init_kaiming,)
 from animl.sequence_classification import (sequence_classification,)
 from animl.split import (get_animals, get_empty, train_val_test,)
-from src.animl.link import (remove_link, sort_MD, sort_species,
-                           update_labels,)
 from animl.test import (main, test,)
 from animl.timelapse import (csv_converter,)
 from animl.train import (init_seed, main, train, validate,)
@@ -146,7 +145,7 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'init_seeds', 'initialize_weights', 'intersect_dicts', 'is_ascii',
            'is_chinese', 'is_colab', 'is_docker', 'is_kaggle', 'is_parallel',
            'is_pip', 'is_writeable', 'l2_norm', 'labels_to_class_weights',
-           'labels_to_image_weights', 'letterbox', 'load', 'load_data',
+           'labels_to_image_weights', 'letterbox', 'link', 'load', 'load_data',
            'load_model', 'main', 'make_divisible', 'manifest_dataloader',
            'matchypatchy', 'megadetector', 'methods', 'miew_embedding',
            'miewid', 'mixup', 'model_info', 'models', 'multi_species',
@@ -154,13 +153,12 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'parse_MD', 'parse_model', 'plot_all_bounding_boxes', 'plot_boxes',
            'predict_species', 'print_args', 'print_mutation', 'process_image',
            'process_videos', 'profile', 'prune', 'random_perspective', 'reid',
-           'reid_dataloader', 'replicate', 'remove_link', 'sort_MD', 'sort_species',
-           'resample_segments', 'resize_with_padding', 'save_data',
-           'save_model', 'scale_coords', 'scale_img', 'segment2box',
-           'segments2boxes', 'select_device', 'sequence_classification',
-           'set_logging', 'softmax', 'sparsity', 'split', 'strip_optimizer',
-           'link', 'tensor_to_onnx',
-           'test', 'threaded', 'time_sync', 'timelapse',
+           'reid_dataloader', 'remove_link', 'replicate', 'resample_segments',
+           'resize_with_padding', 'save_data', 'save_model', 'scale_coords',
+           'scale_img', 'segment2box', 'segments2boxes', 'select_device',
+           'sequence_classification', 'set_logging', 'softmax', 'sort_MD',
+           'sort_species', 'sparsity', 'split', 'strip_optimizer',
+           'tensor_to_onnx', 'test', 'threaded', 'time_sync', 'timelapse',
            'torch_distributed_zero_first', 'torch_utils', 'train',
            'train_dataloader', 'train_val_test', 'truncate_float',
            'truncate_float_array', 'try_except', 'update_labels',
