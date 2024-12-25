@@ -41,6 +41,7 @@ Python Package Dependencies
 * pyexiftool >= 0.5.6
 * opencv-python >= 4.10.0.82
 * scikit-learn >= 1.5.0
+* timm >= 1.0,
 * torch >= 2.2.2
 * torchvision >= 0.17.2
 * tqdm >= 4.66.4
@@ -64,6 +65,11 @@ python -m animl /example/folder --detector /path/to/megadetector --classifier /p
 ```
 You can use animl in this fashion on any image directory.
 
+Finally you can use the animl.yml config file to specify parameters:
+```
+python -m animl /path/to/animl.yml
+```
+
 ## Usage
 
 ### Inference
@@ -78,7 +84,7 @@ workingdir = file_management.WorkingDirectory('/path/to/save/data')
 
 2. Build the file manifest of your given directory. This will find both images and videos.
 ```python
-files = file_management.build_file_manifest('/path/to/images', out_file = workingdir.filemanifest)
+files = file_management.build_file_manifest('/path/to/images',  out_file=workingdir.filemanifest, exif=True)
 ```
 
 3. If there are videos, extract individual frames for processing.
@@ -95,9 +101,9 @@ allframes = video_processing.extract_frames(files, out_dir=workingdir.vidfdir, o
 
 ```python
 from animl import detect, megadetector
-detector = megadetector.MegaDetector('/path/to/mdmodel.pt')
-mdresults = detect.detect_MD_batch(detector, allframes["Frame"], checkpoint_path=working_dir.mdraw, quiet=True)
-detections = detect.parse_MD(mdresults, manifest=all_frames, out_file=workingdir.detections, parallel=True)
+detector = megadetector.MegaDetector('/path/to/mdmodel.pt', device='cuda:0')
+mdresults = detect.detect_MD_batch(detector, allframes, file_col="Frame",  checkpoint_path=working_dir.mdraw, quiet=True)
+detections = detect.parse_MD(mdresults, manifest=all_frames, out_file=workingdir.detections)
 ```
 
 5. For speed and efficiency, extract the empty/human/vehicle detections before classification.
@@ -110,7 +116,7 @@ empty = split.get_empty(detections)
    if desired.
 ```python
 from animl import classifiers, inference
-classifier, class_list = classifiers.load_model('/path/to/model', '/path/to/classlist.txt')
+classifier, class_list = classifiers.load_model('/path/to/model', '/path/to/classlist.txt', device='cuda:0')
 animals = inference.predict_species(animals, classifier, class_list, file_col="Frame",
                                     batch_size=4, out_file=working_dir.predictions)
 manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
@@ -126,8 +132,8 @@ animl_results_to_md_results.animl_results_to_md_results(csv_loc, imagedir + "fin
 
 8. (OPTIONAL) Create symlinks within a given directory for file browser access.
 ```python
-linked_manifest = symlink_species(manifest, workingdir.linkdir, file_col="FilePath", copy=False)
-pd.to_csv(linked_manifest, workindir.results)
+manifest = link.sort_species(manifest, working_dir.linkdir)
+file_management.save_data(manifest, working_dir.results)
 ```
 
 ---
@@ -201,7 +207,7 @@ python -m animl.test --config /path/to/config.yaml
 
 The Conservation Technology Lab has several models available for use. 
 
-* Southwest United States [v3](https://sandiegozoo.box.com/s/p4ws6v5qnoi87otsie0ckmie0izxzqwo)
+* Southwest United States [v3](https://sandiegozoo.box.com/s/0mait8k3san3jvet8251mpz8svqyjnc3)
 * [Amazon](https://sandiegozoo.box.com/s/dfc3ozdslku1ekahvz635kjloaaeopfl)
 * [Savannah](https://sandiegozoo.box.com/s/ai6yu45jgvc0to41xzd26moqh8amb4vw)
 * [Andes](https://sandiegozoo.box.com/s/kvg89qh5xcg1m9hqbbvftw1zd05uwm07)

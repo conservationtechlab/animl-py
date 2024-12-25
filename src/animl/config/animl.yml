@@ -20,3 +20,4 @@ file_col_classification: Frame
 
 # sort
 sort: False
+# link_dir: without this key, will save to working_dir
