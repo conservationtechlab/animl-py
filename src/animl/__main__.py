@@ -22,8 +22,9 @@ import wget
 import yaml
 import torch
 import pandas as pd
-from animl import (file_management, video_processing, megadetector, detect,
+from animl import (file_management, video_processing, detect,
                    split, classification, link)
+from animl.models import megadetector
 
 
 def main_paths(image_dir, detector_file, classifier_file, class_list, sort=True):

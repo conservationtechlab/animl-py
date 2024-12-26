@@ -7,7 +7,7 @@ import yaml
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-from animl.megadetector import MegaDetector
+from animl.models.megadetector import MegaDetector
 from animl.video_processing import extract_frames
 from animl.detect import detect_MD_batch, parse_MD
 from animl.split import get_animals
@@ -19,13 +19,16 @@ from animl.reid import viewpoint, miewid
 
 
 def process_videos(media, frame_dir):
+    """
+    Wrapper to extract frames for MatchyPatchy
+    """
     frames = extract_frames(media, frame_dir, frames=1, file_col="filepath")
     return frames
 
 
 def detect_mp(detector_file, media):
     """
-    Function for integration with MatchyPatchy
+    Wrapper for object detection withinin MatchyPatchy
     """
     detector = MegaDetector(detector_file, device=get_device())
     md_results = detect_MD_batch(detector, media, file_col="filepath", quiet=True)
@@ -36,7 +39,7 @@ def detect_mp(detector_file, media):
 
 def classify_mp(animals, config_file):
     """
-    Function for integration with MatchyPatchy
+    Wrapper for classification within MatchyPatchy
     """
     try:
         cfg = yaml.safe_load(open(config_file, 'r'))
@@ -52,6 +55,9 @@ def classify_mp(animals, config_file):
 
 
 def viewpoint_estimator(rois, image_paths, viewpoint_filepath):
+    """
+    Wrapper for viewpoint estimation within MatchyPatchy
+    """
     device = get_device()
     output = []
     if len(rois) > 0:
@@ -71,6 +77,9 @@ def viewpoint_estimator(rois, image_paths, viewpoint_filepath):
 
 
 def miew_embedding(rois, image_paths, miew_filepath):
+    """
+    Wrapper for MiewID embedding extraction within MatchyPatchy
+    """
     device = get_device()
     output = []
     if len(rois) > 0:

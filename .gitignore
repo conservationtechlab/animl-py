@@ -27,7 +27,8 @@ share/python-wheels/
 *.egg
 MANIFEST
 notebooks/
-models/
+*.pt
+*.csv
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
