@@ -3,7 +3,9 @@
 
     @ Kyra Swanson 2023
 '''
+import argparse
 import os
+import yaml
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -14,7 +16,7 @@ import torch
 import torch.onnx
 import onnxruntime
 
-from animl import generator, file_management
+from animl import generator, file_management, split
 from animl.models.species import EfficientNet, ConvNeXtBase
 
 
@@ -185,12 +187,14 @@ def predict_species(detections, model, classes, device='cpu', out_file=None, raw
         - classes: preloaded class list
         - device (str): specify to run model on cpu or gpu, default to cpu
         - out_file (str): path to save prediction results to
+        - raw (bool): return raw logits instead of applying labels
         - file_col (str): column name containing file paths
-        - resize (int): image input size
+        - crop (bool): use bbox to crop images before feeding into model
+        - resize_width (int): image width input size
+        - resize_height (int): image height input size
+        - normalize (bool): normalize the tensor before inference
         - batch_size (int): data generator batch size
         - workers (int): number of cores
-        - channel_last (bool): swap dims for onnx models trained with BHWC order
-        - raw (bool): return raw logits instead of applying labels
 
     Returns
         - detections (pd.DataFrame): MD detections with classifier prediction and confidence
@@ -258,3 +262,35 @@ def predict_species(detections, model, classes, device='cpu', out_file=None, raw
         return np.vstack(raw_output)
     else:
         return detections
+
+
+# TODO
+def classify_with_config(config):
+    # get config file
+    print(f'Using config "{config}"')
+    cfg = yaml.safe_load(open(config, 'r'))
+
+    manifest = pd.read_csv(cfg['manifest'])
+
+    # get available device
+    device = get_device()
+
+    classifier, class_list = load_model(cfg['classifier_file'], cfg['class_list'],
+                                        device=device, architecture=cfg.get('class_list', "CTL"))
+
+    if cfg.get('split_animals', True):
+        manifest = split.get_animals(manifest)
+
+    predictions = predict_species(manifest, classifier, class_list, device=device, out_file=cfg['out_file'],
+                                  raw=cfg.get('raw', False), file_col=cfg['file_col'], crop=cfg['crop'],
+                                  resize_width=cfg['resize_width'], resize_height=cfg['resize_height'],
+                                  normalize=cfg.get('normalize', True), batch_size=cfg.get('batch_size', 1),
+                                  workers=cfg.get('workers', 1))
+    return predictions
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Train deep learning model.')
+    parser.add_argument('--config', help='Path to config file', default='exp_resnet18.yaml')
+    args = parser.parse_args()
+    classify_with_config(args.config)
