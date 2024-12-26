@@ -27,7 +27,6 @@ share/python-wheels/
 *.egg
 MANIFEST
 notebooks/
-src/animl/future
 models/
 
 # PyInstaller

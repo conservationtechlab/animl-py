@@ -82,7 +82,7 @@ def main_paths(image_dir, detector_file, classifier_file, class_list, sort=True)
     print(class_list)
     classifier, classes = classification.load_model(classifier_file, class_list, device=device)
     animals = classification.predict_species(animals, classifier, classes, device=device,
-                                        file_col="Frame", batch_size=4, out_file=working_dir.predictions)
+                                             file_col="Frame", batch_size=4, out_file=working_dir.predictions)
 
     # merge animal and empty, create symlinks
     print("Concatenating animal and empty dataframes...")
@@ -162,9 +162,9 @@ def main_config(config):
     print("Predicting species of animal detections...")
     classifier, classes = classification.load_model(cfg['classifier_file'], cfg['class_list'], device=device)
     animals = classification.predict_species(animals, classifier, classes, device=device,
-                                        file_col=cfg.get('file_col_classification', 'Frame'),
-                                        batch_size=cfg.get('batch_size', 4),
-                                        out_file=working_dir.predictions)
+                                             file_col=cfg.get('file_col_classification', 'Frame'),
+                                             batch_size=cfg.get('batch_size', 4),
+                                             out_file=working_dir.predictions)
 
     # merge animal and empty, create symlinks
     print("Concatenating animal and empty dataframes...")

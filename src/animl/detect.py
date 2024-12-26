@@ -167,7 +167,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     return results
 
 
-def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
+def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame"):
     """
     Converts numerical output from classifier to common name species label
 
@@ -232,7 +232,7 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0):
     df = pd.DataFrame(lst)
 
     if isinstance(manifest, pd.DataFrame):
-        df = manifest.merge(df, left_on="Frame", right_on="file")
+        df = manifest.merge(df, left_on=file_col, right_on="file")
 
     if out_file:
         file_management.save_data(df, out_file)

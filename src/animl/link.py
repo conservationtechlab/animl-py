@@ -45,7 +45,7 @@ def sort_species(manifest, link_dir, file_col="FilePath", unique_name='UniqueNam
             filename = os.path.basename(row[file_col])
             filename, extension = os.path.splitext(filename)
             name = "_".join([filename, uniqueid]) + extension
-            
+
         link = link_dir / Path(row['prediction']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
@@ -105,7 +105,7 @@ def remove_link(manifest, link_col='Link'):
 
     Args
         - manifest: dataframe containing images and associated predictions
-        - link_col: column name of paths to remove 
+        - link_col: column name of paths to remove
     """
     # delete files
     for _, row in manifest.iterrows():
@@ -128,12 +128,12 @@ def update_labels(manifest, link_dir, unique_name='UniqueName'):
         - manifest: dataframe with updated
     """
     if unique_name not in manifest.columns:
-        raise AssertionError("Manifest does not have unique names, cannot match to sorted directories")
+        raise AssertionError("Manifest does not have unique names, cannot match to sorted directories.")
 
     ground_truth = file_management.build_file_manifest(link_dir, exif=False)
 
     if len(ground_truth) != len(manifest):
-        print(f"Warning, found {len(ground_truth)} files in link dir but {len(manifest)} files in manifest")
+        print(f"Warning, found {len(ground_truth)} files in link dir but {len(manifest)} files in manifest.")
 
     # last level should be label level
     ground_truth['label'] = ground_truth["FilePath"].apply(

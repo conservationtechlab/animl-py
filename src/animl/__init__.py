@@ -1,10 +1,9 @@
-from animl import animl_to_md
+from animl import api
 from animl import classification
 from animl import detect
 from animl import file_management
 from animl import generator
 from animl import link
-from animl import matchypatchy
 from animl import megadetector
 from animl import models
 from animl import multi_species
@@ -13,17 +12,20 @@ from animl import reid
 from animl import sequence_classification
 from animl import split
 from animl import test
-from animl import timelapse
 from animl import train
 from animl import utils
 from animl import video_processing
-from animl import zooniverse
 
-from animl.animl_to_md import (animl_results_to_md_results,
-                               detection_category_id_to_name, main,)
-from src.animl.classification import (ConvNeXtBase, EfficientNet, load_model,
-                               save_model, get_device, predict_species, softmax,
-                             tensor_to_onnx,)
+from animl.api import (animl_results_to_md_results, animl_to_md, classify_mp,
+                       connect_to_Panoptes, copy_image, create_SubjectSet,
+                       csv_converter, detect_mp, detection_category_id_to_name,
+                       main, matchypatchy, miew_embedding, process_videos,
+                       timelapse, upload_to_Zooniverse,
+                       upload_to_Zooniverse_Simple, viewpoint_estimator,
+                       zooniverse,)
+from animl.classification import (classify_with_config, get_device, load_model,
+                                  predict_species, save_model, softmax,
+                                  tensor_to_onnx,)
 from animl.detect import (detect_MD_batch, parse_MD, process_image,)
 from animl.file_management import (VALID_EXTENSIONS, WorkingDirectory,
                                    active_times, build_file_manifest,
@@ -33,8 +35,6 @@ from animl.generator import (ImageGenerator, MiewGenerator, ResizeWithPadding,
                              reid_dataloader, resize_with_padding,
                              train_dataloader,)
 from animl.link import (remove_link, sort_MD, sort_species, update_labels,)
-from animl.matchypatchy import (classify_mp, detect_mp, miew_embedding,
-                                process_videos, viewpoint_estimator,)
 from animl.megadetector import (CONF_DIGITS, COORD_DIGITS, MegaDetector,
                                 convert_yolo_to_xywh, truncate_float,
                                 truncate_float_array,)
@@ -57,7 +57,6 @@ from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
 from animl.sequence_classification import (sequence_classification,)
 from animl.split import (get_animals, get_empty, train_val_test,)
 from animl.test import (main, test,)
-from animl.timelapse import (csv_converter,)
 from animl.train import (init_seed, main, train, validate,)
 from animl.utils import (AUTOINSTALL, Albumentations, BAR_FORMAT, CONFIG_DIR,
                          DATASETS_DIR, EarlyStopping, FILE, FONT, HELP_URL,
@@ -96,21 +95,17 @@ from animl.utils import (AUTOINSTALL, Albumentations, BAR_FORMAT, CONFIG_DIR,
                          verify_image_label, xyn2xy, xywh2xyxy, xywhn2xyxy,
                          xyxy2xywh, xyxy2xywhn,)
 from animl.video_processing import (extract_frame_single, extract_frames,)
-from animl.zooniverse import (connect_to_Panoptes, copy_image,
-                              create_SubjectSet, upload_to_Zooniverse,
-                              upload_to_Zooniverse_Simple,)
 
 __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'ArcFaceSubCenterDynamic', 'ArcMarginProduct',
            'ArcMarginProduct_subcenter', 'AutoShape', 'BAR_FORMAT',
            'Bottleneck', 'BottleneckCSP', 'C3', 'C3Ghost', 'C3SPP', 'C3TR',
            'C3x', 'CONFIG_DIR', 'CONF_DIGITS', 'COORD_DIGITS', 'Classify',
-           'Concat', 'Contract', 'Conv', 'ConvNeXtBase', 'CrossConv',
-           'DATASETS_DIR', 'DWConv', 'DWConvTranspose2d', 'Detect',
-           'DetectMultiBackend', 'Detections', 'EarlyStopping', 'EfficientNet',
-           'ElasticArcFace', 'Expand', 'FILE', 'FONT', 'Focus', 'GeM',
-           'GhostBottleneck', 'GhostConv', 'HELP_URL', 'IMAGE_HEIGHT',
-           'IMAGE_WIDTH', 'IMG_FORMATS', 'ImageGenerator',
+           'Concat', 'Contract', 'Conv', 'CrossConv', 'DATASETS_DIR', 'DWConv',
+           'DWConvTranspose2d', 'Detect', 'DetectMultiBackend', 'Detections',
+           'EarlyStopping', 'ElasticArcFace', 'Expand', 'FILE', 'FONT',
+           'Focus', 'GeM', 'GhostBottleneck', 'GhostConv', 'HELP_URL',
+           'IMAGE_HEIGHT', 'IMAGE_WIDTH', 'IMG_FORMATS', 'ImageGenerator',
            'InfiniteDataLoader', 'LOCAL_RANK', 'LOGGER', 'LoadImages',
            'LoadImagesAndLabels', 'LoadStreams', 'LoadWebcam', 'MegaDetector',
            'MiewGenerator', 'MiewIdNet', 'Model', 'ModelEMA', 'NCOLS',
@@ -118,15 +113,16 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'SPP', 'SPPF', 'Timeout', 'TrainGenerator', 'TransformerBlock',
            'TransformerLayer', 'VALID_EXTENSIONS', 'VERBOSE', 'VID_FORMATS',
            'ViewpointModel', 'WorkingDirectory', 'active_times',
-           'animl_results_to_md_results', 'animl_to_md', 'apply_classifier',
-           'augment_hsv', 'augmentations', 'autopad', 'autosplit', 'bbox_iou',
-           'box_area', 'box_candidates', 'box_iou', 'build_file_manifest',
-           'check_amp', 'check_anchor_order', 'check_dataset', 'check_file',
-           'check_font', 'check_git_status', 'check_img_size', 'check_imshow',
-           'check_online', 'check_python', 'check_requirements',
-           'check_suffix', 'check_version', 'check_yaml', 'classification',
-           'classify_mp', 'clean_str', 'clip_coords', 'coco80_to_coco91_class',
-           'colorstr', 'common', 'connect_to_Panoptes', 'convert_yolo_to_xywh',
+           'animl_results_to_md_results', 'animl_to_md', 'api',
+           'apply_classifier', 'augment_hsv', 'augmentations', 'autopad',
+           'autosplit', 'bbox_iou', 'box_area', 'box_candidates', 'box_iou',
+           'build_file_manifest', 'check_amp', 'check_anchor_order',
+           'check_dataset', 'check_file', 'check_font', 'check_git_status',
+           'check_img_size', 'check_imshow', 'check_online', 'check_python',
+           'check_requirements', 'check_suffix', 'check_version', 'check_yaml',
+           'classification', 'classify_mp', 'classify_with_config',
+           'clean_str', 'clip_coords', 'coco80_to_coco91_class', 'colorstr',
+           'common', 'connect_to_Panoptes', 'convert_yolo_to_xywh',
            'copy_attr', 'copy_image', 'copy_paste', 'create_SubjectSet',
            'create_dataloader', 'create_folder', 'csv_converter', 'cutout',
            'dataloaders', 'dataset_stats', 'de_parallel', 'demo_boxes',
@@ -139,10 +135,10 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'general', 'generator', 'get_animals', 'get_device', 'get_empty',
            'get_hash', 'get_latest_run', 'git_describe', 'gsutil_getsize',
            'heads', 'hist_equalize', 'img2label_paths', 'imread', 'imshow',
-           'imshow_', 'imwrite', 'increment_path', 'inference', 'init_seed',
-           'init_seeds', 'initialize_weights', 'intersect_dicts', 'is_ascii',
-           'is_chinese', 'is_colab', 'is_docker', 'is_kaggle', 'is_parallel',
-           'is_pip', 'is_writeable', 'l2_norm', 'labels_to_class_weights',
+           'imshow_', 'imwrite', 'increment_path', 'init_seed', 'init_seeds',
+           'initialize_weights', 'intersect_dicts', 'is_ascii', 'is_chinese',
+           'is_colab', 'is_docker', 'is_kaggle', 'is_parallel', 'is_pip',
+           'is_writeable', 'l2_norm', 'labels_to_class_weights',
            'labels_to_image_weights', 'letterbox', 'link', 'load', 'load_data',
            'load_model', 'main', 'make_divisible', 'manifest_dataloader',
            'matchypatchy', 'megadetector', 'methods', 'miew_embedding',
