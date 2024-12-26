@@ -1,12 +1,26 @@
 """
 From MiewID
 
+ArcFace Class Definitons
+
+ArcMarginProduct
+ElasticArcFace
+ArcMarginProduct_subcenter
+ArcFaceLossAdaptiveMargin
+ArcFaceSubCenterDynamic
 """
 import torch
 import torch.nn as nn
 import math
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
+
+
+def l2_norm(input, axis=1):
+    norm = torch.norm(input, 2, axis, True)
+    output = torch.div(input, norm)
+
+    return output
 
 
 class ArcMarginProduct(nn.Module):
@@ -58,13 +72,6 @@ class ArcMarginProduct(nn.Module):
         return output
 
 
-def l2_norm(input, axis=1):
-    norm = torch.norm(input, 2, axis, True)
-    output = torch.div(input, norm)
-
-    return output
-
-
 class ElasticArcFace(nn.Module):
     def __init__(self, in_features, out_features,
                  s=64.0, m=0.50, std=0.0125,
@@ -101,8 +108,7 @@ class ElasticArcFace(nn.Module):
         return cos_theta
 
 
-########## Subcenter Arcface with dynamic margin ##########
-
+# Subcenter Arcface with dynamic margin
 
 class ArcMarginProduct_subcenter(nn.Module):
     def __init__(self, in_features, out_features, k=3):

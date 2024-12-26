@@ -16,11 +16,30 @@ IMAGE_WIDTH = 440
 
 
 def filter(rois):
+    """
+    Return only rois that have not yet had embedding extracted
+
+    Args:
+        - rois (dataframe): list of rois
+
+    Returns:
+        - subset of rois with no extracted embedding
+    """
     return rois[rois['emb_id'] == 0].reset_index(drop=True)
 
 
 def load(file_path, device='cpu'):
     # TODO: check device
+    """
+    Load MiewID from file path
+
+    Args:
+        - file_path (str): file path to model file
+        - device (str): device to load model to
+
+    Returns:
+        loaded miewid model object
+    """
     weights = torch.load(file_path, weights_only=True)
     miew = MiewIdNet()
     miew.to(device)

@@ -12,15 +12,34 @@ IMAGE_HEIGHT = 480
 IMAGE_WIDTH = 480
 
 
-def filter(manifest, value=None):
+def filter(rois, value=None):
+    """
+    Return only rois that have no viewpoint
+
+    Args:
+        - rois (dataframe): list of rois
+
+    Returns:
+        - subset of rois with no viewpoint label
+    """
     if value is None:
-        filter = manifest[manifest["viewpoint"].isna()]
+        filter = rois[rois["viewpoint"].isna()]
     else:
-        filter = manifest[manifest["viewpoint"] == value]
+        filter = rois[rois["viewpoint"] == value]
     return filter.reset_index(drop=True)
 
 
 def load(file_path, device='cpu'):
+    """
+    Load Viewpoint model from file path
+
+    Args:
+        - file_path (str): file path to model file
+        - device (str): device to load model to
+
+    Returns:
+        loaded viewpoint model object
+    """
     weights = torch.load(file_path, weights_only=False)
     viewpoint_model = ViewpointModel()
     viewpoint_model.to(device)
