@@ -10,10 +10,9 @@ from tqdm import tqdm
 from animl.megadetector import MegaDetector
 from animl.video_processing import extract_frames
 from animl.detect import detect_MD_batch, parse_MD
-from animl.inference import get_device
 from animl.split import get_animals
-from animl.classifiers import load_model
-from animl.inference import predict_species
+from animl.classification import get_device, load_model, predict_species
+
 
 from animl.generator import reid_dataloader
 from animl.reid import viewpoint, miewid

@@ -14,7 +14,7 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 
 from animl.generator import train_dataloader
-from animl.classifiers import load_model
+from animl.classification import load_model
 
 
 def test(data_loader, model, device='cpu'):

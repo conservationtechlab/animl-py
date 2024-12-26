@@ -20,7 +20,7 @@ from sklearn.metrics import precision_score, recall_score
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR
 
 from animl.generator import train_dataloader
-from animl.classifiers import save_model, load_model
+from animl.classification import save_model, load_model
 
 # # log values using comet ml (comet.com)
 # from comet_ml import Experiment

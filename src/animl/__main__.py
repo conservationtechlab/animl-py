@@ -23,7 +23,7 @@ import yaml
 import torch
 import pandas as pd
 from animl import (file_management, video_processing, megadetector, detect,
-                   split, classifiers, inference, link)
+                   split, classification, link)
 
 
 def main_paths(image_dir, detector_file, classifier_file, class_list, sort=True):
@@ -80,8 +80,8 @@ def main_paths(image_dir, detector_file, classifier_file, class_list, sort=True)
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
     print(class_list)
-    classifier, classes = classifiers.load_model(classifier_file, class_list, device=device)
-    animals = inference.predict_species(animals, classifier, classes, device=device,
+    classifier, classes = classification.load_model(classifier_file, class_list, device=device)
+    animals = classification.predict_species(animals, classifier, classes, device=device,
                                         file_col="Frame", batch_size=4, out_file=working_dir.predictions)
 
     # merge animal and empty, create symlinks
@@ -160,8 +160,8 @@ def main_config(config):
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
-    classifier, classes = classifiers.load_model(cfg['classifier_file'], cfg['class_list'], device=device)
-    animals = inference.predict_species(animals, classifier, classes, device=device,
+    classifier, classes = classification.load_model(cfg['classifier_file'], cfg['class_list'], device=device)
+    animals = classification.predict_species(animals, classifier, classes, device=device,
                                         file_col=cfg.get('file_col_classification', 'Frame'),
                                         batch_size=cfg.get('batch_size', 4),
                                         out_file=working_dir.predictions)

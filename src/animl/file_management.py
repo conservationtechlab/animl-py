@@ -40,7 +40,7 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive
 
     files = glob(os.path.join(image_dir, '**', '*.*'), recursive=recursive)
 
-    # only keep images and vidoes
+    # only keep images and videos
     files = [f for f in files if os.path.splitext(os.path.basename(f))[1].lower() in VALID_EXTENSIONS]
 
     # no files found, return empty dataframe

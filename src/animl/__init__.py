@@ -1,9 +1,8 @@
 from animl import animl_to_md
-from animl import classifiers
+from animl import classification
 from animl import detect
 from animl import file_management
 from animl import generator
-from animl import inference
 from animl import link
 from animl import matchypatchy
 from animl import megadetector
@@ -22,8 +21,9 @@ from animl import zooniverse
 
 from animl.animl_to_md import (animl_results_to_md_results,
                                detection_category_id_to_name, main,)
-from animl.classifiers import (ConvNeXtBase, EfficientNet, load_model,
-                               save_model,)
+from src.animl.classification import (ConvNeXtBase, EfficientNet, load_model,
+                               save_model, get_device, predict_species, softmax,
+                             tensor_to_onnx,)
 from animl.detect import (detect_MD_batch, parse_MD, process_image,)
 from animl.file_management import (VALID_EXTENSIONS, WorkingDirectory,
                                    active_times, build_file_manifest,
@@ -32,8 +32,6 @@ from animl.generator import (ImageGenerator, MiewGenerator, ResizeWithPadding,
                              TrainGenerator, manifest_dataloader,
                              reid_dataloader, resize_with_padding,
                              train_dataloader,)
-from animl.inference import (get_device, predict_species, softmax,
-                             tensor_to_onnx,)
 from animl.link import (remove_link, sort_MD, sort_species, update_labels,)
 from animl.matchypatchy import (classify_mp, detect_mp, miew_embedding,
                                 process_videos, viewpoint_estimator,)
@@ -126,7 +124,7 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'check_amp', 'check_anchor_order', 'check_dataset', 'check_file',
            'check_font', 'check_git_status', 'check_img_size', 'check_imshow',
            'check_online', 'check_python', 'check_requirements',
-           'check_suffix', 'check_version', 'check_yaml', 'classifiers',
+           'check_suffix', 'check_version', 'check_yaml', 'classification',
            'classify_mp', 'clean_str', 'clip_coords', 'coco80_to_coco91_class',
            'colorstr', 'common', 'connect_to_Panoptes', 'convert_yolo_to_xywh',
            'copy_attr', 'copy_image', 'copy_paste', 'create_SubjectSet',
