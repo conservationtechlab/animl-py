@@ -14,11 +14,12 @@ def plot_all_bounding_boxes(data_frame, output_dir, file_col, min_conf=0, predic
     This function takes the data frame output from MegaDetector, makes a copy of each image,
     plots the boxes in the new image, and saves it the specified directory.
 
-    Parameters:
-    - data_frame (Pandas DataFrame): Output of Mega Detector
-    - output_dir (String): Name of the output directory
-    - min_conf (Optional) (Int or Float): Confidence threshold to plot the box
-    - prediction (Optional) (Boolean): Should the prediction be printed alongside bounding box
+    Args:
+        - data_frame (Pandas DataFrame): Output of Mega Detector
+        - output_dir (String): Name of the output directory
+        - file_col (str): Column name containing file paths
+        - min_conf (Optional) (Int or Float): Confidence threshold to plot the box
+        - prediction (Optional) (Boolean): Should the prediction be printed alongside bounding box
 
     Raises:
     - Exception: If 'data_frame' is not a pandas DataFrame
@@ -172,7 +173,7 @@ def draw_bounding_boxes(row, box_number, image_output_path=None, prediction=Fals
     """
     Draws bounding boxes and labels on image DataFrame.
     Args:
-        image : DataFrame containing image data - coordinates and predictions.
+        - row : DataFrame containing image data - coordinates and predictions.
             The DataFrame should have the following columns:
             - 'Frame': Filename or path to the image file.
             - 'bbox1': Normalized x-coordinate of the top-left corner.
@@ -180,8 +181,10 @@ def draw_bounding_boxes(row, box_number, image_output_path=None, prediction=Fals
             - 'bbox3': Normalized width of the bounding box (range: 0-1).
             - 'bbox4': Normalized height of the bounding box (range: 0-1).
             - 'prediction': Object prediction label for the bounding box.
-        n (int): Number used for generating the output image filename.
-        imageOutputPath (str): Output directory to saved images.
+        - box_number (int): Number used for generating the output image filename.
+        - image_output_path (str): Output directory to saved images.
+        - prediction (bool): if true, add prediction label
+
     Returns:
         None
     """
@@ -218,7 +221,7 @@ def demo_boxes(manifest, file_col, min_conf=0.9, prediction=True):
     Draws bounding boxes and labels on image DataFrame.
 
     Args:
-        image : DataFrame containing image data - coordinates and predictions.
+        - manifest : DataFrame containing image data - coordinates and predictions.
             The DataFrame should have the following columns:
             - 'Frame': Filename or path to the image file.
             - 'bbox1': Normalized x-coordinate of the top-left corner.
@@ -226,8 +229,9 @@ def demo_boxes(manifest, file_col, min_conf=0.9, prediction=True):
             - 'bbox3': Normalized width of the bounding box (range: 0-1).
             - 'bbox4': Normalized height of the bounding box (range: 0-1).
             - 'prediction': Object prediction label for the bounding box.
-        n (int): Number used for generating the output image filename.
-        imageOutputPath (str): Output directory to saved images.
+        - file_col (str): column containing file paths
+        - min_conf (float): minimum confidence threshold to plot box
+        - prediction (bool): if true, add prediction label
 
     Returns:
         None

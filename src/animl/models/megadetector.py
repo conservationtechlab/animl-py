@@ -1,5 +1,8 @@
 '''
 Based on MegaDetector/detections/pytorch_detector.py
+
+Version 5
+
 '''
 import math
 import torch

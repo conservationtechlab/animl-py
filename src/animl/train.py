@@ -33,6 +33,9 @@ def init_seed(seed):
         Initalizes the seed for all random number generators used. This is
         important to be able to reproduce results and experiment with different
         random setups of the same code and experiments.
+
+        Args:
+            - seed (int): seed for RNG
     '''
     if seed is not None:
         random.seed(seed)
@@ -44,7 +47,17 @@ def init_seed(seed):
 
 def train(data_loader, model, optimizer, device='cpu'):
     '''
-        Our actual training function.
+        Training Function
+
+        Args:
+            - data_loader: dataloader object
+            - model: loaded model object
+            - optimizer: optimizer object
+            - device (str): device to load model and data to
+
+        Returns:
+            - loss_total: loss for epoch
+            - oa_total: overall accuracy for epoch
     '''
     model.to(device)
     model.train()  # put the model into training mode
@@ -99,6 +112,17 @@ def validate(data_loader, model, device="cpu"):
     '''
         Validation function. Note that this looks almost the same as the training
         function, except that we don't use any optimizer or gradient steps.
+
+    Args:
+        - data_loader: dataloader object
+        - model: loaded model object
+        - device (str): device to load model and data to
+
+    Returns:
+        - loss_total: loss for validation set
+        - oa_total: accuracy for validation set
+        - precision: precision for validation set
+        - recall: recall for validation set
     '''
     model.to(device)
     model.eval()  # put the model into evaluation mode

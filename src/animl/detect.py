@@ -80,6 +80,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
             - confidence_threshold (float): only detections above this threshold are returned
             - quiet (bool): print debugging statements when false, defaults to true
             - image_size (int): overrides default image size, 1280
+            - file_col (str): column name containing file paths
 
         Returns:
             - results: list of dict, each dict represents detections on one image

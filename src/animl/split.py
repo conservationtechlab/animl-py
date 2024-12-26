@@ -8,7 +8,7 @@ def get_animals(manifest):
     Pulls MD animal detections for classification
 
     Args:
-        manifest: DataFrame containing one row for ever MD detection
+        - manifest: DataFrame containing one row for ever MD detection
 
     Returns:
         subset of manifest containing only animal detections
@@ -23,7 +23,7 @@ def get_empty(manifest):
     Pulls MD non-animal detections
 
     Args:
-        manifest: DataFrame containing one row for ever MD detection
+        - manifest: DataFrame containing one row for ever MD detection
 
     Returns:
         subset of manifest containing empty, vehicle and human detections

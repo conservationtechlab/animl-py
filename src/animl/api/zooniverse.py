@@ -54,7 +54,7 @@ def copy_image(image, out_dir, image_height):
 
         Args:
             - image (DataFrame): image to upload, row from list
-            - temp_dir (str): location to save temporary resized images to
+            - out_dir (str): location to save temporary resized images to
             - image_height (int): height in px to resize images before upload
         Returns:
             - out_file: the path of the copied image for upload

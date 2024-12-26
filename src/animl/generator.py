@@ -13,41 +13,6 @@ from .utils.torch_utils import _setup_size
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-def resize_with_padding(img, expected_size):
-    """Pads a crop to given size
-    If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
-    If image size is smaller than output size along any edge, image is padded with 0 and
-    then center cropped.
-
-    Args:
-        - img (Img): a loaded Img object
-        - expected_size (sequence or int): Desired output size of the crop. If size is an
-            int instead of sequence like (h, w), a square crop (size, size) is
-            made. If provided a sequence of length 1, it will be interpreted as
-            (size[0], size[0]).
-    Returns:
-        - the padded Img object
-    """
-    if img.size[0] == 0 or img.size[1] == 0:
-        return img
-    if img.size[0] > img.size[1]:
-        new_size = (expected_size[0],
-                    int(expected_size[1] * img.size[1] / img.size[0]))
-    else:
-        new_size = (int(expected_size[0] * img.size[0] / img.size[1]),
-                    expected_size[1])
-    img = img.resize(new_size, Image.BILINEAR)  # NEAREST BILINEAR
-    delta_width = expected_size[0] - img.size[0]
-    delta_height = expected_size[1] - img.size[1]
-    pad_width = delta_width // 2
-    pad_height = delta_height // 2
-    padding = (pad_width, pad_height,
-               delta_width - pad_width,
-               delta_height - pad_height)
-    return ImageOps.expand(img, padding)
-
-
 class ResizeWithPadding(torch.nn.Module):
     """Pads a crop to given size
     If the image is torch Tensor, it is expected
@@ -103,6 +68,8 @@ class ImageGenerator(Dataset):
     Options:
         - file_col: column name containing full file paths
         - resize: dynamically resize images to target (square) [W,H]
+        - crop: if true, dynamically crop
+        - normalize: tensors are normalized by default, set to false to un-normalize
     '''
     def __init__(self, x, file_col='file', resize_height=299, resize_width=299, crop=True, normalize=True):
         self.x = x
@@ -221,6 +188,7 @@ class TrainGenerator(Dataset):
         - label_col: column name containing class labels
         - crop: if true, dynamically crop
         - resize: dynamically resize images to target (square)
+        - agument: add image augmentations at each batch
     '''
     def __init__(self, x, classes, file_col='FilePath', label_col='species',
                  crop=True, resize_height=299, resize_width=299, augment=False):
@@ -293,54 +261,6 @@ class TrainGenerator(Dataset):
         return img_tensor, label, image_name
 
 
-'''
-class LegacyGenerator(Dataset):
-
-    def __init__(self, x, file_col='Frame', crop=False, resize=456, buffer=0):
-        self.x = x
-        self.file_col = file_col
-        self.crop = crop
-        self.resize = int(resize)
-        self.buffer = buffer
-
-    def __len__(self):
-        return len(self.x.index)
-
-    def __getitem__(self, idx):
-        try:
-            file = self.x[self.file_col].iloc[idx]
-            #img = Image.open(file).convert('RGB')
-            img = Image.open(file)
-        except OSError:
-            print("File error", file)
-            del self.x.iloc[idx]
-            return self.__getitem__(idx)
-
-        if self.crop:
-            width, height = img.size
-            bbox1 = self.x['bbox1'].iloc[idx]
-            bbox2 = self.x['bbox2'].iloc[idx]
-            bbox3 = self.x['bbox3'].iloc[idx]
-            bbox4 = self.x['bbox4'].iloc[idx]
-
-            left = width * bbox1
-            top = height * bbox2
-            right = width * (bbox1 + bbox3)
-            bottom = height * (bbox2 + bbox4)
-
-            left = max(0, left - self.buffer)
-            top = max(0, top - self.buffer)
-            right = min(width, right + self.buffer)
-            bottom = min(height, bottom + self.buffer)
-            img = img.crop((left, top, right, bottom))
-
-        img = img.resize((self.resize, self.resize))
-        img = np.asarray(img, dtype=np.float32)
-
-        return img, file
-'''
-
-
 def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath",
                      crop=False, resize_height=480, resize_width=480, augment=False):
     '''
@@ -356,6 +276,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
             - crop (bool): if true, dynamically crop images
             - resize_width (int): size in pixels for input width
             - resize_height (int): size in pixels for input height
+            - augment (bool): flag to augment images within loader
 
         Returns:
             dataloader object
@@ -410,11 +331,12 @@ def reid_dataloader(rois, image_path_dict, resize_height, resize_width, batch_si
         Always dynamically crops
 
         Args:
-            - manifest (DataFrame): data to be fed into the model
-            - batch_size (int): size of each batch
-            - workers (int): number of processes to handle the data
+            - rois (DataFrame): data to be fed into the model
+            - image_path_dict (dict): map of roi_id to filepath
             - resize_width (int): size in pixels for input width
             - resize_height (int): size in pixels for input height
+            - batch_size (int): size of each batch
+            - workers (int): number of processes to handle the data
 
         Returns:
             dataloader object
@@ -431,3 +353,88 @@ def reid_dataloader(rois, image_path_dict, resize_height, resize_width, batch_si
                             shuffle=False,
                             num_workers=workers)
     return dataLoader
+
+
+'''
+TENSORFLOW LEGACY
+
+def resize_with_padding(img, expected_size):
+    """Pads a crop to given size
+    If the image is torch Tensor, it is expected
+    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
+    If image size is smaller than output size along any edge, image is padded with 0 and
+    then center cropped.
+
+    Args:
+        - img (Img): a loaded Img object
+        - expected_size (sequence or int): Desired output size of the crop. If size is an
+            int instead of sequence like (h, w), a square crop (size, size) is
+            made. If provided a sequence of length 1, it will be interpreted as
+            (size[0], size[0]).
+    Returns:
+        - the padded Img object
+    """
+    if img.size[0] == 0 or img.size[1] == 0:
+        return img
+    if img.size[0] > img.size[1]:
+        new_size = (expected_size[0],
+                    int(expected_size[1] * img.size[1] / img.size[0]))
+    else:
+        new_size = (int(expected_size[0] * img.size[0] / img.size[1]),
+                    expected_size[1])
+    img = img.resize(new_size, Image.BILINEAR)  # NEAREST BILINEAR
+    delta_width = expected_size[0] - img.size[0]
+    delta_height = expected_size[1] - img.size[1]
+    pad_width = delta_width // 2
+    pad_height = delta_height // 2
+    padding = (pad_width, pad_height,
+               delta_width - pad_width,
+               delta_height - pad_height)
+    return ImageOps.expand(img, padding)
+
+
+class LegacyGenerator(Dataset):
+
+    def __init__(self, x, file_col='Frame', crop=False, resize=456, buffer=0):
+        self.x = x
+        self.file_col = file_col
+        self.crop = crop
+        self.resize = int(resize)
+        self.buffer = buffer
+
+    def __len__(self):
+        return len(self.x.index)
+
+    def __getitem__(self, idx):
+        try:
+            file = self.x[self.file_col].iloc[idx]
+            #img = Image.open(file).convert('RGB')
+            img = Image.open(file)
+        except OSError:
+            print("File error", file)
+            del self.x.iloc[idx]
+            return self.__getitem__(idx)
+
+        if self.crop:
+            width, height = img.size
+            bbox1 = self.x['bbox1'].iloc[idx]
+            bbox2 = self.x['bbox2'].iloc[idx]
+            bbox3 = self.x['bbox3'].iloc[idx]
+            bbox4 = self.x['bbox4'].iloc[idx]
+
+            left = width * bbox1
+            top = height * bbox2
+            right = width * (bbox1 + bbox3)
+            bottom = height * (bbox2 + bbox4)
+
+            left = max(0, left - self.buffer)
+            top = max(0, top - self.buffer)
+            right = min(width, right + self.buffer)
+            bottom = min(height, bottom + self.buffer)
+            img = img.crop((left, top, right, bottom))
+
+        img = img.resize((self.resize, self.resize))
+        img = np.asarray(img, dtype=np.float32)
+
+        return img, file
+'''

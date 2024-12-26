@@ -23,6 +23,7 @@ def sort_species(manifest, link_dir, file_col="FilePath", unique_name='UniqueNam
         - manifest (DataFrame): dataframe containing images and associated predictions
         - link_dir (str): root directory for species folders
         - file_col (str): column containing source paths
+        - unique_name (str): column containing unique file name
         - copy (bool): if true, hard copy
 
     Returns
@@ -40,7 +41,7 @@ def sort_species(manifest, link_dir, file_col="FilePath", unique_name='UniqueNam
     for i, row in manifest.iterrows():
         if unique_name in manifest.columns:
             name = row[unique_name]
-        else:
+        else:  # create a unique name
             uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
             filename = os.path.basename(row[file_col])
             filename, extension = os.path.splitext(filename)

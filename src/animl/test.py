@@ -22,9 +22,9 @@ def test(data_loader, model, device='cpu'):
         Run trained model on test split
 
         Args:
-            data_loader: test set dataloader
-            model: trained model object
-            device: run model on gpu or cpu, defaults to cpu
+            - data_loader: test set dataloader
+            - model: trained model object
+            - device: run model on gpu or cpu, defaults to cpu
     '''
     model.to(device)
     model.eval()  # put the model into training mode

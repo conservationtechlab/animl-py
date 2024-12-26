@@ -68,7 +68,7 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
     Returns:
         - model: model object of given architecture with loaded weights
         - classes: associated species class list
-        - start_epoch (int): current epoch, 0 if not resuming training
+        - start_epoch (int, optional): current epoch, 0 if not resuming training
     '''
     # read class file
     model_path = Path(model_path)
@@ -264,8 +264,16 @@ def predict_species(detections, model, classes, device='cpu', out_file=None, raw
         return detections
 
 
-# TODO
 def classify_with_config(config):
+    """
+    Run Classification from Config File
+
+    Args:
+        - config (str): path to config file
+
+    Returns:
+        predictions dataframe
+    """
     # get config file
     print(f'Using config "{config}"')
     cfg = yaml.safe_load(open(config, 'r'))

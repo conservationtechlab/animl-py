@@ -75,6 +75,7 @@ def extract_frames(files, out_dir, out_file=None, fps=None, frames=None, file_co
         - out_file: file to which results will be saved
         - fps: frames per second, otherwise determine mathematically
         - frames: number of frames to sample
+        - file_col: column containing file paths
         - parallel: Toggle for parallel processing, defaults to FALSE
         - workers: number of processors to use if parallel, defaults to 1
         - checkpoint: if not parallel, checkpoint ever n files, defaults to 1000
