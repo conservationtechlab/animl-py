@@ -18,14 +18,7 @@ import onnxruntime
 
 from animl import generator, file_management, split
 from animl.models.species import EfficientNet, ConvNeXtBase
-
-
-def get_device():
-    """
-    Get Torch device if available
-    """
-    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+from animl.utils.torch_utils import get_device
 
 def softmax(x):
     '''
