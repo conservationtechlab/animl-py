@@ -26,6 +26,9 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
     filename, extension = os.path.splitext(filename)
     uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
     frames_saved = []
+    #Typechecking FPS
+    if fps == 'None':
+        fps = None
     if fps is None:  # select set number of frames
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         frame_capture = 0

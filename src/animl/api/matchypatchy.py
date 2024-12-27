@@ -11,8 +11,8 @@ from animl.models.megadetector import MegaDetector
 from animl.video_processing import extract_frames
 from animl.detect import detect_MD_batch, parse_MD
 from animl.split import get_animals
-from animl.classification import get_device, load_model, predict_species
-
+from animl.classification import load_model, predict_species
+from animl.utils.torch_utils import get_device
 
 from animl.generator import reid_dataloader
 from animl.reid import viewpoint, miewid

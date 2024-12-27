@@ -25,6 +25,7 @@ import pandas as pd
 from animl import (file_management, video_processing, detect,
                    split, classification, link)
 from animl.models import megadetector
+from animl.utils.torch_utils import get_device
 
 
 def main_paths(image_dir, detector_file, classifier_file, class_list, sort=True):
@@ -42,10 +43,7 @@ def main_paths(image_dir, detector_file, classifier_file, class_list, sort=True)
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
-    if torch.cuda.is_available():
-        device = "cuda:0"
-    else:
-        device = 'cpu'
+    device = get_device()
 
     print("Searching directory...")
     # Create a working directory, build the file manifest from img_dir
@@ -118,11 +116,9 @@ def main_config(config):
 
     # get image dir and cuda defaults
     image_dir = cfg['image_dir']
-    device = cfg.get('device', 'cpu')
+    device = cfg.get('device', get_device())
 
-    if device != 'cpu' and torch.cuda.is_available():
-        device = "cuda:0"
-    else:
+    if device != 'cpu' and not torch.cuda.is_available():
         device = 'cpu'
 
     print("Searching directory...")

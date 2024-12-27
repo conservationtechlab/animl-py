@@ -28,6 +28,13 @@ except ImportError:
 # Suppress PyTorch warnings
 warnings.filterwarnings('ignore', message='User provided device_type of \'cuda\', but CUDA is not available. Disabling')
 
+# FROM CTL
+def get_device():
+    """
+    Get Torch device if available
+    """
+    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 @contextmanager
 def torch_distributed_zero_first(local_rank: int):
