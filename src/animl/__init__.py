@@ -31,7 +31,7 @@ from animl.file_management import (VALID_EXTENSIONS, WorkingDirectory,
                                    check_file, load_data, save_data,)
 from animl.generator import (ImageGenerator, MiewGenerator, ResizeWithPadding,
                              TrainGenerator, manifest_dataloader,
-                             reid_dataloader,
+                             reid_dataloader, resize_with_padding,
                              train_dataloader,)
 from animl.link import (remove_link, sort_MD, sort_species, update_labels,)
 from animl.models import (AutoShape, Bottleneck, BottleneckCSP, C3, C3Ghost,

@@ -135,13 +135,10 @@ def main_config(config):
 
     # Video-processing to extract individual frames as images in to directory
     print("Processing videos...")
-    fps = cfg.get('fps', None)
-    if fps == "None":  
-        fps = None 
     all_frames = video_processing.extract_frames(files, out_dir=working_dir.vidfdir,
                                                  out_file=working_dir.imageframes,
                                                  parallel=cfg.get('parallel', True),
-                                                 frames=cfg.get('frames', 1), fps=fps)
+                                                 frames=cfg.get('frames', 1), fps=cfg.get('fps', None))
 
     # Run all images and video frames through MegaDetector
     print("Running images and video frames through MegaDetector...")

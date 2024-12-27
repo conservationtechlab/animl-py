@@ -1,8 +1,8 @@
-image_dir:  "/mnt/newnas/vanhorn/Camera Base/Camera Base Manu Nov 2023/Images/"
-working_dir: "/home/mamani/working_dir_Animlpy"
+image_dir:  "/path/to/images/"
+working_dir: "/path/to/save/output/"
 detector_file: "/path/to/detector.ext"
-classifier_file: "/mnt/machinelearning/Models/Andes/v1/sdzwa_andes_v1.pt"
-class_list: "/mnt/machinelearning/Models/Andes/v1/sdzwa_andes_classes.csv"
+classifier_file: "/path/to/classifier.ext"
+class_list: "/path/to/classifier_labels.csv"
 
 exif: False
 device: cuda:0
@@ -10,7 +10,6 @@ device: cuda:0
 # video processing
 parallel: True
 frames: 1
-#keep them the same for now
 fps: None
 
 # inference
