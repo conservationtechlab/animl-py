@@ -36,7 +36,7 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive
     if check_file(out_file):
         return load_data(out_file)
     if not image_dir.is_dir():
-        raise FileNotFoundError("The given directory does not exist.")
+        raise FileNotFoundError(f"The given directory: {image_dir}, does not exist.")
 
     files = glob(os.path.join(image_dir, '**', '*.*'), recursive=recursive)
 
@@ -90,7 +90,7 @@ class WorkingDirectory():
     def __init__(self, working_dir):
         working_dir = Path(r"" + working_dir)  # OS-agnostic path
         if not working_dir.is_dir():
-            raise FileNotFoundError("The given directory does not exist.")
+            raise FileNotFoundError(f"The given directory: {working_dir}, does not exist.")
 
         self.basedir = working_dir / Path("Animl-Directory/")
         self.datadir = self.basedir / Path("Data/")
