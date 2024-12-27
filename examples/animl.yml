@@ -5,7 +5,7 @@ classifier_file: "/home/kyra/animl-py/models/sdzwa_southwest_v3.pt"
 class_list: "/home/kyra/animl-py/models/sdzwa_southwest_v3_classes.csv"
 
 exif: False
-device: cuda:0
+device: cuda
 
 # video processing
 parallel: True
