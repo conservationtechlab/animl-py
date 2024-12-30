@@ -21,6 +21,25 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
     Return
         - frames_saved: dataframe of still frames for each video
     """
+    #Typechecking
+    if not isinstance(file_path, str):
+        raise TypeError(f"file_path must be a string, got {type(file_path)}")
+    if not isinstance(out_dir, str):
+        raise TypeError(f"out_dir must be a string, got {type(out_dir)}")
+    if fps is not None and not isinstance(fps, (int, float)):
+        raise TypeError(f"fps must be an integer or float, got {type(fps)}")
+    if frames is not None and not isinstance(frames, int):
+        raise TypeError(f"frames must be an integer, got {type(frames)}")
+    if frames is None and fps is None:
+        raise ValueError("Either fps or frames must be specified")
+
+    # File and Directory Validation
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Video file {file_path} does not exist")
+    if not os.path.isdir(out_dir):
+        raise NotADirectoryError(f"Output directory {out_dir} does not exist")
+
+    
     cap = cv2.VideoCapture(file_path)
     filename = os.path.basename(file_path)
     filename, extension = os.path.splitext(filename)
@@ -83,6 +102,9 @@ def extract_frames(files, out_dir, out_file=None, fps=None, frames=None,
     Return
         - allframes: dataframe of still frames for each video
     """
+
+
+
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
     if not os.path.isdir(out_dir):
