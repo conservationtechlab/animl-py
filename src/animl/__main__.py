@@ -6,7 +6,7 @@
     otherwise will pull MDv5 and the CTL Southwest v2 models by default.
 
     Usage example
-    > python -m animl /home/usr/animl-py/examples/southwest/
+    > python -m animl /home/usr/animl-py/examples/Southwest/
 
     OR
 
