@@ -11,7 +11,7 @@ from shutil import copyfile
 from PIL import Image
 
 from animl import file_management
-
+import animl
 
 def process_image(im_file, detector, confidence_threshold, quiet=True,
                   image_size=None, skip_image_resize=False):
@@ -32,6 +32,13 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
         see the 'images' key in
         https://github.com/agentmorris/MegaDetector/tree/master/api/batch_processing#batch-processing-api-output-format
     """
+    if not isinstance(im_file, str):
+        raise TypeError(f"Expected str for im_file, got {type(im_file)}")
+    if not isinstance(detector, animl.models.megadetector.MegaDetector):
+        raise TypeError(f"Expected megadetector for detector, got {type(detector)}")
+    if not isinstance(confidence_threshold, float):
+        raise TypeError(f"Expected float for confidence_threshold, got {type(confidence_threshold)}")
+
     if not quiet:
         print('Processing image {}'.format(im_file))
     # open the file
