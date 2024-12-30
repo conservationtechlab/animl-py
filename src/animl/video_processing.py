@@ -6,7 +6,7 @@ import multiprocessing as mp
 import pandas as pd
 from numpy import vstack
 from animl import file_management
-
+import pathlib
 
 def extract_frame_single(file_path, out_dir, fps=None, frames=None):
     """
@@ -25,7 +25,7 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
     if not isinstance(file_path, str):
         raise TypeError(f"file_path must be a string, got {type(file_path)}")
     if not isinstance(out_dir, str):
-        raise TypeError(f"out_dir must be a string, got {type(out_dir)}")
+        raise TypeError(f"out_dir must be a string, got {type(pathlib.PosixPath)}")
     if fps is not None and not isinstance(fps, (int, float)):
         raise TypeError(f"fps must be an integer or float, got {type(fps)}")
     if frames is not None and not isinstance(frames, int):
