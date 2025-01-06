@@ -135,7 +135,7 @@ class MiewGenerator(Dataset):
         - resize: dynamically resize images to target (square) [W,H]
     '''
     def __init__(self, x, image_path_dict, resize_height=440, resize_width=440):
-        self.x = x
+        self.x = x.reset_index()
         self.image_path_dict = image_path_dict
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
@@ -148,7 +148,7 @@ class MiewGenerator(Dataset):
         return len(self.x)
 
     def __getitem__(self, idx):
-        id = self.x.loc[idx, 'id']
+        id = self.x.loc[idx, 'roi_id']
         media_id = self.x.loc[idx, 'media_id']
         image_name = self.image_path_dict[media_id]
         try:
