@@ -11,11 +11,13 @@ import pandas as pd
 from shutil import copy2
 from random import randrange
 from pathlib import Path
+from typing import Optional
+from pandas import DataFrame
 
 from animl import file_management
 
 
-def sort_species(manifest, link_dir, file_col="FilePath", unique_name='UniqueName', copy=False):
+def sort_species(manifest: DataFrame,link_dir: str,file_col: str = "FilePath",unique_name: str = 'UniqueName',copy: bool = False) -> DataFrame:
     """
     Creates symbolic links of images into species folders
 
@@ -57,8 +59,7 @@ def sort_species(manifest, link_dir, file_col="FilePath", unique_name='UniqueNam
 
     return manifest
 
-
-def sort_MD(manifest, link_dir, file_col="file", unique_name='UniqueName', copy=False):
+def sort_MD(manifest: DataFrame,link_dir: str,file_col: str = "file",unique_name: str = 'UniqueName',copy: bool = False) -> DataFrame:
     """
     Creates symbolic links of images into species folders
 
@@ -100,7 +101,8 @@ def sort_MD(manifest, link_dir, file_col="file", unique_name='UniqueName', copy=
     return manifest
 
 
-def remove_link(manifest, link_col='Link'):
+
+def remove_link(manifest: DataFrame, link_col: str = 'Link') -> DataFrame:
     """
     Deletes symbolic links of images
 
@@ -116,7 +118,9 @@ def remove_link(manifest, link_col='Link'):
     return manifest
 
 
-def update_labels(manifest, link_dir, unique_name='UniqueName'):
+
+
+def update_labels(manifest: DataFrame,link_dir: str,unique_name: str = 'UniqueName') -> DataFrame:
     """
     Update manifest after human review of symlink directories
 
