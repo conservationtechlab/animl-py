@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from math import fsum
 
+from typing import Optional, List, Tuple, Dict, Any
 
 def get_animals(manifest: pd.DataFrame) -> pd.DataFrame:
     """
