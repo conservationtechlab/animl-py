@@ -12,9 +12,17 @@ from PIL import Image
 
 from animl import file_management
 import animl
+import typing
 
-def process_image(im_file, detector, confidence_threshold, quiet=True,
-                  image_size=None, skip_image_resize=False):
+
+def process_image(
+    im_file: str,
+    detector: animl.models.megadetector.MegaDetector,
+    confidence_threshold: float,
+    quiet: bool = True,
+    image_size: typing.Optional[int] = None,
+    skip_image_resize: bool = False
+) -> typing.Dict:
     """
     From AgentMorris/MegaDetector
     Runs MegaDetector on a single image file.
@@ -70,9 +78,16 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
 
     return result
 
-
-def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint_frequency=-1,
-                    confidence_threshold=0.1, quiet=True, image_size=None, file_col='Frame'):
+def detect_MD_batch(
+    detector: animl.models.megadetector.MegaDetector,
+    image_file_names: typing.List[str],
+    checkpoint_path: typing.Optional[str] = None,
+    checkpoint_frequency: int = -1,
+    confidence_threshold: float = 0.1,
+    quiet: bool = True,
+    image_size: typing.Optional[int] = None,
+    file_col: str = 'Frame'
+) -> typing.List[typing.Dict]:
     """
     From AgentMorris/MegaDetector
     Runs MegaDetector on a batch of image files.
@@ -174,8 +189,14 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
 
     return results
 
-
-def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame"):
+def parse_MD(
+    results: typing.List[dict],
+    manifest: typing.Optional[pd.DataFrame] = None,
+    out_file: typing.Optional[str] = None,
+    buffer: float = 0.02,
+    threshold: float = 0,
+    file_col: str = "Frame"
+) -> pd.DataFrame:
     """
     Converts numerical output from classifier to common name species label
 
