@@ -17,7 +17,7 @@ from pathlib import Path
 from threading import Thread
 from urllib.parse import urlparse
 from zipfile import ZipFile
-
+from typing import List, Tuple, Union, Optional, Dict
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -44,7 +44,7 @@ for orientation in ExifTags.TAGS.keys():
         break
 
 
-def get_hash(paths):
+def get_hash(paths: List[str]) -> str:
     # Returns a single hash value of a list of paths (files or dirs)
     size = sum(os.path.getsize(p) for p in paths if os.path.exists(p))  # sizes
     h = hashlib.md5(str(size).encode())  # hash sizes
@@ -52,7 +52,7 @@ def get_hash(paths):
     return h.hexdigest()  # return hash
 
 
-def exif_size(img):
+def exif_size(img: Image.Image) -> Tuple[int, int]:
     # Returns exif-corrected PIL size
     s = img.size  # (width, height)
     try:
@@ -65,7 +65,8 @@ def exif_size(img):
     return s
 
 
-def exif_transpose(image):
+
+def exif_transpose(image: Image.Image) -> Image.Image:
     """
     Transpose a PIL image accordingly if it has an EXIF Orientation tag.
     Inplace version of https://github.com/python-pillow/Pillow/blob/master/src/PIL/ImageOps.py exif_transpose()
@@ -90,23 +91,24 @@ def exif_transpose(image):
             image.info["exif"] = exif.tobytes()
     return image
 
-
-def create_dataloader(path,
-                      imgsz,
-                      batch_size,
-                      stride,
-                      single_cls=False,
-                      hyp=None,
-                      augment=False,
-                      cache=False,
-                      pad=0.0,
-                      rect=False,
-                      rank=-1,
-                      workers=8,
-                      image_weights=False,
-                      quad=False,
-                      prefix='',
-                      shuffle=False):
+def create_dataloader(
+    path: str,
+    imgsz: Union[int, Tuple[int, int]],
+    batch_size: int,
+    stride: int,
+    single_cls: bool = False,
+    hyp: Optional[Dict] = None,
+    augment: bool = False,
+    cache: bool = False,
+    pad: float = 0.0,
+    rect: bool = False,
+    rank: int = -1,
+    workers: int = 8,
+    image_weights: bool = False,
+    quad: bool = False,
+    prefix: str = '',
+    shuffle: bool = False
+) -> Tuple[DataLoader, 'LoadImagesAndLabels']:
     if rect and shuffle:
         LOGGER.warning('WARNING: --rect is incompatible with DataLoader shuffle, setting shuffle=False')
         shuffle = False
@@ -138,7 +140,7 @@ def create_dataloader(path,
                   pin_memory=True,
                   collate_fn=LoadImagesAndLabels.collate_fn4 if quad else LoadImagesAndLabels.collate_fn), dataset
 
-
+###DID UNTIL HERE
 class InfiniteDataLoader(dataloader.DataLoader):
     """ Dataloader that reuses workers
 

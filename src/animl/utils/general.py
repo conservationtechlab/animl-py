@@ -24,7 +24,7 @@ from pathlib import Path
 from subprocess import check_output
 from typing import Optional
 from zipfile import ZipFile
-
+from typing import Optional
 import cv2
 import numpy as np
 import pandas as pd
@@ -54,7 +54,7 @@ os.environ['NUMEXPR_MAX_THREADS'] = str(NUM_THREADS)  # NumExpr max threads
 os.environ['OMP_NUM_THREADS'] = str(NUM_THREADS)  # OpenMP max threads (PyTorch and SciPy)
 
 
-def is_kaggle():
+def is_kaggle()-> bool:
     # Is environment a Kaggle Notebook?
     try:
         assert os.environ.get('PWD') == '/kaggle/working'
@@ -64,7 +64,7 @@ def is_kaggle():
         return False
 
 
-def is_writeable(dir, test=False):
+def is_writeable(dir: str, test : bool =False)-> bool:
     # Return True if directory has write permissions, test opening a file with write permissions if test=True
     if not test:
         return os.access(dir, os.R_OK)  # possible issues on Windows
@@ -78,7 +78,8 @@ def is_writeable(dir, test=False):
         return False
 
 
-def set_logging(name=None, verbose=VERBOSE):
+def set_logging(name: Optional[str] = None, verbose: bool = True) -> logging.Logger:
+
     # Sets level and returns logger
     if is_kaggle():
         for h in logging.root.handlers:
@@ -97,7 +98,7 @@ set_logging()  # run before defining LOGGER
 LOGGER = logging.getLogger("yolov5")  # define globally (used in train.py, val.py, detect.py, etc.)
 
 
-def user_config_dir(dir='Ultralytics', env_var='YOLOV5_CONFIG_DIR'):
+def user_config_dir(dir: str = 'Ultralytics', env_var: str = 'YOLOV5_CONFIG_DIR') -> Path:
     # Return path of user configuration directory. Prefer environment variable if exists. Make dir if required.
     env = os.getenv(env_var)
     if env:
@@ -115,7 +116,7 @@ CONFIG_DIR = user_config_dir()  # Ultralytics settings dir
 
 class Profile(contextlib.ContextDecorator):
     # Usage: @Profile() decorator or 'with Profile():' context manager
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.start = time.time()
 
     def __exit__(self, type, value, traceback):
