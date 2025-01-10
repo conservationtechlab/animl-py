@@ -9,13 +9,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import timm
 from animl.reid.heads import ElasticArcFace, ArcFaceSubCenterDynamic
-
+import pandas as pd
 
 IMAGE_HEIGHT = 440
 IMAGE_WIDTH = 440
 
 
-def filter(rois):
+def filter(rois: pd.DataFrame) -> pd.DataFrame:
     """
     Return only rois that have not yet had embedding extracted
 
@@ -28,7 +28,7 @@ def filter(rois):
     return rois[rois['emb_id'] == 0].reset_index(drop=True)
 
 
-def load(file_path, device='cpu'):
+def load(file_path: str, device: str = 'cpu') -> torch.nn.Module:
     # TODO: check device
     """
     Load MiewID from file path
@@ -47,8 +47,7 @@ def load(file_path, device='cpu'):
     miew.eval()
     return miew
 
-
-def weights_init_kaiming(m):
+def weights_init_kaiming(m: nn.Module) -> None:
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
         nn.init.kaiming_normal_(m.weight, a=0, mode='fan_out')
@@ -63,7 +62,7 @@ def weights_init_kaiming(m):
             nn.init.constant_(m.bias, 0.0)
 
 
-def weights_init_classifier(m):
+def weights_init_classifier(m: nn.Module) -> None:
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
         nn.init.normal_(m.weight, std=0.001)
@@ -72,38 +71,40 @@ def weights_init_classifier(m):
 
 
 class GeM(nn.Module):
-    def __init__(self, p=3, eps=1e-6):
+    def __init__(self, p: int = 3, eps: float = 1e-6) -> None:
         super(GeM, self).__init__()
         self.p = nn.Parameter(torch.ones(1)*p)
         self.eps = eps
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.gem(x, p=self.p, eps=self.eps)
 
-    def gem(self, x, p=3, eps=1e-6):
+    def gem(self, x: torch.Tensor, p: torch.Tensor, eps: float) -> torch.Tensor:
         return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1./p)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__class__.__name__ + \
                 '(' + 'p=' + '{:.4f}'.format(self.p.data.tolist()[0]) + \
                 ', ' + 'eps=' + str(self.eps) + ')'
 
 
 class MiewIdNet(nn.Module):
-    def __init__(self,
-                 n_classes=10,
-                 model_name='efficientnetv2_rw_m',
-                 use_fc=False,
-                 fc_dim=512,
-                 dropout=0.0,
-                 loss_module='softmax',
-                 s=30.0,
-                 margin=0.50,
-                 ls_eps=0.0,
-                 theta_zero=0.785,
-                 pretrained=True,
-                 margins=None,
-                 k=None):
+    def __init__(
+        self,
+        n_classes: int = 10,
+        model_name: str = 'efficientnetv2_rw_m',
+        use_fc: bool = False,
+        fc_dim: int = 512,
+        dropout: float = 0.0,
+        loss_module: str = 'softmax',
+        s: float = 30.0,
+        margin: float = 0.50,
+        ls_eps: float = 0.0,
+        theta_zero: float = 0.785,
+        pretrained: bool = True,
+        margins: torch.Tensor = None,
+        k: int = None
+    ) -> None:
 
         super(MiewIdNet, self).__init__()
         print('Building Model Backbone for {} model'.format(model_name))
@@ -148,13 +149,13 @@ class MiewIdNet(nn.Module):
         else:
             self.final = nn.Linear(final_in_features, n_classes)
 
-    def _init_params(self):
+    def _init_params(self) -> None:
         nn.init.xavier_normal_(self.fc.weight)
         nn.init.constant_(self.fc.bias, 0)
         nn.init.constant_(self.bn.weight, 1)
         nn.init.constant_(self.bn.bias, 0)
 
-    def forward(self, x, label=None):
+    def forward(self, x: torch.Tensor, label: torch.Tensor = None) -> torch.Tensor:
         feature = self.extract_feat(x)
         return feature
         # if not self.training:
@@ -168,7 +169,7 @@ class MiewIdNet(nn.Module):
         #
         # return logits
 
-    def extract_feat(self, x):
+    def extract_feat(self, x: torch.Tensor) -> torch.Tensor:
         batch_size = x.shape[0]
         x = self.backbone.forward_features(x)
         if self.model_name.startswith('swinv2'):
@@ -183,7 +184,7 @@ class MiewIdNet(nn.Module):
 
         return x
 
-    def extract_logits(self, x, label=None):
+    def extract_logits(self, x: torch.Tensor, label: torch.Tensor = None) -> torch.Tensor:
         feature = self.extract_feat(x)
         assert label is not None
         if self.loss_module in ('arcface', 'arcface_subcenter_dynamic'):

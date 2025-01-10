@@ -6,13 +6,12 @@ import torch
 import torch.nn as nn
 from torchvision.models import efficientnet
 import torch.onnx
-
+import pandas as pd
 
 IMAGE_HEIGHT = 480
 IMAGE_WIDTH = 480
 
-
-def filter(rois, value=None):
+def filter(rois: pd.DataFrame, value: str = None) -> pd.DataFrame:
     """
     Return only rois that have no viewpoint
 
@@ -29,7 +28,7 @@ def filter(rois, value=None):
     return filter.reset_index(drop=True)
 
 
-def load(file_path, device='cpu'):
+def load(file_path: str, device: str = 'cpu') -> torch.nn.Module:
     """
     Load Viewpoint model from file path
 
@@ -50,7 +49,7 @@ def load(file_path, device='cpu'):
 
 class ViewpointModel(nn.Module):
 
-    def __init__(self, num_classes=2, tune=True):
+    def __init__(self, num_classes: int = 2, tune : bool = True) -> None:
         '''
             Construct the model architecture.
         '''
@@ -66,7 +65,7 @@ class ViewpointModel(nn.Module):
 
         self.model.classifier[1] = nn.Linear(in_features=num_ftrs, out_features=num_classes)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         '''
             Forward pass (prediction)
         '''
