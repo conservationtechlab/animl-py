@@ -7,8 +7,13 @@ import pandas as pd
 from numpy import vstack
 from animl import file_management
 import pathlib
-
-def extract_frame_single(file_path, out_dir, fps=None, frames=None):
+from typing import Optional, Union, List
+def extract_frame_single(
+    file_path: Union[str, pd.DataFrame],
+    out_dir: str,
+    fps: Optional[float] = None,
+    frames: Optional[int] = None
+) -> pd.DataFrame:
     """
     Extract frames from video for classification
 
@@ -85,8 +90,17 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
         return frames_saved
 
 
-def extract_frames(files, out_dir, out_file=None, fps=None, frames=None, file_col="FilePath",
-                   parallel=False, workers=mp.cpu_count(), checkpoint=1000):
+def extract_frames(
+    files: Union[str, pd.DataFrame, List[str]],
+    out_dir: str,
+    out_file: Optional[str] = None,
+    fps: Optional[float] = None,
+    frames: Optional[int] = None,
+    file_col: str = "FilePath",
+    parallel: bool = False,
+    workers: int = mp.cpu_count(),
+    checkpoint: int = 1000
+) -> None:
     """
     Extract frames from video for classification
 

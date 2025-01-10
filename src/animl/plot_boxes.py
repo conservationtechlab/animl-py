@@ -8,8 +8,15 @@ import pandas as pd
 import os
 import numpy as np
 
+from typing import Union, Optional
 
-def plot_all_bounding_boxes(data_frame, output_dir, file_col, min_conf=0, prediction=False):
+def plot_all_bounding_boxes(
+    data_frame: pd.DataFrame,
+    output_dir: str,
+    file_col: str,
+    min_conf: Union[int, float] = 0,
+    prediction: bool = False
+) -> None:
     """
     This function takes the data frame output from MegaDetector, makes a copy of each image,
     plots the boxes in the new image, and saves it the specified directory.
@@ -25,6 +32,9 @@ def plot_all_bounding_boxes(data_frame, output_dir, file_col, min_conf=0, predic
     - Exception: If 'data_frame' is not a pandas DataFrame
     - Exception: If 'min_conf' is not a number between [0,1]
     - Exception: If 'prediction' is not a boolean
+
+    Returns:
+    - None
     """
 
     # Sanity check to verify that data_frame is a Pandas DataFrame
@@ -168,8 +178,12 @@ def plot_all_bounding_boxes(data_frame, output_dir, file_col, min_conf=0, predic
         # Saving the image
         cv2.imwrite(new_file_path, img)
 
-
-def draw_bounding_boxes(row, box_number, image_output_path=None, prediction=False):
+def draw_bounding_boxes(
+    row: pd.Series,
+    box_number: int,
+    image_output_path: Optional[str] = None,
+    prediction: bool = False
+) -> None:
     """
     Draws bounding boxes and labels on image DataFrame.
     Args:
@@ -216,7 +230,12 @@ def draw_bounding_boxes(row, box_number, image_output_path=None, prediction=Fals
         cv2.imwrite(filename, img)
 
 
-def demo_boxes(manifest, file_col, min_conf=0.9, prediction=True):
+def demo_boxes(
+    manifest: pd.DataFrame,
+    file_col: str,
+    min_conf: float = 0.9,
+    prediction: bool = True
+) -> None:
     """
     Draws bounding boxes and labels on image DataFrame.
 
@@ -278,8 +297,7 @@ def demo_boxes(manifest, file_col, min_conf=0.9, prediction=True):
 
     cv2.destroyAllWindows()
 
-
-def main(csv_file, output_dir):
+def main(csv_file: str, output_dir: str) -> None:
     """
     Read a CSV file values and perform box plotting on the images.
 

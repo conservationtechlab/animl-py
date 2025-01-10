@@ -26,9 +26,14 @@ from animl import (file_management, video_processing, detect,
                    split, classification, link)
 from animl.models import megadetector
 from animl.utils.torch_utils import get_device
-
-
-def main_paths(image_dir, detector_file, classifier_file, class_list, sort=True):
+import typing
+def main_paths(
+    image_dir: str,
+    detector_file: str,
+    classifier_file: str,
+    class_list: typing.List[str],
+    sort: bool = True
+) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.

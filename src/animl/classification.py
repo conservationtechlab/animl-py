@@ -20,14 +20,21 @@ from animl import generator, file_management, split
 from animl.models.species import EfficientNet, ConvNeXtBase
 from animl.utils.torch_utils import get_device
 
-def softmax(x):
+import typing
+
+def softmax(x: np.ndarray) -> np.ndarray:
     '''
     Helper function to softmax
     '''
     return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
 
 
-def save_model(out_dir, epoch, model, stats):
+def save_model(
+    out_dir: str,
+    epoch: int,
+    model: torch.nn.Module,
+    stats: dict
+) -> None:
     '''
     Saves model state weights.
 

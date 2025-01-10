@@ -4,8 +4,11 @@
 
 import pandas as pd
 
-
-def multi_species_detection(animals, threshold, file_col="FilePath"):
+def multi_species_detection(
+    animals: pd.DataFrame,
+    threshold: float,
+    file_col: str = "FilePath"
+) -> pd.DataFrame:
     """
     This function applies image classifications at a image level. All images which have multiple
     species present with confidence above threshold, will be returned as a DataFrame
