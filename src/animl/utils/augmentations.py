@@ -11,10 +11,12 @@ import numpy as np
 
 from animl.utils.general import LOGGER, check_version, colorstr, resample_segments, segment2box
 
+from typing import Optional, Tuple, List, Union
+
 
 class Albumentations:
     # YOLOv5 Albumentations class (optional, only used if package is installed)
-    def __init__(self):
+    def __init__(self) -> None:
         self.transform = None
         try:
             import albumentations as A
@@ -36,14 +38,19 @@ class Albumentations:
         except Exception as e:
             LOGGER.info(colorstr('albumentations: ') + f'{e}')
 
-    def __call__(self, im, labels, p=1.0):
+    def __call__(self, im: np.ndarray, labels: np.ndarray, p: float = 1.0):
         if self.transform and random.random() < p:
             new = self.transform(image=im, bboxes=labels[:, 1:], class_labels=labels[:, 0])  # transformed
             im, labels = new['image'], np.array([[c, *b] for c, b in zip(new['class_labels'], new['bboxes'])])
         return im, labels
 
 
-def augment_hsv(im, hgain=0.5, sgain=0.5, vgain=0.5):
+def augment_hsv(
+    im: np.ndarray, 
+    hgain: Optional[float] = 0.5, 
+    sgain: Optional[float] = 0.5, 
+    vgain: Optional[float] = 0.5
+) -> None:
     # HSV color-space augmentation
     if hgain or sgain or vgain:
         r = np.random.uniform(-1, 1, 3) * [hgain, sgain, vgain] + 1  # random gains
@@ -59,7 +66,11 @@ def augment_hsv(im, hgain=0.5, sgain=0.5, vgain=0.5):
         cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR, dst=im)  # no return needed
 
 
-def hist_equalize(im, clahe=True, bgr=False):
+def hist_equalize(
+    im: np.ndarray, 
+    clahe: Optional[bool] = True, 
+    bgr: Optional[bool] = False
+) -> np.ndarray:
     # Equalize histogram on BGR image 'im' with im.shape(n,m,3) and range 0-255
     yuv = cv2.cvtColor(im, cv2.COLOR_BGR2YUV if bgr else cv2.COLOR_RGB2YUV)
     if clahe:
@@ -70,7 +81,10 @@ def hist_equalize(im, clahe=True, bgr=False):
     return cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR if bgr else cv2.COLOR_YUV2RGB)  # convert YUV image to RGB
 
 
-def replicate(im, labels):
+def replicate(
+    im: np.ndarray, 
+    labels: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
     # Replicate labels
     h, w = im.shape[:2]
     boxes = labels[:, 1:].astype(int)
@@ -87,7 +101,15 @@ def replicate(im, labels):
     return im, labels
 
 
-def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
+def letterbox(
+    im: np.ndarray, 
+    new_shape: Union[int, Tuple[int, int]] = (640, 640), 
+    color: Tuple[int, int, int] = (114, 114, 114), 
+    auto: bool = True, 
+    scaleFill: bool = False, 
+    scaleup: bool = True, 
+    stride: int = 32
+) -> Tuple[np.ndarray, Tuple[float, float], Tuple[float, float]]:
     # Resize and pad image while meeting stride-multiple constraints
     shape = im.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
@@ -120,15 +142,18 @@ def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleF
     return im, ratio, (dw, dh)
 
 
-def random_perspective(im,
-                       targets=(),
-                       segments=(),
-                       degrees=10,
-                       translate=.1,
-                       scale=.1,
-                       shear=10,
-                       perspective=0.0,
-                       border=(0, 0)):
+
+def random_perspective(
+    im: np.ndarray,
+    targets: np.ndarray = np.array([]),
+    segments: Tuple[np.ndarray, ...] = (),
+    degrees: float = 10,
+    translate: float = 0.1,
+    scale: float = 0.1,
+    shear: float = 10,
+    perspective: float = 0.0,
+    border: Tuple[int, int] = (0, 0)
+) -> Tuple[np.ndarray, np.ndarray]:
     # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(0.1, 0.1), scale=(0.9, 1.1), shear=(-10, 10))
     # targets = [cls, xyxy]
 
@@ -216,7 +241,12 @@ def random_perspective(im,
     return im, targets
 
 
-def copy_paste(im, labels, segments, p=0.5):
+def copy_paste(
+    im: np.ndarray, 
+    labels: np.ndarray, 
+    segments: List[np.ndarray], 
+    p: float = 0.5
+) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray]]:
     # Implement Copy-Paste augmentation https://arxiv.org/abs/2012.07177, labels as nx5 np.array(cls, xyxy)
     n = len(segments)
     if p and n:
@@ -240,7 +270,11 @@ def copy_paste(im, labels, segments, p=0.5):
     return im, labels, segments
 
 
-def cutout(im, labels, p=0.5):
+def cutout(
+    im: np.ndarray, 
+    labels: np.ndarray, 
+    p: float = 0.5
+) -> np.ndarray:
     # Applies image cutout augmentation https://arxiv.org/abs/1708.04552
     if random.random() < p:
         h, w = im.shape[:2]
@@ -267,7 +301,12 @@ def cutout(im, labels, p=0.5):
     return labels
 
 
-def mixup(im, labels, im2, labels2):
+def mixup(
+    im: np.ndarray, 
+    labels: np.ndarray, 
+    im2: np.ndarray, 
+    labels2: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
     # Applies MixUp augmentation https://arxiv.org/pdf/1710.09412.pdf
     r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
     im = (im * r + im2 * (1 - r)).astype(np.uint8)
@@ -275,7 +314,14 @@ def mixup(im, labels, im2, labels2):
     return im, labels
 
 
-def box_candidates(box1, box2, wh_thr=2, ar_thr=100, area_thr=0.1, eps=1e-16):  # box1(4,n), box2(4,n)
+def box_candidates(
+    box1: np.ndarray, 
+    box2: np.ndarray, 
+    wh_thr: float = 2, 
+    ar_thr: float = 100, 
+    area_thr: float = 0.1, 
+    eps: float = 1e-16
+) -> np.ndarray: # box1(4,n), box2(4,n)
     # Compute candidate boxes: box1 before augment, box2 after augment, wh_thr (pixels), aspect_ratio_thr, area_ratio
     w1, h1 = box1[2] - box1[0], box1[3] - box1[1]
     w2, h2 = box2[2] - box2[0], box2[3] - box2[1]
@@ -284,7 +330,15 @@ def box_candidates(box1, box2, wh_thr=2, ar_thr=100, area_thr=0.1, eps=1e-16):  
 
 
 # From metrics.py
-def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, eps=1e-7):
+def bbox_iou(
+    box1: torch.Tensor, 
+    box2: torch.Tensor, 
+    xywh: bool = True, 
+    GIoU: bool = False, 
+    DIoU: bool = False, 
+    CIoU: bool = False, 
+    eps: float = 1e-7
+) -> torch.Tensor:
     # Returns Intersection over Union (IoU) of box1(1,4) to box2(n,4)
 
     # Get the coordinates of bounding boxes
