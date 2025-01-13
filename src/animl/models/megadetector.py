@@ -11,7 +11,7 @@ import numpy as np
 import traceback
 from animl.utils import general, augmentations
 from animl.models import yolo
-
+from typing import Optional, Any
 
 CONF_DIGITS = 3
 COORD_DIGITS = 4
@@ -22,7 +22,7 @@ class MegaDetector:
     IMAGE_SIZE = 1280  # image size used in training
     STRIDE = 64
 
-    def __init__(self, model_path: str, device=None):
+    def __init__(self, model_path: str, device: Optional[str] = None):
         if not torch.cuda.is_available():
             self.device = 'cpu'
         elif torch.cuda.is_available() and device is None:
@@ -39,7 +39,7 @@ class MegaDetector:
         self.printed_image_size_warning = False
 
     @staticmethod
-    def _load_model(model_pt_path, device):
+    def _load_model(model_pt_path: str, device: str) -> Any:
         checkpoint = torch.load(model_pt_path, map_location=device)
         # Compatibility fix that allows older YOLOv5 models with
         # newer versions of YOLOv5/PT
