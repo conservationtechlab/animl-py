@@ -7,7 +7,7 @@ import yaml
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-from animl.models.megadetector import MegaDetector
+from animl.megadetector import MegaDetector
 from animl.video_processing import extract_frames
 from animl.detect import detect_MD_batch, parse_MD
 from animl.split import get_animals

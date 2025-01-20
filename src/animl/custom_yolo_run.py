@@ -16,10 +16,9 @@ import wget
 import yaml
 import torch
 import pandas as pd
-from animl import (file_management, video_processing, detect,
+from animl import (file_management, video_processing, custom_detector, detect,
                    split, link)
 from animl.utils.torch_utils import get_device
-from animl.models import custom_detector
 import typing
 
 
@@ -151,42 +150,43 @@ def main_config(config):
     return manifest
 
 
-# IF RUN FROM COMMAND LINE
-parser = argparse.ArgumentParser(description='Folder locations for the main script')
-home = os.path.join(os.getcwd(), 'models')
-# Create and parse arguements
-parser.add_argument('imagedir_config', type=str,
-                    help='Path to Image Directory or Config File')
-parser.add_argument('--detector', type=str, nargs='?',
-                    help='Path to MD model',
-                    default=os.path.join(home, 'md_v5a.0.0.pt'))
-parser.add_argument('--classlist', type=str, nargs='?',
-                    help='Path to class list',
-                    default=os.path.join(home, 'sdzwa_southwest_v3_classes.csv'))
-args = parser.parse_args()
+if __name__ == "__main__":
+    # IF RUN FROM COMMAND LINE
+    parser = argparse.ArgumentParser(description='Folder locations for the main script')
+    home = os.path.join(os.getcwd(), 'models')
+    # Create and parse arguements
+    parser.add_argument('imagedir_config', type=str,
+                        help='Path to Image Directory or Config File')
+    parser.add_argument('--detector', type=str, nargs='?',
+                        help='Path to MD model',
+                        default=os.path.join(home, 'md_v5a.0.0.pt'))
+    parser.add_argument('--classlist', type=str, nargs='?',
+                        help='Path to class list',
+                        default=os.path.join(home, 'sdzwa_southwest_v3_classes.csv'))
+    args = parser.parse_args()
 
-# first argument is config file
-if os.path.isfile(args.imagedir_config):
-    main_config(args.imagedir_config)
+    # first argument is config file
+    if os.path.isfile(args.imagedir_config):
+        main_config(args.imagedir_config)
 
-# first argument is a directory
-else:
-    if not os.path.isfile(args.detector):
-        prompt = "MegaDetector not found, would you like to download? y/n: "
-        if input(prompt).lower() == "y":
-            if not os.path.isdir(home):
-                os.mkdir(home)
-            print('Saving to', home)
-            wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt',
-                          out=home)
+    # first argument is a directory
+    else:
+        if not os.path.isfile(args.detector):
+            prompt = "MegaDetector not found, would you like to download? y/n: "
+            if input(prompt).lower() == "y":
+                if not os.path.isdir(home):
+                    os.mkdir(home)
+                print('Saving to', home)
+                wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt',
+                            out=home)
 
-    if not os.path.isfile(args.classlist):
-        prompt = "Class list not found, would you like to download Southwest_v3? y/n: "
-        if input(prompt).lower() == "y":
-            if not os.path.isdir(home):
-                os.mkdir(home)
-            print('Saving to', home)
-            wget.download('https://sandiegozoo.box.com/shared/static/tetfkotf295espoaw8jyco4tk1t0trtt.csv',
-                          out=home)
-    # Call the main function
-    main_paths(args.imagedir_config, args.detector, args.classlist)
+        if not os.path.isfile(args.classlist):
+            prompt = "Class list not found, would you like to download Southwest_v3? y/n: "
+            if input(prompt).lower() == "y":
+                if not os.path.isdir(home):
+                    os.mkdir(home)
+                print('Saving to', home)
+                wget.download('https://sandiegozoo.box.com/shared/static/tetfkotf295espoaw8jyco4tk1t0trtt.csv',
+                            out=home)
+        # Call the main function
+        main_paths(args.imagedir_config, args.detector, args.classlist)

@@ -1,9 +1,8 @@
 import yaml
 import torch
 import pandas as pd
-from animl import (file_management, video_processing, detect,
+from animl import (file_management, video_processing, megadetector, detect,
                    split, classification, link)
-from animl.models import megadetector
 from animl.utils.torch_utils import get_device
 import typing
 
