@@ -13,17 +13,17 @@ import pandas as pd
 from exiftool import ExifToolHelper
 from typing import Optional
 
+
 VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
                     ".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
 
-def build_file_manifest(
-    image_dir: str,
-    exif: bool = True,
-    out_file: Optional[str] = None,
-    offset: int = 0,
-    recursive: bool = True
-) -> None:
+
+def build_file_manifest(image_dir: str,
+                        exif: bool = True,
+                        out_file: Optional[str] = None,
+                        offset: int = 0,
+                        recursive: bool = True):
     """
     Find Image/Video Files and Gather exif Data
 
@@ -154,7 +154,6 @@ def load_data(file: str) -> pd.DataFrame:
         raise AssertionError("Error. Expecting a .csv file.")
 
 
-
 def check_file(file: str) -> bool:
     """
     Check for files existence and prompt user if they want to load
@@ -177,12 +176,10 @@ def check_file(file: str) -> bool:
     return False
 
 
-def active_times(
-    manifest_dir: str,
-    depth: int = 1,
-    recursive: bool = True,
-    offset: int = 0
-) -> pd.DataFrame:
+def active_times(manifest_dir: str,
+                 depth: int = 1,
+                 recursive: bool = True,
+                 offset: int = 0) -> pd.DataFrame:
     """
     Get start and stop dates for each camera folder
 

@@ -5,19 +5,21 @@
 
     @ Kyra Swanson 2023
 """
-
 import os
 import pandas as pd
 from shutil import copy2
 from random import randrange
 from pathlib import Path
-from typing import Optional
 from pandas import DataFrame
 
 from animl import file_management
 
 
-def sort_species(manifest: DataFrame,link_dir: str,file_col: str = "FilePath",unique_name: str = 'UniqueName',copy: bool = False) -> DataFrame:
+def sort_species(manifest: DataFrame,
+                 link_dir: str,
+                 file_col: str = "FilePath",
+                 unique_name: str = 'UniqueName',
+                 copy: bool = False) -> DataFrame:
     """
     Creates symbolic links of images into species folders
 
@@ -59,7 +61,12 @@ def sort_species(manifest: DataFrame,link_dir: str,file_col: str = "FilePath",un
 
     return manifest
 
-def sort_MD(manifest: DataFrame,link_dir: str,file_col: str = "file",unique_name: str = 'UniqueName',copy: bool = False) -> DataFrame:
+
+def sort_MD(manifest: DataFrame,
+            link_dir: str,
+            file_col: str = "file",
+            unique_name: str = 'UniqueName',
+            copy: bool = False) -> DataFrame:
     """
     Creates symbolic links of images into species folders
 
@@ -101,8 +108,8 @@ def sort_MD(manifest: DataFrame,link_dir: str,file_col: str = "file",unique_name
     return manifest
 
 
-
-def remove_link(manifest: DataFrame, link_col: str = 'Link') -> DataFrame:
+def remove_link(manifest: DataFrame,
+                link_col: str = 'Link') -> DataFrame:
     """
     Deletes symbolic links of images
 
@@ -118,9 +125,9 @@ def remove_link(manifest: DataFrame, link_col: str = 'Link') -> DataFrame:
     return manifest
 
 
-
-
-def update_labels(manifest: DataFrame,link_dir: str,unique_name: str = 'UniqueName') -> DataFrame:
+def update_labels(manifest: DataFrame,
+                  link_dir: str,
+                  unique_name: str = 'UniqueName') -> DataFrame:
     """
     Update manifest after human review of symlink directories
 

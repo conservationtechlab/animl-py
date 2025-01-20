@@ -11,13 +11,13 @@ from tqdm import trange
 import pandas as pd
 import torch
 import numpy as np
+from typing import Union
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
 
 from animl.generator import train_dataloader
 from animl.classification import load_model
 
-from typing import Union
 
 def test(data_loader: DataLoader, model: torch.nn.Module, device: Union[str, torch.device] = 'cpu') -> float:
     '''

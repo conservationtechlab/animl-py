@@ -27,13 +27,13 @@ from animl import (file_management, video_processing, detect,
 from animl.models import megadetector
 from animl.utils.torch_utils import get_device
 import typing
-def main_paths(
-    image_dir: str,
-    detector_file: str,
-    classifier_file: str,
-    class_list: typing.List[str],
-    sort: bool = True
-) -> pd.DataFrame:
+
+
+def main_paths(image_dir: str,
+               detector_file: str,
+               classifier_file: str,
+               class_list: typing.List[str],
+               sort: bool = True) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
@@ -137,8 +137,8 @@ def main_config(config):
     # Video-processing to extract individual frames as images in to directory
     print("Processing videos...")
     fps = cfg.get('fps', None)
-    if fps == "None":  
-        fps = None 
+    if fps == "None":
+        fps = None
     all_frames = video_processing.extract_frames(files, out_dir=working_dir.vidfdir,
                                                  out_file=working_dir.imageframes,
                                                  parallel=cfg.get('parallel', True),

@@ -161,4 +161,3 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'weights_init_classifier', 'weights_init_kaiming', 'xyn2xy',
            'xywh2xyxy', 'xywhn2xyxy', 'xyxy2xywh', 'xyxy2xywhn', 'yolo',
            'zooniverse']
-

@@ -20,7 +20,6 @@ from animl import generator, file_management, split
 from animl.models.species import EfficientNet, ConvNeXtBase
 from animl.utils.torch_utils import get_device
 
-import typing
 
 def softmax(x: np.ndarray) -> np.ndarray:
     '''
@@ -29,12 +28,7 @@ def softmax(x: np.ndarray) -> np.ndarray:
     return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
 
 
-def save_model(
-    out_dir: str,
-    epoch: int,
-    model: torch.nn.Module,
-    stats: dict
-) -> None:
+def save_model(out_dir: str, epoch: int, model: torch.nn.Module, stats: dict):
     '''
     Saves model state weights.
 
@@ -47,14 +41,12 @@ def save_model(
     Returns:
         None
     '''
-
-    if not isinstance(out_dir,str):
+    if not isinstance(out_dir, str):
         raise TypeError(f"Expected string for out_dir, got {type(out_dir)}")
     if not isinstance(epoch, int):
         raise TypeError(f"Expected int for epoch, got {type(epoch)}")
-    if not isinstance (stats, dict):
+    if not isinstance(stats, dict):
         raise TypeError(f"Expected dict for stats, got {type(dict)}")
-    print(type(model))
 
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
@@ -208,15 +200,11 @@ def predict_species(detections, model, classes, device='cpu', out_file=None, raw
     Returns
         - detections (pd.DataFrame): MD detections with classifier prediction and confidence
     """
-
-    #Typechecking
-
+    # Typechecking
     if not isinstance(detections, pd.DataFrame):
         raise TypeError(f"Expected pd.Dataframe for detecionts, got {type(detections)}")
     if not isinstance(classes, pd.DataFrame):
         raise TypeError(f"Expected pd.Dataframe for classes, got {type(classes)}")
-
-
 
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
