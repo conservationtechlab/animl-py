@@ -136,8 +136,8 @@ class MiewGenerator(Dataset):
     Options:
         - resize: dynamically resize images to target (square) [W,H]
     '''
-    def __init__(self,x: pd.DataFrame,image_path_dict: Dict[str, str], resize_height: int = 440,resize_width: int = 440,):
-        self.x = x
+    def __init__(self,x: pd.DataFrame,image_path_dict: Dict[str, str], resize_height: int = 440,resize_width: int = 440):
+        self.x = x.reset_index()
         self.image_path_dict = image_path_dict
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
