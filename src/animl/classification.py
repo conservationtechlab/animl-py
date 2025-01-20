@@ -229,7 +229,7 @@ def predict_species(detections, model, classes, device='cpu', out_file=None, raw
                     data = data.to(device)
                     output = model(data)
                     if raw:
-                        raw_output.extend(output.cpu().detach().numpy())
+                        raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
 
                     labels = torch.argmax(output, dim=1).cpu().detach().numpy()
                     pred = classes['Code'].values[labels]
@@ -244,7 +244,7 @@ def predict_species(detections, model, classes, device='cpu', out_file=None, raw
                     data = tensor_to_onnx(data)
                     output = model.run(None, {model.get_inputs()[0].name: data})[0]
                     if raw:
-                        raw_output.extend(output)
+                        raw_output.extend(softmax(output))
 
                     labels = np.argmax(output, axis=1)
                     pred = classes['Code'].values[labels]
