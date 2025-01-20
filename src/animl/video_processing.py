@@ -8,12 +8,12 @@ from numpy import vstack
 from animl import file_management
 import pathlib
 from typing import Optional, Union, List
-def extract_frame_single(
-    file_path: Union[str, pd.DataFrame],
-    out_dir: str,
-    fps: Optional[float] = None,
-    frames: Optional[int] = None
-) -> pd.DataFrame:
+
+
+def extract_frame_single(file_path: Union[str, pd.DataFrame],
+                         out_dir: str,
+                         fps: Optional[float] = None,
+                         frames: Optional[int] = None) -> pd.DataFrame:
     """
     Extract frames from video for classification
 
@@ -26,7 +26,7 @@ def extract_frame_single(
     Return
         - frames_saved: dataframe of still frames for each video
     """
-    #Typechecking
+    # Typechecking
     if not isinstance(file_path, str):
         raise TypeError(f"file_path must be a string, got {type(file_path)}")
     if not isinstance(out_dir, pathlib.PosixPath):
@@ -44,13 +44,13 @@ def extract_frame_single(
     if not os.path.isdir(out_dir):
         raise NotADirectoryError(f"Output directory {out_dir} does not exist")
 
-    
     cap = cv2.VideoCapture(file_path)
     filename = os.path.basename(file_path)
     filename, extension = os.path.splitext(filename)
     uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
     frames_saved = []
-    #Typechecking FPS
+
+    # Typechecking FPS
     if fps == 'None':
         fps = None
     if fps is None:  # select set number of frames
@@ -90,17 +90,15 @@ def extract_frame_single(
         return frames_saved
 
 
-def extract_frames(
-    files: Union[str, pd.DataFrame, List[str]],
-    out_dir: str,
-    out_file: Optional[str] = None,
-    fps: Optional[float] = None,
-    frames: Optional[int] = None,
-    file_col: str = "FilePath",
-    parallel: bool = False,
-    workers: int = mp.cpu_count(),
-    checkpoint: int = 1000
-) -> None:
+def extract_frames(files: Union[str, pd.DataFrame, List[str]],
+                   out_dir: str,
+                   out_file: Optional[str] = None,
+                   fps: Optional[float] = None,
+                   frames: Optional[int] = None,
+                   file_col: str = "FilePath",
+                   parallel: bool = False,
+                   workers: int = mp.cpu_count(),
+                   checkpoint: int = 1000):
     """
     Extract frames from video for classification
 
@@ -118,9 +116,6 @@ def extract_frames(
     Return
         - allframes: dataframe of still frames for each video
     """
-
-
-
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
     if not os.path.isdir(out_dir):

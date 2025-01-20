@@ -1,10 +1,13 @@
+"""
+Tools for splitting the data for different workflows
+"""
 import pandas as pd
 import numpy as np
 from math import fsum
+from typing import Optional, Tuple
 
-from typing import Optional, List, Tuple, Dict, Any
 
-def get_animals(manifest: pd.DataFrame) -> pd.DataFrame:
+def get_animals(manifest: pd.DataFrame):
     """
     Pulls MD animal detections for classification
 
@@ -19,7 +22,7 @@ def get_animals(manifest: pd.DataFrame) -> pd.DataFrame:
     return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
 
 
-def get_empty(manifest: pd.DataFrame) -> pd.DataFrame:
+def get_empty(manifest: pd.DataFrame):
     """
     Pulls MD non-animal detections
 
@@ -50,13 +53,11 @@ def get_empty(manifest: pd.DataFrame) -> pd.DataFrame:
     return otherdf
 
 
-def train_val_test(
-    manifest: pd.DataFrame,
-    out_dir: Optional[str] = None,
-    label_col: str = "species",
-    percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
-    seed: Optional[int] = None
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
+def train_val_test(manifest: pd.DataFrame,
+                   out_dir: Optional[str] = None,
+                   label_col: str = "species",
+                   percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
+                   seed: Optional[int] = None):
     '''
     Splits the manifest into training. validation and test dataets for training
 

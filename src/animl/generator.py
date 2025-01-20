@@ -2,6 +2,8 @@
 Generators and Dataloaders
 
 """
+from typing import Tuple, Dict
+import pandas as pd
 from PIL import Image, ImageOps, ImageFile
 import torch
 from torch import Tensor
@@ -12,8 +14,7 @@ from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalF
 from .utils.torch_utils import _setup_size
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-from typing import Optional, List, Tuple, Dict, Any
-import pandas as pd
+
 
 class ResizeWithPadding(torch.nn.Module):
     """Pads a crop to given size
@@ -73,7 +74,9 @@ class ImageGenerator(Dataset):
         - crop: if true, dynamically crop
         - normalize: tensors are normalized by default, set to false to un-normalize
     '''
-    def __init__( self, x: pd.DataFrame, file_col: str = "file", resize_height: int = 299, resize_width: int = 299, crop: bool = True, normalize: bool = True,) -> None:
+    def __init__(self, x: pd.DataFrame, file_col: str = "file",
+                 resize_height: int = 299, resize_width: int = 299,
+                 crop: bool = True, normalize: bool = True,) -> None:
         self.x = x
         self.file_col = file_col
         self.crop = crop
@@ -136,7 +139,8 @@ class MiewGenerator(Dataset):
     Options:
         - resize: dynamically resize images to target (square) [W,H]
     '''
-    def __init__(self,x: pd.DataFrame,image_path_dict: Dict[str, str], resize_height: int = 440,resize_width: int = 440):
+    def __init__(self, x: pd.DataFrame, image_path_dict: Dict[str, str],
+                 resize_height: int = 440, resize_width: int = 440):
         self.x = x.reset_index()
         self.image_path_dict = image_path_dict
         self.resize_height = int(resize_height)
@@ -148,7 +152,6 @@ class MiewGenerator(Dataset):
 
     def __len__(self) -> int:
         return len(self.x)
-
 
     def __getitem__(self, idx: int):
         id = self.x.loc[idx, 'roi_id']
