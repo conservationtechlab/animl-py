@@ -4,6 +4,7 @@ Generators and Dataloaders
 """
 from PIL import Image, ImageOps, ImageFile
 import torch
+from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip,
                                     Normalize, RandomAffine, RandomGrayscale, RandomApply,
@@ -11,7 +12,8 @@ from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalF
 from .utils.torch_utils import _setup_size
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-
+from typing import Optional, List, Tuple, Dict, Any
+import pandas as pd
 
 class ResizeWithPadding(torch.nn.Module):
     """Pads a crop to given size
@@ -26,11 +28,11 @@ class ResizeWithPadding(torch.nn.Module):
             made. If provided a sequence of length 1, it will be interpreted as
             (size[0], size[0]).
     """
-    def __init__(self, expected_size):
+    def __init__(self, expected_size: Tuple[int, int]) -> None:
         super().__init__()
         self.expected_size = _setup_size(expected_size)
 
-    def forward(self, img):
+    def forward(self, img: Image.Image) -> Image.Image:
         """
         Args:
             img (PIL Image or Tensor): Image to be cropped.
@@ -71,7 +73,7 @@ class ImageGenerator(Dataset):
         - crop: if true, dynamically crop
         - normalize: tensors are normalized by default, set to false to un-normalize
     '''
-    def __init__(self, x, file_col='file', resize_height=299, resize_width=299, crop=True, normalize=True):
+    def __init__( self, x: pd.DataFrame, file_col: str = "file", resize_height: int = 299, resize_width: int = 299, crop: bool = True, normalize: bool = True,) -> None:
         self.x = x
         self.file_col = file_col
         self.crop = crop
@@ -85,10 +87,10 @@ class ImageGenerator(Dataset):
             ToTensor(),
             ])
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.x)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Tuple[Tensor, str]:
         image_name = self.x.loc[idx, self.file_col]
 
         try:
@@ -134,8 +136,8 @@ class MiewGenerator(Dataset):
     Options:
         - resize: dynamically resize images to target (square) [W,H]
     '''
-    def __init__(self, x, image_path_dict, resize_height=440, resize_width=440):
-        self.x = x.reset_index()
+    def __init__(self,x: pd.DataFrame,image_path_dict: Dict[str, str], resize_height: int = 440,resize_width: int = 440,):
+        self.x = x
         self.image_path_dict = image_path_dict
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
@@ -144,10 +146,11 @@ class MiewGenerator(Dataset):
                                   Normalize(mean=[0.485, 0.456, 0.406],
                                             std=[0.229, 0.224, 0.225]),])
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.x)
 
-    def __getitem__(self, idx):
+
+    def __getitem__(self, idx: int):
         id = self.x.loc[idx, 'roi_id']
         media_id = self.x.loc[idx, 'media_id']
         image_name = self.image_path_dict[media_id]

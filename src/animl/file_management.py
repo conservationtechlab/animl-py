@@ -11,14 +11,19 @@ from glob import glob
 from datetime import datetime, timedelta
 import pandas as pd
 from exiftool import ExifToolHelper
-
+from typing import Optional
 
 VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
                     ".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
 
-
-def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive=True):
+def build_file_manifest(
+    image_dir: str,
+    exif: bool = True,
+    out_file: Optional[str] = None,
+    offset: int = 0,
+    recursive: bool = True
+) -> None:
     """
     Find Image/Video Files and Gather exif Data
 
@@ -112,7 +117,7 @@ class WorkingDirectory():
         self.mdraw = self.datadir / Path("MD_Raw.json")
 
 
-def save_data(data, out_file, prompt=True):
+def save_data(data: pd.DataFrame, out_file: str, prompt: bool = True) -> None:
     """
     Save Data to Given File
 
@@ -132,7 +137,7 @@ def save_data(data, out_file, prompt=True):
         data.to_csv(out_file, index=False)
 
 
-def load_data(file):
+def load_data(file: str) -> pd.DataFrame:
     """
     Load .csv File
 
@@ -140,7 +145,7 @@ def load_data(file):
         - file (str): the full path of the file to load
 
     Returns:
-        - data extracted from the file
+        - data extracted from the file. pd.dataframe form
     """
     ext = os.path.splitext(file)[1]
     if ext == ".csv":
@@ -149,7 +154,8 @@ def load_data(file):
         raise AssertionError("Error. Expecting a .csv file.")
 
 
-def check_file(file):
+
+def check_file(file: str) -> bool:
     """
     Check for files existence and prompt user if they want to load
 
@@ -171,7 +177,12 @@ def check_file(file):
     return False
 
 
-def active_times(manifest_dir, depth=1, recursive=True, offset=0):
+def active_times(
+    manifest_dir: str,
+    depth: int = 1,
+    recursive: bool = True,
+    offset: int = 0
+) -> pd.DataFrame:
     """
     Get start and stop dates for each camera folder
 

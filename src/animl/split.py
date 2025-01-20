@@ -2,8 +2,9 @@ import pandas as pd
 import numpy as np
 from math import fsum
 
+from typing import Optional, List, Tuple, Dict, Any
 
-def get_animals(manifest):
+def get_animals(manifest: pd.DataFrame) -> pd.DataFrame:
     """
     Pulls MD animal detections for classification
 
@@ -18,7 +19,7 @@ def get_animals(manifest):
     return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
 
 
-def get_empty(manifest):
+def get_empty(manifest: pd.DataFrame) -> pd.DataFrame:
     """
     Pulls MD non-animal detections
 
@@ -49,8 +50,13 @@ def get_empty(manifest):
     return otherdf
 
 
-def train_val_test(manifest, out_dir=None, label_col="species",
-                   percentage=(0.7, 0.2, 0.1), seed=None):
+def train_val_test(
+    manifest: pd.DataFrame,
+    out_dir: Optional[str] = None,
+    label_col: str = "species",
+    percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
+    seed: Optional[int] = None
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
     '''
     Splits the manifest into training. validation and test dataets for training
 
