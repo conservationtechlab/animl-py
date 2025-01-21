@@ -5,9 +5,10 @@ from random import randrange
 import multiprocessing as mp
 import pandas as pd
 from numpy import vstack
-from animl import file_management
-import pathlib
+from pathlib import Path
 from typing import Optional, Union, List
+
+from animl import file_management
 
 
 def extract_frame_single(file_path: Union[str, pd.DataFrame],
@@ -27,15 +28,13 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
         - frames_saved: dataframe of still frames for each video
     """
     # Typechecking
-    if not isinstance(file_path, str):
-        raise TypeError(f"file_path must be a string, got {type(file_path)}")
     if frames is None and fps is None:
         raise ValueError("Either fps or frames must be specified")
 
     # File and Directory Validation
-    if not os.path.isfile(file_path):
+    if not Path(file_path).is_file():
         raise FileNotFoundError(f"Video file {file_path} does not exist")
-    if not os.path.isdir(out_dir):
+    if not Path(out_dir).is_dir():
         raise NotADirectoryError(f"Output directory {out_dir} does not exist")
 
     cap = cv2.VideoCapture(file_path)
