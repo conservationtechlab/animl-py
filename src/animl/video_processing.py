@@ -29,12 +29,6 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
     # Typechecking
     if not isinstance(file_path, str):
         raise TypeError(f"file_path must be a string, got {type(file_path)}")
-    if not isinstance(out_dir, pathlib.PosixPath):
-        raise TypeError(f"out_dir must be a string, got {type(out_dir)}")
-    if fps is not None and not isinstance(fps, (int, float)):
-        raise TypeError(f"fps must be an integer or float, got {type(fps)}")
-    if frames is not None and not isinstance(frames, int):
-        raise TypeError(f"frames must be an integer, got {type(frames)}")
     if frames is None and fps is None:
         raise ValueError("Either fps or frames must be specified")
 
@@ -131,6 +125,7 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
     images = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin([".jpg", ".jpeg", ".png"])]
     images = images.assign(Frame=images[file_col])
+    images = images.assign(FrameNumber=0)
 
     videos = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",
