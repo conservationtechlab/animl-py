@@ -176,7 +176,7 @@ def tensor_to_onnx(tensor, channel_last=True):
     return tensor
 
 
-def predict_species(detections, model, classes, device='cpu', out_file=None, raw=False,
+def predict_species(detections, model, classes, device=None, out_file=None, raw=False,
                     file_col='Frame', crop=True, resize_width=299, resize_height=299,
                     normalize=True, batch_size=1, workers=1):
     """
@@ -208,6 +208,13 @@ def predict_species(detections, model, classes, device='cpu', out_file=None, raw
 
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
+    
+    if not torch.cuda.is_available():
+        device = 'cpu'
+    elif torch.cuda.is_available() and device is None:
+        device = 'cuda:0'
+    else:
+        device = device
 
     if isinstance(detections, pd.DataFrame):
         # initialize lists
