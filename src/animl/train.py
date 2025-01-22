@@ -221,9 +221,11 @@ def main():
 
     # initialize data loaders for training and validation set
     dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
-                                file_col=file_col, crop=crop, augment=cfg.get('augment', False))
+                                file_col=cfg.get('file_col', 'FilePath'), label_col=cfg.get('label_col', 'FilePath'),
+                                crop=crop, augment=cfg.get('augment', True))
     dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
-                              file_col=file_col, crop=crop, augment=False)
+                              file_col= cfg.get('file_col', 'FilePath'), label_col=cfg.get('label_col', 'FilePath'),
+                              crop=crop, augment=False)
 
     # set up model optimizer
     optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])

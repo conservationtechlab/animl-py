@@ -87,7 +87,9 @@ def main():
 
     # initialize data loaders for training and validation set
     test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
-    dl_test = train_dataloader(test_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], crop=crop)
+    dl_test = train_dataloader(test_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], 
+                               file_col=cfg.get('file_col', 'FilePath'), label_col=cfg.get('label_col', 'FilePath'), 
+                               crop=crop, augment=False)
 
     # get predictions
     pred, true, paths = test(dl_test, model, device)

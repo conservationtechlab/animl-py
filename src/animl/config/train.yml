@@ -9,6 +9,10 @@ validate_set: "/path/to/save/validate_data.csv"
 test_set: "/path/to/save/test_data.csv"
 class_file: "/home/usr/machinelearning/Models/Animl-Test/test_classes.txt" 
 
+file_col: 'FilePath'
+label_col: 'Label'
+augment: True
+
 # training hyperparameters
 architecture: "efficientnet_v2_m" # or choose "convnext_base"
 image_size: [299, 299]
