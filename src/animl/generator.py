@@ -267,7 +267,7 @@ class TrainGenerator(Dataset):
         return img_tensor, label, image_name
 
 
-def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath",
+def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath", label_col="species",
                      crop=False, resize_height=480, resize_width=480, augment=False):
     '''
         Loads a dataset for training and wraps it in a
@@ -287,7 +287,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
         Returns:
             dataloader object
     '''
-    dataset_instance = TrainGenerator(manifest, classes, file_col, crop=crop,
+    dataset_instance = TrainGenerator(manifest, classes, file_col, label_col=label_col, crop=crop,
                                       resize_height=resize_height, resize_width=resize_width,
                                       augment=augment)
 
@@ -298,7 +298,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
     return dataLoader
 
 
-def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file",
+def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file", 
                         crop=True, normalize=True, resize_width=299, resize_height=299):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.
