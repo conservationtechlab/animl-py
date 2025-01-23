@@ -83,12 +83,16 @@ def main():
 
     # initialize model and get class list
     model, classes = load_model(cfg['active_model'], cfg['class_file'], device=device, architecture=cfg['architecture'])
-    categories = dict([[x["class"], x["id"]] for _, x in classes.iterrows()])
+
+    class_list_label = cfg.get('class_list_label', 'class')
+    class_list_index = cfg.get('class_list_index', 'id')
+
+    categories = dict([[x[class_list_label], x[class_list_index]] for _, x in classes.iterrows()])
 
     # initialize data loaders for training and validation set
     test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
     dl_test = train_dataloader(test_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], 
-                               file_col=cfg.get('file_col', 'FilePath'), label_col=cfg.get('label_col', 'FilePath'), 
+                               file_col=cfg.get('file_col', 'FilePath'), label_col=cfg.get('label_col', 'species'), 
                                crop=crop, augment=False)
 
     # get predictions
@@ -105,7 +109,7 @@ def main():
     results.to_csv(cfg['experiment_folder'] + "/test_results.csv")
 
     cm = confusion_matrix(true, pred)
-    confuse = pd.DataFrame(cm, columns=classes['class'], index=classes['class'])
+    confuse = pd.DataFrame(cm, columns=classes[class_list_label], index=classes[class_list_label])
     confuse.to_csv(cfg['experiment_folder'] + "/confusion_matrix.csv")
 
 
