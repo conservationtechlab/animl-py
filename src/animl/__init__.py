@@ -54,8 +54,8 @@ from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         weights_init_kaiming,)
 from animl.sequence_classification import (sequence_classification,)
 from animl.split import (get_animals, get_empty, train_val_test,)
-from animl.test import (main, test,)
-from animl.train import (init_seed, main, train, validate,)
+from animl.test import (main, test_func,)
+from animl.train import (init_seed, main, train_func, validate,)
 from animl.utils import (AUTOINSTALL, Albumentations, BAR_FORMAT, CONFIG_DIR,
                          DATASETS_DIR, EarlyStopping, FILE, FONT, HELP_URL,
                          IMG_FORMATS, InfiniteDataLoader, LOCAL_RANK, LOGGER,
@@ -151,8 +151,8 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'segment2box', 'segments2boxes', 'select_device',
            'sequence_classification', 'set_logging', 'softmax', 'sort_MD',
            'sort_species', 'sparsity', 'split', 'strip_optimizer',
-           'tensor_to_onnx', 'test', 'threaded', 'time_sync', 'timelapse',
-           'torch_distributed_zero_first', 'torch_utils', 'train',
+           'tensor_to_onnx', 'test', 'test_func', 'threaded', 'time_sync', 'timelapse',
+           'torch_distributed_zero_first', 'torch_utils', 'train', 'train_func',
            'train_dataloader', 'train_val_test', 'truncate_float',
            'truncate_float_array', 'try_except', 'update_labels',
            'upload_to_Zooniverse', 'upload_to_Zooniverse_Simple', 'url2file',

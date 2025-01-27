@@ -19,7 +19,7 @@ from animl.generator import train_dataloader
 from animl.classification import load_model
 
 
-def test(data_loader: DataLoader, model: torch.nn.Module, device: Union[str, torch.device] = 'cpu') -> float:
+def test_func(data_loader: DataLoader, model: torch.nn.Module, device: Union[str, torch.device] = 'cpu') -> float:
     '''
         Run trained model on test split
 
