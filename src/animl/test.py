@@ -96,7 +96,7 @@ def main():
                                crop=crop, augment=False)
 
     # get predictions
-    pred, true, paths = test(dl_test, model, device)
+    pred, true, paths = test_func(dl_test, model, device)
     pred = np.asarray(pred)
     true = np.asarray(true)
 

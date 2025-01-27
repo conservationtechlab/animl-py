@@ -252,7 +252,7 @@ def main():
         print(f'Epoch {current_epoch}/{numEpochs}')
         print(f"Using learning rate : {scheduler.get_last_lr()[0]}")
 
-        loss_train, oa_train = train(dl_train, model, optim, device)
+        loss_train, oa_train = train_func(dl_train, model, optim, device)
         loss_val, oa_val, precision, recall = validate(dl_val, model, device)
 
         # combine stats and save
