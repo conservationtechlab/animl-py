@@ -28,7 +28,7 @@ def softmax(x: np.ndarray) -> np.ndarray:
     return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
 
 
-def save_model(out_dir: str, epoch: int, model: torch.nn.Module, stats: dict):
+def save_model(out_dir, epoch, model, stats):
     '''
     Saves model state weights.
 
@@ -41,13 +41,6 @@ def save_model(out_dir: str, epoch: int, model: torch.nn.Module, stats: dict):
     Returns:
         None
     '''
-    if not isinstance(out_dir, str):
-        raise TypeError(f"Expected string for out_dir, got {type(out_dir)}")
-    if not isinstance(epoch, int):
-        raise TypeError(f"Expected int for epoch, got {type(epoch)}")
-    if not isinstance(stats, dict):
-        raise TypeError(f"Expected dict for stats, got {type(dict)}")
-
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     # get model parameters and add to stats
