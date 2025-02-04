@@ -17,6 +17,19 @@ def get_animals(manifest):
         raise AssertionError("'manifest' must be DataFrame.")
     return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
 
+def get_animals_owl(manifest):
+    """
+    Gets classifications and not just detection"""
+    if not isinstance(manifest, pd.DataFrame):
+        raise AssertionError("'manifest' must be DataFrame.")
+    #if zero empty else string of detection
+    #TODO replace with dictionary
+    manifest['prediction'] = manifest['category'].astype(int)
+    manifest['prediction'] = manifest['prediction'].replace(0, "empty")
+    manifest['prediction'] = manifest['prediction'].replace(4, "adult owl")
+    manifest['prediction'] = manifest['prediction'].replace(5, "juv owl")
+    manifest['confidence'] = manifest['conf']
+    return manifest
 
 def get_empty(manifest):
     """
@@ -41,6 +54,7 @@ def get_empty(manifest):
         otherdf['prediction'] = otherdf['prediction'].replace(2, "human")
         otherdf['prediction'] = otherdf['prediction'].replace(3, "vehicle")
         otherdf['prediction'] = otherdf['prediction'].replace(0, "empty")
+        otherdf['prediction'] = otherdf['prediction'].replace("nan", "empty")
         otherdf['confidence'] = otherdf['conf']
 
     else:

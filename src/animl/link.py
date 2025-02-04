@@ -32,7 +32,7 @@ def sort_species(manifest, link_dir, file_col="FilePath", unique_name='UniqueNam
     link_dir = Path(link_dir)
     # Create species folders
     for species in manifest['prediction'].unique():
-        path = link_dir / Path(species)
+        path = link_dir / Path(str(species))
         path.mkdir(exist_ok=True)
 
     # create new column
@@ -43,10 +43,9 @@ def sort_species(manifest, link_dir, file_col="FilePath", unique_name='UniqueNam
             name = row[unique_name]
         else:  # create a unique name
             uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
-            filename = os.path.basename(row[file_col])
+            filename = os.path.basename(str(row[file_col]))
             filename, extension = os.path.splitext(filename)
             name = "_".join([filename, uniqueid]) + extension
-
         link = link_dir / Path(row['prediction']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
@@ -85,7 +84,7 @@ def sort_MD(manifest, link_dir, file_col="file", unique_name='UniqueName', copy=
             name = row[unique_name]
         else:
             uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
-            filename = os.path.basename(row[file_col])
+            filename = os.path.basename(str(row[file_col]))
             filename, extension = os.path.splitext(filename)
             name = "_".join([filename, uniqueid]) + extension
 
@@ -95,6 +94,7 @@ def sort_MD(manifest, link_dir, file_col="file", unique_name='UniqueName', copy=
         if copy:  # make a hard copy
             copy2(row[file_col], link)
         else:  # make a hard link
+            print(f"row[file_col]: {row[file_col]}, link: {link}")
             os.link(row[file_col], link)
 
     return manifest

@@ -60,39 +60,66 @@ def main_paths(image_dir, detector_file, classifier_file, class_list, sort=True)
                                                  parallel=True, frames=1)
 
     # Run all images and video frames through MegaDetector
-    print("Running images and video frames through MegaDetector...")
+
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
-    else:
+    if detector_file == "C":
+        from animl.models import Owl_detector
+        # Initialize the custom YOLO detector
+        detector = Owl_detector.OwlYOLO(device=device)
+        
+        # Run batch detection
+        detections = detector.detect_batch(all_frames)
+        
+        # Parse YOLO results
+        detections = detect.parse_YOLO(detections, manifest=all_frames, out_file=working_dir.detections)
+        print("USING CUSTOM YOLO DETECTOR")
+        print("Extracting animal detections...")
+        animals = split.get_animals_owl(detections)
+        #animals = split.get_animals(detections)
+        empty = split.get_empty(detections)
+        # Use the classifier model to predict the species of animal detections
+        print("Predicting species of animal detections...")
+        # merge animal and empty, create symlinks
+        print("Concatenating animal and empty dataframes...")
+        manifest = animals
+
+        manifest['confidence'] = manifest['conf']
+        if sort:
+            manifest = link.sort_species(manifest, working_dir.linkdir)
+
+        file_management.save_data(manifest, working_dir.results)
+        return manifest
+    elif detector_file != "C":
+        print("Running images and video frames through MegaDetector...")
         detector = megadetector.MegaDetector(detector_file, device=device)
         md_results = detect.detect_MD_batch(detector, all_frames, file_col="Frame",
                                             checkpoint_path=working_dir.mdraw, quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_MD(md_results, manifest=all_frames, out_file=working_dir.detections)
+            # Extract animal detections from the rest
+        print("Extracting animal detections...")
+        animals = detections['category']
+        empty = split.get_empty(detections)
+        # Use the classifier model to predict the species of animal detections
+        print("Predicting species of animal detections...")
+        #classifier, classes = classification.load_model(classifier_file, class_list, device=device)
+        #animals = classification.predict_species(animals, classifier, classes, device=device,
+                                                #file_col="Frame", batch_size=4, out_file=working_dir.predictions)
 
-    # Extract animal detections from the rest
-    print("Extracting animal detections...")
-    animals = split.get_animals(detections)
-    empty = split.get_empty(detections)
+        # merge animal and empty, create symlinks
+        print("Concatenating animal and empty dataframes...")
+        manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+        
+        if sort:
+            manifest = link.sort_species(manifest, working_dir.linkdir)
 
-    # Use the classifier model to predict the species of animal detections
-    print("Predicting species of animal detections...")
-    print(class_list)
-    classifier, classes = classification.load_model(classifier_file, class_list, device=device)
-    animals = classification.predict_species(animals, classifier, classes, device=device,
-                                             file_col="Frame", batch_size=4, out_file=working_dir.predictions)
+        file_management.save_data(manifest, working_dir.results)
 
-    # merge animal and empty, create symlinks
-    print("Concatenating animal and empty dataframes...")
-    manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
-    if sort:
-        manifest = link.sort_species(manifest, working_dir.linkdir)
+        return manifest
 
-    file_management.save_data(manifest, working_dir.results)
-    print("Final Results in " + str(working_dir.results))
 
-    return manifest
 
 
 def main_config(config):
@@ -202,14 +229,19 @@ if os.path.isfile(args.imagedir_config):
 
 # first argument is a directory
 else:
-    if not os.path.isfile(args.detector):
-        prompt = "MegaDetector not found, would you like to download? y/n: "
-        if input(prompt).lower() == "y":
-            if not os.path.isdir(home):
-                os.mkdir(home)
-            print('Saving to', home)
-            wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt',
-                          out=home)
+    prompt = "megadetector or custom yolo? m/c: "
+    user_input = input(prompt).lower() 
+    if user_input == "m":
+        if not os.path.isfile(args.detector):
+            prompt = "MegaDetector not found, would you like to download? y/n: "
+            if input(prompt).lower() == "y":
+                if not os.path.isdir(home):
+                    os.mkdir(home)
+                print('Saving to', home)
+                wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt',
+                            out=home)
+    elif user_input == "c":
+        args.detector = "C"
 
     if not os.path.isfile(args.classifier):
         prompt = "Classifier not found, would you like to download Southwest_v3? y/n: "
