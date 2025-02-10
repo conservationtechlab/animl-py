@@ -13,7 +13,7 @@ from PIL import Image
 from animl import file_management
 
 from animl.models import MegaDetector
-from animl.models import Owl_detector
+from animl.models import custom_detector
 
 def process_image(im_file, detector, confidence_threshold, quiet=True,
                   image_size=None, skip_image_resize=False):

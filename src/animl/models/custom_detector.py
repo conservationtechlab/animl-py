@@ -5,7 +5,7 @@ from tqdm import tqdm
 import pandas as pd
 from pathlib import Path
 
-class OwlYOLO:
+class CustomYOLO:
     def __init__(self, model_path= Path(__file__).parent.parent.parent / "models/best.pt", device="cpu"):
         """
         Initializes the YOLO model with the given model path.
