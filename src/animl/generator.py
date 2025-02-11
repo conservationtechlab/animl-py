@@ -239,7 +239,7 @@ class TrainGenerator(Dataset):
             img = Image.open(image_name).convert('RGB')
         except OSError:
             print("File error", image_name)
-            del self.x.iloc[idx]
+            self.x = self.x.drop(idx, axis=0).reset_index()
             return self.__getitem__(idx)
 
         if self.crop:
