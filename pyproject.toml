@@ -11,19 +11,19 @@ authors = [{name = "Kyra Swanson", email = "tswanson@sdzwa.org" }]
 
 requires-python = ">=3.9"
 dependencies = [
-    "numpy>=1.26.4", 
-    "onnxruntime-gpu", 
-    "pandas>=2.2.2", 
-    "panoptes_client>=1.6.2", 
-    "pillow>10.3.0", 
-    "pyexiftool>=0.5.6",
-    "opencv-python>=4.10.0.82", 
-    "scikit-learn>=1.5.0", 
-    "timm>=1.0",
-    "torch==2.2.2", 
-    "torchvision>=0.17.2",
-    "tqdm>=4.66.4", 
-    "wget>=3.2"
+    "numpy==1.26.4", 
+    "onnxruntime-gpu==1.19.2", 
+    "pandas==2.2.2", 
+    "panoptes_client==1.6.2", 
+    "pillow==10.4.0", 
+    "pyexiftool==0.5.6",
+    "opencv-python==4.10.0.84", 
+    "scikit-learn==1.5.2", 
+    "timm==1.0.9",
+    "torch==2.4.1", 
+    "torchvision==0.19.1",
+    "tqdm==4.66.5", 
+    "wget==3.2"
 ]
 
 
