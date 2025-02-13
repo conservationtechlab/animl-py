@@ -120,14 +120,15 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
                 model = EfficientNet(len(classes), tune=False)
-                checkpoint = torch.load(model_path, map_location=device)
+                # TODO: torch 2.6 defaults to weights_only = True
+                checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()
                 model.framework = "EfficientNet"
             elif architecture == "convnext_base":
                 model = ConvNeXtBase(len(classes), tune=False)
-                checkpoint = torch.load(model_path, map_location=device)
+                checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()

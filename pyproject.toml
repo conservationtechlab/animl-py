@@ -1,6 +1,6 @@
 [project]
 name = "animl"  
-version = "1.4.4"
+version = "1.4.5"
 description = "Tools for classifying camera trap images"  
 
 readme = "README.md" 
@@ -20,7 +20,7 @@ dependencies = [
     "opencv-python>=4.10.0.82", 
     "scikit-learn>=1.5.0", 
     "timm>=1.0",
-    "torch>=2.2.2", 
+    "torch==2.2.2", 
     "torchvision>=0.17.2",
     "tqdm>=4.66.4", 
     "wget>=3.2"
