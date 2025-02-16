@@ -101,9 +101,9 @@ def sort_MD(manifest: DataFrame,
         manifest.loc[i, 'Link'] = str(link)
 
         if copy:  # make a hard copy
-            copy2(row[file_col], link)
+            copy2(Path(row[file_col]), link)
         else:  # make a hard link
-            os.link(row[file_col], link)
+            os.link(Path(row[file_col]), link)
 
     return manifest
 
