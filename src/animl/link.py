@@ -54,10 +54,11 @@ def sort_species(manifest: DataFrame,
         link = link_dir / Path(row['prediction']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
-        if copy:  # make a hard copy
-            copy2(row[file_col], link)
-        else:  # make a hard
-            os.link(row[file_col], link)
+        if not link.is_file():
+            if copy:  # make a hard copy
+                copy2(row[file_col], link)
+            else:  # make a hard
+                os.link(row[file_col], link,)
 
     return manifest
 
@@ -100,10 +101,11 @@ def sort_MD(manifest: DataFrame,
         link = link_dir / Path(row['category']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
-        if copy:  # make a hard copy
-            copy2(row[file_col], link)
-        else:  # make a hard link
-            os.link(row[file_col], link)
+        if not link.is_file():
+            if copy:  # make a hard copy
+                copy2(row[file_col], link)
+            else:  # make a hard link
+                os.link(row[file_col], link)
 
     return manifest
 
