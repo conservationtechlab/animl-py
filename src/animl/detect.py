@@ -12,6 +12,8 @@ from shutil import copyfile
 from PIL import Image
 
 from animl import file_management
+import torch
+from PytorchWildlife.models import detection as pw_detection
 
 
 def process_image(im_file: str,
@@ -21,21 +23,7 @@ def process_image(im_file: str,
                   image_size: typing.Optional[int] = None,
                   skip_image_resize: bool = False) -> typing.Dict:
     """
-    From AgentMorris/MegaDetector
     Runs MegaDetector on a single image file.
-
-    Args:
-        - im_file (str): path to image file
-        - detector: loaded model
-        - confidence_threshold (float): only detections above this threshold are returned
-        - quiet (bool): print debugging statements when false, defaults to true
-        - image_size (int): overrides default image size, 1280
-        - skip_image_resizing (bool): skip internal image resizing and rely on external resizing
-
-    Returns:
-        - result: dict representing detections on one image
-        see the 'images' key in
-        https://github.com/agentmorris/MegaDetector/tree/master/api/batch_processing#batch-processing-api-output-format
     """
     if not isinstance(im_file, str):
         raise TypeError(f"Expected str for im_file, got {type(im_file)}")
@@ -52,16 +40,20 @@ def process_image(im_file: str,
         if not quiet:
             print('Image {} cannot be loaded. Exception: {}'.format(im_file, e))
         result = {
-            'file': im_file,
+            'img_id': im_file,
             'failure': 'Failure image access'
         }
         return result
-    # run MD
     try:
-        result = detector.generate_detections_one_image(image, im_file,
-                                                        confidence_threshold=confidence_threshold,
-                                                        image_size=image_size,
-                                                        skip_image_resize=skip_image_resize)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        detection_model = pw_detection.MegaDetectorV6(device=device, pretrained=True, version="MDV6-yolov10-e")
+
+        result = detection_model.single_image_detection(im_file)
+        print(result)
+        if result is None:
+            raise ValueError("No result returned from detector")
+        if 'file' not in result:
+            result['file'] = im_file
     except Exception as e:
         if not quiet:
             print('Image {} cannot be processed. Exception: {}'.format(im_file, e))
@@ -71,7 +63,11 @@ def process_image(im_file: str,
         }
         return result
 
+    # Explicitly return the result on successful processing
     return result
+
+
+
 
 
 def detect_MD_batch(detector: object,
@@ -149,10 +145,11 @@ def detect_MD_batch(detector: object,
         results = []
 
     # remove loaded images
-    already_processed = set([i['file'] for i in results])
+    already_processed = set([i['img_id'] for i in results])
     image_file_names = set(image_file_names) - already_processed
 
     count = 0
+
     for im_file in tqdm(image_file_names):
         # process single image
         count += 1
@@ -180,9 +177,8 @@ def detect_MD_batch(detector: object,
             # Remove the backup checkpoint if it exists
             if checkpoint_tmp_path is not None:
                 os.remove(checkpoint_tmp_path)
-
+    print(results)
     return results
-
 
 def parse_MD(results: typing.List[dict],
              manifest: typing.Optional[pd.DataFrame] = None,
@@ -191,26 +187,22 @@ def parse_MD(results: typing.List[dict],
              threshold: float = 0,
              file_col: str = "Frame") -> pd.DataFrame:
     """
-    Converts numerical output from classifier to common name species label
-
-    Args:
-        - results (list): md output dicts
-        - manifest (pd.DataFrame): full file manifest, if not None, merge md predictions automatically
-        - out_file (str): path to save dataframe
-        - buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
-        - threshold (float): parse only detections above given confidence threshold
-
-    Returns:
-        - df (pd.DataFrame): formatted md outputs, one row per detection
+    Converts numerical output from classifier to common name species label.
     """
-    # load checkpoint
-    if file_management.check_file(out_file):  # checkpoint comes back empty
+    if results is None:
+        raise ValueError("No detection results provided (results is None).")
+
+    # Convert new format to expected format if necessary
+    if results and 'file' in results[0]:
+        results = convert_new_format(results)
+
+    # Load checkpoint if available
+    if file_management.check_file(out_file):
         df = file_management.load_data(out_file)
         already_processed = set([row['file'] for row in df])
-
     else:
-        df = pd.DataFrame(columns=('file', 'max_detection_conf', 'category', 'conf',
-                                   'bbox1', 'bbox2', 'bbox3', 'bbox4'))
+        # Predefine the DataFrame columns
+        df = pd.DataFrame(columns=['file', 'max_detection_conf', 'category', 'conf', 'bbox1', 'bbox2', 'bbox3', 'bbox4'])
         already_processed = set()
 
     if not isinstance(results, list):
@@ -220,38 +212,11 @@ def parse_MD(results: typing.List[dict],
         raise AssertionError("'results' contains no detections")
 
     lst = []
-
-    for frame in tqdm(results):
-        # pass if already analyzed
-        if frame['file'] in already_processed:
-            continue
-
-        try:
-            detections = frame['detections']
-        except KeyError:
-            print('File error ', frame['file'])
-            continue
-
-        if len(detections) == 0:
-            data = {'file': frame['file'],
-                    'max_detection_conf': frame['max_detection_conf'],
-                    'category': 0, 'conf': None, 'bbox1': None,
-                    'bbox2': None, 'bbox3': None, 'bbox4': None}
-            lst.append(data)
-
-        else:
-            for detection in detections:
-                if (detection['conf'] > threshold):
-                    data = {'file': frame['file'],
-                            'max_detection_conf': frame['max_detection_conf'],
-                            'category': detection['category'], 'conf': detection['conf'],
-                            'bbox1': min(max(detection['bbox1'], buffer), 1 - buffer),
-                            'bbox2': min(max(detection['bbox2'], buffer), 1 - buffer),
-                            'bbox3': min(max(detection['bbox3'], buffer), 1 - buffer),
-                            'bbox4': min(max(detection['bbox4'], buffer), 1 - buffer)}
-                    lst.append(data)
-
-    df = pd.DataFrame(lst)
+    for data in results:
+        lst.append(data)
+    # Create DataFrame with defined columns so that even if lst is empty,
+    # the DataFrame will have the 'file' column
+    df = pd.DataFrame(lst, columns=['file', 'max_detection_conf', 'category', 'conf', 'bbox1', 'bbox2', 'bbox3', 'bbox4'])
 
     if isinstance(manifest, pd.DataFrame):
         df = manifest.merge(df, left_on=file_col, right_on="file")
@@ -260,3 +225,57 @@ def parse_MD(results: typing.List[dict],
         file_management.save_data(df, out_file)
 
     return df
+
+def convert_new_format(new_results):
+    """
+    Converts new output format into a list of dictionaries compatible with parse_MD.
+
+    Args:
+        new_results (list): List of dicts in the new format.
+
+    Returns:
+        List of dicts in the format expected by parse_MD.
+    """
+    converted = []
+    for frame in new_results:
+        # Map 'img_id' to 'file'
+        file_path = frame.get('img_id')
+        detections_obj = frame.get('detections')
+
+        # If no detections available, add an entry with empty values.
+        if detections_obj is None or detections_obj.xyxy.size == 0:
+            converted.append({
+                'file': file_path,
+                'max_detection_conf': None,
+                'category': 0,
+                'conf': None,
+                'bbox1': None,
+                'bbox2': None,
+                'bbox3': None,
+                'bbox4': None
+            })
+            continue
+
+        # Extract detection arrays; assuming attributes are numpy arrays.
+        xyxy = detections_obj.xyxy  # shape: (N, 4)
+        conf_array = detections_obj.confidence.flatten()  # shape: (N,)
+        class_ids = detections_obj.class_id.flatten()       # shape: (N,)
+
+        # Calculate max detection confidence for the frame.
+        max_conf = float(conf_array.max()) if conf_array.size > 0 else None
+
+        # Create one dict per detection.
+        for i in range(len(conf_array)):
+            detection_dict = {
+                'file': file_path,
+                'max_detection_conf': max_conf,
+                'category': int(class_ids[i]),
+                'conf': float(conf_array[i]),
+                # Assuming xyxy order is [xmin, ymin, xmax, ymax]
+                'bbox1': float(xyxy[i][0]),
+                'bbox2': float(xyxy[i][1]),
+                'bbox3': float(xyxy[i][2]),
+                'bbox4': float(xyxy[i][3])
+            }
+            converted.append(detection_dict)
+    return converted

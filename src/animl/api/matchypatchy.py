@@ -7,7 +7,9 @@ import yaml
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-from animl.models.megadetector import MegaDetector
+from PytorchWildlife.models import detection as pw_detection
+from PytorchWildlife import utils as pw_utils
+
 from animl.video_processing import extract_frames
 from animl.detect import detect_MD_batch, parse_MD
 from animl.split import get_animals
@@ -30,7 +32,8 @@ def detect_mp(detector_file, media):
     """
     Wrapper for object detection withinin MatchyPatchy
     """
-    detector = MegaDetector(detector_file, device=get_device())
+    detector = pw_detection.MegaDetectorV6(device=device, pretrained=True, version="MDV6-yolov10-e")
+    
     md_results = detect_MD_batch(detector, media, file_col="filepath", quiet=True)
     detections = parse_MD(md_results, manifest=media)
     detections = get_animals(detections)

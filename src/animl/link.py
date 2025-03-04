@@ -23,29 +23,34 @@ def sort_species(manifest: DataFrame,
     """
     Creates symbolic links of images into species folders
 
-    Args
+    Args:
         - manifest (DataFrame): dataframe containing images and associated predictions
         - link_dir (str): root directory for species folders
         - file_col (str): column containing source paths
         - unique_name (str): column containing unique file name
         - copy (bool): if true, hard copy
 
-    Returns
+    Returns:
         copy of manifest with link path column
     """
     link_dir = Path(link_dir)
-    # Create species folders
+
+    # Initialize prediction column if not present
+    if 'prediction' not in manifest.columns:
+        manifest['prediction'] = "unknown"  # or you can choose None
+
+    # Create species folders for each unique prediction value
     for species in manifest['prediction'].unique():
         path = link_dir / Path(species)
         path.mkdir(exist_ok=True)
 
-    # create new column
+    # Create new column to store the symlink paths
     manifest['Link'] = link_dir
 
     for i, row in manifest.iterrows():
         if unique_name in manifest.columns:
             name = row[unique_name]
-        else:  # create a unique name
+        else:  # create a unique name if necessary
             uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
             filename = os.path.basename(row[file_col])
             filename, extension = os.path.splitext(filename)
@@ -57,10 +62,11 @@ def sort_species(manifest: DataFrame,
         if not link.is_file():
             if copy:  # make a hard copy
                 copy2(row[file_col], link)
-            else:  # make a hard
-                os.link(row[file_col], link,)
+            else:  # create a hard link
+                os.link(row[file_col], link)
 
     return manifest
+
 
 
 def sort_MD(manifest: DataFrame,

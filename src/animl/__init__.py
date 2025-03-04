@@ -4,7 +4,6 @@ from animl import detect
 from animl import file_management
 from animl import generator
 from animl import link
-from animl import models
 from animl import multi_species
 from animl import plot_boxes
 from animl import reid
@@ -33,16 +32,7 @@ from animl.generator import (ImageGenerator, MiewGenerator, ResizeWithPadding,
                              TrainGenerator, manifest_dataloader,
                              reid_dataloader, train_dataloader,)
 from animl.link import (remove_link, sort_MD, sort_species, update_labels,)
-from animl.models import (AutoShape, Bottleneck, BottleneckCSP, C3, C3Ghost,
-                          C3SPP, C3TR, C3x, CONF_DIGITS, COORD_DIGITS,
-                          Classify, Concat, Contract, Conv, CrossConv, DWConv,
-                          DWConvTranspose2d, Detect, DetectMultiBackend,
-                          Detections, Expand, FILE, Focus, GhostBottleneck,
-                          GhostConv, MegaDetector, Model, ROOT, SPP, SPPF,
-                          TransformerBlock, TransformerLayer, autopad,
-                          check_anchor_order, common, convert_yolo_to_xywh,
-                          megadetector, parse_model, truncate_float,
-                          truncate_float_array, yolo,)
+
 from animl.multi_species import (multi_species_detection,)
 from animl.plot_boxes import (demo_boxes, draw_bounding_boxes, main,
                               plot_all_bounding_boxes,)

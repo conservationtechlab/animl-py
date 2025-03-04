@@ -24,10 +24,11 @@ import torch
 import pandas as pd
 from animl import (file_management, video_processing, detect,
                    split, classification, link)
-from animl.models import megadetector
+from PytorchWildlife.models import detection as pw_detection
+from PytorchWildlife import utils as pw_utils
+
 from animl.utils.torch_utils import get_device
 import typing
-
 
 def main_paths(image_dir: str,
                detector_file: str,
@@ -99,7 +100,6 @@ def main_paths(image_dir: str,
 
     return manifest
 
-
 def main_config(config):
     """
     This function is the main method to invoke all the sub functions
@@ -137,8 +137,8 @@ def main_config(config):
     # Video-processing to extract individual frames as images in to directory
     print("Processing videos...")
     fps = cfg.get('fps', None)
-    if fps == "None":
-        fps = None
+    if fps == "None":  
+        fps = None 
     all_frames = video_processing.extract_frames(files, out_dir=working_dir.vidfdir,
                                                  out_file=working_dir.imageframes,
                                                  parallel=cfg.get('parallel', True),
@@ -148,8 +148,10 @@ def main_config(config):
     print("Running images and video frames through MegaDetector...")
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
+
+
     else:
-        detector = megadetector.MegaDetector(cfg['detector_file'], device=device)
+        detector = pw_detection.MegaDetectorV6(cfg['detector'], device=device, pretrained=True, version="MDV6-yolov10-e")
         md_results = detect.detect_MD_batch(detector, all_frames, file_col=cfg.get('file_col_detection', 'Frame'),
                                             checkpoint_path=working_dir.mdraw,
                                             checkpoint_frequency=cfg.get('checkpoint_frequency', -1),
