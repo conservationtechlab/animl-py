@@ -256,12 +256,11 @@ def convert_new_format(new_results):
             })
             continue
 
-        # Extract detection arrays; assuming attributes are numpy arrays.
+
         xyxy = detections_obj.xyxy  # shape: (N, 4)
         conf_array = detections_obj.confidence.flatten()  # shape: (N,)
         class_ids = detections_obj.class_id.flatten()       # shape: (N,)
 
-        # Calculate max detection confidence for the frame.
         max_conf = float(conf_array.max()) if conf_array.size > 0 else None
 
         # Create one dict per detection.
@@ -271,11 +270,12 @@ def convert_new_format(new_results):
                 'max_detection_conf': max_conf,
                 'category': int(class_ids[i]),
                 'conf': float(conf_array[i]),
-                # Assuming xyxy order is [xmin, ymin, xmax, ymax]
+
                 'bbox1': float(xyxy[i][0]),
                 'bbox2': float(xyxy[i][1]),
                 'bbox3': float(xyxy[i][2]),
                 'bbox4': float(xyxy[i][3])
             }
+            print(detection_dict    )
             converted.append(detection_dict)
     return converted

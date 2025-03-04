@@ -111,16 +111,17 @@ class ImageGenerator(Dataset):
             bbox3 = self.x['bbox3'].iloc[idx]
             bbox4 = self.x['bbox4'].iloc[idx]
 
-            left = width * bbox1
-            top = height * bbox2
-            right = width * (bbox1 + bbox3)
-            bottom = height * (bbox2 + bbox4)
-
-            left = max(0, int(left) - self.buffer)
-            top = max(0, int(top) - self.buffer)
-            right = min(width, int(right) + self.buffer)
-            bottom = min(height, int(bottom) + self.buffer)
+            left = int(bbox1) - self.buffer
+            top = int(bbox2) - self.buffer
+            right = int(bbox3) + self.buffer
+            bottom = int(bbox4) + self.buffer
+            left = max(0, left)
+            top = max(0, top)
+            right = min(width, right)
+            bottom = min(height, bottom)
+            
             img = img.crop((left, top, right, bottom))
+
 
         img_tensor = self.transform(img)
         img.close()

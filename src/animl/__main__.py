@@ -70,7 +70,7 @@ def main_paths(image_dir: str,
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
-        detector = megadetector.MegaDetector(detector_file, device=device)
+        detector = pw_detection.MegaDetectorV6(device=device, pretrained=True, version="MDV6-yolov10-e")
         md_results = detect.detect_MD_batch(detector, all_frames, file_col="Frame",
                                             checkpoint_path=working_dir.mdraw, quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
@@ -99,6 +99,7 @@ def main_paths(image_dir: str,
     print("Final Results in " + str(working_dir.results))
 
     return manifest
+
 
 def main_config(config):
     """
