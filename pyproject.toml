@@ -9,7 +9,7 @@ keywords = ["camera trap", "ecology", "conservation", "zoo", "SDZWA", "conservat
 
 authors = [{name = "Kyra Swanson", email = "tswanson@sdzwa.org" }]
 
-requires-python = "<=3.9.19"
+requires-python = "<=3.9.20"
 dependencies = [
     "numpy==2.0.2", 
     "onnxruntime-gpu==1.19.2", 
