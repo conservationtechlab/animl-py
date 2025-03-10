@@ -19,7 +19,14 @@ def get_animals(manifest):
 
 def get_animals_custom(manifest):
     """
-    Gets classifications and not just detection"""
+    Pulls MD animal custom detections for classification
+
+    Args:
+        - manifest: DataFrame containing one row for ever MD detection
+
+    Returns:
+        subset of manifest containing only animal detections
+    """
     if not isinstance(manifest, pd.DataFrame):
         raise AssertionError("'manifest' must be DataFrame.")
     #if zero empty else string of detection

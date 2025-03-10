@@ -7,6 +7,7 @@ import pandas as pd
 from ultralytics import YOLO
 
 class CustomYOLO:
+    """ Custom YOLO class for image detection"""
     def __init__(self, config_path="custom_yolo.yaml", device="cpu"):
         """
         Initializes YOLO with settings from a configuration file.
@@ -26,7 +27,8 @@ class CustomYOLO:
     def detect_batch(self, image_input=None):
         """
         Runs YOLO on a batch of images.
-        - image_input can be a folder path (str) or a DataFrame.
+        - Inputs: image_input can be a folder path (str) or a DataFrame.
+        - Outputs: a list of dictionaries with image file paths and detections
         """
         # Load settings from YAML config
         confidence_threshold = self.config["detection"]["confidence_threshold"]
