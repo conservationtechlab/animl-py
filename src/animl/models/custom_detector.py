@@ -15,8 +15,8 @@ class CustomYOLO:
         with open(config_path, "r") as f:
             self.config = yaml.safe_load(f)
 
-        model_path = self.config["model"]["model_path"]
-        self.device = self.config["model"]["device"]
+        model_path = self.config["detector_file"]
+        self.device = self.config["device"]
         
         try:
             self.model = YOLO(model_path)  # Load the YOLO model
@@ -24,17 +24,13 @@ class CustomYOLO:
         except Exception as e:
             raise ValueError(f"Failed to load the YOLO model from {model_path}: {e}")
 
-    def detect_batch(self, image_input=None):
+    def detect_batch(self, image_input=None,image_size = None):
         """
         Runs YOLO on a batch of images.
         - Inputs: image_input can be a folder path (str) or a DataFrame.
         - Outputs: a list of dictionaries with image file paths and detections
         """
-        # Load settings from YAML config
-        confidence_threshold = self.config["detection"]["confidence_threshold"]
-        checkpoint_path = self.config["batch_processing"]["checkpoint_path"]
-        checkpoint_frequency = self.config["batch_processing"]["checkpoint_frequency"]
-        quiet = self.config["logging"]["quiet"]
+
 
 
         if image_input is None:
@@ -60,22 +56,21 @@ class CustomYOLO:
         else:
             raise ValueError("Invalid input: image_input must be a folder path, DataFrame, or a list.")
 
-        # Continue with the detection...
         results = []
-        for image_file in tqdm(image_file_names, disable=quiet):
+        for image_file in tqdm(image_file_names):
             try:
-                prediction = self.model.predict(image_file, verbose=not quiet)
+                prediction = self.model.predict(image_file)
                 detections = [
                     {
                         "class": int(box.cls.item()),
                         "conf": float(box.conf.item()),
-                        "bbox1": float(box.xywh[0][0].item()),  # X-center
-                        "bbox2": float(box.xywh[0][1].item()),  # Y-center
-                        "bbox3": float(box.xywh[0][2].item()),  # Width
-                        "bbox4": float(box.xywh[0][3].item())   # Height
+                        "bbox1": float(box.xyxy[0][0].item()), 
+                        "bbox2": float(box.xyxy[0][1].item()),  
+                        "bbox3": float(box.xyxy[0][2].item()),  ##can be changed to xywh
+                        "bbox4": float(box.xyxy[0][3].item())   
                     }
                     for box in prediction[0].boxes
-                    if box.conf.item() >= confidence_threshold
+                    if box.conf.item() >= 0.01
                 ]
 
                 results.append({"file": image_file, "detections": detections})
@@ -83,5 +78,5 @@ class CustomYOLO:
             except Exception as e:
                 print(f"Detection failed for image {image_file}: {e}")
                 print(f"Error occurred at line: {e.__traceback__.tb_lineno}")
-
+    
         return results

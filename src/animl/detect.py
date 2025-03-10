@@ -170,7 +170,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     return results
 
 
-def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame"):
+def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame",yolo_version='v5'):
     """
     Converts numerical output from classifier to common name species label
 
@@ -226,10 +226,10 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, fi
                     data = {'file': frame['file'],
                             'max_detection_conf': frame['max_detection_conf'],
                             'category': detection['category'], 'conf': detection['conf'],
-                            'bbox1': detection['bbox1'],
-                            'bbox2': detection['bbox2'],
-                            'bbox3': detection['bbox3'],
-                            'bbox4': detection['bbox4']}
+                            'bbox1': min(max(detection['bbox1'], buffer), 1 - buffer),
+                            'bbox2': min(max(detection['bbox2'], buffer), 1 - buffer),
+                            'bbox3': min(max(detection['bbox3'], buffer), 1 - buffer),
+                            'bbox4': min(max(detection['bbox4'], buffer), 1 - buffer)}
                     lst.append(data)
 
     df = pd.DataFrame(lst)
@@ -242,7 +242,7 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, fi
 
     return df
 
-def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame"):
+def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", convert =True):
     """
     Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
 
@@ -319,6 +319,11 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
                         'bbox3': detection['bbox3'],
                         'bbox4': detection['bbox4'],
                     }
+                    if convert:
+                        image_size = get_image_size(frame['file'])
+                        data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4'] = absolute2relative(
+                            [data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4']], image_size
+                        )
                     lst.append(data)
 
     # Create DataFrame from the parsed data
@@ -333,3 +338,35 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
         file_management.save_data(df, out_file)
 
     return df
+def get_image_size(image_path):
+    """
+    Returns the size of an image.
+
+    Args:
+        image_path (str): Path to the image file.
+
+    Returns:
+        tuple: Image size in the format (width, height).
+    """
+    with Image.open(image_path) as img:
+        return img.size
+def absolute2relative(bbox, img_size):
+    """
+    Converts absolute bounding box coordinates to relative coordinates.
+
+    Args:
+        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
+        img_size (tuple): Image size in the format (width, height).
+
+    Returns:
+        list: Bounding box coordinates in the format [x_center, y_center, width, height].
+    """
+    x_min, y_min, width, height = bbox
+    img_width, img_height = img_size
+
+    x_center = (x_min + width / 2) / img_width
+    y_center = (y_min + height / 2) / img_height
+    width /= img_width
+    height /= img_height
+
+    return [x_center, y_center, width, height]
