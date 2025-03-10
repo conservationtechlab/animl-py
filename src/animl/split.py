@@ -31,11 +31,18 @@ def get_animals_custom(manifest, prediction_dict=None):
         raise AssertionError("'manifest' must be DataFrame.")
     #if zero empty else string of detection
     #TODO replace with dictionary owl example right now
-    manifest['prediction'] = manifest['category'].astype(int)
-    manifest['prediction'] = manifest['prediction'].replace(0, "empty")
-    manifest['prediction'] = manifest['prediction'].replace(4, "adult owl")
-    manifest['prediction'] = manifest['prediction'].replace(5, "juv owl")
-    manifest['confidence'] = manifest['conf']
+    if prediction_dict is None:
+        manifest['prediction'] = manifest['category'].astype(int)
+        manifest['prediction'] = manifest['prediction'].replace(0, "empty")
+        manifest['prediction'] = manifest['prediction'].replace(4, "adult owl")
+        manifest['prediction'] = manifest['prediction'].replace(5, "juv owl")
+        manifest['confidence'] = manifest['conf']
+    else:
+        manifest['prediction'] = manifest['category'].astype(int)
+        manifest['prediction'] = manifest['prediction'].replace(0, "empty")
+        for key, value in prediction_dict.items():
+            manifest['prediction'] = manifest['prediction'].replace(key, value)
+        manifest['confidence'] = manifest
     return manifest
 
 def get_empty(manifest):

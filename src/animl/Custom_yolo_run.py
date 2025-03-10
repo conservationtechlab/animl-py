@@ -141,7 +141,9 @@ def main_config(config):
 
         # merge animal and empty, create symlinks
         print("Concatenating animal and empty dataframes...")
-        animals = split.get_animals_custom(detections)
+
+        prediction_dict = {0: 'empty', 1: 'animal', 2: 'human', 3: 'vehicle'} ##FIX
+        animals = split.get_animals_custom(detections, prediction_dict)
         #animals = split.get_animals(detections)
         empty = split.get_empty(detections)
 
