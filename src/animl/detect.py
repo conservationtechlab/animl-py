@@ -305,10 +305,6 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
             # Process each detection
             for detection in detections:
                 if detection['conf'] > threshold:
-                    if detection['class'] ==0: 
-                        detection['class'] = 4
-                    elif detection['class'] ==1:
-                        detection['class'] = 5
                     data = {
                         'file': frame['file'],
                         'max_detection_conf': max(d['conf'] for d in detections),  # Maximum confidence for the frame

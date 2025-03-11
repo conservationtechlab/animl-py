@@ -19,3 +19,5 @@ image_dir: "/home/mamani/animl-py/examples/Southwest"  # Default folder for imag
 output_folder: "output/"  # Folder to save results
 
 sort: True
+prediction_file: None
+

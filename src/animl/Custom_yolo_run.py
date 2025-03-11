@@ -68,7 +68,7 @@ def main_paths(image_dir: str,
         print("Extracting animal detections...")
         animals = split.get_animals_custom(detections)
         #animals = split.get_animals(detections)
-        empty = split.get_empty(detections)
+        empty = split.get_empty_custom(detections)
         # merge animal and empty, create symlinks
         print("Concatenating animal and empty dataframes...")
         manifest = animals
@@ -133,26 +133,27 @@ def main_config(config):
         detections = detector.detect_batch(all_frames)
         detections = detect.parse_YOLO(detections, manifest=all_frames, out_file=working_dir.detections)
 
-        # Extract animal detections from the rest
-        print("Extracting animal detections...")
-        animals = split.get_animals_custom(detections)
-        empty = split.get_empty(detections)
-
-
         # merge animal and empty, create symlinks
         print("Concatenating animal and empty dataframes...")
-
-        prediction_dict = {0: 'empty', 1: 'animal', 2: 'human', 3: 'vehicle'} ##FIX
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        prediction_file = cfg.get('prediction_file', None)
+        if prediction_file == "None":
+            prediction_file = os.path.join(script_dir, "models", "custom_yolo_classes.csv")
+        else:
+            prediction_file = os.path.join(script_dir, prediction_file)
+        prediction_dict = pd.read_csv(prediction_file, header=None, index_col=0).to_dict()[1]
+        del prediction_dict['id']
         animals = split.get_animals_custom(detections, prediction_dict)
         #animals = split.get_animals(detections)
-        empty = split.get_empty(detections)
+        empty = split.get_empty_custom(detections)
 
-        manifest = animals
-        manifest['confidence'] = manifest['conf']
-        sort = cfg.get('sort', True)
-        if sort:
-            manifest = link.sort_species(manifest, working_dir.linkdir)
+        manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+        if cfg.get('sort', False):
+            manifest = link.sort_species(manifest, cfg.get('link_dir', working_dir.linkdir),
+                                        copy=cfg.get('copy', False))
+
         file_management.save_data(manifest, working_dir.results)
+    print("Final Results in " + str(working_dir.results))
 
     return manifest
 

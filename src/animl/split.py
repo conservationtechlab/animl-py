@@ -17,33 +17,60 @@ def get_animals(manifest):
         raise AssertionError("'manifest' must be DataFrame.")
     return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
 
+import pandas as pd
+
 def get_animals_custom(manifest, prediction_dict=None):
     """
-    Pulls MD animal custom detections for classification
+    Pulls MD animal custom detections for classification.
 
     Args:
-        - manifest: DataFrame containing one row for ever MD detection
+        manifest (pd.DataFrame): DataFrame containing one row for every MD detection.
+        prediction_dict (dict, optional): Mapping for converting detection category numbers to labels.
 
     Returns:
-        subset of manifest containing only animal detections
+        pd.DataFrame: Subset of manifest containing only animal detections.
     """
     if not isinstance(manifest, pd.DataFrame):
         raise AssertionError("'manifest' must be DataFrame.")
-    #if zero empty else string of detection
-    #TODO replace with dictionary owl example right now
+
+    # Convert 'category' to integer.
+    manifest['prediction'] = manifest['category'].astype(int)
+
+    # Apply mapping based on prediction_dict if provided; otherwise use a default mapping.
     if prediction_dict is None:
-        manifest['prediction'] = manifest['category'].astype(int)
-        manifest['prediction'] = manifest['prediction'].replace(0, "empty")
-        manifest['prediction'] = manifest['prediction'].replace(4, "adult owl")
-        manifest['prediction'] = manifest['prediction'].replace(5, "juv owl")
-        manifest['confidence'] = manifest['conf']
+        default_mapping = {0: "empty", 1: "adult owl", 2: "juv owl"}
+        manifest['prediction'] = manifest['prediction'].replace(default_mapping)
     else:
-        manifest['prediction'] = manifest['category'].astype(int)
-        manifest['prediction'] = manifest['prediction'].replace(0, "empty")
-        for key, value in prediction_dict.items():
-            manifest['prediction'] = manifest['prediction'].replace(key, value)
-        manifest['confidence'] = manifest
+        mapping = {int(k): v for k, v in prediction_dict.items()}
+        manifest['prediction'] = manifest['prediction'].replace(mapping)
+    manifest['prediction'] = manifest['prediction'].astype(str)
+
+    manifest.loc[manifest['max_detection_conf'].isna(), 'prediction'] = "empty"
+    animal_manifest = manifest[manifest['prediction'] != "empty"].reset_index(drop=True)
+    
+    return animal_manifest
+
+
+def get_empty_custom(manifest):
+    """
+    Pulls MD non-animal detections.
+
+    Args:
+        manifest (pd.DataFrame): DataFrame containing one row for every MD detection.
+
+    Returns:
+        pd.DataFrame: Subset of manifest containing empty, vehicle, and human detections,
+                      with added 'prediction' and 'confidence' columns. If a detection has no
+                      confidence value, it is labeled as "empty".
+    """
+    if not isinstance(manifest, pd.DataFrame):
+        raise AssertionError("'manifest' must be DataFrame.")
+
+    # If the confidence value is missing (NaN), treat that detection as "empty".
+    manifest.loc[manifest['max_detection_conf'].isna(), 'prediction'] = "empty"
+
     return manifest
+
 
 def get_empty(manifest):
     """

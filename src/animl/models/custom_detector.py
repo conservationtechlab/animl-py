@@ -24,6 +24,7 @@ class CustomYOLO:
         except Exception as e:
             raise ValueError(f"Failed to load the YOLO model from {model_path}: {e}")
 
+    #TODO try to feed it from the manifest
     def detect_batch(self, image_input=None,image_size = None):
         """
         Runs YOLO on a batch of images.
