@@ -17,6 +17,7 @@ def get_animals(manifest):
         raise AssertionError("'manifest' must be DataFrame.")
     return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
 
+
 def get_animals_custom(manifest, prediction_dict=None):
     """
     Pulls MD animal custom detections for classification.
@@ -45,7 +46,6 @@ def get_animals_custom(manifest, prediction_dict=None):
 
     manifest.loc[manifest['max_detection_conf'].isna(), 'prediction'] = "empty"
     animal_manifest = manifest[manifest['prediction'] != "empty"].reset_index(drop=True)
-    
     return animal_manifest
 
 

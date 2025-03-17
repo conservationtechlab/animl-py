@@ -142,7 +142,7 @@ class MiewGenerator(Dataset):
         self.transform = Compose([Resize((self.resize_height, self.resize_width)),
                                   ToTensor(),
                                   Normalize(mean=[0.485, 0.456, 0.406],
-                                            std=[0.229, 0.224, 0.225]),])
+                                            std=[0.229, 0.224, 0.225]), ])
 
     def __len__(self):
         return len(self.x)
@@ -215,11 +215,11 @@ class TrainGenerator(Dataset):
             self.transform = Compose([augmentations,  # augmentations
                                       RandomHorizontalFlip(p=0.5),  # random horizontal flip
                                       Resize((self.resize_height, self.resize_width)),
-                                      ToTensor(),])
+                                      ToTensor(), ])
         else:
             self.transform = Compose([RandomHorizontalFlip(p=0.5),  # random horizontal flip
                                       Resize((self.resize_height, self.resize_width)),
-                                      ToTensor(),])
+                                      ToTensor(), ])
         self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
 
     def __len__(self):

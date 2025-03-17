@@ -168,7 +168,7 @@ def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint
     return results
 
 
-def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame",yolo_version='v5'):
+def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", yolo_version='v5'):
     """
     Converts numerical output from classifier to common name species label
 
@@ -240,7 +240,8 @@ def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, fi
 
     return df
 
-def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", convert =True):
+
+def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", convert=True):
     """
     Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
 
@@ -332,6 +333,8 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
         file_management.save_data(df, out_file)
 
     return df
+
+
 def get_image_size(image_path):
     """
     Returns the size of an image.
@@ -344,6 +347,8 @@ def get_image_size(image_path):
     """
     with Image.open(image_path) as img:
         return img.size
+
+
 def absolute2relative(bbox, img_size):
     """
     Converts absolute bounding box coordinates to relative coordinates.

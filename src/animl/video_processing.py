@@ -26,7 +26,7 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
     filename, extension = os.path.splitext(filename)
     uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
     frames_saved = []
-    #Typechecking FPS
+    # Typechecking FPS
     if fps == 'None':
         fps = None
     if fps is None:  # select set number of frames

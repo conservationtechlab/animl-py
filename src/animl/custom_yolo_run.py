@@ -22,6 +22,7 @@ from animl.utils.torch_utils import get_device
 from animl.models import custom_detector
 import typing
 
+
 def main_paths(image_dir: str,
                detector_file: str,
                class_list: typing.List[str],
@@ -66,8 +67,6 @@ def main_paths(image_dir: str,
         print("USING CUSTOM YOLO DETECTOR")
         print("Extracting animal detections...")
         animals = split.get_animals_custom(detections)
-        #animals = split.get_animals(detections)
-        #empty = split.get_empty_custom(detections)
         # merge animal and empty, create symlinks
         print("Concatenating animal and empty dataframes...")
         manifest = animals
@@ -76,7 +75,6 @@ def main_paths(image_dir: str,
             manifest = link.sort_species(manifest, working_dir.linkdir)
         file_management.save_data(manifest, working_dir.results)
     return manifest
-
 
 
 def main_config(config):
@@ -116,8 +114,8 @@ def main_config(config):
     # Video-processing to extract individual frames as images in to directory
     print("Processing videos...")
     fps = cfg.get('fps', None)
-    if fps == "None":  
-        fps = None 
+    if fps == "None":
+        fps = None
     all_frames = video_processing.extract_frames(files, out_dir=working_dir.vidfdir,
                                                  out_file=working_dir.imageframes,
                                                  parallel=cfg.get('parallel', True),
@@ -125,8 +123,6 @@ def main_config(config):
 
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
-
-
     else:
         detector = custom_detector.CustomYOLO(device=device, config_path=config)
         detections = detector.detect_batch(all_frames)
@@ -143,17 +139,15 @@ def main_config(config):
         prediction_dict = pd.read_csv(prediction_file, header=None, index_col=0).to_dict()[1]
         del prediction_dict['id']
         animals = split.get_animals_custom(detections, prediction_dict)
-        #animals = split.get_animals(detections)
+        # animals = split.get_animals(detections)
         empty = split.get_empty_custom(detections)
 
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
         if cfg.get('sort', False):
-            manifest = link.sort_species(manifest, cfg.get('link_dir', working_dir.linkdir),
-                                        copy=cfg.get('copy', False))
+            manifest = link.sort_species(manifest, cfg.get('link_dir', working_dir.linkdir), copy=cfg.get('copy', False))
 
         file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
-
     return manifest
 
 
@@ -185,7 +179,6 @@ else:
             print('Saving to', home)
             wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt',
                           out=home)
-
 
     if not os.path.isfile(args.classlist):
         prompt = "Class list not found, would you like to download Southwest_v3? y/n: "

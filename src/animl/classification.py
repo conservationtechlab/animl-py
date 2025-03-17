@@ -20,6 +20,7 @@ from animl import generator, file_management, split
 from animl.models.species import EfficientNet, ConvNeXtBase
 from animl.utils.torch_utils import get_device
 
+
 def softmax(x):
     '''
     Helper function to softmax
