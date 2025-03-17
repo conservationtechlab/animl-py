@@ -18,7 +18,7 @@ def get_animals(manifest):
     return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
 
 
-def get_animals_custom(manifest, prediction_dict=None):
+def get_animals_custom(manifest, prediction_dict):
     """
     Pulls MD animal custom detections for classification.
 
@@ -34,14 +34,8 @@ def get_animals_custom(manifest, prediction_dict=None):
 
     # Convert 'category' to integer.
     manifest['prediction'] = manifest['category'].astype(int)
-
-    # Apply mapping based on prediction_dict if provided; otherwise use a default mapping.
-    if prediction_dict is None:
-        default_mapping = {0: "empty", 1: "adult owl", 2: "juv owl"}
-        manifest['prediction'] = manifest['prediction'].replace(default_mapping)
-    else:
-        mapping = {int(k): v for k, v in prediction_dict.items()}
-        manifest['prediction'] = manifest['prediction'].replace(mapping)
+    mapping = {int(k): v for k, v in prediction_dict.items()}
+    manifest['prediction'] = manifest['prediction'].replace(mapping)
     manifest['prediction'] = manifest['prediction'].astype(str)
 
     manifest.loc[manifest['max_detection_conf'].isna(), 'prediction'] = "empty"
