@@ -1,6 +1,6 @@
 
 
-detector_file: "/home/mamani/animl-py/models/best_Custom.pt"  # Path to the trained YOLO model. The best_Custom.pt is V8
+detector_file: "/home/usr/animl-py/models/best_Custom.pt"  # Path to the trained YOLO model. The best_Custom.pt is V8
 device: "cuda"  # Change to "cuda" if using a GPU
 
 confidence_threshold: 0.1  # Minimum confidence to keep a detection
@@ -13,7 +13,7 @@ checkpoint_frequency: 100  # Save a checkpoint every N images (-1 to disable)
 
 quiet: false  # Set to true to disable progress bar and logging
 
-image_dir: "/home/mamani/animl-py/examples/Southwest"  # Default folder for images
+image_dir: "/home/usr/animl-py/examples/Southwest"  # Default folder for images
 output_folder: "output/"  # Folder to save results
 
 sort: True
