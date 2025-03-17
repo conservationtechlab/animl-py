@@ -9,7 +9,7 @@ import torch
 import cv2
 import numpy as np
 
-from .general import LOGGER, check_version, colorstr, resample_segments, segment2box
+from animl.utils.general import LOGGER, check_version, colorstr, resample_segments, segment2box
 
 
 class Albumentations:

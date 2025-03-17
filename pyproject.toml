@@ -1,6 +1,6 @@
 [project]
 name = "animl"  
-version = "1.4.0"
+version = "1.4.7"
 description = "Tools for classifying camera trap images"  
 
 readme = "README.md" 
@@ -25,7 +25,6 @@ dependencies = [
     "tqdm>=4.66.4", 
     "wget>=3.2"
 ]
-
 
 [project.urls]  # Optional
 "Homepage" = "https://github.com/conservationtechlab/animl-py"

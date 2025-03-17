@@ -5,10 +5,16 @@ from random import randrange
 import multiprocessing as mp
 import pandas as pd
 from numpy import vstack
+from pathlib import Path
+from typing import Optional, Union, List
+
 from animl import file_management
 
 
-def extract_frame_single(file_path, out_dir, fps=None, frames=None):
+def extract_frame_single(file_path: Union[str, pd.DataFrame],
+                         out_dir: str,
+                         fps: Optional[float] = None,
+                         frames: Optional[int] = None) -> pd.DataFrame:
     """
     Extract frames from video for classification
 
@@ -21,11 +27,22 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
     Return
         - frames_saved: dataframe of still frames for each video
     """
+    # Typechecking
+    if frames is None and fps is None:
+        raise ValueError("Either fps or frames must be specified")
+
+    # File and Directory Validation
+    if not Path(file_path).is_file():
+        raise FileNotFoundError(f"Video file {file_path} does not exist")
+    if not Path(out_dir).is_dir():
+        raise NotADirectoryError(f"Output directory {out_dir} does not exist")
+
     cap = cv2.VideoCapture(file_path)
     filename = os.path.basename(file_path)
     filename, extension = os.path.splitext(filename)
     uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
     frames_saved = []
+   
     # Typechecking FPS
     if fps == 'None':
         fps = None
@@ -66,8 +83,15 @@ def extract_frame_single(file_path, out_dir, fps=None, frames=None):
         return frames_saved
 
 
-def extract_frames(files, out_dir, out_file=None, fps=None, frames=None, file_col="FilePath",
-                   parallel=False, workers=mp.cpu_count(), checkpoint=1000):
+def extract_frames(files: Union[str, pd.DataFrame, List[str]],
+                   out_dir: str,
+                   out_file: Optional[str] = None,
+                   fps: Optional[float] = None,
+                   frames: Optional[int] = None,
+                   file_col: str = "FilePath",
+                   parallel: bool = False,
+                   workers: int = mp.cpu_count(),
+                   checkpoint: int = 1000):
     """
     Extract frames from video for classification
 
@@ -100,6 +124,7 @@ def extract_frames(files, out_dir, out_file=None, fps=None, frames=None, file_co
     images = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin([".jpg", ".jpeg", ".png"])]
     images = images.assign(Frame=images[file_col])
+    images = images.assign(FrameNumber=0)
 
     videos = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",

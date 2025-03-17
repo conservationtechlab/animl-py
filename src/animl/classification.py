@@ -17,7 +17,7 @@ import torch.onnx
 import onnxruntime
 
 from animl import generator, file_management, split
-from animl.models.species import EfficientNet, ConvNeXtBase
+from animl.species import EfficientNet, ConvNeXtBase
 from animl.utils.torch_utils import get_device
 
 
@@ -120,14 +120,15 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
                 model = EfficientNet(len(classes), tune=False)
-                checkpoint = torch.load(model_path, map_location=device)
+                # TODO: torch 2.6 defaults to weights_only = True
+                checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()
                 model.framework = "EfficientNet"
             elif architecture == "convnext_base":
                 model = ConvNeXtBase(len(classes), tune=False)
-                checkpoint = torch.load(model_path, map_location=device)
+                checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()
@@ -169,7 +170,7 @@ def tensor_to_onnx(tensor, channel_last=True):
     return tensor
 
 
-def predict_species(detections, model, classes, device='cpu', out_file=None, raw=False,
+def predict_species(detections, model, classes, device=None, out_file=None, raw=False,
                     file_col='Frame', crop=True, resize_width=299, resize_height=299,
                     normalize=True, batch_size=1, workers=1):
     """
@@ -193,8 +194,21 @@ def predict_species(detections, model, classes, device='cpu', out_file=None, raw
     Returns
         - detections (pd.DataFrame): MD detections with classifier prediction and confidence
     """
+    # Typechecking
+    if not isinstance(detections, pd.DataFrame):
+        raise TypeError(f"Expected pd.Dataframe for detecionts, got {type(detections)}")
+    if not isinstance(classes, pd.DataFrame):
+        raise TypeError(f"Expected pd.Dataframe for classes, got {type(classes)}")
+
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
+    
+    if not torch.cuda.is_available():
+        device = 'cpu'
+    elif torch.cuda.is_available() and device is None:
+        device = 'cuda:0'
+    else:
+        device = device
 
     if isinstance(detections, pd.DataFrame):
         # initialize lists
@@ -216,7 +230,7 @@ def predict_species(detections, model, classes, device='cpu', out_file=None, raw
                     data = data.to(device)
                     output = model(data)
                     if raw:
-                        raw_output.extend(output.cpu().detach().numpy())
+                        raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
 
                     labels = torch.argmax(output, dim=1).cpu().detach().numpy()
                     pred = classes['Code'].values[labels]
@@ -231,7 +245,7 @@ def predict_species(detections, model, classes, device='cpu', out_file=None, raw
                     data = tensor_to_onnx(data)
                     output = model.run(None, {model.get_inputs()[0].name: data})[0]
                     if raw:
-                        raw_output.extend(output)
+                        raw_output.extend(softmax(output))
 
                     labels = np.argmax(output, axis=1)
                     pred = classes['Code'].values[labels]

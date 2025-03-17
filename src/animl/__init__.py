@@ -6,9 +6,11 @@ from animl import generator
 from animl import link
 from animl import models
 from animl import multi_species
+from animl import pipeline
 from animl import plot_boxes
 from animl import reid
 from animl import sequence_classification
+from animl import species
 from animl import split
 from animl import test
 from animl import train
@@ -44,6 +46,7 @@ from animl.models import (AutoShape, Bottleneck, BottleneckCSP, C3, C3Ghost,
                           megadetector, parse_model, truncate_float,
                           truncate_float_array, yolo,)
 from animl.multi_species import (multi_species_detection,)
+from animl.pipeline import (from_config, from_paths,)
 from animl.plot_boxes import (demo_boxes, draw_bounding_boxes, main,
                               plot_all_bounding_boxes,)
 from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
@@ -53,9 +56,10 @@ from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         miewid, viewpoint, weights_init_classifier,
                         weights_init_kaiming,)
 from animl.sequence_classification import (sequence_classification,)
+from animl.species import (ConvNeXtBase, EfficientNet,)
 from animl.split import (get_animals, get_empty, train_val_test,)
-from animl.test import (main, test,)
-from animl.train import (init_seed, main, train, validate,)
+from animl.test import (main, test_func,)
+from animl.train import (init_seed, main, train_func, validate,)
 from animl.utils import (AUTOINSTALL, Albumentations, BAR_FORMAT, CONFIG_DIR,
                          DATASETS_DIR, EarlyStopping, FILE, FONT, HELP_URL,
                          IMG_FORMATS, InfiniteDataLoader, LOCAL_RANK, LOGGER,
@@ -100,11 +104,12 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'ArcMarginProduct_subcenter', 'AutoShape', 'BAR_FORMAT',
            'Bottleneck', 'BottleneckCSP', 'C3', 'C3Ghost', 'C3SPP', 'C3TR',
            'C3x', 'CONFIG_DIR', 'CONF_DIGITS', 'COORD_DIGITS', 'Classify',
-           'Concat', 'Contract', 'Conv', 'CrossConv', 'DATASETS_DIR', 'DWConv',
-           'DWConvTranspose2d', 'Detect', 'DetectMultiBackend', 'Detections',
-           'EarlyStopping', 'ElasticArcFace', 'Expand', 'FILE', 'FONT',
-           'Focus', 'GeM', 'GhostBottleneck', 'GhostConv', 'HELP_URL',
-           'IMAGE_HEIGHT', 'IMAGE_WIDTH', 'IMG_FORMATS', 'ImageGenerator',
+           'Concat', 'Contract', 'Conv', 'ConvNeXtBase', 'CrossConv',
+           'DATASETS_DIR', 'DWConv', 'DWConvTranspose2d', 'Detect',
+           'DetectMultiBackend', 'Detections', 'EarlyStopping', 'EfficientNet',
+           'ElasticArcFace', 'Expand', 'FILE', 'FONT', 'Focus', 'GeM',
+           'GhostBottleneck', 'GhostConv', 'HELP_URL', 'IMAGE_HEIGHT',
+           'IMAGE_WIDTH', 'IMG_FORMATS', 'ImageGenerator',
            'InfiniteDataLoader', 'LOCAL_RANK', 'LOGGER', 'LoadImages',
            'LoadImagesAndLabels', 'LoadStreams', 'LoadWebcam', 'MegaDetector',
            'MiewGenerator', 'MiewIdNet', 'Model', 'ModelEMA', 'NCOLS',
@@ -130,11 +135,12 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'draw_bounding_boxes', 'emojis', 'exif_size', 'exif_transpose',
            'extract_boxes', 'extract_frame_single', 'extract_frames',
            'file_age', 'file_date', 'file_management', 'file_size',
-           'find_modules', 'fitness', 'flatten_recursive', 'fuse_conv_and_bn',
-           'general', 'generator', 'get_animals', 'get_device', 'get_empty',
-           'get_hash', 'get_latest_run', 'git_describe', 'gsutil_getsize',
-           'heads', 'hist_equalize', 'img2label_paths', 'imread', 'imshow',
-           'imshow_', 'imwrite', 'increment_path', 'init_seed', 'init_seeds',
+           'find_modules', 'fitness', 'flatten_recursive', 'from_config',
+           'from_paths', 'fuse_conv_and_bn', 'general', 'generator',
+           'get_animals', 'get_device', 'get_empty', 'get_hash',
+           'get_latest_run', 'git_describe', 'gsutil_getsize', 'heads',
+           'hist_equalize', 'img2label_paths', 'imread', 'imshow', 'imshow_',
+           'imwrite', 'increment_path', 'init_seed', 'init_seeds',
            'initialize_weights', 'intersect_dicts', 'is_ascii', 'is_chinese',
            'is_colab', 'is_docker', 'is_kaggle', 'is_parallel', 'is_pip',
            'is_writeable', 'l2_norm', 'labels_to_class_weights',
@@ -143,22 +149,22 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'matchypatchy', 'megadetector', 'methods', 'miew_embedding',
            'miewid', 'mixup', 'model_info', 'models', 'multi_species',
            'multi_species_detection', 'non_max_suppression', 'one_cycle',
-           'parse_MD', 'parse_model', 'plot_all_bounding_boxes', 'plot_boxes',
-           'predict_species', 'print_args', 'print_mutation', 'process_image',
-           'process_videos', 'profile', 'prune', 'random_perspective', 'reid',
-           'reid_dataloader', 'remove_link', 'replicate', 'resample_segments',
-           'save_data', 'save_model', 'scale_coords', 'scale_img',
-           'segment2box', 'segments2boxes', 'select_device',
-           'sequence_classification', 'set_logging', 'softmax', 'sort_MD',
-           'sort_species', 'sparsity', 'split', 'strip_optimizer',
-           'tensor_to_onnx', 'test', 'threaded', 'time_sync', 'timelapse',
+           'parse_MD', 'parse_model', 'pipeline', 'plot_all_bounding_boxes',
+           'plot_boxes', 'predict_species', 'print_args', 'print_mutation',
+           'process_image', 'process_videos', 'profile', 'prune',
+           'random_perspective', 'reid', 'reid_dataloader', 'remove_link',
+           'replicate', 'resample_segments', 'save_data', 'save_model',
+           'scale_coords', 'scale_img', 'segment2box', 'segments2boxes',
+           'select_device', 'sequence_classification', 'set_logging',
+           'softmax', 'sort_MD', 'sort_species', 'sparsity', 'species',
+           'split', 'strip_optimizer', 'tensor_to_onnx', 'test', 'test_func',
+           'threaded', 'time_sync', 'timelapse',
            'torch_distributed_zero_first', 'torch_utils', 'train',
-           'train_dataloader', 'train_val_test', 'truncate_float',
-           'truncate_float_array', 'try_except', 'update_labels',
-           'upload_to_Zooniverse', 'upload_to_Zooniverse_Simple', 'url2file',
-           'user_config_dir', 'utils', 'validate', 'verify_image_label',
-           'video_processing', 'viewpoint', 'viewpoint_estimator',
-           'weights_init_classifier', 'weights_init_kaiming', 'xyn2xy',
-           'xywh2xyxy', 'xywhn2xyxy', 'xyxy2xywh', 'xyxy2xywhn', 'yolo',
-           'zooniverse']
-
+           'train_dataloader', 'train_func', 'train_val_test',
+           'truncate_float', 'truncate_float_array', 'try_except',
+           'update_labels', 'upload_to_Zooniverse',
+           'upload_to_Zooniverse_Simple', 'url2file', 'user_config_dir',
+           'utils', 'validate', 'verify_image_label', 'video_processing',
+           'viewpoint', 'viewpoint_estimator', 'weights_init_classifier',
+           'weights_init_kaiming', 'xyn2xy', 'xywh2xyxy', 'xywhn2xyxy',
+           'xyxy2xywh', 'xyxy2xywhn', 'yolo', 'zooniverse']

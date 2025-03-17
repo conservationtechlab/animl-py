@@ -9,6 +9,12 @@ validate_set: "/path/to/save/validate_data.csv"
 test_set: "/path/to/save/test_data.csv"
 class_file: "/home/usr/machinelearning/Models/Animl-Test/test_classes.txt" 
 
+# CSV Column Selection
+file_col: 'FilePath'
+label_col: 'Species'
+class_list_index: 'id'
+class_list_label: 'class'
+
 # training hyperparameters
 architecture: "efficientnet_v2_m" # or choose "convnext_base"
 image_size: [299, 299]
@@ -18,6 +24,7 @@ checkpoint_frequency: 10
 patience: 10 
 learning_rate: 0.003
 weight_decay: 0.001
+augment: True
 
 # overwrite .pt files
 overwrite: False

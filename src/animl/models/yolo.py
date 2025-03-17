@@ -23,7 +23,7 @@ if str(ROOT) not in sys.path:
 if platform.system() != 'Windows':
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from .common import (Bottleneck, BottleneckCSP, C3,
+from animl.models.common import (Bottleneck, BottleneckCSP, C3,
                                  C3Ghost, C3SPP, C3TR, C3x, Concat,
                                  Contract, Conv, CrossConv, DWConv,
                                  DWConvTranspose2d, Expand, Focus, GhostBottleneck,

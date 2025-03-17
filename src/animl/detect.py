@@ -3,6 +3,7 @@
 
     Modified from https://github.com/agentmorris/MegaDetector/tree/master
 '''
+import typing
 from tqdm import tqdm
 import json
 import os
@@ -13,8 +14,12 @@ from PIL import Image
 from animl import file_management
 
 
-def process_image(im_file, detector, confidence_threshold, quiet=True,
-                  image_size=None, skip_image_resize=False):
+def process_image(im_file: str,
+                  detector: object,
+                  confidence_threshold: float,
+                  quiet: bool = True,
+                  image_size: typing.Optional[int] = None,
+                  skip_image_resize: bool = False) -> typing.Dict:
     """
     From AgentMorris/MegaDetector
     Runs MegaDetector on a single image file.
@@ -32,6 +37,11 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
         see the 'images' key in
         https://github.com/agentmorris/MegaDetector/tree/master/api/batch_processing#batch-processing-api-output-format
     """
+    if not isinstance(im_file, str):
+        raise TypeError(f"Expected str for im_file, got {type(im_file)}")
+    if not isinstance(confidence_threshold, float):
+        raise TypeError(f"Expected float for confidence_threshold, got {type(confidence_threshold)}")
+
     if not quiet:
         print('Processing image {}'.format(im_file))
     # open the file
@@ -64,8 +74,14 @@ def process_image(im_file, detector, confidence_threshold, quiet=True,
     return result
 
 
-def detect_MD_batch(detector, image_file_names, checkpoint_path=None, checkpoint_frequency=-1,
-                    confidence_threshold=0.1, quiet=True, image_size=None, file_col='Frame'):
+def detect_MD_batch(detector: object,
+                    image_file_names: typing.List[str],
+                    checkpoint_path: typing.Optional[str] = None,
+                    checkpoint_frequency: int = -1,
+                    confidence_threshold: float = 0.1,
+                    quiet: bool = True,
+                    image_size: typing.Optional[int] = None,
+                    file_col: str = 'Frame') -> typing.List[typing.Dict]:
     """
     From AgentMorris/MegaDetector
     Runs MegaDetector on a batch of image files.

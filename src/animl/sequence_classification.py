@@ -4,9 +4,18 @@
 
 import pandas as pd
 import numpy as np
+from typing import List, Optional
+
+# TODO: REALIGN WITH R VERSION
 
 
-def sequence_classification(animals, sortcolumns, predictions, species, station_name, empty=None, maxdiff=60):
+def sequence_classification(animals: pd.DataFrame,
+                            sortcolumns: List[str],
+                            predictions: np.ndarray,
+                            species: str,
+                            station_name: str,
+                            empty: Optional[pd.DataFrame] = None,
+                            maxdiff: float = 60):
 
     """
     This function applies image classifications at a sequence level by leveraging information from

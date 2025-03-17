@@ -45,7 +45,7 @@ def init_seed(seed):
         cudnn.deterministic = True
 
 
-def train(data_loader, model, optimizer, device='cpu'):
+def train_func(data_loader, model, optimizer, device='cpu'):
     '''
         Training Function
 
@@ -202,7 +202,8 @@ def main():
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
     crop = cfg.get('crop', False)
-    file_col = cfg.get('file_col', 'FilePath')
+    file_col = cfg.get('file_col', 'FilePath') 
+    label_col = cfg.get('label_col', 'species') 
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -213,7 +214,7 @@ def main():
     # initialize model and get class list
     model, classes, current_epoch = load_model(cfg['experiment_folder'], cfg['class_file'], device=device, architecture=cfg['architecture'])
 
-    categories = dict([[x["class"], x["id"]] for _, x in classes.iterrows()])
+    categories = dict([[x[cfg.get('class_list_label', 'class')], x[ cfg.get('class_list_index', 'id')]] for _, x in classes.iterrows()])
 
     # load datasets
     train_dataset = pd.read_csv(cfg['training_set']).reset_index(drop=True)
@@ -221,9 +222,9 @@ def main():
 
     # initialize data loaders for training and validation set
     dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
-                                file_col=file_col, crop=crop, augment=cfg.get('augment', False))
+                                file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True))
     dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
-                              file_col=file_col, crop=crop, augment=False)
+                              file_col=file_col, label_col=label_col, crop=crop, augment=False)
 
     # set up model optimizer
     optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
@@ -251,7 +252,7 @@ def main():
         print(f'Epoch {current_epoch}/{numEpochs}')
         print(f"Using learning rate : {scheduler.get_last_lr()[0]}")
 
-        loss_train, oa_train = train(dl_train, model, optim, device)
+        loss_train, oa_train = train_func(dl_train, model, optim, device)
         loss_val, oa_val, precision, recall = validate(dl_val, model, device)
 
         # combine stats and save

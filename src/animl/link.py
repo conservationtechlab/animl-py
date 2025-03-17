@@ -5,17 +5,21 @@
 
     @ Kyra Swanson 2023
 """
-
 import os
 import pandas as pd
 from shutil import copy2
 from random import randrange
 from pathlib import Path
+from pandas import DataFrame
 
 from animl import file_management
 
 
-def sort_species(manifest, link_dir, file_col="FilePath", unique_name='UniqueName', copy=False):
+def sort_species(manifest: DataFrame,
+                 link_dir: str,
+                 file_col: str = "FilePath",
+                 unique_name: str = 'UniqueName',
+                 copy: bool = False) -> DataFrame:
     """
     Creates symbolic links of images into species folders
 
@@ -49,15 +53,20 @@ def sort_species(manifest, link_dir, file_col="FilePath", unique_name='UniqueNam
         link = link_dir / Path(row['prediction']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
-        if copy:  # make a hard copy
-            copy2(row[file_col], link)
-        else:  # make a hard
-            os.link(row[file_col], link)
+        if not link.is_file():
+            if copy:  # make a hard copy
+                copy2(row[file_col], link)
+            else:  # make a hard
+                os.link(row[file_col], link,)
 
     return manifest
 
 
-def sort_MD(manifest, link_dir, file_col="file", unique_name='UniqueName', copy=False):
+def sort_MD(manifest: DataFrame,
+            link_dir: str,
+            file_col: str = "file",
+            unique_name: str = 'UniqueName',
+            copy: bool = False) -> DataFrame:
     """
     Creates symbolic links of images into species folders
 
@@ -91,16 +100,17 @@ def sort_MD(manifest, link_dir, file_col="file", unique_name='UniqueName', copy=
         link = link_dir / Path(row['category']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
-        if copy:  # make a hard copy
-            copy2(row[file_col], link)
-        else:  # make a hard link
-            print(f"row[file_col]: {row[file_col]}, link: {link}")
-            os.link(row[file_col], link)
+        if not link.is_file():
+            if copy:  # make a hard copy
+                copy2(row[file_col], link)
+            else:  # make a hard link
+                os.link(row[file_col], link)
 
     return manifest
 
 
-def remove_link(manifest, link_col='Link'):
+def remove_link(manifest: DataFrame,
+                link_col: str = 'Link') -> DataFrame:
     """
     Deletes symbolic links of images
 
@@ -116,7 +126,9 @@ def remove_link(manifest, link_col='Link'):
     return manifest
 
 
-def update_labels(manifest, link_dir, unique_name='UniqueName'):
+def update_labels(manifest: DataFrame,
+                  link_dir: str,
+                  unique_name: str = 'UniqueName') -> DataFrame:
     """
     Update manifest after human review of symlink directories
 

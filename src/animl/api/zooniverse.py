@@ -59,6 +59,12 @@ def copy_image(image, out_dir, image_height):
         Returns:
             - out_file: the path of the copied image for upload
     """
+    if not isinstance(image, pd.Series):
+        raise TypeError(f"Expected Pandas Series for image, got {type(image)}")
+    if not isinstance(out_dir, str):
+        raise TypeError(f"Expected string for out_dir, got {type(out_dir)}")
+    if not isinstance(image_height, int):
+        raise TypeError(f"Expected int for image_height, got {type(image_height)}")
     img = Image.open(image.FilePath)
     try:
         exif = img.info['exif']

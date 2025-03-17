@@ -40,7 +40,7 @@ class MegaDetector:
 
     @staticmethod
     def _load_model(model_pt_path, device):
-        checkpoint = torch.load(model_pt_path, map_location=device)
+        checkpoint = torch.load(model_pt_path, map_location=device, weights_only=False)
         # Compatibility fix that allows older YOLOv5 models with
         # newer versions of YOLOv5/PT
         for m in checkpoint['model'].modules():
