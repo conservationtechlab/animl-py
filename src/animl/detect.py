@@ -184,12 +184,7 @@ def detect_MD_batch(detector: object,
     return results
 
 
-def parse_MD(results: typing.List[dict],
-             manifest: typing.Optional[pd.DataFrame] = None,
-             out_file: typing.Optional[str] = None,
-             buffer: float = 0.02,
-             threshold: float = 0,
-             file_col: str = "Frame") -> pd.DataFrame:
+def parse_MD(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", yolo_version='v5'):
     """
     Converts numerical output from classifier to common name species label
 
@@ -260,3 +255,133 @@ def parse_MD(results: typing.List[dict],
         file_management.save_data(df, out_file)
 
     return df
+
+
+def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", convert=True):
+    """
+    Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
+
+    Args:
+        - results (list): YOLO detection output (list of dictionaries with detections for each file)
+        - manifest (pd.DataFrame): Full file manifest, if not None, merge YOLO predictions automatically
+        - out_file (str): Path to save the resulting DataFrame
+        - buffer (float): Adjust bbox by percentage of img size to avoid clipping out of bounds
+        - threshold (float): Parse only detections above the given confidence threshold
+        - file_col (str): Column name in the manifest to match with YOLO detection filenames
+
+    Returns:
+        - df (pd.DataFrame): Formatted YOLO outputs, one row per detection
+    """
+    # Load checkpoint if it exists
+    if file_management.check_file(out_file):
+        df = file_management.load_data(out_file)
+        already_processed = set(df['file'])
+    else:
+        df = pd.DataFrame(columns=('file', 'max_detection_conf', 'category', 'conf',
+                                   'bbox1', 'bbox2', 'bbox3', 'bbox4'))
+        already_processed = set()
+
+    # Ensure the results are in the expected format
+    if not isinstance(results, list):
+        raise AssertionError("YOLO results input must be a list.")
+
+    if len(results) == 0:
+        raise AssertionError("'results' contains no detections.")
+
+    # Parse results into a list of dictionaries
+    lst = []
+
+    for frame in tqdm(results):
+        # Skip already analyzed files
+        if frame['file'] in already_processed:
+            continue
+
+        # Extract detections for the frame
+        try:
+            detections = frame['detections']
+        except KeyError:
+            print(f"File error: {frame['file']}")
+            continue
+
+        # Handle files with no detections
+        if len(detections) == 0:
+            data = {
+                'file': frame['file'],
+                'max_detection_conf': None,
+                'category': 0,
+                'conf': None,
+                'bbox1': None,
+                'bbox2': None,
+                'bbox3': None,
+                'bbox4': None,
+            }
+            lst.append(data)
+        else:
+            # Process each detection
+            for detection in detections:
+                if detection['conf'] > threshold:
+                    data = {
+                        'file': frame['file'],
+                        'max_detection_conf': max(d['conf'] for d in detections),  # Maximum confidence for the frame
+                        'category': detection['class'],  # YOLO uses "class" for category
+                        'conf': detection['conf'],  # Confidence score
+                        'bbox1': detection['bbox1'],
+                        'bbox2': detection['bbox2'],
+                        'bbox3': detection['bbox3'],
+                        'bbox4': detection['bbox4'],
+                    }
+                    if convert:
+                        image_size = get_image_size(frame['file'])
+                        data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4'] = absolute2relative(
+                            [data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4']], image_size
+                        )
+                    lst.append(data)
+
+    # Create DataFrame from the parsed data
+    df = pd.DataFrame(lst)
+
+    # Merge with manifest if provided
+    if isinstance(manifest, pd.DataFrame):
+        df = manifest.merge(df, left_on=file_col, right_on="file")
+
+    # Save to file if specified
+    if out_file:
+        file_management.save_data(df, out_file)
+
+    return df
+
+
+def get_image_size(image_path):
+    """
+    Returns the size of an image.
+
+    Args:
+        image_path (str): Path to the image file.
+
+    Returns:
+        tuple: Image size in the format (width, height).
+    """
+    with Image.open(image_path) as img:
+        return img.size
+
+
+def absolute2relative(bbox, img_size):
+    """
+    Converts absolute bounding box coordinates to relative coordinates.
+
+    Args:
+        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
+        img_size (tuple): Image size in the format (width, height).
+
+    Returns:
+        list: Bounding box coordinates in the format [x_center, y_center, width, height].
+    """
+    x_min, y_min, width, height = bbox
+    img_width, img_height = img_size
+
+    x_center = (x_min + width / 2) / img_width
+    y_center = (y_min + height / 2) / img_height
+    width /= img_width
+    height /= img_height
+
+    return [x_center, y_center, width, height]

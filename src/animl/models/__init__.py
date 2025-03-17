@@ -1,7 +1,7 @@
 from animl.models import common
 from animl.models import megadetector
 from animl.models import yolo
-
+from animl import custom_detector
 from animl.models.common import (AutoShape, Bottleneck, BottleneckCSP, C3,
                                  C3Ghost, C3SPP, C3TR, C3x, Classify, Concat,
                                  Contract, Conv, CrossConv, DWConv,
