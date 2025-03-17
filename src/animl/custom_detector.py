@@ -1,10 +1,9 @@
 import os
-import json
 import yaml
-from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
 from ultralytics import YOLO
+
 
 class CustomYOLO:
     """ Custom YOLO class for image detection"""
@@ -17,26 +16,22 @@ class CustomYOLO:
 
         model_path = self.config["detector_file"]
         self.device = self.config["device"]
-        
+
         try:
             self.model = YOLO(model_path)  # Load the YOLO model
             self.model.to(self.device)    # Move model to device (CPU/GPU)
         except Exception as e:
             raise ValueError(f"Failed to load the YOLO model from {model_path}: {e}")
 
-    #TODO try to feed it from the manifest
-    def detect_batch(self, image_input=None,image_size = None):
+    # TODO try to feed it from the manifest
+    def detect_batch(self, image_input=None, image_size=None):
         """
         Runs YOLO on a batch of images.
         - Inputs: image_input can be a folder path (str) or a DataFrame.
         - Outputs: a list of dictionaries with image file paths and detections
         """
-
-
-
         if image_input is None:
             image_input = self.config["paths"]["image_folder"]
-
 
         if isinstance(image_input, str) and os.path.isdir(image_input):
             image_file_names = [
@@ -44,7 +39,6 @@ class CustomYOLO:
                 if f.lower().endswith(('.png', '.jpg', '.jpeg'))
             ]
             print(f'Found {len(image_file_names)} images in {image_input}')
-        
 
         elif isinstance(image_input, pd.DataFrame):
             file_col = self.config["file_col"]  # Column that stores file paths
@@ -65,10 +59,10 @@ class CustomYOLO:
                     {
                         "class": int(box.cls.item()),
                         "conf": float(box.conf.item()),
-                        "bbox1": float(box.xyxy[0][0].item()), 
-                        "bbox2": float(box.xyxy[0][1].item()),  
-                        "bbox3": float(box.xyxy[0][2].item()),  ##can be changed to xywh
-                        "bbox4": float(box.xyxy[0][3].item())   
+                        "bbox1": float(box.xyxy[0][0].item()),
+                        "bbox2": float(box.xyxy[0][1].item()),
+                        "bbox3": float(box.xyxy[0][2].item()),  # can be changed to xywh
+                        "bbox4": float(box.xyxy[0][3].item())
                     }
                     for box in prediction[0].boxes
                     if box.conf.item() >= 0.01
@@ -79,5 +73,4 @@ class CustomYOLO:
             except Exception as e:
                 print(f"Detection failed for image {image_file}: {e}")
                 print(f"Error occurred at line: {e.__traceback__.tb_lineno}")
-    
         return results
