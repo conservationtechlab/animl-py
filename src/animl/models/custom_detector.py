@@ -47,7 +47,7 @@ class CustomYOLO:
         
 
         elif isinstance(image_input, pd.DataFrame):
-            file_col = self.config["detection"]["file_col"]  # Column that stores file paths
+            file_col = self.config["file_col"]  # Column that stores file paths
             image_file_names = image_input[file_col].tolist()
             print(f'Loaded {len(image_file_names)} images from DataFrame.')
         elif isinstance(image_input, list):

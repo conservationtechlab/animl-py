@@ -17,8 +17,6 @@ def get_animals(manifest):
         raise AssertionError("'manifest' must be DataFrame.")
     return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
 
-import pandas as pd
-
 def get_animals_custom(manifest, prediction_dict=None):
     """
     Pulls MD animal custom detections for classification.
@@ -95,7 +93,6 @@ def get_empty(manifest):
         otherdf['prediction'] = otherdf['prediction'].replace(2, "human")
         otherdf['prediction'] = otherdf['prediction'].replace(3, "vehicle")
         otherdf['prediction'] = otherdf['prediction'].replace(0, "empty")
-        otherdf['prediction'] = otherdf['prediction'].replace("nan", "empty")
         otherdf['confidence'] = otherdf['conf']
 
     else:

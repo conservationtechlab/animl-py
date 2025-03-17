@@ -18,7 +18,6 @@ import torch
 import pandas as pd
 from animl import (file_management, video_processing, detect,
                    split, link)
-from animl.models import megadetector
 from animl.utils.torch_utils import get_device
 from animl.models import custom_detector
 import typing
@@ -68,7 +67,7 @@ def main_paths(image_dir: str,
         print("Extracting animal detections...")
         animals = split.get_animals_custom(detections)
         #animals = split.get_animals(detections)
-        empty = split.get_empty_custom(detections)
+        #empty = split.get_empty_custom(detections)
         # merge animal and empty, create symlinks
         print("Concatenating animal and empty dataframes...")
         manifest = animals
@@ -129,7 +128,7 @@ def main_config(config):
 
 
     else:
-        detector = custom_detector.CustomYOLO(device=device)
+        detector = custom_detector.CustomYOLO(device=device, config_path=config)
         detections = detector.detect_batch(all_frames)
         detections = detect.parse_YOLO(detections, manifest=all_frames, out_file=working_dir.detections)
 
