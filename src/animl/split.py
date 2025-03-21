@@ -46,6 +46,7 @@ def get_empty(manifest: pd.DataFrame):
         otherdf['prediction'] = otherdf['prediction'].replace(3, "vehicle")
         otherdf['prediction'] = otherdf['prediction'].replace(0, "empty")
         otherdf['confidence'] = otherdf['conf']
+        otherdf['confidence'] = otherdf['confidence'].replace(np.nan, 1) #correct empty conf
 
     else:
         otherdf = pd.DataFrame(columns=manifest.columns.values)

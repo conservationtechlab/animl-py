@@ -10,11 +10,13 @@ from typing import List, Optional
 
 
 def sequence_classification(animals: pd.DataFrame,
-                            sortcolumns: List[str],
+                            empty: pd.DataFrame,
                             predictions: np.ndarray,
-                            species: str,
-                            station_name: str,
-                            empty: Optional[pd.DataFrame] = None,
+                            classes: List[str],
+                            station_col: str,
+                            empty_class: str="empty",
+                            sort_columns: List[str]=None,
+                            file_col: str="FilePath",
                             maxdiff: float = 60):
 
     """
@@ -26,17 +28,17 @@ def sequence_classification(animals: pd.DataFrame,
 
     Parameters:
     - animals (Pandas DataFrame): Sub-selection of all images that contain animals
-    - sortcolumns (List of Strings): Defines sorting order for the DataFrame
+    - sort_columns (List of Strings): Defines sorting order for the DataFrame
     - predictions (Numpy Array of Numpy Arrays): Logits of all entries in "animals"
     - species (CSV File): File mapping index to species
-    - station_name (String): The name of the station column
+    - station_col (String): The name of the station column
     - empty (Optional) (Pandas DataFrame): Sub-selection of all images that do not contain animals
     - maxdiff (float) (Optional): Maximum time difference between any two images in a sequence
 
     Raises:
     - Exception: If 'animals' is not a pandas DataFrame
-    - Exception: If 'sortcolumns' is not a list or is empty
-    - Exception: If 'station_name' is not a string or is empty
+    - Exception: If 'sort_columns' is not a list or is empty
+    - Exception: If 'station_col' is not a string or is empty
     - Exception: If 'empty' is defined and is not a pandas DataFrame
     - Exception: If maxdiff is defined and is not a positive number
 
@@ -48,12 +50,12 @@ def sequence_classification(animals: pd.DataFrame,
     if not isinstance(animals, pd.DataFrame):
         raise Exception("'animals' must be a DataFrame")
 
-    # Sanity check to verify that sortcolumns is a non-empty list
-    if not isinstance(sortcolumns, list) or len(sortcolumns) == 0:
-        raise Exception("'sortcolumns' must be a non-empty list of strings")
+    # Sanity check to verify that sort_columns is a non-empty list
+    if not isinstance(sort_columns, list) or len(sort_columns) == 0:
+        raise Exception("'sort_columns' must be a non-empty list of strings")
 
-    if not isinstance(station_name, str) or station_name == '':
-        raise Exception("'station_name' must be a non-empty string")
+    if not isinstance(station_col, str) or station_col == '':
+        raise Exception("'station_col' must be a non-empty string")
 
     # Sanity check to verify that empty is a Pandas DataFrame, if defined
     if empty is not None and not isinstance(animals, pd.DataFrame):
@@ -63,32 +65,32 @@ def sequence_classification(animals: pd.DataFrame,
     if not isinstance(maxdiff, (int, float)) or maxdiff < 0:
         raise Exception("'maxdiff' must be a number >= 0")
 
-    # Assigning each entry its logits
-    animals['logits'] = pd.Series(predictions.tolist())
-
-    # Column to track the DataFrame of origin
-    animals['df'] = 'animals'
 
     # DataFrame to hold the merged data from animals and empty
     if empty is not None:
-        # Making the logits of empty-entries all zeros
-        zero_matrix = np.zeros((empty.shape[0], species.shape[0]))
-        empty['logits'] = pd.Series(zero_matrix.tolist())
+        empty["ID"] = range(0, empty.shape[0])
+        predempty = empty.pivot(index="ID", columns="prediction", values="confidence")
 
-        # Column to track the DataFrame of origin
-        empty['df'] = 'empty'
+        # Replace NaN with 0
+        predempty = predempty.fillna(0)
 
-        # Merging the two DataFrames
-        merged_df = pd.concat([animals, empty])
+        # Example 'predictions' shape assumption (adjust based on actual dimensions)
+        zero_matrix = np.zeros((empty.shape[0], len(classes)))
 
-    else:
-        merged_df = animals
+        # Add zero matrix to the left (like cbind in R)
+        predempty = np.hstack(zero_matrix, predempty)
+
+        # apply temporary predictions to animals
+
+
+
+
 
     # Converting FileModifyDate from a String to a datetime object
     merged_df['FileModifyDate'] = pd.to_datetime(merged_df['FileModifyDate'], format="%Y-%m-%d %H:%M:%S")
 
     # Sorting the merged data in the order specified
-    merged_df = merged_df.sort_values(by=sortcolumns)
+    merged_df = merged_df.sort_values(by=sort_columns)
 
     # DataFrame to store the final result after sequence classification
     final_df = pd.DataFrame(columns=merged_df.columns)
@@ -96,8 +98,6 @@ def sequence_classification(animals: pd.DataFrame,
     # List to store all rows which are a part of the current sequence
     curr_sequence = []
     curr_sequence_logits = []
-
-    empty_id = species.loc[species['species'] == 'empty', 'id'].iloc[0]
 
     # Iterating through all entries, one at a time
     for index, row in merged_df.iterrows():
@@ -107,7 +107,7 @@ def sequence_classification(animals: pd.DataFrame,
             curr_sequence_logits.append(row['logits'])
 
         # Check if current row is a part of the current sequence
-        elif (row[station_name] == curr_sequence[0][station_name]) and (row["FileModifyDate"] - curr_sequence[0]["FileModifyDate"]).total_seconds() <= maxdiff:
+        elif (row[station_col] == curr_sequence[0][station_col]) and (row["FileModifyDate"] - curr_sequence[0]["FileModifyDate"]).total_seconds() <= maxdiff:
             curr_sequence.append(row)
             curr_sequence_logits.append(row['logits'])
 
@@ -122,10 +122,10 @@ def sequence_classification(animals: pd.DataFrame,
             all_from_empty_df = all(element['df'] != 'animals' for element in curr_sequence)
 
             # Checking if all entries of the sequence are classified as empty
-            all_empty_id = not any(idx + 1 != empty_id for idx in max_each_row)
+            all_empty_col = not any(idx + 1 != empty_col for idx in max_each_row)
 
             # If the entire sequence is from empty dataFrame or all entries are empty, prediction becomes empty
-            if (all_from_empty_df or all_empty_id):
+            if (all_from_empty_df or all_empty_col):
                 highest_confidence_label = 'empty'
 
             # Otherwise, pick the highest non-empty prediction
@@ -137,10 +137,10 @@ def sequence_classification(animals: pd.DataFrame,
                 col_sums = np.argsort(col_sums)
 
                 # Assigning the prediction label
-                if (col_sums[-1] + 1) != empty_id:
-                    highest_confidence_label = species.loc[species['id'] == col_sums[-1] + 1, 'species'].iloc[0]
+                if (col_sums[-1] + 1) != empty_col:
+                    highest_confidence_label = classes[col_sums[-1] + 1]
                 else:
-                    highest_confidence_label = species.loc[species['id'] == col_sums[-2] + 1, 'species'].iloc[0]
+                    highest_confidence_label = classes[col_sums[-2] + 1]
 
             # Adding the sequence to final_df
             for element in curr_sequence:
@@ -151,7 +151,7 @@ def sequence_classification(animals: pd.DataFrame,
             curr_sequence = [row]
             curr_sequence_logits = [row['logits']]
 
-    # Handeling the last batch
+    # Handeling the last batch -------------------------------------------------
     matrix = np.stack(curr_sequence_logits, axis=0)
 
     # Getting the max prediction from each row, used in case when all entries are empty in sequence
@@ -161,10 +161,10 @@ def sequence_classification(animals: pd.DataFrame,
     all_from_empty_df = all(element['df'] != 'animals' for element in curr_sequence)
 
     # Checking if all entries of the sequence are classified as empty
-    all_empty_id = not any(idx + 1 != empty_id for idx in max_each_row)
+    all_empty_col = not any(idx + 1 != empty_col for idx in max_each_row)
 
     # If the entire sequence is from empty dataFrame or all entries are empty, prediction becomes empty
-    if (all_from_empty_df or all_empty_id):
+    if (all_from_empty_df or all_empty_col):
         highest_confidence_label = 'empty'
 
     # Otherwise, pick the highest non-empty prediction
@@ -176,11 +176,12 @@ def sequence_classification(animals: pd.DataFrame,
         col_sums = np.argsort(col_sums)
 
         # Assigning the prediction label
-        if (col_sums[-1] + 1) != empty_id:
-            highest_confidence_label = species.loc[species['id'] == col_sums[-1] + 1, 'species'].iloc[0]
+        if (col_sums[-1] + 1) != empty_col:
+            highest_confidence_label = classes.loc[classes['id'] == col_sums[-1] + 1, 'species'].iloc[0]
         else:
-            highest_confidence_label = species.loc[species['id'] == col_sums[-2] + 1, 'species'].iloc[0]
+            highest_confidence_label = classes.loc[classes['id'] == col_sums[-2] + 1, 'species'].iloc[0]
 
+    # --------------------------------------------------------------------------
     # Adding the sequence to final_df
     for element in curr_sequence:
         element['prediction'] = highest_confidence_label
