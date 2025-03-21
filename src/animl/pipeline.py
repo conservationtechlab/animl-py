@@ -62,7 +62,6 @@ def from_paths(image_dir: str,
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
-    print(class_list)
     classifier, classes = classification.load_model(classifier_file, class_list, device=device)
     animals = classification.predict_species(animals, classifier, classes, device=device,
                                              file_col="Frame", batch_size=4, out_file=working_dir.predictions)
