@@ -42,7 +42,6 @@ Python Package Dependencies
 * pandas >= 2.2.2
 * panoptes_client >= 1.6.2
 * pillow > 10.3.0
-* pyexiftool >= 0.5.6
 * opencv-python >= 4.10.0.82
 * scikit-learn >= 1.5.0
 * timm >= 1.0,
@@ -50,8 +49,6 @@ Python Package Dependencies
 * wget >= 3.2
 
 
-
-Animl also depends on [exiftool](https://exiftool.org/index.html) for accessing file metadata.
 
 ### Verify Install 
 We recommend you download the [examples](https://github.com/conservationtechlab/animl-py/blob/main/examples/Southwest.zip) folder within this repository.

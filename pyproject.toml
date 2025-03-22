@@ -16,7 +16,6 @@ dependencies = [
     "pandas>=2.2.2", 
     "panoptes_client==1.6.2", 
     "pillow>=10.4.0", 
-    "pyexiftool>=0.5.6",
     "opencv-python==4.10.0.84", 
     "scikit-learn==1.5.2", 
     "timm==1.0.9",
