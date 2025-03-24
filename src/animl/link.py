@@ -11,6 +11,7 @@ from shutil import copy2
 from random import randrange
 from pathlib import Path
 from pandas import DataFrame
+from tqdm import tqdm
 
 from animl import file_management
 
@@ -45,11 +46,22 @@ def sort_species(manifest: DataFrame,
     for i, row in manifest.iterrows():
         if unique_name in manifest.columns:
             name = row[unique_name]
-        else:  # create a unique name
-            uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
+        else:
             filename = os.path.basename(str(row[file_col]))
             filename, extension = os.path.splitext(filename)
-            name = "_".join([filename, uniqueid]) + extension
+
+            # get datetime
+            if "DateTime" in manifest.columns:
+                reformat_date = pd.to_datetime(row['DateTime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+            else:
+                reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
+            # get station
+            if "Station" in manifest.columns:
+                station = row['Station']
+                name = "_".join([station, reformat_date, filename]) + extension
+            else:
+                name = "_".join([reformat_date, filename]) + extension
+
         link = link_dir / Path(row['prediction']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
