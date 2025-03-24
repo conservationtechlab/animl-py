@@ -10,13 +10,15 @@ from pathlib import Path
 from glob import glob
 from datetime import datetime, timedelta
 import pandas as pd
-from exiftool import ExifToolHelper
+import PIL
 from typing import Optional
 
 
 VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
                     ".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
+
+IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff"}
 
 
 def build_file_manifest(image_dir: str,
@@ -53,21 +55,17 @@ def build_file_manifest(image_dir: str,
         return pd.DataFrame()
 
     files = pd.DataFrame(files, columns=["FilePath"])
-    files["FileName"] = files["FilePath"].apply(
-        lambda x: os.path.split(x)[1])
+    files["FileName"] = files["FilePath"].apply(lambda x: os.path.split(x)[1])
+    files["Extension"] = files["FilePath"].apply(lambda x: os.path.splitext(os.path.basename(x))[1].lower())
 
     if exif:
-        et = ExifToolHelper()
-        file_exif = et.get_tags(files["FilePath"].tolist(), tags=["CreateDate", "ImageWidth", "ImageHeight"])
-        et.terminate()  # close exiftool
-        # merge exif data with manifest
-        file_exif = pd.DataFrame(file_exif).rename(columns={"EXIF:CreateDate": "CreateDate",
-                                                            "File:ImageWidth": "Width",
-                                                            "File:ImageHeight": "Height"})
+        for i, row in files.iterrows():
+            if row["Extension"] in IMAGE_EXTENSIONS:
+                img = PIL.Image.open(row['FilePath'])
+                files.loc[i, "Width"] = img.size[0]
+                files.loc[i, "Height"] = img.size[1]
+                files.loc[i, "CreateDate"] = img.getexif().get(0x0132)
 
-        # adjust for windows if necessary
-        file_exif["SourceFile"] = file_exif["SourceFile"].apply(lambda x: os.path.normpath(x))
-        files = files.merge(pd.DataFrame(file_exif), left_on="FilePath", right_on="SourceFile")
         # get filemodifydate as backup (videos, etc)
         files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)))
         files["FileModifyDate"] = files["FileModifyDate"] + timedelta(hours=offset)
