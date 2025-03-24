@@ -20,6 +20,7 @@ VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
 
 IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff"}
 
+
 def build_file_manifest(image_dir: str,
                         exif: bool = True,
                         out_file: Optional[str] = None,
@@ -56,11 +57,10 @@ def build_file_manifest(image_dir: str,
     files = pd.DataFrame(files, columns=["FilePath"])
     files["FileName"] = files["FilePath"].apply(lambda x: os.path.split(x)[1])
     files["Extension"] = files["FilePath"].apply(lambda x: os.path.splitext(os.path.basename(x))[1].lower())
-    
 
     if exif:
         for i, row in files.iterrows():
-            if row["Extension"] in IMAGE_EXTENSIONS: 
+            if row["Extension"] in IMAGE_EXTENSIONS:
                 img = PIL.Image.open(row['FilePath'])
                 files.loc[i, "Width"] = img.size[0]
                 files.loc[i, "Height"] = img.size[1]
