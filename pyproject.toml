@@ -9,12 +9,11 @@ keywords = ["camera trap", "ecology", "conservation", "zoo", "SDZWA", "conservat
 
 authors = [{name = "Kyra Swanson", email = "tswanson@sdzwa.org" }]
 
-requires-python = "<=3.9.20"
+requires-python = ">=3.8"
 dependencies = [
     "numpy==2.0.2", 
     "onnxruntime-gpu==1.19.2", 
     "pandas>=2.2.2", 
-    "panoptes_client==1.6.2", 
     "pillow>=10.4.0", 
     "opencv-python==4.10.0.84", 
     "scikit-learn==1.5.2", 
@@ -22,7 +21,6 @@ dependencies = [
     "tqdm>=4.66.5", 
     "wget>=3.2"
 ]
-
 
 [project.urls]  # Optional
 "Homepage" = "https://github.com/conservationtechlab/animl-py"

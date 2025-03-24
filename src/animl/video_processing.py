@@ -42,7 +42,7 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
     filename, extension = os.path.splitext(filename)
     uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
     frames_saved = []
-
+   
     # Typechecking FPS
     if fps == 'None':
         fps = None

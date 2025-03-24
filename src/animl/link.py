@@ -36,7 +36,7 @@ def sort_species(manifest: DataFrame,
     link_dir = Path(link_dir)
     # Create species folders
     for species in manifest['prediction'].unique():
-        path = link_dir / Path(species)
+        path = link_dir / Path(str(species))
         path.mkdir(exist_ok=True)
 
     # create new column
@@ -47,10 +47,9 @@ def sort_species(manifest: DataFrame,
             name = row[unique_name]
         else:  # create a unique name
             uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
-            filename = os.path.basename(row[file_col])
+            filename = os.path.basename(str(row[file_col]))
             filename, extension = os.path.splitext(filename)
             name = "_".join([filename, uniqueid]) + extension
-
         link = link_dir / Path(row['prediction']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
@@ -94,7 +93,7 @@ def sort_MD(manifest: DataFrame,
             name = row[unique_name]
         else:
             uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
-            filename = os.path.basename(row[file_col])
+            filename = os.path.basename(str(row[file_col]))
             filename, extension = os.path.splitext(filename)
             name = "_".join([filename, uniqueid]) + extension
 

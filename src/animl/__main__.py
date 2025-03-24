@@ -44,14 +44,17 @@ if os.path.isfile(args.imagedir_config):
 
 # first argument is a directory
 else:
-    if not os.path.isfile(args.detector):
-        prompt = "MegaDetector not found, would you like to download? y/n: "
-        if input(prompt).lower() == "y":
-            if not os.path.isdir(home):
-                os.mkdir(home)
-            print('Saving to', home)
-            wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt',
-                          out=home)
+    prompt = "megadetector or custom yolo? m/c: "
+    if input(prompt).lower() == "m":
+        if not os.path.isfile(args.detector):
+            prompt = "MegaDetector not found, would you like to download? y/n: "
+            if input(prompt).lower() == "y":
+                if not os.path.isdir(home):
+                    os.mkdir(home)
+                print('Saving to', home)
+                wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt', out=home)
+    elif input(prompt).lower() == "c":
+        args.detector = "C"
 
     if not os.path.isfile(args.classifier):
         prompt = "Classifier not found, would you like to download Southwest_v3? y/n: "

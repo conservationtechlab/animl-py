@@ -21,7 +21,7 @@ from animl.species import EfficientNet, ConvNeXtBase
 from animl.utils.torch_utils import get_device
 
 
-def softmax(x: np.ndarray) -> np.ndarray:
+def softmax(x):
     '''
     Helper function to softmax
     '''
