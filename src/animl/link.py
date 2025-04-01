@@ -6,6 +6,7 @@
     @ Kyra Swanson 2023
 """
 import os
+import argparse
 import pandas as pd
 from shutil import copy2
 from random import randrange
@@ -43,10 +44,10 @@ def sort_species(manifest: DataFrame,
     # create new column
     manifest['Link'] = link_dir
 
-    for i, row in manifest.iterrows():
-        if unique_name in manifest.columns:
+    for i, row in tqdm(manifest.iterrows()):
+        try:
             name = row[unique_name]
-        else:
+        except KeyError:
             filename = os.path.basename(str(row[file_col]))
             filename, extension = os.path.splitext(filename)
 
@@ -61,6 +62,8 @@ def sort_species(manifest: DataFrame,
                 name = "_".join([station, reformat_date, filename]) + extension
             else:
                 name = "_".join([reformat_date, filename]) + extension
+
+            manifest.loc[i, unique_name] = name
 
         link = link_dir / Path(row['prediction']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
@@ -100,14 +103,15 @@ def sort_MD(manifest: DataFrame,
 
     # create new column
     manifest['Link'] = link_dir
-    for i, row in manifest.iterrows():
-        if unique_name in manifest.columns:
+    for i, row in tqdm(manifest.iterrows()):
+        try:
             name = row[unique_name]
-        else:
+        except KeyError:
             uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
             filename = os.path.basename(str(row[file_col]))
             filename, extension = os.path.splitext(filename)
             name = "_".join([filename, uniqueid]) + extension
+            manifest.loc[i, unique_name] = name
 
         link = link_dir / Path(row['category']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
@@ -155,13 +159,31 @@ def update_labels(manifest: DataFrame,
     if unique_name not in manifest.columns:
         raise AssertionError("Manifest does not have unique names, cannot match to sorted directories.")
 
+    print("Searching directory...")
     ground_truth = file_management.build_file_manifest(link_dir, exif=False)
 
     if len(ground_truth) != len(manifest):
         print(f"Warning, found {len(ground_truth)} files in link dir but {len(manifest)} files in manifest.")
 
     # last level should be label level
-    ground_truth['label'] = ground_truth["FilePath"].apply(
-        lambda x: os.path.split(os.path.split(x)[0])[1])
+    ground_truth = ground_truth.rename(columns={'FileName': unique_name})
+    ground_truth['label'] = ground_truth["FilePath"].apply(lambda x: os.path.split(os.path.split(x)[0])[1])
 
-    return pd.merge(manifest, ground_truth, left_on=unique_name, right_on="FileName")
+    return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Update manifest')
+    parser.add_argument('--manifest', help='Path to manifest file')
+    parser.add_argument('--link_dir', help='Sorted directory')
+    parser.add_argument('--unique', help='Column referring to unique file name', default='UniqueName')
+    args = parser.parse_args()
+
+    if not Path(args.manifest).is_file():
+        raise FileNotFoundError(f'Manifest "{args.manifest}" not found.')
+
+    manifest = pd.read_csv(args.manifest)
+
+    new_manifest = update_labels(manifest, args.link_dir, args.unique)
+    print("Rewriting manifest...")
+    new_manifest.to_csv(os.path.split(args.manifest)[0] + "/Results_corrected.csv", index=False)
