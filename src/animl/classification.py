@@ -197,12 +197,12 @@ def predict_species(detections, model, classes, device=None, out_file=None, raw=
     # Typechecking
     if not isinstance(detections, pd.DataFrame):
         raise TypeError(f"Expected pd.Dataframe for detecionts, got {type(detections)}")
-    if not isinstance(classes, pd.DataFrame):
-        raise TypeError(f"Expected pd.Dataframe for classes, got {type(classes)}")
+    if not isinstance(classes, pd.Series):
+        raise TypeError(f"Expected pd.Series for classes, got {type(classes)}")
 
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
-    
+
     if not torch.cuda.is_available():
         device = 'cpu'
     elif torch.cuda.is_available() and device is None:
@@ -320,15 +320,14 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
     # Sanity check to verify that maxdiff is a positive number
     if not isinstance(maxdiff, (int, float)) or maxdiff < 0:
         raise Exception("'maxdiff' must be a number >= 0")
-    
-    if not "conf" in animals.columns:
+
+    if "conf" not in animals.columns:
         animals["conf"] = 1
 
     if empty_class > "":
-        empty_col = class_list[class_list=="empty"].index[0]
+        empty_col = class_list[class_list == "empty"].index[0]
     else:
         empty_col = None
-
 
     if empty is not None or not empty.empty:
         empty["ID"] = range(0, empty.shape[0])
@@ -336,32 +335,31 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
         # Replace NaN with 0
         predempty = predempty.fillna(0)
         predempty = pd.concat([pd.DataFrame(np.zeros((empty.shape[0], len(class_list)))), predempty], axis=1)
-        
+
         if empty_class > "":
             # replace md empty with empty col
             predempty[empty_col] = predempty["empty"]
             predempty = predempty.drop("empty", axis=1)
-            class_list = pd.concat([class_list, 
-                                    pd.Series([x for x in empty["prediction"].unique() if x != "empty"])], 
-                                ignore_index=True)
-        
+            class_list = pd.concat([class_list,
+                                    pd.Series([x for x in empty["prediction"].unique() if x != "empty"])], ignore_index=True)
+
         else:
             class_list = pd.concat([class_list, pd.Series(empty["prediction"].unique())], ignore_index=True)
             empty_col = predempty.columns.get_loc("empty")
 
-        #placeholders
+        # placeholders
         animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
         animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 
         empty["conf"] = 1
-        animals_merged = pd.concat([animals,empty.iloc[:, :-1]]).reset_index(drop=True) # dont add ID column
-        predictions = np.hstack((predictions_raw, 
-                                    np.zeros((predictions_raw.shape[0], len(predempty.columns) - predictions_raw.shape[1]))))
+        animals_merged = pd.concat([animals, empty.iloc[:, :-1]]).reset_index(drop=True)  # dont add ID column
+        predictions = np.hstack((predictions_raw,
+                                 np.zeros((predictions_raw.shape[0], len(predempty.columns) - predictions_raw.shape[1]))))
         # concat
         predictions = np.vstack((predictions, np.array(predempty)))
 
     if sort_columns is None:
-        sort_columns = [station_col,"DateTime"]
+        sort_columns = [station_col, "DateTime"]
 
     animals_merged['FileModifyDate'] = pd.to_datetime(animals_merged['FileModifyDate'], format="%Y-%m-%d %H:%M:%S")
 
@@ -374,62 +372,62 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
 
     i = 0
     while i < len(animals_sort):
-        rows = [i] 
+        rows = [i]
         last_index = i+1
-    
+
         while last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, "DateTime"]) \
             and not pd.isna(animals_sort.loc[last_index, "DateTime"]) \
-            and animals_sort.loc[last_index,station_col] == animals_sort.loc[i,station_col] \
+            and animals_sort.loc[last_index, station_col] == animals_sort.loc[i, station_col] \
             and (animals_sort.loc[last_index, "FileModifyDate"] - animals_sort.loc[i, "FileModifyDate"]).total_seconds() <= maxdiff:
             rows.append(last_index)
             last_index += 1
-        
+
         rows = np.array(rows)
-            
+
         # multiple detections in sequence
         if len(rows) > 1:
             predclass = np.argmax(predsort[rows], axis=1)
-    
-            #no empties
+
+            # no empties
             if empty_col is None or empty_col not in predclass:
-                predsort_confidence =  predsort[rows] * animals_sort.loc[rows, ["conf"]].to_numpy()
+                predsort_confidence = predsort[rows] * animals_sort.loc[rows, ["conf"]].to_numpy()
                 predbest = np.mean(predsort_confidence, axis=0)
-                conf_placeholder[rows] = np.max(predsort_confidence[:,np.argmax(predbest)])
+                conf_placeholder[rows] = np.max(predsort_confidence[:, np.argmax(predbest)])
                 predict_placeholder[rows] = class_list[np.argmax(predbest)]
-            
+
             else:
                 mask = pd.DataFrame((predclass == empty_col))
                 filtered_animals = animals_sort.loc[rows, file_col].reset_index(drop=True)
                 sum_values = mask.groupby(filtered_animals).sum()
                 count_values = mask.groupby(filtered_animals).count()
-                
+
                 sel_all_empty = count_values == sum_values
                 sel_mixed = np.where(animals_sort[file_col].isin(sel_all_empty[~sel_all_empty[0]].index))[0]
-                sel_no_empties = np.where(animals_sort[file_col].isin(sum_values[sum_values[0]==0].index))[0]
-    
+                sel_no_empties = np.where(animals_sort[file_col].isin(sum_values[sum_values[0] == 0].index))[0]
+
                 if len(sel_mixed) > 0 and len(sel_no_empties) > 0:
                     predsort_confidence = predsort[sel_no_empties] * np.reshape(animals_sort.loc[sel_no_empties, 'conf'].values, (-1, 1))
                     predbest = np.mean(predsort_confidence, axis=0)
-                    conf_placeholder[sel_mixed] = np.max(predsort_confidence[:,np.argmax(predbest)])
+                    conf_placeholder[sel_mixed] = np.max(predsort_confidence[:, np.argmax(predbest)])
                     predict_placeholder[sel_mixed] = class_list[np.argmax(predbest)]
-                                
+
                 for file in sel_all_empty[sel_all_empty[0]].index:
                     empty_row = np.where(animals_sort[file_col] == file)
                     predsort_confidence = predsort[empty_row] * animals_sort.loc[empty_row, "conf"].to_numpy()
                     predbest = np.mean(predsort_confidence, axis=0)
-                    conf_placeholder[empty_row] = np.max(predsort_confidence[:,np.argmax(predbest)])
+                    conf_placeholder[empty_row] = np.max(predsort_confidence[:, np.argmax(predbest)])
                     predict_placeholder[empty_row] = class_list[np.argmax(predbest)]
         # single row in sequence
         else:
             predbest = predsort[rows]
             conf_placeholder[rows] = np.max(predbest * animals_sort.loc[rows, 'conf'].values)
             predict_placeholder[rows] = class_list[np.argmax(predbest)]
-    
+
         i = last_index
 
     animals_sort['confidence'] = conf_placeholder
     animals_sort['prediction'] = predict_placeholder
-  
+
     return animals_sort
 
 
