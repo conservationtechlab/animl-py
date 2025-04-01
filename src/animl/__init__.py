@@ -12,7 +12,6 @@ from animl import multi_species
 from animl import pipeline
 from animl import plot_boxes
 from animl import reid
-from animl import sequence_classification
 from animl import species
 from animl import split
 from animl import test
@@ -25,7 +24,8 @@ from animl.api import (animl_results_to_md_results, animl_to_md, classify_mp,
                        main, matchypatchy, miew_embedding, process_videos,
                        timelapse, viewpoint_estimator,)
 from animl.classification import (classify_with_config, load_model,
-                                  predict_species, save_model, softmax,
+                                  predict_species, save_model,
+                                  sequence_classification, softmax,
                                   tensor_to_onnx,)
 from animl.custom_detector import (CustomYOLO,)
 from animl.custom_yolo_run import (main_config, main_paths,)
@@ -59,7 +59,6 @@ from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         MiewIdNet, ViewpointModel, heads, l2_norm, load,
                         miewid, viewpoint, weights_init_classifier,
                         weights_init_kaiming,)
-from animl.sequence_classification import (sequence_classification,)
 from animl.species import (ConvNeXtBase, EfficientNet,)
 from animl.split import (get_animals, get_animals_custom, get_empty,
                          get_empty_custom, train_val_test,)

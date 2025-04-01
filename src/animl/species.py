@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 from torchvision.models import efficientnet, convnext_base, ConvNeXt_Base_Weights
 
-class EfficientNet(nn.Module):
 
+class EfficientNet(nn.Module):
     def __init__(self, num_classes, tune=True):
         '''
             Construct the EfficientNet model architecture.

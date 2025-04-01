@@ -1,16 +1,17 @@
+import os
 import yaml
 import torch
 import pandas as pd
 from animl import (file_management, video_processing, megadetector, detect,
                    split, classification, link)
 from animl.utils.torch_utils import get_device
-import typing
 
 
 def from_paths(image_dir: str,
                detector_file: str,
                classifier_file: str,
-               class_list: typing.List[str],
+               class_list: str,
+               class_label: str = "Code",
                sort: bool = True) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
@@ -62,7 +63,7 @@ def from_paths(image_dir: str,
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
     classifier, classes = classification.load_model(classifier_file, class_list, device=device)
-    animals = classification.predict_species(animals, classifier, classes, device=device,
+    animals = classification.predict_species(animals, classifier, classes[class_label], device=device,
                                              file_col="Frame", batch_size=4, out_file=working_dir.predictions)
 
     # merge animal and empty, create symlinks
@@ -111,6 +112,11 @@ def from_config(config):
                                                 exif=cfg.get('exif', True))
     print("Found %d files." % len(files))
 
+    # Station Col
+    station_dir = cfg.get('station_dir', None)
+    if station_dir:
+        files["Station"] = files["FilePath"].apply(lambda x: x.split(os.sep)[station_dir])
+
     # Video-processing to extract individual frames as images in to directory
     print("Processing videos...")
     fps = cfg.get('fps', None)
@@ -141,16 +147,33 @@ def from_config(config):
     empty = split.get_empty(detections)
 
     # Use the classifier model to predict the species of animal detections
-    print("Predicting species of animal detections...")
+    print("Predicting species...")
     classifier, classes = classification.load_model(cfg['classifier_file'], cfg['class_list'], device=device)
-    animals = classification.predict_species(animals, classifier, classes, device=device,
-                                             file_col=cfg.get('file_col_classification', 'Frame'),
-                                             batch_size=cfg.get('batch_size', 4),
-                                             out_file=working_dir.predictions)
 
     # merge animal and empty, create symlinks
-    print("Concatenating animal and empty dataframes...")
-    manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+    if station_dir:
+        predictions_raw = classification.predict_species(animals, classifier, classes[cfg.get('class_label_col', 'Code')],
+                                                         device=device,
+                                                         file_col=cfg.get('file_col_classification', 'Frame'),
+                                                         batch_size=cfg.get('batch_size', 4),
+                                                         out_file=working_dir.predictions,
+                                                         raw=True)
+        manifest = classification.sequence_classification(animals, empty, predictions_raw,
+                                                          classes[cfg.get('class_label_col', 'Code')],
+                                                          station_col='Station',
+                                                          empty_class="empty",
+                                                          sort_columns=None,
+                                                          file_col=cfg.get('file_col_classification', 'Frame'),
+                                                          maxdiff=60)
+    else:
+        animals = classification.predict_species(animals, classifier, classes,
+                                                 device=device,
+                                                 file_col=cfg.get('file_col_classification', 'Frame'),
+                                                 batch_size=cfg.get('batch_size', 4),
+                                                 out_file=working_dir.predictions)
+        # merge animal and empty, create symlinks
+        manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+
     if cfg.get('sort', False):
         manifest = link.sort_species(manifest, cfg.get('link_dir', working_dir.linkdir),
                                      copy=cfg.get('copy', False))

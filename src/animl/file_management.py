@@ -67,12 +67,12 @@ def build_file_manifest(image_dir: str,
                 files.loc[i, "CreateDate"] = img.getexif().get(0x0132)
 
         # get filemodifydate as backup (videos, etc)
-        files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)))
-        files["FileModifyDate"] = files["FileModifyDate"] + timedelta(hours=offset)
+        files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
+        files["FileModifyDate"] = pd.to_datetime(files["FileModifyDate"]) + timedelta(hours=offset)
         try:
             # select createdate if exists, else choose filemodify date
             files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
-            files["CreateDate"] = files['CreateDate'].apply(lambda x: datetime.strptime(str(x), '%Y:%m:%d %H:%M:%S') if isinstance(x, str) else x)
+            files["CreateDate"] = files['CreateDate'].apply(lambda x: datetime.strptime(str(x), '%Y:%m:%d %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S') if isinstance(x, str) else x)
             files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
         except KeyError:
             files["DateTime"] = files["FileModifyDate"]
