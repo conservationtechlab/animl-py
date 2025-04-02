@@ -4,12 +4,14 @@ Code to run Miew_ID
 (source)
 
 """
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
 from animl.reid.heads import ElasticArcFace, ArcFaceSubCenterDynamic
-
+from animl.utils.torch_utils import get_device
+from animl.generator import manifest_dataloader
 
 IMAGE_HEIGHT = 440
 IMAGE_WIDTH = 440
@@ -28,8 +30,7 @@ def filter(rois):
     return rois[rois['emb_id'] == 0].reset_index(drop=True)
 
 
-def load(file_path, device='cpu'):
-    # TODO: check device
+def load(file_path, device=None):
     """
     Load MiewID from file path
 
@@ -40,12 +41,32 @@ def load(file_path, device='cpu'):
     Returns:
         loaded miewid model object
     """
+    if device == None:
+        device = get_device()
     weights = torch.load(file_path, weights_only=True)
     miew = MiewIdNet()
     miew.to(device)
     miew.load_state_dict(weights, strict=False)
     miew.eval()
     return miew
+
+
+def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, workers=1):
+    """
+    Wrapper for MiewID embedding extraction within MatchyPatchy
+    """
+    device = get_device()
+    output = []
+    if isinstance(manifest, pd.DataFrame):
+        dataloader = manifest_dataloader(manifest, batch_size=batch_size, workers=workers, 
+                                         file_col=file_col, crop=True, normalize=True, 
+                                         resize_width=IMAGE_WIDTH, resize_height=IMAGE_HEIGHT)
+        with torch.no_grad():
+            for _, batch in enumerate(dataloader):
+                img = batch[0]
+                emb = miew_model.extract_feat(img.to(device))
+                output.extend(emb.cpu().detach().numpy()[0])
+    return output
 
 
 def weights_init_kaiming(m):

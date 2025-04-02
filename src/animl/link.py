@@ -107,10 +107,21 @@ def sort_MD(manifest: DataFrame,
         try:
             name = row[unique_name]
         except KeyError:
-            uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
             filename = os.path.basename(str(row[file_col]))
             filename, extension = os.path.splitext(filename)
-            name = "_".join([filename, uniqueid]) + extension
+
+            # get datetime
+            if "DateTime" in manifest.columns:
+                reformat_date = pd.to_datetime(row['DateTime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+            else:
+                reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
+            # get station
+            if "Station" in manifest.columns:
+                station = row['Station']
+                name = "_".join([station, reformat_date, filename]) + extension
+            else:
+                name = "_".join([reformat_date, filename]) + extension
+
             manifest.loc[i, unique_name] = name
 
         link = link_dir / Path(row['category']) / Path(name)
