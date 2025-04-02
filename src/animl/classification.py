@@ -194,12 +194,6 @@ def predict_species(detections, model, classes, device=None, out_file=None, raw=
     Returns
         - detections (pd.DataFrame): MD detections with classifier prediction and confidence
     """
-    # Typechecking
-    if not isinstance(detections, pd.DataFrame):
-        raise TypeError(f"Expected pd.Dataframe for detecionts, got {type(detections)}")
-    if not isinstance(classes, pd.Series):
-        raise TypeError(f"Expected pd.Series for classes, got {type(classes)}")
-
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
 
