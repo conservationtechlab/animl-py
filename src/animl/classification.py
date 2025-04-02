@@ -170,8 +170,10 @@ def tensor_to_onnx(tensor, channel_last=True):
     return tensor
 
 
-def predict_species(detections, model, classes, device=None, out_file=None, raw=False,
-                    file_col='Frame', crop=True, resize_width=299, resize_height=299,
+def predict_species(detections, model,
+                    device=None, out_file=None,
+                    file_col='Frame', crop=True,
+                    resize_width=299, resize_height=299,
                     normalize=True, batch_size=1, workers=1):
     """
     Predict species using classifier model
@@ -194,12 +196,6 @@ def predict_species(detections, model, classes, device=None, out_file=None, raw=
     Returns
         - detections (pd.DataFrame): MD detections with classifier prediction and confidence
     """
-    # Typechecking
-    if not isinstance(detections, pd.DataFrame):
-        raise TypeError(f"Expected pd.Dataframe for detecionts, got {type(detections)}")
-    if not isinstance(classes, pd.Series):
-        raise TypeError(f"Expected pd.Series for classes, got {type(classes)}")
-
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
 
@@ -213,10 +209,7 @@ def predict_species(detections, model, classes, device=None, out_file=None, raw=
     if isinstance(detections, pd.DataFrame):
         # initialize lists
         detections = detections.reset_index(drop=True)
-        predictions = []
-        probabilities = []
-        if raw:
-            raw_output = []
+        raw_output = []
 
         dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=crop,
                                                 resize_width=resize_width, resize_height=resize_height,
@@ -229,47 +222,36 @@ def predict_species(detections, model, classes, device=None, out_file=None, raw=
                     data = batch[0]
                     data = data.to(device)
                     output = model(data)
-                    if raw:
-                        raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
-
-                    labels = torch.argmax(output, dim=1).cpu().detach().numpy()
-                    pred = classes.values[labels]
-                    predictions.extend(pred)
-
-                    probs = torch.max(torch.nn.functional.softmax(output, dim=1), 1)[0]
-                    probabilities.extend(probs.cpu().detach().numpy())
+                    raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
 
                 # onnx
                 elif model.framework == "onnx":
                     data = batch[0]
                     data = tensor_to_onnx(data)
                     output = model.run(None, {model.get_inputs()[0].name: data})[0]
-                    if raw:
-                        raw_output.extend(softmax(output))
-
-                    labels = np.argmax(output, axis=1)
-                    pred = classes.values[labels]
-                    predictions.extend(pred)
-
-                    onnx_probs = np.max(softmax(output), axis=1)
-                    probabilities.extend(onnx_probs)
+                    raw_output.extend(softmax(output))
 
                 else:
                     raise AssertionError("Model architechture not supported.")
-
-            detections['prediction'] = predictions
-            detections['confidence'] = probabilities
-
     else:
         raise AssertionError("Input must be a data frame of crops or vector of file names.")
 
-    if out_file:
-        file_management.save_data(detections, out_file)
+    raw_output = np.vstack(raw_output)
 
-    if raw:
-        return np.vstack(raw_output)
-    else:
-        return detections
+    if out_file:
+        file_management.save_data(pd.DataFrame(raw_output), out_file)
+
+    return raw_output
+    
+
+def single_classification(animals, predictions_raw, class_list):   
+    """
+    Get maximum likelihood prediction from softmaxed logits
+    """
+    class_list = pd.Series(class_list)
+    animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
+    animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
+    return animals
 
 
 def sequence_classification(animals, empty, predictions_raw, class_list, station_col,

@@ -63,8 +63,9 @@ def from_paths(image_dir: str,
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
     classifier, classes = classification.load_model(classifier_file, class_list, device=device)
-    animals = classification.predict_species(animals, classifier, classes[class_label], device=device,
-                                             file_col="Frame", batch_size=4, out_file=working_dir.predictions)
+    predictions_raw = classification.predict_species(animals, classifier, device=device,
+                                                     file_col="Frame", batch_size=4, out_file=working_dir.predictions)
+    animals = classification.single_classification(animals, predictions_raw, classes[class_label])
 
     # merge animal and empty, create symlinks
     print("Concatenating animal and empty dataframes...")
@@ -150,14 +151,13 @@ def from_config(config):
     print("Predicting species...")
     classifier, classes = classification.load_model(cfg['classifier_file'], cfg['class_list'], device=device)
 
+    predictions_raw = classification.predict_species(animals, classifier, device=device,
+                                                     file_col=cfg.get('file_col_classification', 'Frame'),
+                                                     batch_size=cfg.get('batch_size', 4),
+                                                     out_file=working_dir.predictions)
+
     # merge animal and empty, create symlinks
     if station_dir:
-        predictions_raw = classification.predict_species(animals, classifier, classes[cfg.get('class_label_col', 'Code')],
-                                                         device=device,
-                                                         file_col=cfg.get('file_col_classification', 'Frame'),
-                                                         batch_size=cfg.get('batch_size', 4),
-                                                         out_file=working_dir.predictions,
-                                                         raw=True)
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
                                                           classes[cfg.get('class_label_col', 'Code')],
                                                           station_col='Station',
@@ -166,11 +166,7 @@ def from_config(config):
                                                           file_col=cfg.get('file_col_classification', 'Frame'),
                                                           maxdiff=60)
     else:
-        animals = classification.predict_species(animals, classifier, classes,
-                                                 device=device,
-                                                 file_col=cfg.get('file_col_classification', 'Frame'),
-                                                 batch_size=cfg.get('batch_size', 4),
-                                                 out_file=working_dir.predictions)
+        animals = classification.single_classification(animals, predictions_raw, classes[cfg.get('class_label_col', 'Code')])
         # merge animal and empty, create symlinks
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 
