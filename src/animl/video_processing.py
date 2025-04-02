@@ -77,7 +77,7 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
     cap.release()
     cv2.destroyAllWindows()
     if len(frames_saved) == 0:
-        return ["File Error", file_path]
+        return ["File Error", file_path, None]
 
     else:
         return frames_saved
