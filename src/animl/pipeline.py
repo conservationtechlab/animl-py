@@ -13,7 +13,7 @@ def from_paths(image_dir: str,
                class_list: str,
                class_label: str = "Code",
                sort: bool = True,
-               simple=True) -> pd.DataFrame:
+               simple=False) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
@@ -76,7 +76,7 @@ def from_paths(image_dir: str,
                                                           classes[class_label],
                                                           station_col='Station',
                                                           empty_class="empty",
-                                                          sort_columns=["FrameNumber"],
+                                                          sort_columns=["Station", "DateTime", "FrameNumber"],
                                                           file_col="Frame",
                                                           maxdiff=60)
 
@@ -175,7 +175,7 @@ def from_config(config):
                                                           classes[cfg.get('class_label_col', 'Code')],
                                                           station_col='Station',
                                                           empty_class="empty",
-                                                          sort_columns=None,
+                                                          sort_columns=["Station", "DateTime", "FrameNumber"],
                                                           file_col=cfg.get('file_col_classification', 'Frame'),
                                                           maxdiff=60)
     else:
