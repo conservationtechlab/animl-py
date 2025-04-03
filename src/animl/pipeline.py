@@ -12,7 +12,8 @@ def from_paths(image_dir: str,
                classifier_file: str,
                class_list: str,
                class_label: str = "Code",
-               sort: bool = True) -> pd.DataFrame:
+               sort: bool = True,
+               simple=True) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
@@ -35,13 +36,14 @@ def from_paths(image_dir: str,
     files = file_management.build_file_manifest(image_dir,
                                                 out_file=working_dir.filemanifest,
                                                 exif=True)
+    files["Station"] = files["FilePath"].apply(lambda x: x.split(os.sep)[-2])
     print("Found %d files." % len(files))
 
     # Video-processing to extract individual frames as images in to directory
     print("Processing videos...")
     all_frames = video_processing.extract_frames(files, out_dir=working_dir.vidfdir,
                                                  out_file=working_dir.imageframes,
-                                                 parallel=True, frames=1)
+                                                 parallel=True, frames=3)
 
     # Run all images and video frames through MegaDetector
     print("Running images and video frames through MegaDetector...")
@@ -65,7 +67,18 @@ def from_paths(image_dir: str,
     classifier, classes = classification.load_model(classifier_file, class_list, device=device)
     predictions_raw = classification.predict_species(animals, classifier, device=device,
                                                      file_col="Frame", batch_size=4, out_file=working_dir.predictions)
-    animals = classification.single_classification(animals, predictions_raw, classes[class_label])
+    
+    if simple:
+        animals = classification.single_classification(animals, predictions_raw, classes[class_label])
+
+    else:
+        manifest = classification.sequence_classification(animals, empty, predictions_raw,
+                                                          classes[class_label],
+                                                          station_col='Station',
+                                                          empty_class="empty",
+                                                          sort_columns=["FrameNumber"],
+                                                          file_col="Frame",
+                                                          maxdiff=60)
 
     # merge animal and empty, create symlinks
     print("Concatenating animal and empty dataframes...")

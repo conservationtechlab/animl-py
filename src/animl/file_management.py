@@ -165,10 +165,8 @@ def check_file(file: str) -> bool:
     """
 
     if file is not None and os.path.isfile(file):
-        date = os.path.getmtime(file)
-        date = datetime.fromtimestamp(date)
-        prompt = "Output file already exists and was last modified {}, \
-                 would you like to load it? y/n: ".format(date)
+        date = datetime.fromtimestamp(os.path.getmtime(file))
+        prompt = "Output file already exists and was last modified {}, would you like to load it? y/n: ".format(date)
         if input(prompt).lower() == "y":
             return True
     return False

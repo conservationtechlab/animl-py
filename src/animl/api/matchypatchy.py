@@ -17,21 +17,13 @@ from torchvision.transforms import (Compose, Resize, ToTensor, Normalize)
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 from animl.megadetector import MegaDetector
-from animl.video_processing import extract_frames
 from animl.detect import detect_MD_batch, parse_MD
 from animl.split import get_animals
-from animl.classification import load_model, predict_species
+from animl.classification import load_model, predict_species, single_classification
+from animl.generator import manifest_dataloader
 from animl.utils.torch_utils import get_device
 
 from animl.reid import viewpoint, miewid
-
-
-def process_videos(media, frame_dir):
-    """
-    Wrapper to extract frames for MatchyPatchy
-    """
-    frames = extract_frames(media, frame_dir, frames=1, file_col="filepath")
-    return frames
 
 
 def detect_mp(detector_file, media):
@@ -56,9 +48,10 @@ def classify_mp(animals, config_file):
     classifier_file = config_file.parent / Path(cfg.get('file_name'))
     classlist_file = config_file.parent / Path(cfg.get('class_file'))
     classifier, classes = load_model(classifier_file, classlist_file, device=get_device())
-    animals = predict_species(animals, classifier, classes, device=get_device(), file_col="filepath",
+    predictions = predict_species(animals, classifier, classes, device=get_device(), file_col="filepath",
                               resize_width=cfg.get('resize_width'), resize_height=cfg.get('resize_height'),
                               normalize=cfg.get('normalize'), batch_size=4)
+    animals = single_classification(animals, predictions)
     return animals
 
 
@@ -69,7 +62,7 @@ def viewpoint_estimator(rois, image_paths, viewpoint_filepath):
     device = get_device()
     output = []
     if len(rois) > 0:
-        viewpoint_dl = reid(rois, image_paths, viewpoint.IMAGE_HEIGHT, viewpoint.IMAGE_WIDTH)
+        viewpoint_dl = reid_dataloader(rois, image_paths, viewpoint.IMAGE_HEIGHT, viewpoint.IMAGE_WIDTH)
         model = viewpoint.load(viewpoint_filepath, device=device)
         with torch.no_grad():
             for _, batch in tqdm(enumerate(viewpoint_dl)):

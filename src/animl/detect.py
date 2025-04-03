@@ -181,6 +181,10 @@ def detect_MD_batch(detector: object,
             if checkpoint_tmp_path is not None:
                 os.remove(checkpoint_tmp_path)
 
+    if checkpoint_path:
+        with open(checkpoint_path, 'w') as f:
+            json.dump({'images': results}, f, indent=1)        
+
     return results
 
 
