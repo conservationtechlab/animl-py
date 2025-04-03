@@ -75,7 +75,7 @@ def from_paths(image_dir: str,
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
                                                           classes[class_label],
                                                           station_col='Station',
-                                                          empty_class="empty",
+                                                          empty_class=None,
                                                           sort_columns=["Station", "DateTime", "FrameNumber"],
                                                           file_col="Frame",
                                                           maxdiff=60)
@@ -174,7 +174,7 @@ def from_config(config):
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
                                                           classes[cfg.get('class_label_col', 'Code')],
                                                           station_col='Station',
-                                                          empty_class="empty",
+                                                          empty_class=None,
                                                           sort_columns=["Station", "DateTime", "FrameNumber"],
                                                           file_col=cfg.get('file_col_classification', 'Frame'),
                                                           maxdiff=60)
