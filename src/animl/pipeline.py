@@ -58,7 +58,6 @@ def from_paths(image_dir: str,
         detections = detect.parse_MD(md_results, manifest=all_frames, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
-    print("Extracting animal detections...")
     animals = split.get_animals(detections)
     empty = split.get_empty(detections)
 
@@ -69,9 +68,11 @@ def from_paths(image_dir: str,
                                                      file_col="Frame", batch_size=4, out_file=working_dir.predictions)
     
     if simple:
+        print("Classifying individual frames...")
         animals = classification.single_classification(animals, predictions_raw, classes[class_label])
 
     else:
+        print("Classifying sequences...")
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
                                                           classes[class_label],
                                                           station_col='Station',
@@ -81,9 +82,9 @@ def from_paths(image_dir: str,
                                                           maxdiff=60)
 
     # merge animal and empty, create symlinks
-    print("Concatenating animal and empty dataframes...")
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
     if sort:
+        print("Sorting...")
         manifest = link.sort_species(manifest, working_dir.linkdir)
 
     file_management.save_data(manifest, working_dir.results)
@@ -156,14 +157,12 @@ def from_config(config):
         detections = detect.parse_MD(md_results, manifest=all_frames, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
-    print("Extracting animal detections...")
     animals = split.get_animals(detections)
     empty = split.get_empty(detections)
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
     classifier, classes = classification.load_model(cfg['classifier_file'], cfg['class_list'], device=device)
-
     predictions_raw = classification.predict_species(animals, classifier, device=device,
                                                      file_col=cfg.get('file_col_classification', 'Frame'),
                                                      batch_size=cfg.get('batch_size', 4),
