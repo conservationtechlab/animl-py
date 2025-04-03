@@ -21,8 +21,7 @@ from animl import video_processing
 
 from animl.api import (animl_results_to_md_results, animl_to_md, classify_mp,
                        csv_converter, detect_mp, detection_category_id_to_name,
-                       main, matchypatchy, miew_embedding, process_videos,
-                       timelapse, viewpoint_estimator,)
+                       main, matchypatchy, miew_embedding, timelapse, viewpoint_estimator,)
 from animl.classification import (classify_with_config, load_model,
                                   predict_species, save_model,
                                   sequence_classification,
@@ -156,7 +155,7 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'multi_species_detection', 'non_max_suppression', 'one_cycle',
            'parse_MD', 'parse_YOLO', 'parse_model', 'pipeline',
            'plot_all_bounding_boxes', 'plot_boxes', 'predict_species',
-           'print_args', 'print_mutation', 'process_image', 'process_videos',
+           'print_args', 'print_mutation', 'process_image',
            'profile', 'prune', 'random_perspective', 'reid',
            'remove_link', 'replicate', 'resample_segments', 'save_data',
            'save_model', 'scale_coords', 'scale_img', 'segment2box',
