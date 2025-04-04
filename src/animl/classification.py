@@ -362,6 +362,7 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
             last_index += 1
 
         rows = np.array(rows)
+        print(rows)
 
         # multiple detections in sequence
         if len(rows) > 1:
@@ -381,14 +382,14 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
                 count_values = mask.groupby(filtered_animals).count()
 
                 sel_all_empty = count_values == sum_values
-                sel_mixed = np.where(animals_sort[file_col].isin(sel_all_empty[~sel_all_empty[0]].index))[0]
-                sel_no_empties = np.where(animals_sort[file_col].isin(sum_values[sum_values[0] == 0].index))[0]
-
-                if len(sel_mixed) > 0 and len(sel_no_empties) >= 0:
-                    predsort_confidence = predsort[sel_mixed] * np.reshape(animals_sort.loc[sel_mixed, 'conf'].values, (-1, 1))
+                sel_mixed = np.where(filtered_animals.isin(sel_all_empty[~sel_all_empty[0]].index))[0]
+                sel_no_empties = np.where(filtered_animals.isin(sel_all_empty[~sel_all_empty[0]].index) & (predclass!=empty_col))[0]
+                    
+                if len(sel_mixed) > 0 and len(sel_no_empties) > 0:
+                    predsort_confidence = predsort[rows[sel_no_empties]] * np.reshape(animals_sort.loc[rows[sel_no_empties], 'conf'].values, (-1, 1))
                     predbest = np.mean(predsort_confidence, axis=0)
-                    conf_placeholder[sel_mixed] = np.max(predsort_confidence[:, np.argmax(predbest)])
-                    predict_placeholder[sel_mixed] = class_list[np.argmax(predbest)]
+                    conf_placeholder[rows[sel_mixed]] = np.max(predsort_confidence[:, np.argmax(predbest)])
+                    predict_placeholder[rows[sel_mixed]] = class_list[np.argmax(predbest)]
 
                 for file in sel_all_empty[sel_all_empty[0]].index:
                     empty_row = np.where(animals_sort[file_col] == file)
