@@ -66,11 +66,10 @@ def from_paths(image_dir: str,
     classifier, classes = classification.load_model(classifier_file, class_list, device=device)
     predictions_raw = classification.predict_species(animals, classifier, device=device,
                                                      file_col="Frame", batch_size=4, out_file=working_dir.predictions)
-    
     if simple:
         print("Classifying individual frames...")
         animals = classification.single_classification(animals, predictions_raw, classes[class_label])
-
+        manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
     else:
         print("Classifying sequences...")
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
@@ -80,9 +79,7 @@ def from_paths(image_dir: str,
                                                           sort_columns=None,
                                                           file_col="FilePath",
                                                           maxdiff=60)
-
-    # merge animal and empty, create symlinks
-    manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+    # create symlinks
     if sort:
         print("Sorting...")
         manifest = link.sort_species(manifest, working_dir.linkdir)
