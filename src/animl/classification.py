@@ -254,6 +254,7 @@ def single_classification(animals, predictions_raw, class_list):
     return animals
 
 
+
 def sequence_classification(animals, empty, predictions_raw, class_list, station_col,
                             empty_class="empty", sort_columns=None,
                             file_col="FilePath", maxdiff=60):
@@ -287,10 +288,6 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
     # Sanity check to verify that animals is a Pandas DataFrame
     if not isinstance(animals, pd.DataFrame):
         raise Exception("'animals' must be a DataFrame")
-
-    # Sanity check to verify that sort_columns is a non-empty list
-    if not isinstance(sort_columns, list) or len(sort_columns) == 0:
-        raise Exception("'sort_columns' must be a non-empty list of strings")
 
     if not isinstance(station_col, str) or station_col == '':
         raise Exception("'station_col' must be a non-empty string")
@@ -372,7 +369,7 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
 
             # no empties
             if empty_col is None or empty_col not in predclass:
-                predsort_confidence = predsort[rows] * animals_sort.loc[rows, ["conf"]].to_numpy()
+                predsort_confidence = predsort[rows] * np.reshape(animals_sort.loc[rows, 'conf'].values, (-1, 1))
                 predbest = np.mean(predsort_confidence, axis=0)
                 conf_placeholder[rows] = np.max(predsort_confidence[:, np.argmax(predbest)])
                 predict_placeholder[rows] = class_list[np.argmax(predbest)]
@@ -395,7 +392,7 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
 
                 for file in sel_all_empty[sel_all_empty[0]].index:
                     empty_row = np.where(animals_sort[file_col] == file)
-                    predsort_confidence = predsort[empty_row] * animals_sort.loc[empty_row, "conf"].to_numpy()
+                    predsort_confidence = predsort[empty_row] * np.reshape(animals_sort.loc[empty_row, 'conf'].values, (-1, 1))
                     predbest = np.mean(predsort_confidence, axis=0)
                     conf_placeholder[empty_row] = np.max(predsort_confidence[:, np.argmax(predbest)])
                     predict_placeholder[empty_row] = class_list[np.argmax(predbest)]
