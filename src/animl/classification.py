@@ -347,7 +347,7 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
     predsort = predictions[sort]
 
     conf_placeholder = np.zeros(len(animals_sort))
-    predict_placeholder = np.empty(len(animals_sort), dtype='U10')
+    predict_placeholder = np.empty(len(animals_sort), dtype='U30')
 
     i = 0
     while i < len(animals_sort):
