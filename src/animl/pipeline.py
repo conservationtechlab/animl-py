@@ -77,8 +77,8 @@ def from_paths(image_dir: str,
                                                           classes[class_label],
                                                           station_col='Station',
                                                           empty_class="",
-                                                          sort_columns=["Station", "DateTime", "FrameNumber"],
-                                                          file_col="Frame",
+                                                          sort_columns=None,
+                                                          file_col="FilePath",
                                                           maxdiff=60)
 
     # merge animal and empty, create symlinks
