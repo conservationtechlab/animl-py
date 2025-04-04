@@ -362,7 +362,6 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
             last_index += 1
 
         rows = np.array(rows)
-        print(rows)
 
         # multiple detections in sequence
         if len(rows) > 1:
