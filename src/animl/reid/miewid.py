@@ -30,7 +30,7 @@ def filter(rois):
     return rois[rois['emb_id'] == 0].reset_index(drop=True)
 
 
-def load(file_path, device=None):
+def load_miew(file_path, device=None):
     """
     Load MiewID from file path
 

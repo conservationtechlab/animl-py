@@ -20,7 +20,6 @@ from animl.megadetector import MegaDetector
 from animl.detect import detect_MD_batch, parse_MD
 from animl.split import get_animals
 from animl.classification import load_model, predict_species, single_classification
-from animl.generator import manifest_dataloader
 from animl.utils.torch_utils import get_device
 
 from animl.reid import viewpoint, miewid
@@ -47,7 +46,8 @@ def classify_mp(animals, config_file):
         print(exc)
     classifier_file = config_file.parent / Path(cfg.get('file_name'))
     classlist_file = config_file.parent / Path(cfg.get('class_file'))
-    classifier, classes = load_model(classifier_file, classlist_file, device=get_device())
+    classes = pd.read_csv(classlist_file)
+    classifier, classes = load_model(classifier_file, len(classes), device=get_device())
     predictions = predict_species(animals, classifier, classes, device=get_device(), file_col="filepath",
                               resize_width=cfg.get('resize_width'), resize_height=cfg.get('resize_height'),
                               normalize=cfg.get('normalize'), batch_size=4)
@@ -62,8 +62,8 @@ def viewpoint_estimator(rois, image_paths, viewpoint_filepath):
     device = get_device()
     output = []
     if len(rois) > 0:
-        viewpoint_dl = reid_dataloader(rois, image_paths, viewpoint.IMAGE_HEIGHT, viewpoint.IMAGE_WIDTH)
-        model = viewpoint.load(viewpoint_filepath, device=device)
+        viewpoint_dl = reid_dataloader(rois, image_paths, 480, 480)
+        model = load_model(viewpoint_filepath, 2, device=device)
         with torch.no_grad():
             for _, batch in tqdm(enumerate(viewpoint_dl)):
                 img = batch[0]
@@ -85,7 +85,7 @@ def miew_embedding(rois, image_paths, miew_filepath):
     output = []
     if len(rois) > 0:
         dataloader = reid_dataloader(rois, image_paths, miewid.IMAGE_HEIGHT, miewid.IMAGE_WIDTH)
-        model = miewid.load(miew_filepath, device=device)
+        model = miewid.load_miew(miew_filepath, device=device)
         with torch.no_grad():
             for _, batch in tqdm(enumerate(dataloader)):
                 img = batch[0]
