@@ -13,7 +13,7 @@ def from_paths(image_dir: str,
                classlist_file: str,
                class_label: str = "Code",
                sort: bool = True,
-               simple=False) -> pd.DataFrame:
+               simple=True) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
@@ -64,6 +64,7 @@ def from_paths(image_dir: str,
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
     class_list = pd.read_csv(classlist_file)
+    print(len(class_list))
     classifier = classification.load_model(classifier_file, len(class_list), device=device)
     predictions_raw = classification.predict_species(animals, classifier, device=device,
                                                      file_col="Frame", batch_size=4, out_file=working_dir.predictions)

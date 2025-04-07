@@ -342,8 +342,10 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
 
     conf_placeholder = np.zeros(len(animals_sort))
     predict_placeholder = np.empty(len(animals_sort), dtype='U30')
+    sequence_placeholder = np.zeros(len(animals_sort))
 
     i = 0
+    s = 0
     while i < len(animals_sort):
         rows = [i]
         last_index = i+1
@@ -397,9 +399,11 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
             predict_placeholder[rows] = class_list[np.argmax(predbest)]
 
         i = last_index
+        s+=1
 
     animals_sort['confidence'] = conf_placeholder
     animals_sort['prediction'] = predict_placeholder
+    animals_sort['sequence'] = sequence_placeholder
 
     return animals_sort
 

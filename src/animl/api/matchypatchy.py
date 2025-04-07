@@ -22,7 +22,7 @@ from animl.split import get_animals
 from animl.classification import load_model, predict_species, single_classification
 from animl.utils.torch_utils import get_device
 
-from animl.reid import viewpoint, miewid
+from animl.reid import miewid
 
 
 def detect_mp(detector_file, media):
