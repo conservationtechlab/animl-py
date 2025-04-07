@@ -82,7 +82,8 @@ def main():
         device = 'cpu'
 
     # initialize model and get class list
-    model, classes = load_model(cfg['active_model'], cfg['class_file'], device=device, architecture=cfg['architecture'])
+    classes = pd.read_csv(cfg['class_file'])
+    model = load_model(cfg['active_model'], len(classes), device=device, architecture=cfg['architecture'])
 
     class_list_label = cfg.get('class_list_label', 'class')
     class_list_index = cfg.get('class_list_index', 'id')

@@ -10,7 +10,7 @@ from animl.utils.torch_utils import get_device
 def from_paths(image_dir: str,
                detector_file: str,
                classifier_file: str,
-               class_list: str,
+               classlist_file: str,
                class_label: str = "Code",
                sort: bool = True,
                simple=False) -> pd.DataFrame:
@@ -22,7 +22,7 @@ def from_paths(image_dir: str,
         - image_dir (str): directory path containing the images or videos.
         - model_file (str): file path of the MegaDetector model.
         - class_model (str): file path of the classifier model.
-        - class_list (list): list of classes or species for classification.
+        - classlist_file (list): list of classes or species for classification.
         - sort (bool): toggle option to create symlinks
 
     Returns:
@@ -63,17 +63,18 @@ def from_paths(image_dir: str,
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
-    classifier, classes = classification.load_model(classifier_file, class_list, device=device)
+    class_list = pd.read_csv(classlist_file)
+    classifier = classification.load_model(classifier_file, len(class_list), device=device)
     predictions_raw = classification.predict_species(animals, classifier, device=device,
                                                      file_col="Frame", batch_size=4, out_file=working_dir.predictions)
     if simple:
         print("Classifying individual frames...")
-        animals = classification.single_classification(animals, predictions_raw, classes[class_label])
+        animals = classification.single_classification(animals, predictions_raw, class_list[class_label])
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
     else:
         print("Classifying sequences...")
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
-                                                          classes[class_label],
+                                                          class_list[class_label],
                                                           station_col='Station',
                                                           empty_class="",
                                                           sort_columns=None,
@@ -96,11 +97,7 @@ def from_config(config):
     to create a working directory for the image directory.
 
     Args:
-        - image_dir (str): directory path containing the images or videos.
-        - model_file (str): file path of the MegaDetector model.
-        - class_model (str): file path of the classifier model.
-        - class_list (list): list of classes or species for classification.
-        - sort (bool): toggle option to create symlinks
+        - config (str): path containing config file for inference
 
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
@@ -159,7 +156,8 @@ def from_config(config):
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
-    classifier, classes = classification.load_model(cfg['classifier_file'], cfg['class_list'], device=device)
+    class_list = pd.read_csv(cfg['class_list'])
+    classifier = classification.load_model(cfg['classifier_file'], len(class_list), device=device)
     predictions_raw = classification.predict_species(animals, classifier, device=device,
                                                      file_col=cfg.get('file_col_classification', 'Frame'),
                                                      batch_size=cfg.get('batch_size', 4),
@@ -168,14 +166,14 @@ def from_config(config):
     # merge animal and empty, create symlinks
     if station_dir:
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
-                                                          classes[cfg.get('class_label_col', 'Code')],
+                                                          class_list[cfg.get('class_label_col', 'Code')],
                                                           station_col='Station',
                                                           empty_class="",
                                                           sort_columns=["Station", "DateTime", "FrameNumber"],
                                                           file_col=cfg.get('file_col_classification', 'Frame'),
                                                           maxdiff=60)
     else:
-        animals = classification.single_classification(animals, predictions_raw, classes[cfg.get('class_label_col', 'Code')])
+        animals = classification.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'Code')])
         # merge animal and empty, create symlinks
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 

@@ -212,7 +212,8 @@ def main():
         device = 'cpu'
 
     # initialize model and get class list
-    model, classes, current_epoch = load_model(cfg['experiment_folder'], cfg['class_file'], device=device, architecture=cfg['architecture'])
+    classes = pd.read_csv(cfg['class_file'])
+    model, current_epoch = load_model(cfg['experiment_folder'], len(classes), device=device, architecture=cfg['architecture'])
 
     categories = dict([[x[cfg.get('class_list_label', 'class')], x[ cfg.get('class_list_index', 'id')]] for _, x in classes.iterrows()])
 

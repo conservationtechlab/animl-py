@@ -17,7 +17,7 @@ import torch.onnx
 import onnxruntime
 
 from animl import generator, file_management, split
-from animl.species import EfficientNet, ConvNeXtBase
+from animl.model_architecture import EfficientNet, ConvNeXtBase
 from animl.utils.torch_utils import get_device
 
 
@@ -49,7 +49,7 @@ def save_model(out_dir, epoch, model, stats):
     torch.save(stats, open(f'{out_dir}/{epoch}.pt', 'wb'))
 
 
-def load_model(model_path, class_file, device=None, architecture="CTL"):
+def load_model(model_path, classes, device=None, architecture="CTL"):
     '''
     Creates a model instance and loads the latest model state weights.
 
@@ -66,16 +66,10 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
     '''
     # read class file
     model_path = Path(model_path)
-    classes = pd.read_csv(Path(class_file))
 
     # check to make sure GPU is available if chosen
-    if not torch.cuda.is_available():
-        device = 'cpu'
-    elif torch.cuda.is_available() and device is None:
-        device = 'cuda:0'
-    else:
-        device = device
-
+    if device is None:
+        device = get_device()
     print('Device set to', device)
 
     # load latest model state from given folder
@@ -83,9 +77,9 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
         model_path = str(model_path)
         start_epoch = 0
         if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-            model = EfficientNet(len(classes))
+            model = EfficientNet(classes)
         elif architecture == "convnext_base":
-            model = ConvNeXtBase(len(classes))
+            model = ConvNeXtBase(classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
 
@@ -107,7 +101,7 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
             # no save state found; start anew
             print('No model state found, starting new model')
 
-        return model, classes, start_epoch
+        return model, start_epoch
 
     # load a specific model file
     elif model_path.is_file():
@@ -119,7 +113,7 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
         # PyTorch dict
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-                model = EfficientNet(len(classes), tune=False)
+                model = EfficientNet(classes, tune=False)
                 # TODO: torch 2.6 defaults to weights_only = True
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
@@ -127,7 +121,7 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
                 model.eval()
                 model.framework = "EfficientNet"
             elif architecture == "convnext_base":
-                model = ConvNeXtBase(len(classes), tune=False)
+                model = ConvNeXtBase(classes, tune=False)
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
@@ -151,7 +145,7 @@ def load_model(model_path, class_file, device=None, architecture="CTL"):
         print('Loaded model in %.2f seconds' % elapsed)
 
         # no need to return epoch
-        return model, classes
+        return model
 
     # no dir or file found
     else:
