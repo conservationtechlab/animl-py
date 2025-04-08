@@ -77,7 +77,7 @@ class ImageGenerator(Dataset):
     def __init__(self, x: pd.DataFrame, file_col: str = "file",
                  resize_height: int = 299, resize_width: int = 299,
                  crop: bool = True, normalize: bool = True,) -> None:
-        self.x = x
+        self.x = x.reset_index(drop=True)
         self.file_col = file_col
         self.crop = crop
         self.resize_height = int(resize_height)

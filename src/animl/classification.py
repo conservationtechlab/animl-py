@@ -202,7 +202,6 @@ def predict_species(detections, model,
 
     if isinstance(detections, pd.DataFrame):
         # initialize lists
-        detections = detections.reset_index(drop=True)
         raw_output = []
 
         dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=crop,
