@@ -154,7 +154,7 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
 
         videos = videos.merge(video_frames, on=file_col)
 
-    allframes = pd.concat([images, videos]).reset_index()
+    allframes = pd.concat([images, videos]).reset_index(drop=True)
 
     if (out_file is not None):
         file_management.save_data(allframes, out_file)
