@@ -36,7 +36,7 @@ def from_paths(image_dir: str,
     files = file_management.build_file_manifest(image_dir,
                                                 out_file=working_dir.filemanifest,
                                                 exif=True)
-    files["Station"] = files["FilePath"].apply(lambda x: x.split(os.sep)[-2])
+    #files["Station"] = files["FilePath"].apply(lambda x: x.split(os.sep)[-2])
     print("Found %d files." % len(files))
 
     # Video-processing to extract individual frames as images in to directory
