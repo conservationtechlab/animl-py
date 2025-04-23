@@ -58,13 +58,18 @@ def build_file_manifest(image_dir: str,
     files["FileName"] = files["FilePath"].apply(lambda x: os.path.split(x)[1])
     files["Extension"] = files["FilePath"].apply(lambda x: os.path.splitext(os.path.basename(x))[1].lower())
 
+    invalid = []
+
     if exif:
         for i, row in files.iterrows():
             if row["Extension"] in IMAGE_EXTENSIONS:
-                img = PIL.Image.open(row['FilePath'])
-                files.loc[i, "Width"] = img.size[0]
-                files.loc[i, "Height"] = img.size[1]
-                files.loc[i, "CreateDate"] = img.getexif().get(0x0132)
+                try:
+                    img = PIL.Image.open(row['FilePath'])
+                    files.loc[i, "Width"] = img.size[0]
+                    files.loc[i, "Height"] = img.size[1]
+                    files.loc[i, "CreateDate"] = img.getexif().get(0x0132)
+                except PIL.UnidentifiedImageError:
+                    invalid.append(i)
 
         # get filemodifydate as backup (videos, etc)
         files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
@@ -76,6 +81,8 @@ def build_file_manifest(image_dir: str,
             files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
         except KeyError:
             files["DateTime"] = files["FileModifyDate"]
+
+    files = files.drop(index=invalid).reset_index(drop=True)
 
     if out_file:
         save_data(files, out_file)
