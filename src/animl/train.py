@@ -238,6 +238,7 @@ def main():
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
+    frozen_epochs = cfg.get('frozen_epochs', 1) 
     if 'patience' in cfg:
         patience = cfg['patience']
         early_stopping = True
@@ -249,6 +250,10 @@ def main():
 
     # training loop
     while current_epoch < numEpochs:
+        if current_epoch > frozen_epochs:
+            for param in model.parameters():
+                param.requires_grad = True
+
         current_epoch += 1
         print(f'Epoch {current_epoch}/{numEpochs}')
         print(f"Using learning rate : {scheduler.get_last_lr()[0]}")

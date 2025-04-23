@@ -7,7 +7,7 @@ from torchvision.models import efficientnet, convnext_base, ConvNeXt_Base_Weight
 
 
 class EfficientNet(nn.Module):
-    def __init__(self, num_classes, tune=True):
+    def __init__(self, num_classes, tune=False):
         '''
             Construct the EfficientNet model architecture.
         '''
@@ -16,8 +16,11 @@ class EfficientNet(nn.Module):
 
         self.model = efficientnet.efficientnet_v2_m(weights=efficientnet.EfficientNet_V2_M_Weights.DEFAULT)       # "pretrained": use weights pre-trained on ImageNet
         if tune:
-            for params in self.model.parameters():
-                params.requires_grad = True
+            for param in self.model.parameters():
+                param.requires_grad = True
+        else:
+            for param in self.model.parameters():
+                param.requires_grad = False
 
         num_ftrs = self.model.classifier[1].in_features
 

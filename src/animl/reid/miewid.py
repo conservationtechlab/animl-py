@@ -43,6 +43,7 @@ def load_miew(file_path, device=None):
     """
     if device == None:
         device = get_device()
+    print('Sending model to %s' % device)
     weights = torch.load(file_path, weights_only=True)
     miew = MiewIdNet()
     miew.to(device)

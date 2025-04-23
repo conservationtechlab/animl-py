@@ -77,27 +77,24 @@ def viewpoint_estimator(rois, image_paths, viewpoint_filepath):
     return viewpoints
 
 
-def miew_embedding(rois, image_paths, miew_filepath):
+def miew_embedding(model, batch):
     """
     Wrapper for MiewID embedding extraction within MatchyPatchy
     """
     device = get_device()
-    output = []
-    if len(rois) > 0:
-        dataloader = reid_dataloader(rois, image_paths, miewid.IMAGE_HEIGHT, miewid.IMAGE_WIDTH)
-        model = miewid.load_miew(miew_filepath, device=device)
-        with torch.no_grad():
-            for _, batch in tqdm(enumerate(dataloader)):
-                img = batch[0]
-                roi_id = batch[1].numpy()[0]
-                emb = model.extract_feat(img.to(device))
-                emb = emb.cpu().detach().numpy()[0]
 
-                output.append([roi_id, emb])
-    return output
+    #with torch.no_grad():
+    img = batch[0]
+    roi_id = batch[1].numpy()[0]
+    emb = model.extract_feat(img.to(device))
+    emb = emb.cpu().detach().numpy()[0]
+
+    return roi_id, emb
 
 
-def reid_dataloader(rois, image_path_dict, resize_height, resize_width, batch_size=1, workers=1):
+def reid_dataloader(rois, image_path_dict, 
+                    resize_height=miewid.IMAGE_HEIGHT, resize_width=miewid.IMAGE_WIDTH, 
+                    batch_size=1, workers=1):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.
         Always dynamically crops
