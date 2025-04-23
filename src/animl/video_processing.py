@@ -76,9 +76,9 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
 
     cap.release()
     cv2.destroyAllWindows()
+    # corrupted video
     if len(frames_saved) == 0:
-        return ["File Error", file_path, None]
-
+        return
     else:
         return frames_saved
 
@@ -131,30 +131,30 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
                                                         ".mpg", ".mpeg", ".asf", ".m4v"])]
     if not videos.empty:
         # TODO add checkpoint to parallel
+        video_frames = []
         if parallel:
             pool = mp.Pool(workers)
-
-            video_frames = vstack([pool.apply(extract_frame_single, args=(video, out_dir, fps, frames))
-                                   for video in tqdm(videos[file_col])])
-
+            output = [pool.apply(extract_frame_single, args=(video, out_dir, fps, frames)) for video in tqdm(videos[file_col])]
+            output = list(filter(None, output))
+            video_frames = vstack(output)
             video_frames = pd.DataFrame(video_frames, columns=["Frame", file_col, "FrameNumber"])
-
+            video_frames['FrameNumber'] = video_frames['FrameNumber'].astype(int)
             pool.close()
 
         else:
-            video_frames = []
-            for i, video in tqdm(videos.iterrows()):
-                video_frames += extract_frame_single(video[file_col], out_dir=out_dir,
+            for i, video in tqdm(enumerate(videos[file_col])):
+                output = extract_frame_single(video, out_dir=out_dir,
                                                      fps=fps, frames=frames)
+                if output is not None:
+                    video_frames.extend(output)
 
                 if (i % checkpoint == 0) and (out_file is not None):
                     file_management.save_data(images, out_file)
 
             video_frames = pd.DataFrame(video_frames, columns=["Frame", file_col, "FrameNumber"])
-
         videos = videos.merge(video_frames, on=file_col)
 
-    allframes = pd.concat([images, videos]).reset_index()
+    allframes = pd.concat([images, videos]).reset_index(drop=True)
 
     if (out_file is not None):
         file_management.save_data(allframes, out_file)
