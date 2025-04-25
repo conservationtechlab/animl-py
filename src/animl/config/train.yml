@@ -21,7 +21,8 @@ image_size: [299, 299]
 batch_size: 16
 num_epochs: 100
 checkpoint_frequency: 10
-patience: 10 
+patience: 3 
+momentum: 0.9
 learning_rate: 0.003
 weight_decay: 0.001
 augment: True

@@ -228,11 +228,11 @@ def main():
                               file_col=file_col, label_col=label_col, crop=crop, augment=False)
 
     # set up model optimizer
-    optim = SGD(model.parameters(), lr=cfg['learning_rate'], weight_decay=cfg['weight_decay'])
+    optim = SGD(model.parameters(), lr=cfg['learning_rate'], momentum=cfg['momentum'], weight_decay=cfg['weight_decay'])
 
     # initialize scheduler
     if cfg.get("scheduler", True):
-        scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=3)
+        scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=cfg['patience'])
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
