@@ -183,6 +183,8 @@ def validate(data_loader, model, device="cpu"):
 
     return loss_total, oa_total, precision, recall
 
+def main():
+    return
 
 if __name__ == '__main__':
     '''
