@@ -184,7 +184,7 @@ def validate(data_loader, model, device="cpu"):
     return loss_total, oa_total, precision, recall
 
 
-def main():
+if __name__ == '__main__':
     '''
     Command line function
 
@@ -303,7 +303,3 @@ def main():
 
         # step the scheduler with the validation loss
         scheduler.step(loss_val)
-
-
-if __name__ == '__main__':
-    main()
