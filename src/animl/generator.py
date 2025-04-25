@@ -239,6 +239,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
                                       augment=augment)
 
     dataLoader = DataLoader(dataset=dataset_instance,
+                            pin_memory=True,
                             batch_size=batch_size,
                             shuffle=True,
                             num_workers=workers)
