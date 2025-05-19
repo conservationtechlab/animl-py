@@ -45,7 +45,7 @@ def load_miew(file_path, device=None):
         device = get_device()
     print('Sending model to %s' % device)
     weights = torch.load(file_path, weights_only=True)
-    miew = MiewIdNet()
+    miew = MiewIdNet(device=device)
     miew.to(device)
     miew.load_state_dict(weights, strict=False)
     miew.eval()
@@ -113,6 +113,7 @@ class GeM(nn.Module):
 
 class MiewIdNet(nn.Module):
     def __init__(self,
+                 device=None,
                  n_classes=10,
                  model_name='efficientnetv2_rw_m',
                  use_fc=False,
@@ -131,6 +132,7 @@ class MiewIdNet(nn.Module):
         print('Building Model Backbone for {} model'.format(model_name))
 
         self.model_name = model_name
+        self.device = device
 
         self.backbone = timm.create_model(model_name, pretrained=pretrained)
         if model_name.startswith('efficientnetv2_rw'):
