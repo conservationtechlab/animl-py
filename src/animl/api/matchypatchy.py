@@ -16,24 +16,10 @@ from torchvision.transforms import (Compose, Resize, ToTensor, Normalize)
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-from animl.megadetector import MegaDetector
-from animl.detect import detect_MD_batch, parse_MD
-from animl.split import get_animals
 from animl.classification import load_model, predict_species, single_classification
 from animl.utils.torch_utils import get_device
 
 from animl.reid import miewid
-
-
-def detect_mp(detector_file, media):
-    """
-    Wrapper for object detection withinin MatchyPatchy
-    """
-    detector = MegaDetector(detector_file, device=get_device())
-    md_results = detect_MD_batch(detector, media, file_col="filepath", quiet=True)
-    detections = parse_MD(md_results, manifest=media)
-    detections = get_animals(detections)
-    return detections
 
 
 def classify_mp(animals, config_file):
@@ -55,26 +41,20 @@ def classify_mp(animals, config_file):
     return animals
 
 
-def viewpoint_estimator(rois, image_paths, viewpoint_filepath):
+def viewpoint_estimator(model, batch):
     """
     Wrapper for viewpoint estimation within MatchyPatchy
     """
     device = get_device()
-    output = []
-    if len(rois) > 0:
-        viewpoint_dl = reid_dataloader(rois, image_paths, 480, 480)
-        model = load_model(viewpoint_filepath, 2, device=device)
-        with torch.no_grad():
-            for _, batch in tqdm(enumerate(viewpoint_dl)):
-                img = batch[0]
-                roi_id = batch[1].numpy()[0]
-                vp = model(img.to(device))
-                value = torch.argmax(vp, dim=1).cpu().detach().numpy()[0]
-                prob = torch.max(torch.nn.functional.softmax(vp, dim=1), 1)[0]
-                prob = prob.cpu().detach().numpy()[0]
-                output.append([roi_id, value, prob])
-    viewpoints = pd.DataFrame(output, columns=['id', 'value', 'prob'])
-    return viewpoints
+    
+    img = batch[0]
+    roi_id = batch[1].numpy()[0]
+    vp = model(img.to(device))
+    value = torch.argmax(vp, dim=1).cpu().detach().numpy()[0]
+    prob = torch.max(torch.nn.functional.softmax(vp, dim=1), 1)[0]
+    prob = prob.cpu().detach().numpy()[0]
+
+    return roi_id, value, prob
 
 
 def miew_embedding(model, batch):

@@ -77,7 +77,7 @@ def load_model(model_path, classes, device=None, architecture="CTL"):
         model_path = str(model_path)
         start_epoch = 0
         if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-            model = EfficientNet(classes)
+            model = EfficientNet(classes, device=device)
         elif architecture == "convnext_base":
             model = ConvNeXtBase(classes)
         else:  # can only resume models from a directory at this time
@@ -113,7 +113,7 @@ def load_model(model_path, classes, device=None, architecture="CTL"):
         # PyTorch dict
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-                model = EfficientNet(classes, tune=False)
+                model = EfficientNet(classes, device=device, tune=False)
                 # TODO: torch 2.6 defaults to weights_only = True
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
