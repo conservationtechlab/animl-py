@@ -45,7 +45,7 @@ def load_miew(file_path, device=None):
         device = get_device()
     print('Sending model to %s' % device)
     weights = torch.load(file_path, weights_only=True)
-    miew = MiewIdNet()
+    miew = MiewIdNet(device=device)
     miew.to(device)
     miew.load_state_dict(weights, strict=False)
     miew.eval()
@@ -112,27 +112,27 @@ class GeM(nn.Module):
 
 
 class MiewIdNet(nn.Module):
-    def __init__(
-        self,
-        n_classes: int = 10,
-        model_name: str = 'efficientnetv2_rw_m',
-        use_fc: bool = False,
-        fc_dim: int = 512,
-        dropout: float = 0.0,
-        loss_module: str = 'softmax',
-        s: float = 30.0,
-        margin: float = 0.50,
-        ls_eps: float = 0.0,
-        theta_zero: float = 0.785,
-        pretrained: bool = True,
-        margins: torch.Tensor = None,
-        k: int = None
-    ) -> None:
+    def __init__(self,
+                 device=None,
+                 n_classes=10,
+                 model_name='efficientnetv2_rw_m',
+                 use_fc=False,
+                 fc_dim=512,
+                 dropout=0.0,
+                 loss_module='softmax',
+                 s=30.0,
+                 margin=0.50,
+                 ls_eps=0.0,
+                 theta_zero=0.785,
+                 pretrained=True,
+                 margins=None,
+                 k=None):
 
         super(MiewIdNet, self).__init__()
         print('Building Model Backbone for {} model'.format(model_name))
 
         self.model_name = model_name
+        self.device = device
 
         self.backbone = timm.create_model(model_name, pretrained=pretrained)
         if model_name.startswith('efficientnetv2_rw'):

@@ -20,9 +20,8 @@ from animl import utils
 from animl import video_processing
 
 from animl.api import (MiewGenerator, animl_results_to_md_results, animl_to_md,
-                       classify_mp, csv_converter, detect_mp,
-                       detection_category_id_to_name, main, matchypatchy,
-                       miew_embedding, reid_dataloader, timelapse,
+                       classify_mp, csv_converter, detection_category_id_to_name, 
+                       main, matchypatchy, miew_embedding, reid_dataloader, timelapse,
                        viewpoint_estimator,)
 from animl.classification import (classify_with_config, load_model,
                                   predict_species, save_model,
@@ -135,7 +134,7 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'create_dataloader', 'create_folder', 'csv_converter',
            'custom_detector', 'custom_yolo_run', 'cutout', 'dataloaders',
            'dataset_stats', 'de_parallel', 'demo_boxes', 'detect',
-           'detect_MD_batch', 'detect_mp', 'detection_category_id_to_name',
+           'detect_MD_batch', 'detection_category_id_to_name',
            'device_count', 'download', 'draw_bounding_boxes', 'emojis',
            'exif_size', 'exif_transpose', 'extract_boxes',
            'extract_embeddings', 'extract_frame_single', 'extract_frames',

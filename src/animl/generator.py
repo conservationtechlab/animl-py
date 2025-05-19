@@ -10,8 +10,11 @@ from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip,
                                     Normalize, RandomAffine, RandomGrayscale, RandomApply,
-                                    ColorJitter, GaussianBlur)
+                                    ColorJitter, GaussianBlur,ToPILImage)
+from torchvision.transforms import functional as TF
 from animl.utils.torch_utils import _setup_size
+import hashlib
+import os
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -131,6 +134,7 @@ class ImageGenerator(Dataset):
         return img_tensor, image_name
 
 
+
 # currently working on this class
 class TrainGenerator(Dataset):
     '''
@@ -144,7 +148,7 @@ class TrainGenerator(Dataset):
         - agument: add image augmentations at each batch
     '''
     def __init__(self, x, classes, file_col='FilePath', label_col='species',
-                 crop=True, resize_height=299, resize_width=299, augment=False):
+                 crop=True, resize_height=299, resize_width=299, augment=False,cache_dir=None):
         self.x = x
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
@@ -153,6 +157,8 @@ class TrainGenerator(Dataset):
         self.buffer = 0
         self.crop = crop
         self.augment = augment
+        self.cache_dir = cache_dir
+        
         augmentations = Compose([
             # rotate ± 15 degrees and shear ± 7 degrees
             RandomAffine(degrees=15, shear=(-7, 7)),
@@ -170,52 +176,69 @@ class TrainGenerator(Dataset):
                                       Resize((self.resize_height, self.resize_width)),
                                       ToTensor(), ])
         else:
-            self.transform = Compose([RandomHorizontalFlip(p=0.5),  # random horizontal flip
+            self.transform = Compose([
                                       Resize((self.resize_height, self.resize_width)),
                                       ToTensor(), ])
         self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
 
     def __len__(self):
         return len(self.x)
+    
+    def _get_cache_path(self, img_path):
+        if self.crop:
+            identifier = f"{img_path}_{self.x['bbox1']}_{self.x['bbox2']}_{self.x['bbox3']}_{self.x['bbox4']}"
+        else:
+            identifier = f"{img_path}"
+        hash_id = hashlib.md5(identifier.encode()).hexdigest()
+        return os.path.join(self.cache_dir, f"{hash_id}.jpg")
 
     def __getitem__(self, idx):
         image_name = self.x.loc[idx, self.file_col]
         label = self.categories[self.x.loc[idx, self.label_col]]
+        cache_path = self._get_cache_path(image_name)
 
-        try:
-            img = Image.open(image_name).convert('RGB')
-        except OSError:
-            print("File error", image_name)
-            self.x = self.x.drop(idx, axis=0).reset_index()
-            return self.__getitem__(idx)
+        if self.cache_dir is not None and os.path.exists(cache_path):
+            img = Image.open(cache_path).convert("RGB")
+            img_tensor = self.transform(img)
+            return img_tensor, label, image_name
+        else:
+            try:
+                img = Image.open(image_name).convert('RGB')
+            except OSError:
+                print("File error", image_name)
+                self.x = self.x.drop(idx, axis=0).reset_index()
+                return self.__getitem__(idx)
 
-        if self.crop:
-            width, height = img.size
+            if self.crop:
+                width, height = img.size
 
-            bbox1 = self.x['bbox1'].iloc[idx]
-            bbox2 = self.x['bbox2'].iloc[idx]
-            bbox3 = self.x['bbox3'].iloc[idx]
-            bbox4 = self.x['bbox4'].iloc[idx]
+                bbox1 = self.x['bbox1'].iloc[idx]
+                bbox2 = self.x['bbox2'].iloc[idx]
+                bbox3 = self.x['bbox3'].iloc[idx]
+                bbox4 = self.x['bbox4'].iloc[idx]
 
-            left = width * bbox1
-            top = height * bbox2
-            right = width * (bbox1 + bbox3)
-            bottom = height * (bbox2 + bbox4)
+                left = width * bbox1
+                top = height * bbox2
+                right = width * (bbox1 + bbox3)
+                bottom = height * (bbox2 + bbox4)
 
-            left = max(0, int(left) - self.buffer)
-            top = max(0, int(top) - self.buffer)
-            right = min(width, int(right) + self.buffer)
-            bottom = min(height, int(bottom) + self.buffer)
-            img = img.crop((left, top, right, bottom))
+                left = max(0, int(left) - self.buffer)
+                top = max(0, int(top) - self.buffer)
+                right = min(width, int(right) + self.buffer)
+                bottom = min(height, int(bottom) + self.buffer)
+                img = img.crop((left, top, right, bottom))
 
-        img_tensor = self.transform(img)
-        img.close()
+            img_tensor = self.transform(img)
+            if self.cache_dir is not None:
+                os.makedirs(self.cache_dir, exist_ok=True)
+                img.save(cache_path, format="JPEG")
+            img.close()
 
         return img_tensor, label, image_name
 
 
 def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath", label_col="species",
-                     crop=False, resize_height=480, resize_width=480, augment=False):
+                     crop=False, resize_height=480, resize_width=480, augment=False,cache_dir=None):
     '''
         Loads a dataset for training and wraps it in a
         PyTorch DataLoader object. Shuffles the data before loading.
@@ -236,7 +259,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
     '''
     dataset_instance = TrainGenerator(manifest, classes, file_col, label_col=label_col, crop=crop,
                                       resize_height=resize_height, resize_width=resize_width,
-                                      augment=augment)
+                                      augment=augment,cache_dir=cache_dir)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             pin_memory=True,

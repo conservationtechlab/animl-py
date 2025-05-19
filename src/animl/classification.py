@@ -28,7 +28,7 @@ def softmax(x):
     return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
 
 
-def save_model(out_dir, epoch, model, stats):
+def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
     '''
     Saves model state weights.
 
@@ -37,6 +37,8 @@ def save_model(out_dir, epoch, model, stats):
         - epoch (int): current training epoch
         - model: pytorch model
         - stats (dict): performance metrics of current epoch
+        - optimizer: pytorch optimizer (optional)
+        - scheduler: pytorch scheduler (optional)
 
     Returns:
         None
@@ -44,10 +46,20 @@ def save_model(out_dir, epoch, model, stats):
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     # get model parameters and add to stats
-    stats['model'] = model.state_dict()
+    checkpoint = {
+        'model': model.state_dict(),
+        'stats': stats
+    }
+    #save optimizer and scheduler state dicts if they are provided
+    if optimizer is not None or scheduler is not None:
+        checkpoint['epoch'] = epoch
+    if optimizer is not None:
+        checkpoint['optimizer'] = optimizer.state_dict()
+    if scheduler is not None:
+        checkpoint['scheduler'] = scheduler.state_dict()
 
-    torch.save(stats, open(f'{out_dir}/{epoch}.pt', 'wb'))
-
+    torch.save(checkpoint, open(f'{out_dir}/{epoch}.pt', 'wb'))
+    
 
 def load_model(model_path, classes, device=None, architecture="CTL"):
     '''
@@ -72,34 +84,34 @@ def load_model(model_path, classes, device=None, architecture="CTL"):
         device = get_device()
     print('Device set to', device)
 
-    # load latest model state from given folder
+    # Create a new model intance for training
     if model_path.is_dir():
         model_path = str(model_path)
         start_epoch = 0
         if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-            model = EfficientNet(classes)
+            model = EfficientNet(classes, device=device)
         elif architecture == "convnext_base":
             model = ConvNeXtBase(classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
 
-        model_states = []
-        for file in os.listdir(model_path):
-            if os.path.splitext(file)[1] == ".pt":
-                model_states.append(file)
+        # model_states = []
+        # for file in os.listdir(model_path):
+        #     if os.path.splitext(file)[1] == ".pt":
+        #         model_states.append(file)
 
-        if len(model_states):
-            # at least one save state found; get latest
-            model_epochs = [int(m.replace(model_path, '').replace('.pt', '')) for m in model_states]
-            start_epoch = max(model_epochs)
+        # if len(model_states):
+        #     # at least one save state found; get latest
+        #     model_epochs = [int(m.replace(model_path, '').replace('.pt', '')) for m in model_states]
+        #     start_epoch = max(model_epochs)
 
-            # load state dict and apply weights to model
-            print(f'Resuming from epoch {start_epoch}')
-            state = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'))
-            model.load_state_dict(state['model'])
-        else:
-            # no save state found; start anew
-            print('No model state found, starting new model')
+        #     # load state dict and apply weights to model
+        #     print(f'Resuming from epoch {start_epoch}')
+        #     state = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'))
+        #     model.load_state_dict(state['model'])
+        # else:
+        #     # no save state found; start anew
+        #     print('No model state found, starting new model')
 
         return model, start_epoch
 
@@ -113,7 +125,7 @@ def load_model(model_path, classes, device=None, architecture="CTL"):
         # PyTorch dict
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-                model = EfficientNet(classes, tune=False)
+                model = EfficientNet(classes, device=device, tune=False)
                 # TODO: torch 2.6 defaults to weights_only = True
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])

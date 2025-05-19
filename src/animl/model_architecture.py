@@ -7,11 +7,12 @@ from torchvision.models import efficientnet, convnext_base, ConvNeXt_Base_Weight
 
 
 class EfficientNet(nn.Module):
-    def __init__(self, num_classes, tune=False):
+    def __init__(self, num_classes, device=None, tune=False):
         '''
             Construct the EfficientNet model architecture.
         '''
         super(EfficientNet, self).__init__()
+        self.device = device
         self.avgpool = nn.AdaptiveAvgPool2d(1)
 
         self.model = efficientnet.efficientnet_v2_m(weights=efficientnet.EfficientNet_V2_M_Weights.DEFAULT)       # "pretrained": use weights pre-trained on ImageNet
