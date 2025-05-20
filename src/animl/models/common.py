@@ -22,7 +22,7 @@ from PIL import Image
 from torch.cuda import amp
 
 
-from animl.utils.dataloaders import exif_transpose, letterbox
+from animl.utils.augmentations import exif_transpose, letterbox
 from animl.utils.general import (LOGGER, check_requirements, check_suffix, check_version, increment_path,
                            make_divisible, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh)
 from animl.utils.torch_utils import copy_attr, time_sync
