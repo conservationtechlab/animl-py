@@ -41,7 +41,7 @@ def load_miew(file_path, device=None):
     Returns:
         loaded miewid model object
     """
-    if device == None:
+    if device is None:
         device = get_device()
     print('Sending model to %s' % device)
     weights = torch.load(file_path, weights_only=True)
@@ -59,8 +59,8 @@ def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, 
     device = get_device()
     output = []
     if isinstance(manifest, pd.DataFrame):
-        dataloader = manifest_dataloader(manifest, batch_size=batch_size, workers=workers, 
-                                         file_col=file_col, crop=True, normalize=True, 
+        dataloader = manifest_dataloader(manifest, batch_size=batch_size, workers=workers,
+                                         file_col=file_col, crop=True, normalize=True,
                                          resize_width=IMAGE_WIDTH, resize_height=IMAGE_HEIGHT)
         with torch.no_grad():
             for _, batch in enumerate(dataloader):

@@ -2,24 +2,20 @@
 API for MatchyPatchy
 
 """
-import torch
 import yaml
 import pandas as pd
 from pathlib import Path
-from tqdm import tqdm
-from typing import Dict
-import pandas as pd
 from PIL import Image, ImageFile
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, ToTensor, Normalize)
 
-ImageFile.LOAD_TRUNCATED_IMAGES = True
-
 from animl.classification import load_model, predict_species, single_classification
 from animl.utils.torch_utils import get_device
 
 from animl.reid import miewid
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 def classify_mp(animals, config_file):
@@ -35,8 +31,8 @@ def classify_mp(animals, config_file):
     classes = pd.read_csv(classlist_file)
     classifier, classes = load_model(classifier_file, len(classes), device=get_device())
     predictions = predict_species(animals, classifier, classes, device=get_device(), file_col="filepath",
-                              resize_width=cfg.get('resize_width'), resize_height=cfg.get('resize_height'),
-                              normalize=cfg.get('normalize'), batch_size=4)
+                                  resize_width=cfg.get('resize_width'), resize_height=cfg.get('resize_height'),
+                                  normalize=cfg.get('normalize'), batch_size=4)
     animals = single_classification(animals, predictions)
     return animals
 
@@ -46,7 +42,6 @@ def viewpoint_estimator(model, batch):
     Wrapper for viewpoint estimation within MatchyPatchy
     """
     device = get_device()
-    
     img = batch[0]
     roi_id = batch[1].numpy()[0]
     vp = model(img.to(device))
@@ -63,7 +58,7 @@ def miew_embedding(model, batch):
     """
     device = get_device()
 
-    #with torch.no_grad():
+    # with torch.no_grad():
     img = batch[0]
     roi_id = batch[1].numpy()[0]
     emb = model.extract_feat(img.to(device))
@@ -72,8 +67,8 @@ def miew_embedding(model, batch):
     return roi_id, emb
 
 
-def reid_dataloader(rois, image_path_dict, 
-                    resize_height=miewid.IMAGE_HEIGHT, resize_width=miewid.IMAGE_WIDTH, 
+def reid_dataloader(rois, image_path_dict,
+                    resize_height=miewid.IMAGE_HEIGHT, resize_width=miewid.IMAGE_WIDTH,
                     batch_size=1, workers=1):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.
@@ -112,8 +107,7 @@ class MiewGenerator(Dataset):
     Options:
         - resize: dynamically resize images to target (square) [W,H]
     '''
-    def __init__(self, x: pd.DataFrame, image_path_dict: Dict[str, str],
-                 resize_height: int = 440, resize_width: int = 440):
+    def __init__(self, x, image_path_dict, resize_height=440, resize_width=440):
         self.x = x.reset_index()
         self.image_path_dict = image_path_dict
         self.resize_height = int(resize_height)

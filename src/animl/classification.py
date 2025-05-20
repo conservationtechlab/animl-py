@@ -4,7 +4,6 @@
     @ Kyra Swanson 2023
 '''
 import argparse
-import os
 import yaml
 import pandas as pd
 import numpy as np
@@ -50,7 +49,7 @@ def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
         'model': model.state_dict(),
         'stats': stats
     }
-    #save optimizer and scheduler state dicts if they are provided
+    # save optimizer and scheduler state dicts if they are provided
     if optimizer is not None or scheduler is not None:
         checkpoint['epoch'] = epoch
     if optimizer is not None:
@@ -59,7 +58,7 @@ def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
         checkpoint['scheduler'] = scheduler.state_dict()
 
     torch.save(checkpoint, open(f'{out_dir}/{epoch}.pt', 'wb'))
-    
+
 
 def load_model(model_path, classes, device=None, architecture="CTL"):
     '''
@@ -247,9 +246,9 @@ def predict_species(detections, model,
         file_management.save_data(pd.DataFrame(raw_output), out_file)
 
     return raw_output
-    
 
-def single_classification(animals, predictions_raw, class_list):   
+
+def single_classification(animals, predictions_raw, class_list):
     """
     Get maximum likelihood prediction from softmaxed logits
     """
@@ -257,7 +256,6 @@ def single_classification(animals, predictions_raw, class_list):
     animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
     animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
     return animals
-
 
 
 def sequence_classification(animals, empty, predictions_raw, class_list, station_col,
@@ -389,8 +387,8 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
 
                 sel_all_empty = count_values == sum_values
                 sel_mixed = np.where(filtered_animals.isin(sel_all_empty[~sel_all_empty[0]].index))[0]
-                sel_no_empties = np.where(filtered_animals.isin(sel_all_empty[~sel_all_empty[0]].index) & (predclass!=empty_col))[0]
-                    
+                sel_no_empties = np.where(filtered_animals.isin(sel_all_empty[~sel_all_empty[0]].index) & (predclass != empty_col))[0]
+
                 if len(sel_mixed) > 0 and len(sel_no_empties) > 0:
                     predsort_confidence = predsort[rows[sel_no_empties]] * np.reshape(animals_sort.loc[rows[sel_no_empties], 'conf'].values, (-1, 1))
                     predbest = np.mean(predsort_confidence, axis=0)
@@ -410,7 +408,7 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
             predict_placeholder[rows] = class_list[np.argmax(predbest)]
 
         i = last_index
-        s+=1
+        s += 1
 
     animals_sort['confidence'] = conf_placeholder
     animals_sort['prediction'] = predict_placeholder

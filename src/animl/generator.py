@@ -2,7 +2,7 @@
 Generators and Dataloaders
 
 """
-from typing import Tuple, Dict
+from typing import Tuple
 import pandas as pd
 from PIL import Image, ImageOps, ImageFile
 import torch
@@ -10,8 +10,7 @@ from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip,
                                     Normalize, RandomAffine, RandomGrayscale, RandomApply,
-                                    ColorJitter, GaussianBlur,ToPILImage)
-from torchvision.transforms import functional as TF
+                                    ColorJitter, GaussianBlur)
 from animl.utils.torch_utils import _setup_size
 import hashlib
 import os
@@ -134,8 +133,6 @@ class ImageGenerator(Dataset):
         return img_tensor, image_name
 
 
-
-# currently working on this class
 class TrainGenerator(Dataset):
     '''
     Data generator for training. Requires a list of possible classes
@@ -148,7 +145,7 @@ class TrainGenerator(Dataset):
         - agument: add image augmentations at each batch
     '''
     def __init__(self, x, classes, file_col='FilePath', label_col='species',
-                 crop=True, resize_height=299, resize_width=299, augment=False,cache_dir=None):
+                 crop=True, resize_height=299, resize_width=299, augment=False, cache_dir=None):
         self.x = x
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
@@ -158,7 +155,7 @@ class TrainGenerator(Dataset):
         self.crop = crop
         self.augment = augment
         self.cache_dir = cache_dir
-        
+
         augmentations = Compose([
             # rotate ± 15 degrees and shear ± 7 degrees
             RandomAffine(degrees=15, shear=(-7, 7)),
@@ -183,7 +180,7 @@ class TrainGenerator(Dataset):
 
     def __len__(self):
         return len(self.x)
-    
+
     def _get_cache_path(self, img_path):
         if self.crop:
             identifier = f"{img_path}_{self.x['bbox1']}_{self.x['bbox2']}_{self.x['bbox3']}_{self.x['bbox4']}"
@@ -238,7 +235,7 @@ class TrainGenerator(Dataset):
 
 
 def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath", label_col="species",
-                     crop=False, resize_height=480, resize_width=480, augment=False,cache_dir=None):
+                     crop=False, resize_height=480, resize_width=480, augment=False, cache_dir=None):
     '''
         Loads a dataset for training and wraps it in a
         PyTorch DataLoader object. Shuffles the data before loading.
@@ -259,7 +256,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
     '''
     dataset_instance = TrainGenerator(manifest, classes, file_col, label_col=label_col, crop=crop,
                                       resize_height=resize_height, resize_width=resize_width,
-                                      augment=augment,cache_dir=cache_dir)
+                                      augment=augment, cache_dir=cache_dir)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             pin_memory=True,
@@ -269,7 +266,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
     return dataLoader
 
 
-def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file", 
+def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file",
                         crop=True, normalize=True, resize_width=299, resize_height=299):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.

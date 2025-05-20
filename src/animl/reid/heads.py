@@ -33,15 +33,7 @@ class ArcMarginProduct(nn.Module):
 
         """
 
-    def __init__(
-        self, 
-        in_features: int, 
-        out_features: int, 
-        s: float = 30.0, 
-        m: float = 0.50, 
-        easy_margin: bool = False, 
-        ls_eps: float = 0.0
-    ) -> None:
+    def __init__(self, in_features, out_features, s=30.0, m=0.50, easy_margin=False, ls_eps=0.0):
         super(ArcMarginProduct, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -80,16 +72,7 @@ class ArcMarginProduct(nn.Module):
 
 
 class ElasticArcFace(nn.Module):
-    def __init__(
-        self, 
-        in_features: int, 
-        out_features: int, 
-        s: float = 64.0, 
-        m: float = 0.50, 
-        std: float = 0.0125, 
-        plus: bool = False, 
-        k: int = None
-    ) -> None:
+    def __init__(self, in_features, out_features, s=64.0, m=0.50, std=0.0125, plus=False, k=None):
         super(ElasticArcFace, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -100,10 +83,10 @@ class ElasticArcFace(nn.Module):
         self.std = std
         self.plus = plus
 
-    def forward(self, embeddings: torch.Tensor, label: torch.Tensor) -> torch.Tensor:
-        embbedings = l2_norm(embbedings, axis=1)
+    def forward(self, embeddings, label):
+        embeddings = l2_norm(embeddings, axis=1)
         kernel_norm = l2_norm(self.kernel, axis=0)
-        cos_theta = torch.mm(embbedings, kernel_norm)
+        cos_theta = torch.mm(embeddings, kernel_norm)
         cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
         index = torch.where(label != -1)[0]
         m_hot = torch.zeros(index.size()[0], cos_theta.size()[1], device=cos_theta.device)
@@ -132,11 +115,11 @@ class ArcMarginProduct_subcenter(nn.Module):
         self.k = k
         self.out_features = out_features
 
-    def reset_parameters(self)-> None:
+    def reset_parameters(self):
         stdv = 1. / math.sqrt(self.weight.size(1))
         self.weight.data.uniform_(-stdv, stdv)
 
-    def forward(self, features: torch.Tensor) -> torch.Tensor:
+    def forward(self, features: torch.Tensor):
         cosine_all = F.linear(F.normalize(features), F.normalize(self.weight))
         cosine_all = cosine_all.view(-1, self.out_features, self.k)
         cosine, _ = torch.max(cosine_all, dim=2)
@@ -170,16 +153,8 @@ class ArcFaceLossAdaptiveMargin(nn.modules.Module):
 
 
 class ArcFaceSubCenterDynamic(nn.Module):
-    def __init__(
-        self, 
-        embedding_dim: int, 
-        output_classes: int, 
-        margins: torch.Tensor, 
-        s: float, 
-        k: int = 2
-    ) -> None:
+    def __init__(self, embedding_dim, output_classes, margins, s, k=2):
         super().__init__()
-
         self.embedding_dim = embedding_dim
         self.output_classes = output_classes
         self.margins = margins

@@ -82,9 +82,9 @@ def train_func(data_loader, model, optimizer, device='cpu'):
         data, labels = data.to(device), labels.to(device)
         # reset gradients to zero
         optimizer.zero_grad()
-        
-        #mixed precision training if GPU is available
-        if  cfg.get('mixed_precision', False) and device != 'cpu' and torch.cuda.is_available():
+
+        # mixed precision training if GPU is available
+        if cfg.get('mixed_precision', False) and device != 'cpu' and torch.cuda.is_available():
             # Scales the loss, and calls backward() on the scaled loss to create
             # backward gradients. This is a more efficient way to calculate gradients.
             with autocast(device_type='cuda', dtype=torch.float16):
@@ -107,7 +107,6 @@ def train_func(data_loader, model, optimizer, device='cpu'):
             # apply gradients to model parameters
             optimizer.step()
 
-    
         loss_total += loss.item()
 
         pred_label = torch.argmax(prediction, dim=1)
@@ -207,7 +206,8 @@ def validate(data_loader, model, device="cpu"):
 
     return loss_total, oa_total, precision, recall
 
-def load_checkpoint(model_path,model, optimizer, scheduler,device):
+
+def load_checkpoint(model_path, model, optimizer, scheduler, device):
     model_states = []
     for file in os.listdir(model_path):
         if os.path.splitext(file)[1] == ".pt":
@@ -221,11 +221,10 @@ def load_checkpoint(model_path,model, optimizer, scheduler,device):
         # load state dict and apply weights to model
         print(f'Resuming from epoch {start_epoch}')
         checkpoint = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'), map_location=device)
-        
         model.load_state_dict(checkpoint['model'])
         # Model is assumed to be on the correct device already (moved in main before optimizer creation)
-        
-        #load optimzier state if available
+
+        # load optimzier state if available
         if 'optimizer' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
             # Ensure optimizer's state tensors are on the correct device
@@ -234,12 +233,12 @@ def load_checkpoint(model_path,model, optimizer, scheduler,device):
                     if isinstance(v, torch.Tensor) and v.device != device:
                         state[k] = v.to(device)
 
-        #load scheduler state if available
-        if 'scheduler' in checkpoint:      
+        # load scheduler state if available
+        if 'scheduler' in checkpoint:
             scheduler.load_state_dict(checkpoint['scheduler'])
 
-        #get last epoch from model if avialble
-        if 'epoch' in checkpoint: 
+        # get last epoch from model if avialble
+        if 'epoch' in checkpoint:
             return checkpoint['epoch']
         else:
             return start_epoch
@@ -248,8 +247,10 @@ def load_checkpoint(model_path,model, optimizer, scheduler,device):
         print('No model state found, starting new model')
         return 0
 
+
 def main():
     return
+
 
 if __name__ == '__main__':
     '''
@@ -269,8 +270,8 @@ if __name__ == '__main__':
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
     crop = cfg.get('crop', True)
-    file_col = cfg.get('file_col', 'FilePath') 
-    label_col = cfg.get('label_col', 'species') 
+    file_col = cfg.get('file_col', 'FilePath')
+    label_col = cfg.get('label_col', 'species')
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -287,17 +288,18 @@ if __name__ == '__main__':
     model.to(device)
     print(f"Model moved to {device}")
 
-    categories = dict([[x[cfg.get('class_list_label', 'class')], x[ cfg.get('class_list_index', 'id')]] for _, x in classes.iterrows()])
+    categories = dict([[x[cfg.get('class_list_label', 'class')], x[cfg.get('class_list_index', 'id')]] for _, x in classes.iterrows()])
 
     # load datasets
     train_dataset = pd.read_csv(cfg['training_set']).reset_index(drop=True)
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
-    
+
     # Initialize data loaders for training and validation set
     dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
-                                file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),cache_dir=cfg.get('cache_folder', None))
-    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size',16), workers=cfg['num_workers'],
-                              file_col=file_col, label_col=label_col, crop=crop, augment=False,cache_dir=cfg.get('cache_folder', None))
+                                file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),
+                                cache_dir=cfg.get('cache_folder', None))
+    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size', 16), workers=cfg['num_workers'],
+                              file_col=file_col, label_col=label_col, crop=crop, augment=False, cache_dir=cfg.get('cache_folder', None))
 
     # set up model optimizer
     if cfg.get("optimizer", "AdamW") == 'AdamW':
@@ -307,17 +309,17 @@ if __name__ == '__main__':
 
     # initialize scheduler
     if cfg.get("scheduler", True):
-        #scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=cfg['patience'])
-        scheduler = CosineAnnealingLR(optim, T_max=cfg.get('t_max',100), eta_min=0)
+        # scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=cfg['patience'])
+        scheduler = CosineAnnealingLR(optim, T_max=cfg.get('t_max', 100), eta_min=0)
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
     # Load checkpoint for model weights, optimizer state, scheduler state, and actual current_epoch
-    current_epoch = load_checkpoint(cfg['experiment_folder'], model, optim, scheduler,device)
+    current_epoch = load_checkpoint(cfg['experiment_folder'], model, optim, scheduler, device)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
-    frozen_epochs = cfg.get('frozen_epochs', 1) 
+    frozen_epochs = cfg.get('frozen_epochs', 1)
     if 'patience' in cfg:
         patience = cfg['patience']
         early_stopping = True
@@ -331,8 +333,8 @@ if __name__ == '__main__':
     log_file = cfg.get('log_file', None)
     if log_file is not None and current_epoch == 0:
         with open(log_file, 'a') as f:
-            f.write(f"Epoch,LearningRate,Train_Loss,Train_Accuracy,Val_Loss,Val_Accuracy,Precision,Recall\n")
-            
+            f.write("Epoch,LearningRate,Train_Loss,Train_Accuracy,Val_Loss,Val_Accuracy,Precision,Recall\n")
+
     # training loop
     while current_epoch < numEpochs:
 
@@ -357,7 +359,7 @@ if __name__ == '__main__':
             'precision': precision,
             'recall': recall
         }
-        
+
         # Log epoch stats to file
         if log_file:
             with open(log_file, 'a') as f:
@@ -369,8 +371,7 @@ if __name__ == '__main__':
         checkpoint = cfg.get('checkpoint_frequency', 10)
         # experiment.log_metrics(stats, step=current_epoch)
         if current_epoch % checkpoint == 0:
-            save_model(cfg['experiment_folder'], current_epoch, model, stats,optim,scheduler)
-
+            save_model(cfg['experiment_folder'], current_epoch, model, stats, optim, scheduler)
 
         # best.pt saving
         if loss_val < best_val_loss:
@@ -394,6 +395,3 @@ if __name__ == '__main__':
             if epochs_no_improve >= patience:
                 print(f"Early stopping triggered after {patience} epochs without improvement.")
                 break
-
-
-        
