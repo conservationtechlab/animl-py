@@ -36,7 +36,7 @@ def from_paths(image_dir: str,
     files = file_management.build_file_manifest(image_dir,
                                                 out_file=working_dir.filemanifest,
                                                 exif=True)
-    #files["Station"] = files["FilePath"].apply(lambda x: x.split(os.sep)[-2])
+    # files["Station"] = files["FilePath"].apply(lambda x: x.split(os.sep)[-2])
     print("Found %d files." % len(files))
 
     # Video-processing to extract individual frames as images in to directory
@@ -72,6 +72,7 @@ def from_paths(image_dir: str,
         print("Classifying individual frames...")
         animals = classification.single_classification(animals, predictions_raw, class_list[class_label])
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+        # TODO: single output per file
     else:
         print("Classifying sequences...")
         manifest = classification.sequence_classification(animals, empty, predictions_raw,

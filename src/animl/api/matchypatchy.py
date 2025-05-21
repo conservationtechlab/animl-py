@@ -2,38 +2,20 @@
 API for MatchyPatchy
 
 """
-import torch
 import yaml
 import pandas as pd
 from pathlib import Path
-from tqdm import tqdm
-from typing import Dict
-import pandas as pd
 from PIL import Image, ImageFile
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, ToTensor, Normalize)
 
-ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-from animl.megadetector import MegaDetector
-from animl.detect import detect_MD_batch, parse_MD
-from animl.split import get_animals
 from animl.classification import load_model, predict_species, single_classification
 from animl.utils.torch_utils import get_device
 
 from animl.reid import miewid
 
-
-def detect_mp(detector_file, media):
-    """
-    Wrapper for object detection withinin MatchyPatchy
-    """
-    detector = MegaDetector(detector_file, device=get_device())
-    md_results = detect_MD_batch(detector, media, file_col="filepath", quiet=True)
-    detections = parse_MD(md_results, manifest=media)
-    detections = get_animals(detections)
-    return detections
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 def classify_mp(animals, config_file):
@@ -49,32 +31,25 @@ def classify_mp(animals, config_file):
     classes = pd.read_csv(classlist_file)
     classifier, classes = load_model(classifier_file, len(classes), device=get_device())
     predictions = predict_species(animals, classifier, classes, device=get_device(), file_col="filepath",
-                              resize_width=cfg.get('resize_width'), resize_height=cfg.get('resize_height'),
-                              normalize=cfg.get('normalize'), batch_size=4)
+                                  resize_width=cfg.get('resize_width'), resize_height=cfg.get('resize_height'),
+                                  normalize=cfg.get('normalize'), batch_size=4)
     animals = single_classification(animals, predictions)
     return animals
 
 
-def viewpoint_estimator(rois, image_paths, viewpoint_filepath):
+def viewpoint_estimator(model, batch):
     """
     Wrapper for viewpoint estimation within MatchyPatchy
     """
     device = get_device()
-    output = []
-    if len(rois) > 0:
-        viewpoint_dl = reid_dataloader(rois, image_paths, 480, 480)
-        model = load_model(viewpoint_filepath, 2, device=device)
-        with torch.no_grad():
-            for _, batch in tqdm(enumerate(viewpoint_dl)):
-                img = batch[0]
-                roi_id = batch[1].numpy()[0]
-                vp = model(img.to(device))
-                value = torch.argmax(vp, dim=1).cpu().detach().numpy()[0]
-                prob = torch.max(torch.nn.functional.softmax(vp, dim=1), 1)[0]
-                prob = prob.cpu().detach().numpy()[0]
-                output.append([roi_id, value, prob])
-    viewpoints = pd.DataFrame(output, columns=['id', 'value', 'prob'])
-    return viewpoints
+    img = batch[0]
+    roi_id = batch[1].numpy()[0]
+    vp = model(img.to(device))
+    value = torch.argmax(vp, dim=1).cpu().detach().numpy()[0]
+    prob = torch.max(torch.nn.functional.softmax(vp, dim=1), 1)[0]
+    prob = prob.cpu().detach().numpy()[0]
+
+    return roi_id, value, prob
 
 
 def miew_embedding(model, batch):
@@ -83,7 +58,7 @@ def miew_embedding(model, batch):
     """
     device = get_device()
 
-    #with torch.no_grad():
+    # with torch.no_grad():
     img = batch[0]
     roi_id = batch[1].numpy()[0]
     emb = model.extract_feat(img.to(device))
@@ -92,8 +67,8 @@ def miew_embedding(model, batch):
     return roi_id, emb
 
 
-def reid_dataloader(rois, image_path_dict, 
-                    resize_height=miewid.IMAGE_HEIGHT, resize_width=miewid.IMAGE_WIDTH, 
+def reid_dataloader(rois, image_path_dict,
+                    resize_height=miewid.IMAGE_HEIGHT, resize_width=miewid.IMAGE_WIDTH,
                     batch_size=1, workers=1):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.
@@ -132,8 +107,7 @@ class MiewGenerator(Dataset):
     Options:
         - resize: dynamically resize images to target (square) [W,H]
     '''
-    def __init__(self, x: pd.DataFrame, image_path_dict: Dict[str, str],
-                 resize_height: int = 440, resize_width: int = 440):
+    def __init__(self, x, image_path_dict, resize_height=440, resize_width=440):
         self.x = x.reset_index()
         self.image_path_dict = image_path_dict
         self.resize_height = int(resize_height)

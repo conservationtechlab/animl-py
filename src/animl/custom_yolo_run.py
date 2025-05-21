@@ -177,8 +177,7 @@ if __name__ == "__main__":
                 if not os.path.isdir(home):
                     os.mkdir(home)
                 print('Saving to', home)
-                wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt',
-                            out=home)
+                wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt', out=home)
 
         if not os.path.isfile(args.classlist):
             prompt = "Class list not found, would you like to download Southwest_v3? y/n: "
@@ -186,7 +185,6 @@ if __name__ == "__main__":
                 if not os.path.isdir(home):
                     os.mkdir(home)
                 print('Saving to', home)
-                wget.download('https://sandiegozoo.box.com/shared/static/tetfkotf295espoaw8jyco4tk1t0trtt.csv',
-                            out=home)
+                wget.download('https://sandiegozoo.box.com/shared/static/tetfkotf295espoaw8jyco4tk1t0trtt.csv', out=home)
         # Call the main function
         main_paths(args.imagedir_config, args.detector, args.classlist)

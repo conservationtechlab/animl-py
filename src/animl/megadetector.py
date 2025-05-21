@@ -9,9 +9,9 @@ import torch
 from pathlib import Path
 import numpy as np
 import traceback
-from animl.utils import general, augmentations
+from animl.utils import general
+from animl.utils.augmentations import letterbox
 from animl.models import yolo
-
 
 CONF_DIGITS = 3
 COORD_DIGITS = 4
@@ -22,7 +22,7 @@ class MegaDetector:
     IMAGE_SIZE = 1280  # image size used in training
     STRIDE = 64
 
-    def __init__(self, model_path: str, device=None):
+    def __init__(self, model_path, device=None):
         if not torch.cuda.is_available():
             self.device = 'cpu'
         elif torch.cuda.is_available() and device is None:
@@ -98,8 +98,7 @@ class MegaDetector:
             if skip_image_resize:
                 img = img_original
             else:
-                img = augmentations.letterbox(img_original, new_shape=target_size,
-                                              stride=MegaDetector.STRIDE, auto=True)[0]
+                img = letterbox(img_original, new_shape=target_size, stride=MegaDetector.STRIDE, auto=True)[0]
             # HWC to CHW; PIL Image is RGB already
             img = img.transpose((2, 0, 1))
             img = np.ascontiguousarray(img)

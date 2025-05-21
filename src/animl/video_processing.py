@@ -38,11 +38,14 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
         raise NotADirectoryError(f"Output directory {out_dir} does not exist")
 
     cap = cv2.VideoCapture(file_path)
+    if not cap.isOpened():  # corrupted video
+        return
+
     filename = os.path.basename(file_path)
     filename, extension = os.path.splitext(filename)
     uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
     frames_saved = []
-   
+
     # Typechecking FPS
     if fps == 'None':
         fps = None
@@ -144,7 +147,7 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
         else:
             for i, video in tqdm(enumerate(videos[file_col])):
                 output = extract_frame_single(video, out_dir=out_dir,
-                                                     fps=fps, frames=frames)
+                                              fps=fps, frames=frames)
                 if output is not None:
                     video_frames.extend(output)
 
