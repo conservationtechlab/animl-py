@@ -103,6 +103,7 @@ def get_empty(manifest):
 def train_val_test(manifest: pd.DataFrame,
                    out_dir: Optional[str] = None,
                    label_col: str = "species",
+                   file_col: str = 'FilePath',
                    percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
                    seed: Optional[int] = None):
     '''
@@ -142,6 +143,7 @@ def train_val_test(manifest: pd.DataFrame,
     testCtArr = []
 
     # group the data based on label column
+    manifest.drop_duplicates(subset=[file_col])
     manifest_by_label = manifest.groupby(label_col)
     labelCt = manifest[label_col].value_counts()
 
