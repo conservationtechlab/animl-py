@@ -60,6 +60,29 @@ def build_file_manifest(image_dir: str,
 
     invalid = []
 
+    
+    def check_time(timestamp):
+        input_formats = ['%Y:%m:%d %H:%M:%S', "%d-%m-%Y %H:%M", "%Y/%m/%d %H:%M:%S"]
+        desired_format = '%Y-%m-%d %H:%M:%S'
+        try:
+            # If it already matches, return as is
+            if datetime.strptime(timestamp, desired_format).strftime(desired_format) == timestamp:
+                return timestamp
+        except ValueError:
+            pass
+
+        # Try other input formats
+        for fmt in input_formats:
+            try:
+                newtimestamp = datetime.strptime(timestamp, fmt)
+                return newtimestamp.strftime(desired_format)
+            except ValueError:
+                continue
+
+        #timestamp not recognized
+        return None
+
+
     if exif:
         for i, row in files.iterrows():
             if row["Extension"] in IMAGE_EXTENSIONS:
@@ -77,7 +100,7 @@ def build_file_manifest(image_dir: str,
         try:
             # select createdate if exists, else choose filemodify date
             files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
-            files["CreateDate"] = files['CreateDate'].apply(lambda x: datetime.strptime(str(x), '%Y:%m:%d %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S') if isinstance(x, str) else x)
+            files["CreateDate"] = files['CreateDate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
             files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
         except KeyError:
             files["DateTime"] = files["FileModifyDate"]
