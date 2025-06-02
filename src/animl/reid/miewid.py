@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
-from animl.reid.heads import ElasticArcFace, ArcFaceSubCenterDynamic
 from animl.utils.torch_utils import get_device
 from animl.generator import manifest_dataloader
 
@@ -156,21 +155,7 @@ class MiewIdNet(nn.Module):
             final_in_features = fc_dim
 
         self.loss_module = loss_module
-        if loss_module == 'arcface':
-            self.final = ElasticArcFace(final_in_features, n_classes,
-                                        s=s, m=margin)
-        elif loss_module == 'arcface_subcenter_dynamic':
-            if margins is None:
-                margins = [0.3] * n_classes
-            self.final = ArcFaceSubCenterDynamic(embedding_dim=final_in_features,
-                                                 output_classes=n_classes,
-                                                 margins=margins, s=s, k=k)
-        # elif loss_module == 'cosface':
-        #     self.final = AddMarginProduct(final_in_features, n_classes, s=s, m=margin)
-        # elif loss_module == 'adacos':
-        #     self.final = AdaCos(final_in_features, n_classes, m=margin, theta_zero=theta_zero)
-        else:
-            self.final = nn.Linear(final_in_features, n_classes)
+        self.final = nn.Linear(final_in_features, n_classes)
 
     def _init_params(self) -> None:
         nn.init.xavier_normal_(self.fc.weight)
@@ -181,16 +166,6 @@ class MiewIdNet(nn.Module):
     def forward(self, x: torch.Tensor, label: torch.Tensor = None) -> torch.Tensor:
         feature = self.extract_feat(x)
         return feature
-        # if not self.training:
-        #     return feature
-        # else:
-        #     assert label is not None
-        # if self.loss_module in ('arcface', 'arcface_subcenter_dynamic'):
-        #     logits = self.final(feature, label)
-        # else:
-        #     logits = self.final(feature)
-        #
-        # return logits
 
     def extract_feat(self, x: torch.Tensor) -> torch.Tensor:
         batch_size = x.shape[0]

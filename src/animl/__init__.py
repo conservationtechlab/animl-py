@@ -55,10 +55,8 @@ from animl.multi_species import (multi_species_detection,)
 from animl.pipeline import (from_config, from_paths,)
 from animl.plot_boxes import (demo_boxes, draw_bounding_boxes, main,
                               plot_all_bounding_boxes,)
-from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
-                        ArcMarginProduct, ArcMarginProduct_subcenter,
-                        ElasticArcFace, GeM, IMAGE_HEIGHT, IMAGE_WIDTH,
-                        MiewIdNet, extract_embeddings, heads, l2_norm,
+from animl.reid import (GeM, IMAGE_HEIGHT, IMAGE_WIDTH,
+                        MiewIdNet, extract_embeddings,
                         load_miew, miewid, weights_init_classifier,
                         weights_init_kaiming,)
 from animl.split import (get_animals, get_animals_custom, get_empty,
