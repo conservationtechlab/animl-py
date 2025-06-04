@@ -52,7 +52,8 @@ def from_paths(image_dir: str,
     else:
         detector = megadetector.MegaDetector(detector_file, device=device)
         md_results = detect.detect_MD_batch(detector, all_frames, file_col="Frame",
-                                            checkpoint_path=working_dir.mdraw, quiet=True)
+                                            checkpoint_path=working_dir.mdraw,
+                                            checkpoint_frequency=5000, quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_MD(md_results, manifest=all_frames, out_file=working_dir.detections)
