@@ -12,6 +12,7 @@ import traceback
 from animl.utils import general
 from animl.utils.augmentations import letterbox
 from animl.models import yolo
+from animl.utils.torch_utils import get_device
 
 CONF_DIGITS = 3
 COORD_DIGITS = 4
@@ -23,12 +24,8 @@ class MegaDetector:
     STRIDE = 64
 
     def __init__(self, model_path, device=None):
-        if not torch.cuda.is_available():
-            self.device = 'cpu'
-        elif torch.cuda.is_available() and device is None:
-            self.device = 'cuda:0'
-        else:
-            self.device = device
+        if device is None:
+            self.device = get_device()
 
         print('Sending model to %s' % self.device)
         # model_path = str(model_path) if isinstance(model_path, Path) else model_path
