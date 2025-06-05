@@ -37,11 +37,12 @@ def classify_mp(animals, config_file):
     return animals
 
 
-def viewpoint_estimator(model, batch):
+def viewpoint_estimator(model, batch, device=None):
     """
     Wrapper for viewpoint estimation within MatchyPatchy
     """
-    device = get_device()
+    if device is None:
+        device = get_device()
     img = batch[0]
     roi_id = batch[1].numpy()[0]
     vp = model(img.to(device))
@@ -52,11 +53,12 @@ def viewpoint_estimator(model, batch):
     return roi_id, value, prob
 
 
-def miew_embedding(model, batch):
+def miew_embedding(model, batch, device=None):
     """
     Wrapper for MiewID embedding extraction within MatchyPatchy
     """
-    device = get_device()
+    if device is None:
+        device = get_device()
 
     # with torch.no_grad():
     img = batch[0]

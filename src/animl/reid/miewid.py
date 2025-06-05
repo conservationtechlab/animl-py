@@ -52,11 +52,12 @@ def load_miew(file_path, device=None):
     return miew
 
 
-def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, workers=1):
+def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, workers=1, device=None):
     """
     Wrapper for MiewID embedding extraction within MatchyPatchy
     """
-    device = get_device()
+    if device is None:
+        device = get_device()
     output = []
     if isinstance(manifest, pd.DataFrame):
         dataloader = manifest_dataloader(manifest, batch_size=batch_size, workers=workers,
