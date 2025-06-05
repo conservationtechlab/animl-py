@@ -182,6 +182,8 @@ class TrainGenerator(Dataset):
         return len(self.x)
 
     def _get_cache_path(self, img_path):
+        if self.cache_dir is None:
+            return ""
         if self.crop:
             identifier = f"{img_path}_{self.x['bbox1']}_{self.x['bbox2']}_{self.x['bbox3']}_{self.x['bbox4']}"
         else:
@@ -194,7 +196,7 @@ class TrainGenerator(Dataset):
         label = self.categories[self.x.loc[idx, self.label_col]]
         cache_path = self._get_cache_path(image_name)
 
-        if self.cache_dir is not None and os.path.exists(cache_path):
+        if os.path.exists(cache_path):
             img = Image.open(cache_path).convert("RGB")
             img_tensor = self.transform(img)
             return img_tensor, label, image_name
