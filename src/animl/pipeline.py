@@ -11,7 +11,7 @@ def from_paths(image_dir: str,
                detector_file: str,
                classifier_file: str,
                classlist_file: str,
-               class_label: str = "Code",
+               class_label: str = "code",
                sort: bool = True,
                simple=True) -> pd.DataFrame:
     """
@@ -176,7 +176,7 @@ def from_config(config):
                                                           file_col=cfg.get('file_col_classification', 'Frame'),
                                                           maxdiff=60)
     else:
-        animals = classification.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'Code')])
+        animals = classification.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'code')])
         # merge animal and empty, create symlinks
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 
