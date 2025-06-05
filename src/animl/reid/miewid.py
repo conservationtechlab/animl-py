@@ -57,7 +57,6 @@ def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, 
     """
     Wrapper for MiewID embedding extraction within MatchyPatchy
     """
-    print("test")
     if device is None:
         device = get_device()
     output = []
