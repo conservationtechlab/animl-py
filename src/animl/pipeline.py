@@ -11,7 +11,7 @@ def from_paths(image_dir: str,
                detector_file: str,
                classifier_file: str,
                classlist_file: str,
-               class_label: str = "Code",
+               class_label: str = "code",
                sort: bool = True,
                simple=True) -> pd.DataFrame:
     """
@@ -52,7 +52,8 @@ def from_paths(image_dir: str,
     else:
         detector = megadetector.MegaDetector(detector_file, device=device)
         md_results = detect.detect_MD_batch(detector, all_frames, file_col="Frame",
-                                            checkpoint_path=working_dir.mdraw, quiet=True)
+                                            checkpoint_path=working_dir.mdraw,
+                                            checkpoint_frequency=5000, quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_MD(md_results, manifest=all_frames, out_file=working_dir.detections)
@@ -175,7 +176,7 @@ def from_config(config):
                                                           file_col=cfg.get('file_col_classification', 'Frame'),
                                                           maxdiff=60)
     else:
-        animals = classification.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'Code')])
+        animals = classification.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'code')])
         # merge animal and empty, create symlinks
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 

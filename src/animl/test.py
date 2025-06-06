@@ -94,7 +94,7 @@ def main():
     test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
     dl_test = train_dataloader(test_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
                                file_col=cfg.get('file_col', 'FilePath'), label_col=cfg.get('label_col', 'species'),
-                               crop=crop, augment=False)
+                               crop=crop, augment=False, cache_dir=cfg.get('cache_folder', None))
 
     # get predictions
     pred, true, paths = test_func(dl_test, model, device)
