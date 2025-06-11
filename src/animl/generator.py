@@ -148,7 +148,7 @@ class TrainGenerator(Dataset):
         - agument: add image augmentations at each batch
     '''
     def __init__(self, x, classes, file_col='FilePath', label_col='species',
-                 crop=True, resize_height=299, resize_width=299, augment=False,cache_dir=None):
+                 crop=True, resize_height=299, resize_width=299, augment=False,cache_dir=None, crop_coord='relative'):
         self.x = x
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
@@ -158,6 +158,7 @@ class TrainGenerator(Dataset):
         self.crop = crop
         self.augment = augment
         self.cache_dir = cache_dir
+        self.crop_coord = crop_coord
         
         augmentations = Compose([
             # rotate ± 15 degrees and shear ± 7 degrees
@@ -212,21 +213,29 @@ class TrainGenerator(Dataset):
             if self.crop:
                 width, height = img.size
 
-                bbox1 = self.x['bbox1'].iloc[idx]
-                bbox2 = self.x['bbox2'].iloc[idx]
-                bbox3 = self.x['bbox3'].iloc[idx]
-                bbox4 = self.x['bbox4'].iloc[idx]
+                if self.crop_coord == 'relative':
+                    bbox1 = self.x['bbox1'].iloc[idx]
+                    bbox2 = self.x['bbox2'].iloc[idx]
+                    bbox3 = self.x['bbox3'].iloc[idx]
+                    bbox4 = self.x['bbox4'].iloc[idx]
 
-                left = width * bbox1
-                top = height * bbox2
-                right = width * (bbox1 + bbox3)
-                bottom = height * (bbox2 + bbox4)
-
+                    left = width * bbox1
+                    top = height * bbox2
+                    right = width * (bbox1 + bbox3)
+                    bottom = height * (bbox2 + bbox4)
+                else:
+                    left = self.x['bbox1'].iloc[idx]
+                    top = self.x['bbox2'].iloc[idx]
+                    right = self.x['bbox3'].iloc[idx]
+                    bottom = self.x['bbox4'].iloc[idx]
+                    
                 left = max(0, int(left) - self.buffer)
                 top = max(0, int(top) - self.buffer)
                 right = min(width, int(right) + self.buffer)
                 bottom = min(height, int(bottom) + self.buffer)
                 img = img.crop((left, top, right, bottom))
+                
+
 
             img_tensor = self.transform(img)
             if self.cache_dir is not None:
@@ -238,7 +247,7 @@ class TrainGenerator(Dataset):
 
 
 def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath", label_col="species",
-                     crop=False, resize_height=480, resize_width=480, augment=False,cache_dir=None):
+                     crop=False, resize_height=480, resize_width=480, augment=False,cache_dir=None, crop_coord='relative'):
     '''
         Loads a dataset for training and wraps it in a
         PyTorch DataLoader object. Shuffles the data before loading.
@@ -259,7 +268,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
     '''
     dataset_instance = TrainGenerator(manifest, classes, file_col, label_col=label_col, crop=crop,
                                       resize_height=resize_height, resize_width=resize_width,
-                                      augment=augment,cache_dir=cache_dir)
+                                      augment=augment,cache_dir=cache_dir,crop_coord=crop_coord)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             pin_memory=True,

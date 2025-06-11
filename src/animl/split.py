@@ -3,6 +3,7 @@ Tools for splitting the data for different workflows
 """
 import pandas as pd
 import numpy as np
+from sklearn.model_selection import GroupShuffleSplit
 from math import fsum
 from typing import Optional, Tuple
 
@@ -104,7 +105,8 @@ def train_val_test(manifest: pd.DataFrame,
                    out_dir: Optional[str] = None,
                    label_col: str = "species",
                    percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
-                   seed: Optional[int] = None):
+                   seed: Optional[int] = None,
+                   other_groups: Optional[list[str]] = None):
     '''
     Splits the manifest into training. validation and test dataets for training
 
@@ -142,8 +144,20 @@ def train_val_test(manifest: pd.DataFrame,
     testCtArr = []
 
     # group the data based on label column
-    manifest_by_label = manifest.groupby(label_col)
-    labelCt = manifest[label_col].value_counts()
+    if other_groups is not None: #will be generalized
+        undersampled_manifest = manifest[manifest['viewpoint'] == 'right'].sample(manifest['viewpoint'].value_counts()['left'])
+        manifest = pd.concat([undersampled_manifest, manifest[manifest['viewpoint'] == 'left']]) #balance viewpoints
+
+        groups = manifest['file_name']
+        gss = GroupShuffleSplit(train_size=percentage[0],random_state=seed)
+        train_idx, val_idx = next(gss.split(manifest, groups=groups))
+
+        manifest.iloc[train_idx].to_csv(out_dir + "/train_data.csv")
+        manifest.iloc[val_idx].to_csv(out_dir + "/validate_data.csv")
+        return manifest.iloc[train_idx], manifest.iloc[val_idx]
+    else:
+        manifest_by_label = manifest.groupby(label_col)
+        labelCt = manifest[label_col].value_counts()
 
     print("seed =", seed)
 
