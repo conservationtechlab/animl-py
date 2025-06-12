@@ -1,3 +1,6 @@
+"""
+Pose estimation dataset preprocessing
+"""
 import pandas as pd
 import json
 from typing import Optional
@@ -5,7 +8,7 @@ from animl.split import train_val_test
 
 def process_dataset(file_path: dict, dataset_name: str):
     '''
-        Processes pose estimation datasets for machine learning.
+        Processes pose estimation datasets in COCO format for machine learning.
 
     Args:
         - file_path (str): path to dataset
@@ -183,7 +186,7 @@ def process_dataset(file_path: dict, dataset_name: str):
             final_df = final_df.rename(columns={'filename': 'file_name'})
     return final_df
 
-def merge_and_split(df_list, species_to_remove: Optional[list[str]] = None, imbalanced_class: Optional[str] = None, out_dir = str): #concatenate datasets 
+def merge_and_split(df_list, species_to_remove: Optional[list[str]] = None, imbalanced_class: Optional[str] = None): #concatenate datasets 
     '''
         Merges separate dataframes into one and splits the combined dataset into training and validation datasets.
 
@@ -191,7 +194,6 @@ def merge_and_split(df_list, species_to_remove: Optional[list[str]] = None, imba
         - df_list (str): list of dataframes to merge and split
         - species_to_remove (str): names of species to be filtered out of the dataset.
         - imbalanced_class (str): class to be balanced in the dataset
-        - out_dir (str): directory for training and validation datasets
     '''
     df = pd.concat(df_list)[pd.concat(df_list)['viewpoint'] != 'undefined']
     df.drop_duplicates(keep='first')
@@ -204,18 +206,14 @@ def merge_and_split(df_list, species_to_remove: Optional[list[str]] = None, imba
         max = imbalanced.idxmax()
         min = imbalanced.idxmin()
         undersampled_result = df[df[imbalanced_class] == max].sample(df[imbalanced_class].value_counts()[min])
-        manifest = pd.concat([undersampled_result, manifest[manifest[imbalanced_class] == min]])
+        manifest = pd.concat([undersampled_result, df[df[imbalanced_class] == min]])
     
-    train, val = train_val_test(manifest=manifest,out_dir='csvs',label_col='dataset_name',percentage=(0.8,0.2,0.0), other_groups=['file_name','viewpoint'])
-    with open(out_dir + '/train.csv', 'w') as f:
-         train.to_csv(f, index=False)
-    with open(out_dir + '/validate.csv', 'w') as f:
-         val.to_csv(f, index=False)
+    train_val_test(manifest=manifest,out_dir='/mnt/machinelearning/Viewpoint/test/',label_col='dataset_name',percentage=(0.8,0.2,0.0), repeat_column='file_name')
 
 if __name__ == "__main__":
     file_paths = {"/mnt/machinelearning/Viewpoint/annotations/StanfordExtra_v12.json": "stanford-dogs", "/mnt/machinelearning/Viewpoint/annotations/merged_ap10k.json": "ap-10k",
                    "/mnt/machinelearning/Viewpoint/annotations/merged_ATRW.json": "ATRW", "/mnt/machinelearning/Viewpoint/annotations/animal-pose.json": "animal-pose"}
     df_list = [process_dataset(file, dataset) for file, dataset in file_paths.items()]
     remove = ['hippo', 'otter', 'uakari', 'monkey', 'chimpanzee', 'noisy night monkey', 'spider monkey', 'alouatta']
-    merge_and_split(df_list, remove, 'viewpoint', '/mnt/machinelearning/Viewpoint/csvs/')
+    merge_and_split(df_list, remove, 'viewpoint')
     
