@@ -296,9 +296,9 @@ if __name__ == '__main__':
     
     # Initialize data loaders for training and validation set
     dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
-                                file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),cache_dir=cfg.get('cache_folder', None),crop_coord='absolute')
+                                file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),cache_dir=cfg.get('cache_folder', None),crop_coord=cfg['crop_coord'])
     dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size',16), workers=cfg['num_workers'],
-                              file_col=file_col, label_col=label_col, crop=crop, augment=False,cache_dir=cfg.get('cache_folder', None), crop_coord='absolute')
+                              file_col=file_col, label_col=label_col, crop=crop, augment=False,cache_dir=cfg.get('cache_folder', None), crop_coord=cfg['crop_coord'])
 
     # set up model optimizer
     if cfg.get("optimizer", "AdamW") == 'AdamW':
