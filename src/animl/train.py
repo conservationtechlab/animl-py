@@ -5,7 +5,7 @@
     Original script from
     2022 Benjamin Kellenberger
 
-    Modiefied by Peter van Lunteren 2024
+    Modified by Peter van Lunteren 2024
 '''
 import argparse
 import yaml
@@ -24,9 +24,8 @@ from animl.generator import train_dataloader
 from animl.classification import save_model, load_model
 
 # # log values using comet ml (comet.com)
-# from comet_ml import Experiment
-# from comet_ml.integration.pytorch import log_model
-# experiment = Experiment()
+from comet_ml import Experiment
+from comet_ml.integration.pytorch import log_model
 
 
 def init_seed(seed):
@@ -278,6 +277,8 @@ if __name__ == '__main__':
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
         device = 'cpu'
 
+    experiment = Experiment(api_key=cfg['api_key'], project_name=cfg['project_name'],workspace=cfg['workspace'])
+
     # initialize model and get class list
     classes = pd.read_csv(cfg['class_file'])
     # model will be on CPU after this call if cfg['experiment_folder'] is a directory
@@ -295,9 +296,9 @@ if __name__ == '__main__':
     
     # Initialize data loaders for training and validation set
     dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
-                                file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),cache_dir=cfg.get('cache_folder', None))
+                                file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),cache_dir=cfg.get('cache_folder', None),crop_coord='absolute')
     dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size',16), workers=cfg['num_workers'],
-                              file_col=file_col, label_col=label_col, crop=crop, augment=False,cache_dir=cfg.get('cache_folder', None))
+                              file_col=file_col, label_col=label_col, crop=crop, augment=False,cache_dir=cfg.get('cache_folder', None), crop_coord='absolute')
 
     # set up model optimizer
     if cfg.get("optimizer", "AdamW") == 'AdamW':
@@ -367,7 +368,7 @@ if __name__ == '__main__':
 
         # <current_epoch>.pt checkpoint saving every *checkpoint_frequency* epochs
         checkpoint = cfg.get('checkpoint_frequency', 10)
-        # experiment.log_metrics(stats, step=current_epoch)
+        experiment.log_metrics(stats, step=current_epoch)
         if current_epoch % checkpoint == 0:
             save_model(cfg['experiment_folder'], current_epoch, model, stats,optim,scheduler)
 

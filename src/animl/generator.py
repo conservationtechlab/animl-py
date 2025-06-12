@@ -14,6 +14,7 @@ from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalF
 from torchvision.transforms import functional as TF
 from animl.utils.torch_utils import _setup_size
 import hashlib
+
 import os
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -144,8 +145,9 @@ class TrainGenerator(Dataset):
         - file_col: column name containing full file paths
         - label_col: column name containing class labels
         - crop: if true, dynamically crop
+        - crop_coord: if relative, will calculate absolute values
         - resize: dynamically resize images to target (square)
-        - agument: add image augmentations at each batch
+        - augment: add image augmentations at each batch
     '''
     def __init__(self, x, classes, file_col='FilePath', label_col='species',
                  crop=True, resize_height=299, resize_width=299, augment=False,cache_dir=None, crop_coord='relative'):
@@ -173,7 +175,7 @@ class TrainGenerator(Dataset):
         if self.augment:
             print("Applying augmentations")
             self.transform = Compose([augmentations,  # augmentations
-                                      RandomHorizontalFlip(p=0.5),  # random horizontal flip
+                                      #RandomHorizontalFlip(p=0.5),  # random horizontal flip
                                       Resize((self.resize_height, self.resize_width)),
                                       ToTensor(), ])
         else:
@@ -223,11 +225,11 @@ class TrainGenerator(Dataset):
                     top = height * bbox2
                     right = width * (bbox1 + bbox3)
                     bottom = height * (bbox2 + bbox4)
-                else:
+                else: #given x,y,w,h
                     left = self.x['bbox1'].iloc[idx]
                     top = self.x['bbox2'].iloc[idx]
-                    right = self.x['bbox3'].iloc[idx]
-                    bottom = self.x['bbox4'].iloc[idx]
+                    right = left + self.x['bbox3'].iloc[idx]
+                    bottom = top + self.x['bbox4'].iloc[idx]
                     
                 left = max(0, int(left) - self.buffer)
                 top = max(0, int(top) - self.buffer)
@@ -259,6 +261,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
             - workers (int): number of processes to handle the data
             - file_col (str): column name containing full file paths
             - crop (bool): if true, dynamically crop images
+            - crop_coord (str): if relative, calculate absolute values
             - resize_width (int): size in pixels for input width
             - resize_height (int): size in pixels for input height
             - augment (bool): flag to augment images within loader

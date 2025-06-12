@@ -2,6 +2,11 @@ seed: 28  # random number generator seed (long integer value)
 device: cuda:0  # set to local gpu device 
 num_workers: 8  # number of cores
 
+#comet ml
+api_key: "your_api_key"
+project_name: "project"
+workspace: "your_workspace"
+
 # dataset parameters
 num_classes: 53 # adjust to the classes file
 training_set: "/path/to/save/train_data.csv"

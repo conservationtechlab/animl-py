@@ -106,7 +106,7 @@ def train_val_test(manifest: pd.DataFrame,
                    label_col: str = "species",
                    percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
                    seed: Optional[int] = None,
-                   other_groups: Optional[list[str]] = None):
+                   repeat_column: Optional[str] = None):
     '''
     Splits the manifest into training. validation and test dataets for training
 
@@ -118,6 +118,7 @@ def train_val_test(manifest: pd.DataFrame,
         - label_col (str): column name containing class labels
         - percentage (tuple): fraction of data dedicated to train-val-test
         - seed (int): RNG seed, if none will pick one at random within [0,100]
+        - repeat_column (str): column with repeats that need to be grouped together (i.e one filename with multiple annotations)
 
     Returns:
         - train
@@ -144,11 +145,8 @@ def train_val_test(manifest: pd.DataFrame,
     testCtArr = []
 
     # group the data based on label column
-    if other_groups is not None: #will be generalized
-        undersampled_manifest = manifest[manifest['viewpoint'] == 'right'].sample(manifest['viewpoint'].value_counts()['left'])
-        manifest = pd.concat([undersampled_manifest, manifest[manifest['viewpoint'] == 'left']]) #balance viewpoints
-
-        groups = manifest['file_name']
+    if repeat_column is not None:
+        groups = manifest[repeat_column]
         gss = GroupShuffleSplit(train_size=percentage[0],random_state=seed)
         train_idx, val_idx = next(gss.split(manifest, groups=groups))
 
