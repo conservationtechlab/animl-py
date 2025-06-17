@@ -43,7 +43,7 @@ mixed_precision: True # True or False, if you have a GPU with Tensor Cores (NVID
 overwrite: False
 experiment_folder: '/home/usr/machinelearning/Models/Animl-Test/'
 log_file: '/home/usr/machinelearning/Models/Animl-Test/training_log.txt'
-cache_folder: '/path/to/cache/folder' #folder to cache cropeed images, preferablye local SSD
+cache_folder: '/path/to/cache/folder' #folder to cache cropped images, preferably local SSD
 
 # path to save the best model
 active_model: '/home/usr/machinelearning/Models/Animl-Test/best.pt' 

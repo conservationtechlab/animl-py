@@ -147,12 +147,26 @@ def train_val_test(manifest: pd.DataFrame,
     # group the data based on label column
     if repeat_column is not None:
         groups = manifest[repeat_column]
-        gss = GroupShuffleSplit(train_size=percentage[0],random_state=seed)
-        train_idx, val_idx = next(gss.split(manifest, groups=groups))
+        gss = GroupShuffleSplit(train_size=percentage[0] + percentage[2],random_state=seed)
+        train_test_idx, val_idx = next(gss.split(manifest, groups=groups))
 
-        manifest.iloc[train_idx].to_csv(out_dir + "/train_data.csv")
-        manifest.iloc[val_idx].to_csv(out_dir + "/validate_data.csv")
-        return manifest.iloc[train_idx], manifest.iloc[val_idx]
+        df_train_test = manifest.iloc[train_test_idx]
+        df_val = manifest.iloc[val_idx]
+
+        # get groups for the train-test set
+        groups_train_test = df_train_test[repeat_column]
+
+        gss2 = GroupShuffleSplit(n_splits=1, test_size=0.125, random_state=seed) # 12.5% of 80% = 10% of original data for test set
+        train_idx, test_idx = next(gss2.split(df_train_test, groups=groups_train_test))
+
+        df_train = df_train_test.iloc[train_idx]
+        df_test = df_train_test.iloc[test_idx]
+
+        df_train.to_csv(out_dir + "/train_data.csv")
+        df_val.to_csv(out_dir + "/validate_data.csv")
+        df_test.to_csv(out_dir + "/test_data.csv")
+
+        return df_train, df_val, df_test
     else:
         manifest_by_label = manifest.groupby(label_col)
         labelCt = manifest[label_col].value_counts()

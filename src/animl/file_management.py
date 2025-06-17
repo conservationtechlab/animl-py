@@ -34,7 +34,7 @@ def build_file_manifest(image_dir: str,
         - exif (bool): returns date and time info from exif data, defaults to True
         - out_file (str): file path to which the dataframe should be saved
         - offset (int): add timezone offset in hours to datetime column
-        - recursive (bool): recursively search thhrough all child directories
+        - recursive (bool): recursively search through all child directories
 
     Returns:
         - files (pd.DataFrame): list of files with or without file modify dates

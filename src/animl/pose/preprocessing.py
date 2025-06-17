@@ -5,6 +5,9 @@ import pandas as pd
 import json
 from typing import Optional
 from animl.split import train_val_test
+import os
+from animl import file_management, megadetector, detect
+from animl.plot_boxes import plot_all_bounding_boxes
 
 def process_dataset(file_path: dict, dataset_name: str):
     '''
@@ -186,17 +189,17 @@ def process_dataset(file_path: dict, dataset_name: str):
             final_df = final_df.rename(columns={'filename': 'file_name'})
     return final_df
 
-def merge_and_split(df_list, species_to_remove: Optional[list[str]] = None, imbalanced_class: Optional[str] = None): #concatenate datasets 
+def merge_and_split(df_list: list, out_dir: str, species_to_remove: Optional[list[str]] = None, imbalanced_class: Optional[str] = None): 
     '''
         Merges separate dataframes into one and splits the combined dataset into training and validation datasets.
 
     Args:
-        - df_list (str): list of dataframes to merge and split
+        - df_list (list): list of dataframes to merge and split
         - species_to_remove (str): names of species to be filtered out of the dataset.
         - imbalanced_class (str): class to be balanced in the dataset
     '''
     df = pd.concat(df_list)[pd.concat(df_list)['viewpoint'] != 'undefined']
-    df.drop_duplicates(keep='first')
+    df = df.drop_duplicates(subset=['dataset_name', 'image_id'], keep='first')
 
     if species_to_remove:
         df = df[~df['species'].isin(species_to_remove)]
@@ -206,14 +209,45 @@ def merge_and_split(df_list, species_to_remove: Optional[list[str]] = None, imba
         max = imbalanced.idxmax()
         min = imbalanced.idxmin()
         undersampled_result = df[df[imbalanced_class] == max].sample(df[imbalanced_class].value_counts()[min])
-        manifest = pd.concat([undersampled_result, df[df[imbalanced_class] == min]])
-    
-    train_val_test(manifest=manifest,out_dir='/mnt/machinelearning/Viewpoint/test/',label_col='dataset_name',percentage=(0.8,0.2,0.0), repeat_column='file_name')
+        df = pd.concat([undersampled_result, df[df[imbalanced_class] == min]])
+    train, val, test = train_val_test(manifest=df,out_dir=out_dir,label_col='dataset_name',percentage=(0.7,0.2,0.1), repeat_column='file_name')
+    return train, val, test
+
+def create_bounding_boxes(image_dir: str, model_path: str, working_dir: str, out_file: str, remove: Optional[str] = None):
+    image_df = file_management.build_file_manifest(image_dir=image_dir,exif=False, recursive=True)
+    files = pd.read_csv("/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment2/jaguar_test.csv").dropna(subset="Symlink Location")
+    files['Viewpoint'] = files.apply(lambda row: 'left' if row['Viewpoint'] == 5 else 'right', axis=1)
+    image_df = pd.merge(image_df, files, left_on='FilePath', right_on='Symlink Location', how='right')
+    print(image_df)
+    #image_df.rename(columns={'Viewpoint':'viewpoint'})
+
+    #image_df["viewpoint"] = image_df["FilePath"].apply(lambda x: x.split(os.sep)[-2])
+    #image_df = image_df[image_df['viewpoint'] != remove]
+    #image_df['viewpoint'] = image_df['viewpoint'].str.lower()
+    #image_df['dataset_name'] = 'viewpoint_tongfei'
+    #image_df.rename(columns={"FilePath": "file_name"}, inplace=True)
+    detector = megadetector.MegaDetector(model_path=model_path, device="cuda:0")
+    md_results = detect.detect_MD_batch(detector, image_df["FilePath"], file_col="FilePath",
+                                            checkpoint_path=working_dir,
+                                            checkpoint_frequency=5000, quiet=True)
+        # Convert MD JSON to pandas dataframe, merge with manifest
+    print("Converting MD JSON to dataframe and merging with manifest...")
+    detections = detect.parse_MD(md_results, manifest=image_df, out_file=out_file, file_col="FilePath")
+    plot_all_bounding_boxes(detections, '/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/jaguar_detections', 'FilePath')
+    with open(out_file, 'w') as f:
+        detections.to_csv(f, index=False)
+    return detections
 
 if __name__ == "__main__":
-    file_paths = {"/mnt/machinelearning/Viewpoint/annotations/StanfordExtra_v12.json": "stanford-dogs", "/mnt/machinelearning/Viewpoint/annotations/merged_ap10k.json": "ap-10k",
-                   "/mnt/machinelearning/Viewpoint/annotations/merged_ATRW.json": "ATRW", "/mnt/machinelearning/Viewpoint/annotations/animal-pose.json": "animal-pose"}
-    df_list = [process_dataset(file, dataset) for file, dataset in file_paths.items()]
-    remove = ['hippo', 'otter', 'uakari', 'monkey', 'chimpanzee', 'noisy night monkey', 'spider monkey', 'alouatta']
-    merge_and_split(df_list, remove, 'viewpoint')
+    #file_paths = {"/mnt/machinelearning/Viewpoint/annotations/StanfordExtra_v12.json": "stanford-dogs", "/mnt/machinelearning/Viewpoint/annotations/merged_ap10k.json": "ap-10k",
+    #               "/mnt/machinelearning/Viewpoint/annotations/merged_ATRW.json": "ATRW", "/mnt/machinelearning/Viewpoint/annotations/animal-pose.json": "animal-pose"}
+    #df_list = [process_dataset(file, dataset) for file, dataset in file_paths.items()]
+    test = create_bounding_boxes(image_dir="/mnt/machinelearning/Uniqorn/Jaguar/Output/sym10", model_path="/mnt/machinelearning/megadetector/md_v5a.0.0.pt",
+                          working_dir="/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/jaguartest.json",out_file="/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/test.csv")
+    #df_list.append(test)
+    #remove = ['hippo', 'otter', 'uakari', 'monkey', 'chimpanzee', 'noisy night monkey', 'spider monkey', 'alouatta']
+    #train, val, test = merge_and_split(df_list=df_list, out_dir='/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/', species_to_remove=remove, imbalanced_class='viewpoint')
+
+    
+    
     
