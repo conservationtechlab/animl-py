@@ -31,8 +31,8 @@ from animl.classification import (classify_with_config, load_model,
                                   tensor_to_onnx,)
 from animl.custom_detector import (CustomYOLO,)
 from animl.custom_yolo_run import (main_config, main_paths,)
-from animl.detect import (absolute2relative, detect_MD_batch, get_image_size,
-                          parse_MD, parse_YOLO, process_image,)
+from animl.detect import (absolute2relative, detect_batch, get_image_size,
+                          parse_detections, parse_YOLO, process_image,)
 from animl.file_management import (IMAGE_EXTENSIONS, VALID_EXTENSIONS,
                                    WorkingDirectory, active_times,
                                    build_file_manifest, check_file, load_data,
