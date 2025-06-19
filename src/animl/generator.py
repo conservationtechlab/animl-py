@@ -299,5 +299,6 @@ def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file",
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
                             shuffle=False,
+                            pin_memory=True,
                             num_workers=workers)
     return dataLoader
