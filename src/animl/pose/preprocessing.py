@@ -67,13 +67,14 @@ def process_dataset(file_path: dict, dataset_name: str):
     if dataset_name == "animal-pose":
         ann_list = []
         for id, file in dataset.get("images", []).items():
-            full_image = {}
-            full_image["id"] = int(id)
-            full_image["file_name"] = f'/mnt/machinelearning/Viewpoint/animalpose_image_part2/images/{file}'
-            full_image["width"] = "None"
-            full_image["height"] = "None"
-            full_image["dataset_name"] = dataset_name
-            image_list.append(full_image)
+            #full_image = {}
+            #full_image["id"] = int(id)
+            #full_image["file_name"] = f'/mnt/machinelearning/Viewpoint/animalpose_image_part2/images/{file}'
+            #full_image["width"] = "None"
+            #full_image["height"] = "None"
+            #full_image["dataset_name"] = dataset_name
+            image_list.append({'id': int(id), 'file_name': f'/mnt/machinelearning/Viewpoint/animalpose_image_part2/images/{file}', 
+                               'width': 'None', 'height': 'None', 'dataset_name': dataset_name})
         for annotation in dataset.get("annotations", []):
             annotation["bbox1"] = annotation["bbox"][0]
             annotation["bbox2"] = annotation["bbox"][1]
@@ -105,10 +106,10 @@ def process_dataset(file_path: dict, dataset_name: str):
     
         category_list = []
         for category in dataset.get("categories", []):
-            new_category = {}
-            new_category["species"] = category["name"]
-            new_category["id"] = category["id"]    
-            category_list.append(new_category)
+            #new_category = {}
+            #new_category["species"] = category["name"]
+            #new_category["id"] = category["id"]    
+            category_list.append({'species': category['name'], 'id': category['id']})
         
         image_df = pd.DataFrame.from_dict(image_list)
         ann_df = pd.DataFrame.from_dict(ann_list)
@@ -216,7 +217,8 @@ def merge_and_split(df_list: list, out_dir: str, species_to_remove: Optional[lis
 def create_bounding_boxes(image_dir: str, model_path: str, working_dir: str, out_file: str, remove: Optional[str] = None):
     image_df = file_management.build_file_manifest(image_dir=image_dir,exif=False, recursive=True)
     files = pd.read_csv("/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment2/jaguar_test.csv").dropna(subset="Symlink Location")
-    files['Viewpoint'] = files.apply(lambda row: 'left' if row['Viewpoint'] == 5 else 'right', axis=1)
+    files['Viewpoint'] = files.apply(lambda row: 'left' if row['Viewpoint'] == 5 else 'right' if row['Viewpoint'] == 1 else 'unsure', axis=1)
+    files = files[files["Viewpoint"] != 'unsure']
     image_df = pd.merge(image_df, files, left_on='FilePath', right_on='Symlink Location', how='right')
     print(image_df)
     #image_df.rename(columns={'Viewpoint':'viewpoint'})
@@ -227,12 +229,13 @@ def create_bounding_boxes(image_dir: str, model_path: str, working_dir: str, out
     #image_df['dataset_name'] = 'viewpoint_tongfei'
     #image_df.rename(columns={"FilePath": "file_name"}, inplace=True)
     detector = megadetector.MegaDetector(model_path=model_path, device="cuda:0")
-    md_results = detect.detect_MD_batch(detector, image_df["FilePath"], file_col="FilePath",
+    md_results = detect.detect_MD_batch(detector, image_df["Symlink Location"], file_col="Symlink Location",
                                             checkpoint_path=working_dir,
                                             checkpoint_frequency=5000, quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
     print("Converting MD JSON to dataframe and merging with manifest...")
     detections = detect.parse_MD(md_results, manifest=image_df, out_file=out_file, file_col="FilePath")
+    detections = detections.drop_duplicates(keep='first')
     plot_all_bounding_boxes(detections, '/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/jaguar_detections', 'FilePath')
     with open(out_file, 'w') as f:
         detections.to_csv(f, index=False)
@@ -243,7 +246,8 @@ if __name__ == "__main__":
     #               "/mnt/machinelearning/Viewpoint/annotations/merged_ATRW.json": "ATRW", "/mnt/machinelearning/Viewpoint/annotations/animal-pose.json": "animal-pose"}
     #df_list = [process_dataset(file, dataset) for file, dataset in file_paths.items()]
     test = create_bounding_boxes(image_dir="/mnt/machinelearning/Uniqorn/Jaguar/Output/sym10", model_path="/mnt/machinelearning/megadetector/md_v5a.0.0.pt",
-                          working_dir="/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/jaguartest.json",out_file="/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/test.csv")
+                          working_dir="/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/jaguar.json",out_file="/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/test.csv")
+
     #df_list.append(test)
     #remove = ['hippo', 'otter', 'uakari', 'monkey', 'chimpanzee', 'noisy night monkey', 'spider monkey', 'alouatta']
     #train, val, test = merge_and_split(df_list=df_list, out_dir='/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/', species_to_remove=remove, imbalanced_class='viewpoint')
