@@ -18,15 +18,15 @@ from ultralytics import YOLO
 
 def load_detector(model_path, model_type, device=None):
     """
-    Load MegaDetector model from file path
+    Load Detector model from filepath
 
     Args:
-        - model_path (str): file path to model file
-        - device (str): specify to run on cpu or gpu
-        - version (str): version of MegaDetector, defaults to MDV5
+        model_path (str): path to model file
+        model_type (str): type of model expected ["MDV5", "MDV6", "YOLO"]
+        device (str): specify to run on cpu or gpu
 
     Returns:
-        loaded MegaDetector model object
+        object: loaded model object
     """
     if device is None:
         device = general.get_device()
@@ -64,29 +64,27 @@ def detect_batch(detector: object,
                  image_size: typing.Optional[int] = 1280,
                  file_col: str = 'Frame') -> typing.List[typing.Dict]:
     """
-    Runs MegaDetector on a batch of image files.
+    Runs Detector model on a batches of image files
 
         Args:
-            - detector: preloaded md model
-            - image_file_names (mult): list of image filenames, a single image filename,
+            detector (object): preloaded detector model
+            image_file_names (mult): list of image filenames, a single image filename,
                                 a folder to recursively search for images in, or a .json file
                                 containing a list of images.
-            - batch_size (int): size of each batch
-            - workers (int): number of processes to handle the data
-            - device (str): specify to run on cpu or gpu
-            - checkpoint_path (str): path to checkpoint file
-            - checkpoint_frequency (int): write results to checkpoint file every N images
-            - confidence_threshold (float): only detections above this threshold are returned
-            - quiet (bool): print debugging statements when false, defaults to true
-            - image_size (int): overrides default image size, 1280
-            - file_col (str): column name containing file paths
-            - MegaDetector version (str): version of megadetector, defaults to MD5
+            batch_size (int): size of each batch
+            workers (int): number of processes to handle the data
+            device (str): specify to run on cpu or gpu
+            checkpoint_path (str): path to checkpoint file
+            checkpoint_frequency (int): write results to checkpoint file every N images
+            confidence_threshold (float): only detections above this threshold are returned
+            image_size (int): overrides default image size, 1280
+            file_col (str): column name containing file paths
 
         Returns:
-            - results: list of dict, each dict represents detections on one image
+            list: list of dicts, each dict represents detections on one image
     """
     if confidence_threshold is None:
-        confidence_threshold = 0.005  # Defult from MegaDetector
+        confidence_threshold = 0.01  # Defult from MegaDetector
     if checkpoint_frequency is None:
         checkpoint_frequency = -1
     elif checkpoint_frequency != -1:
@@ -147,6 +145,7 @@ def detect_batch(detector: object,
     # create a data frame from image_file_names
     manifest = pd.DataFrame(image_file_names, columns=['file'])
     # create dataloader
+    # TODO: letterbox if mdv5
     dataloader = manifest_dataloader(manifest, batch_size=batch_size,
                                      workers=workers, crop=False, normalize=True,
                                      resize_width=image_size,
@@ -197,53 +196,43 @@ def detect_batch(detector: object,
 
 
 # TODO
-def detect_single(im_file: str,
+def detect_single(file_path: str,
                   detector: object,
-                  confidence_threshold: float,
-                  quiet: bool = True,
-                  image_size: typing.Optional[int] = None,
-                  skip_image_resize: bool = False) -> typing.Dict:
+                  device=None,
+                  confidence_threshold: float = 0.01,
+                  image_size: typing.Optional[int] = 1280) -> typing.Dict:
     """
-    From AgentMorris/MegaDetector
-    Runs MegaDetector on a single image file.
+    Run Detector model on a single image
 
     Args:
-        - im_file (str): path to image file
-        - detector: loaded model
-        - confidence_threshold (float): only detections above this threshold are returned
-        - quiet (bool): print debugging statements when false, defaults to true
-        - image_size (int): overrides default image size, 1280
-        - skip_image_resizing (bool): skip internal image resizing and rely on external resizing
+        file_path (str): path to image file
+        detector: loaded model
+        device (str): device used for inference "cuda", "cpu", etc 
+        confidence_threshold (float): only detections above this threshold are returned
+        image_size (int): overrides default image size, 1280
 
     Returns:
-        - result: dict representing detections on one image
+        dict: model detections on one image
         see the 'images' key in
         https://github.com/agentmorris/MegaDetector/tree/master/api/batch_processing#batch-processing-api-output-format
     """
-    if not isinstance(im_file, str):
-        raise TypeError(f"Expected str for im_file, got {type(im_file)}")
+    if not isinstance(file_path, str):
+        raise TypeError(f"Expected str for file_path, got {type(file_path)}")
     if not isinstance(confidence_threshold, float):
         raise TypeError(f"Expected float for confidence_threshold, got {type(confidence_threshold)}")
 
-    if not quiet:
-        print('Processing image {}'.format(im_file))
     # open the file
     try:
-        image = Image.open(im_file).convert(mode='RGB')
+        image = Image.open(file_path).convert(mode='RGB')
         image.load()
     except Exception as e:
-        if not quiet:
-            print('Image {} cannot be loaded. Exception: {}'.format(im_file, e))
-        result = {
-            'file': im_file,
-            'failure': 'Failure image access'
-        }
-        return result
+        print('Image {} cannot be loaded. Exception: {}'.format(file_path, e))
+        return None
 
     # TODO
     # RUN MODEL
 
-    return result
+    return
 
 
 def convert_yolo_detections(predictions, image_paths):
@@ -251,11 +240,11 @@ def convert_yolo_detections(predictions, image_paths):
     Converts YOLO output into a nested list
 
     Args:
-        - predictions (list): YOLO detection output (list of dictionaries with detections for each file)
-        - image_paths (list): List of image file paths corresponding to predictions
+        predictions (list): YOLO detection output (list of dictionaries with detections for each file)
+        image_paths (list): List of image file paths corresponding to predictions
 
     Returns:
-        - df (pd.DataFrame): Formatted YOLO outputs, one row per detection
+        df (pd.DataFrame): Formatted YOLO outputs, one row per detection
     """
     results = []
 
@@ -297,11 +286,11 @@ def convert_raw_detections(predictions, image_tensors, image_paths):
     Converts MDv5 output into a nested list
 
     Args:
-        - predictions (list): YOLO detection output (list of dictionaries with detections for each file)
-        - image_paths (list): List of image file paths corresponding to predictions
+        predictions (list): YOLO detection output (list of dictionaries with detections for each file)
+        image_paths (list): List of image file paths corresponding to predictions
 
     Returns:
-        - df (pd.DataFrame): Formatted YOLO outputs, one row per detection
+        df (pd.DataFrame): Formatted YOLO outputs, one row per detection
     """
     results = []
 
@@ -351,19 +340,20 @@ def convert_raw_detections(predictions, image_tensors, image_paths):
 
 
 def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
-                     threshold=0, file_col="Frame", yolo_version='v5'):
+                     threshold=0, file_col="Frame"):
     """
-    Converts numerical output from classifier to common name species label
+    Converts listed output from detector to DataFrame
 
     Args:
-        - results (list): md output dicts
-        - manifest (pd.DataFrame): full file manifest, if not None, merge md predictions automatically
-        - out_file (str): path to save dataframe
-        - buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
-        - threshold (float): parse only detections above given confidence threshold
+        results (list): md output dicts
+        manifest (pd.DataFrame): full file manifest, if not None, merge md predictions automatically
+        out_file (str): path to save dataframe
+        buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
+        threshold (float): parse only detections above given confidence threshold
+        file_col (str): if manifest, merge results onto file_col
 
     Returns:
-        - df (pd.DataFrame): formatted md outputs, one row per detection
+        df (pd.DataFrame): formatted md outputs, one row per detection
     """
     # load checkpoint
     if file_management.check_file(out_file):  # checkpoint comes back empty
@@ -424,6 +414,7 @@ def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
     return df
 
 
+# TODO: check if still necessary
 def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", convert=True):
     """
     Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
