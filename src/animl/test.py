@@ -16,7 +16,7 @@ from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
 
 from animl.generator import train_dataloader
-from animl.classification import load_model
+from animl.classification import load_classifier
 
 
 def test_func(data_loader: DataLoader, model: torch.nn.Module, device: Union[str, torch.device] = 'cpu') -> float:
@@ -83,7 +83,7 @@ def main():
 
     # initialize model and get class list
     classes = pd.read_csv(cfg['class_file'])
-    model = load_model(cfg['active_model'], len(classes), device=device, architecture=cfg['architecture'])
+    model = load_classifier(cfg['active_model'], len(classes), device=device, architecture=cfg['architecture'])
 
     class_list_label = cfg.get('class_list_label', 'class')
     class_list_index = cfg.get('class_list_index', 'id')
