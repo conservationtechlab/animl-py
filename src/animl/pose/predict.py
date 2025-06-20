@@ -8,18 +8,14 @@ import yaml
 from tqdm import trange
 import pandas as pd
 import torch
-import numpy as np
 from typing import Union
-from sklearn.metrics import confusion_matrix
-from torch.utils.data import DataLoader
+from sklearn.metrics import confusion_matrix, precision_score, recall_score
 
 from animl.generator import manifest_dataloader
 from animl.classification import load_model
 
 
 def predict_viewpoints(dataset: pd.DataFrame,
-                       cfg,
-                       crop: bool,
                        model: torch.nn.Module, 
                        device: Union[str, torch.device] = 'cpu'):
     '''
@@ -36,15 +32,17 @@ def predict_viewpoints(dataset: pd.DataFrame,
     pred_labels = []
     filepaths = []
 
-    progressBar = trange(len(dataset['capture_group'].value_counts()))
+    dataset['sequence'] = dataset['sequence_id'].diff().gt(6).cumsum().add(1)
+    grouped = dataset.groupby('sequence')
+    progressBar = trange(len(dataset['sequence'].value_counts()))
     with torch.no_grad():
-        for group in dataset: #sequence group
+        for group in grouped: #sequence group
             df = group[1]
-            half1 = df.loc[df.groupby(['Station', 'StationID']).ngroup() == 0].reset_index()
-            half2 = df.loc[df.groupby(['Station', 'StationID']).ngroup() == 1].reset_index()
+            half1 = df.loc[df.groupby(['camera']).ngroup() == 0].reset_index()
+            half2 = df.loc[df.groupby(['camera']).ngroup() == 1].reset_index()
             if len(half2) > 0: # if there are 2 cameras
-                group1 = manifest_dataloader(half1, batch_size=len(half1), workers=cfg['num_workers'], 
-                                file_col=cfg.get('file_col', 'FilePath'), crop=crop)
+                group1 = manifest_dataloader(half1, batch_size=len(half1), workers=1, 
+                                file_col=half1['filepath'], crop=True)
                 for batch in enumerate(group1):
                     g1batch = batch[1]
                     data = g1batch[0]
@@ -56,8 +54,8 @@ def predict_viewpoints(dataset: pd.DataFrame,
                     # get filepath
                     g1_paths = g1batch[1]
 
-                group2 = manifest_dataloader(half2, batch_size=len(half2), workers=cfg['num_workers'], 
-                                file_col=cfg.get('file_col', 'FilePath'), crop=crop)
+                group2 = manifest_dataloader(half2, batch_size=len(half2), workers=1, 
+                                file_col=half2['filepath'], crop=True)
                 for batch in enumerate(group2):
                     g2batch = batch[1]
                     data = g2batch[0]
@@ -69,23 +67,24 @@ def predict_viewpoints(dataset: pd.DataFrame,
                     # get ground truth label
                     g2_paths = g2batch[1]
 
+                """ #this is currently lowering the overall accuracy
                 if g1_pred == g2_pred: # if viewpoint predictions are the same, whichever group has the higher summed probability will get that viewpoint
                     if g1_sums[g1_pred] > g2_sums[g2_pred]:
                         g2_pred = 0 if g1_pred == 1 else 1 # change g2 to be the opposite viewpoint of g1 if g1 sum is greater
                     elif g2_sums[g2_pred] > g1_sums[g1_pred]:
                         g1_pred = 0 if g2_pred == 1 else 1
-
-                g1 = [g1_pred] * len(group1) # make list of the prediction labels to append to pred_labels, group prediction applies to whole group
-                g2 = [g2_pred] * len(group2)
+                """
+                g1 = [g1_pred] * len(g1_paths) # make list of the prediction labels to append to pred_labels, group prediction applies to whole group
+                g2 = [g2_pred] * len(g2_paths)
                 pred_labels.extend(g1)
                 pred_labels.extend(g2)                
 
-                #get file paths for each group
+                # get file paths for each group
                 filepaths.extend(g1_paths)
                 filepaths.extend(g2_paths)
             else: # entire group is from the same station/stationID
-                dl_group = manifest_dataloader(pd.DataFrame(df), batch_size=len(df), workers=cfg['num_workers'], 
-                                file_col=cfg.get('file_col', 'FilePath'), crop=crop)
+                dl_group = manifest_dataloader(df, batch_size=len(df), workers=1, 
+                                file_col=df['filepath'], crop=True)
 
                 for batch in enumerate(dl_group):
                     g1batch = batch[1]
@@ -95,14 +94,15 @@ def predict_viewpoints(dataset: pd.DataFrame,
 
                     sums = torch.sum(prediction, dim=0) # sum predictions for each viewpoint
                     pred = torch.argmax(sums) # return column with the max sum for viewpoint prediction
-                    pred_labels.append(pred.item())
+
+                    paths = batch[1][1]
+                    pred_labels.extend([pred.item()] * len(paths))
                     
-                    paths = batch[1]
                     filepaths.extend(paths)
 
             progressBar.update(1)
         
-    return pred_labels, filepaths
+    return pred_labels, filepaths # output roi id
 
 
 def main():
@@ -142,32 +142,26 @@ def main():
     grouped = dataset.groupby('capture_group')
     truth = dataset[['FilePath', 'viewpoint']].copy() #get ground truth viewpoint for each datapoint
     # get predictions
-    pred, paths = predict_viewpoints(grouped, cfg, crop, model, device)
-    print(len(paths))
-    print(len(pred))
+    pred, paths = predict_viewpoints(grouped, model, device)
+
     predictions = pd.DataFrame({'FilePath': paths,
                                 'prediction': pred})
-
-    merged = truth.merge(predictions, left_on='FilePath', right_on='FilePath')
-
+   
+    merged = pd.merge(predictions, truth[truth.duplicated(subset=['FilePath'], keep='first') == False],  on=['FilePath'])
+    merged = merged.drop_duplicates()
     print(merged)
 
-    #pred = np.asarray(pred)
-    #true = np.asarray([truth['viewpoint']]) # get ground truth viewpoints of each file
-    #for path in paths:
-    #    file = truth.loc[truth['FilePath'] == path]
-    #    true.append(file['viewpoint'])
-    #paths = np.asarray(paths)
-    #true = np.asarray(true)
-
-
     oa = (merged['prediction'] == merged['viewpoint']).mean()
+    prec = precision_score(merged['viewpoint'], merged['prediction'], average='binary')
+    recall = recall_score(merged['viewpoint'], merged['prediction'], average='binary')
     print(f"Test accuracy: {oa}")
+    print(f"Precision: {prec}")
+    print(f"Recall: {recall}")
 
-    #results = pd.DataFrame({'FilePath': paths,
-    #                        'Ground Truth': true,
-    #                        'Predicted': pred})
-    merged.to_csv(cfg['experiment_folder'] + "/grouptest_results.csv")
+    results = pd.DataFrame({'FilePath': paths,
+                            #'Ground Truth': true,
+                            'Predicted': pred})
+    results.to_csv(cfg['experiment_folder'] + "/grouptest_results.csv")
 
     cm = confusion_matrix(merged['viewpoint'], merged['prediction'])
     confuse = pd.DataFrame(cm, columns=classes[class_list_label], index=classes[class_list_label])
