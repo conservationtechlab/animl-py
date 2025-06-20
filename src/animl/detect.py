@@ -1,12 +1,9 @@
 import json
 import os
-import pandas as pd
 import time
-import math
-import numpy as np
 import typing
 import torch
-
+import pandas as pd
 from tqdm import tqdm
 from shutil import copyfile
 from torch import tensor
@@ -14,10 +11,10 @@ from PIL import Image
 
 from animl import file_management
 from animl.generator import manifest_dataloader
-from animl.utils.torch_utils import get_device
 from animl.utils import general
 
 from ultralytics import YOLO
+
 
 def load_detector(model_path, model_type, device=None):
     """
@@ -31,12 +28,11 @@ def load_detector(model_path, model_type, device=None):
     Returns:
         loaded MegaDetector model object
     """
-
     if device is None:
-        device = get_device()
+        device = general.get_device()
     print('Device set to', device)
 
-    if model_type=="MDV5":
+    if model_type == "MDV5":
         checkpoint = torch.load(model_path, map_location=device, weights_only=False)
         # Compatibility fix that allows older YOLOv5 models with
         # newer versions of YOLOv5/PT
@@ -45,12 +41,11 @@ def load_detector(model_path, model_type, device=None):
                 t = type(m)
                 if t is torch.nn.Upsample and not hasattr(m, 'recompute_scale_factor'):
                     m.recompute_scale_factor = None
-
         model = checkpoint['model'].float().fuse().eval()  # FP32 model
-        model.model_type="MDV5"        
-    elif model_type=="YOLO" or model_type=="MDV6":
-        model = YOLO(model_path,task='detect')
-        model.model_type="YOLO"
+        model.model_type = "MDV5"
+    elif model_type == "YOLO" or model_type == "MDV6":
+        model = YOLO(model_path, task='detect')
+        model.model_type = "YOLO"
     else:
         print(f"Please chose a supported model. Version {model_type} is not supported.")
 
@@ -90,8 +85,6 @@ def detect_batch(detector: object,
         Returns:
             - results: list of dict, each dict represents detections on one image
     """
-
-
     if confidence_threshold is None:
         confidence_threshold = 0.005  # Defult from MegaDetector
 
@@ -102,7 +95,7 @@ def detect_batch(detector: object,
 
     # check to make sure GPU is available if chosen
     if device is None:
-        device = get_device()
+        device = general.get_device()
     print('Device set to', device)
 
     # Handle the case where image_file_names is not yet actually a list
@@ -203,7 +196,7 @@ def detect_batch(detector: object,
     return results
 
 
-def convert_yolo_detections(predictions,image_paths):
+def convert_yolo_detections(predictions, image_paths):
     """
     Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
 
@@ -249,6 +242,7 @@ def convert_yolo_detections(predictions,image_paths):
 
     return results
 
+
 def convert_raw_detections(predictions,image_tensors,image_paths):
     """
     Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
@@ -276,10 +270,10 @@ def convert_raw_detections(predictions,image_tensors,image_paths):
                 # normalized center-x, center-y, width and height
                 xywh = (general.xyxy2xywh(tensor(xyxy).view(1, 4)) / tensor(image_tensors[i].shape[1:])[[1,0,1,0]]).view(-1).tolist()
 
-                api_box = convert_yolo_to_xywh(xywh)
-                api_box = truncate_float_array(api_box, precision=3)
+                api_box = general.convert_yolo_to_xywh(xywh)
+                api_box = general.truncate_float_array(api_box, precision=3)
 
-                conf = truncate_float(conf.tolist(), precision=3)
+                conf = general.truncate_float(conf.tolist(), precision=3)
 
                 cls = int(cls.tolist()) + 1
                 if cls not in (1, 2, 3):
@@ -307,61 +301,8 @@ def convert_raw_detections(predictions,image_tensors,image_paths):
 
     return results
 
-# From MegeDetector/ct_utils
-def convert_yolo_to_xywh(yolo_box):
-    """
-    Converts a YOLO format bounding box to [x_min, y_min, width_of_box, height_of_box].
 
-    Args:
-        yolo_box: bounding box of format [x_center, y_center, width_of_box, height_of_box].
-
-    Returns:
-        bbox with coordinates represented as [x_min, y_min, width_of_box, height_of_box].
-    """
-    x_center, y_center, width_of_box, height_of_box = yolo_box
-    x_min = x_center - width_of_box / 2.0
-    y_min = y_center - height_of_box / 2.0
-    return [x_min, y_min, width_of_box, height_of_box]
-
-
-def truncate_float(x, precision=3):
-    """
-    Truncates a floating-point value to a specific number of significant digits.
-    For example: truncate_float(0.0003214884) --> 0.000321
-    This function is primarily used to achieve a certain float representation
-    before exporting to JSON.
-
-    Args:
-        - x (float): Scalar to truncate
-        - precision (int): The number of significant digits to preserve, should be
-                      greater or equal 1
-    """
-    assert precision > 0
-
-    if np.isclose(x, 0):
-        return 0
-    else:
-        # Determine the factor, which shifts the decimal point of x
-        # just behind the last significant digit.
-        factor = math.pow(10, precision - 1 - math.floor(math.log10(abs(x))))
-        # Shift decimal point by multiplicatipon with factor, flooring, and
-        # division by factor.
-        return math.floor(x * factor)/factor
-
-
-def truncate_float_array(xs, precision=3):
-    """
-    Vectorized version of truncate_float(...)
-
-    Args:
-        - xs (list of float): List of floats to truncate
-        - precision (int): The number of significant digits to preserve,
-                           should be greater or equal 1
-    """
-    return [truncate_float(x, precision=precision) for x in xs]
-
-
-def process_image(im_file: str,
+def detect_single(im_file: str,
                   detector: object,
                   confidence_threshold: float,
                   quiet: bool = True,
@@ -568,8 +509,8 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
                         'bbox4': detection['bbox4'],
                     }
                     if convert:
-                        image_size = get_image_size(frame['file'])
-                        data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4'] = absolute2relative(
+                        image_size = general.get_image_size(frame['file'])
+                        data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4'] = general.absolute_to_relative(
                             [data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4']], image_size
                         )
                     lst.append(data)
@@ -586,39 +527,3 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
         file_management.save_data(df, out_file)
 
     return df
-
-
-def get_image_size(image_path):
-    """
-    Returns the size of an image.
-
-    Args:
-        image_path (str): Path to the image file.
-
-    Returns:
-        tuple: Image size in the format (width, height).
-    """
-    with Image.open(image_path) as img:
-        return img.size
-
-
-def absolute2relative(bbox, img_size):
-    """
-    Converts absolute bounding box coordinates to relative coordinates.
-
-    Args:
-        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
-        img_size (tuple): Image size in the format (width, height).
-
-    Returns:
-        list: Bounding box coordinates in the format [x_center, y_center, width, height].
-    """
-    x_min, y_min, width, height = bbox
-    img_width, img_height = img_size
-
-    x_center = (x_min + width / 2) / img_width
-    y_center = (y_min + height / 2) / img_height
-    width /= img_width
-    height /= img_height
-
-    return [x_center, y_center, width, height]

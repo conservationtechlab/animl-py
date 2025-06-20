@@ -12,19 +12,11 @@ from time import time
 from tqdm import tqdm
 
 import torch
-import torch.onnx
 import onnxruntime
 
 from animl import generator, file_management, split
 from animl.model_architecture import EfficientNet, ConvNeXtBase
-from animl.utils.torch_utils import get_device
-
-
-def softmax(x):
-    '''
-    Helper function to softmax
-    '''
-    return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
+from animl.utils.general import get_device, softmax, tensor_to_onnx
 
 
 def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
@@ -45,10 +37,8 @@ def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     # get model parameters and add to stats
-    checkpoint = {
-        'model': model.state_dict(),
-        'stats': stats
-    }
+    checkpoint = {'model': model.state_dict(),
+                  'stats': stats}
     # save optimizer and scheduler state dicts if they are provided
     if optimizer is not None or scheduler is not None:
         checkpoint['epoch'] = epoch
@@ -93,34 +83,12 @@ def load_model(model_path, classes, device=None, architecture="CTL"):
             model = ConvNeXtBase(classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
-
-        # model_states = []
-        # for file in os.listdir(model_path):
-        #     if os.path.splitext(file)[1] == ".pt":
-        #         model_states.append(file)
-
-        # if len(model_states):
-        #     # at least one save state found; get latest
-        #     model_epochs = [int(m.replace(model_path, '').replace('.pt', '')) for m in model_states]
-        #     start_epoch = max(model_epochs)
-
-        #     # load state dict and apply weights to model
-        #     print(f'Resuming from epoch {start_epoch}')
-        #     state = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'))
-        #     model.load_state_dict(state['model'])
-        # else:
-        #     # no save state found; start anew
-        #     print('No model state found, starting new model')
-
         return model, start_epoch
 
     # load a specific model file
     elif model_path.is_file():
         print(f'Loading model at {model_path}')
         start_time = time()
-        # TensorFlow
-        # if model_path.endswith('.h5'):
-        #    model = keras.models.load_model(model_path)
         # PyTorch dict
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
@@ -161,18 +129,6 @@ def load_model(model_path, classes, device=None, architecture="CTL"):
     # no dir or file found
     else:
         raise ValueError("Model not found at given path")
-
-
-def tensor_to_onnx(tensor, channel_last=True):
-    '''
-    Helper function for onnx, shifts dims to BxHxWxC
-    '''
-    if channel_last:
-        tensor = tensor.permute(0, 2, 3, 1)  # reorder BxCxHxW to BxHxWxC
-
-    tensor = tensor.numpy()
-
-    return tensor
 
 
 def predict_species(detections, model,

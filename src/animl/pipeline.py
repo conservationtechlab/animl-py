@@ -2,9 +2,9 @@ import os
 import yaml
 import torch
 import pandas as pd
-from animl import (file_management, video_processing, megadetector, detect,
+from animl import (file_management, video_processing, detect,
                    split, classification, link)
-from animl.utils.torch_utils import get_device
+from animl.utils.general import get_device
 
 
 def from_paths(image_dir: str,
