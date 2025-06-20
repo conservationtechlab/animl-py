@@ -54,15 +54,15 @@ def load_detector(model_path, model_type, device=None):
 
 
 def detect_batch(detector: object,
-                    image_file_names: typing.List[str],
-                    batch_size=1, 
-                    workers=1,
-                    device=None,
-                    checkpoint_path: typing.Optional[str] = None,
-                    checkpoint_frequency: int = -1,
-                    confidence_threshold: float = 0.1,
-                    image_size: typing.Optional[int] = 1280,
-                    file_col: str = 'Frame') -> typing.List[typing.Dict]:
+                 image_file_names: typing.List[str],
+                 batch_size=1,
+                 workers=1,
+                 device=None,
+                 checkpoint_path: typing.Optional[str] = None,
+                 checkpoint_frequency: int = -1,
+                 confidence_threshold: float = 0.1,
+                 image_size: typing.Optional[int] = 1280,
+                 file_col: str = 'Frame') -> typing.List[typing.Dict]:
     """
     Runs MegaDetector on a batch of image files.
 
@@ -87,11 +87,10 @@ def detect_batch(detector: object,
     """
     if confidence_threshold is None:
         confidence_threshold = 0.005  # Defult from MegaDetector
-
     if checkpoint_frequency is None:
         checkpoint_frequency = -1
-    elif  checkpoint_frequency != -1:
-        checkpoint_frequency = round(checkpoint_frequency/batch_size,0)
+    elif checkpoint_frequency != -1:
+        checkpoint_frequency = round(checkpoint_frequency/batch_size, 0)
 
     # check to make sure GPU is available if chosen
     if device is None:
@@ -148,28 +147,29 @@ def detect_batch(detector: object,
     # create a data frame from image_file_names
     manifest = pd.DataFrame(image_file_names, columns=['file'])
     # create dataloader
-    dataloader=manifest_dataloader(manifest,batch_size=batch_size,workers=workers,crop=False,normalize=True,resize_width=image_size,resize_height=image_size)
+    dataloader = manifest_dataloader(manifest, batch_size=batch_size,
+                                     workers=workers, crop=False, normalize=True,
+                                     resize_width=image_size,
+                                     resize_height=image_size)
 
     print("Starting batch processing...")
     start_time = time.time()
-    for batch_idx, batch_from_dataloader in tqdm(enumerate(dataloader),total=len(dataloader)):
+    for batch_idx, batch_from_dataloader in tqdm(enumerate(dataloader), total=len(dataloader)):
         count += 1
 
         image_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
-        current_image_paths = batch_from_dataloader[1] # List of image names for the current batch
+        current_image_paths = batch_from_dataloader[1]  # List of image names for the current batch
 
         # Run inference on the current batch of image_tensors
-        if detector.model_type=="MDV5":
-            prediction=detector(image_tensors.to(device))
-
+        if detector.model_type == "MDV5":
+            prediction = detector(image_tensors.to(device))
             pred: list = prediction[0]
             pred = general.non_max_suppression(prediction=pred, conf_thres=0.1)
+            results.extend(convert_raw_detections(pred, image_tensors, current_image_paths))
 
-            results.extend(convert_raw_detections(pred,image_tensors,current_image_paths))
         else:
             prediction = detector.predict(source=image_tensors.to(device), conf=0.1, verbose=False)
-
-            results.extend(convert_yolo_detections(prediction,current_image_paths))
+            results.extend(convert_yolo_detections(prediction, current_image_paths))
 
         # Write a checkpoint if necessary
         if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
@@ -191,117 +191,12 @@ def detect_batch(detector: object,
             if checkpoint_tmp_path is not None:
                 os.remove(checkpoint_tmp_path)
 
-    print(f"\nFinished batch processing. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time),1)} img/s.")
+    print(f"\nFinished batch processing. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
 
     return results
 
 
-def convert_yolo_detections(predictions, image_paths):
-    """
-    Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
-
-    Args:
-        - predictions (list): YOLO detection output (list of dictionaries with detections for each file)
-        - image_paths (list): List of image file paths corresponding to predictions
-
-    Returns:
-        - df (pd.DataFrame): Formatted YOLO outputs, one row per detection
-    """
-        
-    results = []
-
-    for i, pred in enumerate(predictions):
-        file = image_paths[i]
-
-        boxes = pred.boxes.xyxyn.cpu().numpy()  # Bounding box coordinates
-        conf = pred.boxes.conf.cpu().numpy()  # Confidence scores
-        category = pred.boxes.cls.cpu().numpy()  # Class labels as integers
-        max_detection_conf = conf.max() if len(conf) > 0 else 0
-
-        if len(conf) == 0:
-            data = {'file': file,
-                    'max_detection_conf': float(round(max_detection_conf,4)),
-                    'detections': []}
-            results.append(data)
-
-        else:
-            detections = []
-            for i in range(len(conf)):
-                data = {'category': int(category[i]+1), 
-                        'conf': float(round(conf[i],4)),
-                        'bbox1': float(round(boxes[i][0],4)),
-                        'bbox2': float(round(boxes[i][1],4)),
-                        'bbox3': float(round(boxes[i][2]-boxes[i][0],4)),
-                        'bbox4': float(round(boxes[i][3]-boxes[i][1],4))}
-                detections.append(data)
-
-            data = {'file': file,
-                    'max_detection_conf': float(round(max_detection_conf,4)),
-                    'detections': detections}
-            results.append(data)
-
-    return results
-
-
-def convert_raw_detections(predictions,image_tensors,image_paths):
-    """
-    Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
-
-    Args:
-        - predictions (list): YOLO detection output (list of dictionaries with detections for each file)
-        - image_paths (list): List of image file paths corresponding to predictions
-
-    Returns:
-        - df (pd.DataFrame): Formatted YOLO outputs, one row per detection
-    """
-        
-    results = []
-
-    # This is a loop over detection batches, which will always be length 1
-    for i,det in enumerate(predictions):
-        detections = []
-        max_conf = 0.0
-
-        if len(det):
-            # Rescale boxes from img_size to im0 size
-            #det[:, :4] = general.scale_coords(image_tensors[i].shape[1:], det[:, :4], image_tensors[i].shape[1:]).round()
-
-            for *xyxy, conf, cls in reversed(det):
-                # normalized center-x, center-y, width and height
-                xywh = (general.xyxy2xywh(tensor(xyxy).view(1, 4)) / tensor(image_tensors[i].shape[1:])[[1,0,1,0]]).view(-1).tolist()
-
-                api_box = general.convert_yolo_to_xywh(xywh)
-                api_box = general.truncate_float_array(api_box, precision=3)
-
-                conf = general.truncate_float(conf.tolist(), precision=3)
-
-                cls = int(cls.tolist()) + 1
-                if cls not in (1, 2, 3):
-                    raise KeyError(f'{cls} is not a valid class.')
-
-                detections.append({
-                    'category': str(cls),
-                    'conf': conf,
-                    'bbox1': api_box[0],
-                    'bbox2': api_box[1],
-                    'bbox3': api_box[2],
-                    'bbox4': api_box[3],
-                })
-                max_conf = max(max_conf, conf)
-
-            data = {'file': image_paths[i],
-                    'max_detection_conf': float(round(max_conf,4)),
-                    'detections': detections}
-            results.append(data)
-        else:
-            data = {'file': image_paths[i],
-                    'max_detection_conf': float(round(max_conf,4)),
-                    'detections': []}
-            results.append(data)
-
-    return results
-
-
+# TODO
 def detect_single(im_file: str,
                   detector: object,
                   confidence_threshold: float,
@@ -344,25 +239,119 @@ def detect_single(im_file: str,
             'failure': 'Failure image access'
         }
         return result
-    # run MD
-    try:
-        result = detector.generate_detections_one_image(image, im_file,
-                                                        confidence_threshold=confidence_threshold,
-                                                        image_size=image_size,
-                                                        skip_image_resize=skip_image_resize)
-    except Exception as e:
-        if not quiet:
-            print('Image {} cannot be processed. Exception: {}'.format(im_file, e))
-        result = {
-            'file': im_file,
-            'failure': 'Failure inference'
-        }
-        return result
+
+    # TODO
+    # RUN MODEL
 
     return result
 
 
-def parse_detections(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", yolo_version='v5'):
+def convert_yolo_detections(predictions, image_paths):
+    """
+    Converts YOLO output into a nested list
+
+    Args:
+        - predictions (list): YOLO detection output (list of dictionaries with detections for each file)
+        - image_paths (list): List of image file paths corresponding to predictions
+
+    Returns:
+        - df (pd.DataFrame): Formatted YOLO outputs, one row per detection
+    """
+    results = []
+
+    for i, pred in enumerate(predictions):
+        file = image_paths[i]
+
+        boxes = pred.boxes.xyxyn.cpu().numpy()  # Bounding box coordinates
+        conf = pred.boxes.conf.cpu().numpy()  # Confidence scores
+        category = pred.boxes.cls.cpu().numpy()  # Class labels as integers
+        max_detection_conf = conf.max() if len(conf) > 0 else 0
+
+        if len(conf) == 0:
+            data = {'file': file,
+                    'max_detection_conf': float(round(max_detection_conf, 4)),
+                    'detections': []}
+            results.append(data)
+
+        else:
+            detections = []
+            for i in range(len(conf)):
+                data = {'category': int(category[i]+1),
+                        'conf': float(round(conf[i], 4)),
+                        'bbox1': float(round(boxes[i][0], 4)),
+                        'bbox2': float(round(boxes[i][1], 4)),
+                        'bbox3': float(round(boxes[i][2]-boxes[i][0], 4)),
+                        'bbox4': float(round(boxes[i][3]-boxes[i][1], 4))}
+                detections.append(data)
+
+            data = {'file': file,
+                    'max_detection_conf': float(round(max_detection_conf, 4)),
+                    'detections': detections}
+            results.append(data)
+
+    return results
+
+
+def convert_raw_detections(predictions, image_tensors, image_paths):
+    """
+    Converts MDv5 output into a nested list
+
+    Args:
+        - predictions (list): YOLO detection output (list of dictionaries with detections for each file)
+        - image_paths (list): List of image file paths corresponding to predictions
+
+    Returns:
+        - df (pd.DataFrame): Formatted YOLO outputs, one row per detection
+    """
+    results = []
+
+    # This is a loop over detection batches, which will always be length 1
+    for i, det in enumerate(predictions):
+        detections = []
+        max_conf = 0.0
+
+        if len(det):
+            # Rescale boxes from img_size to im0 size
+            # det[:, :4] = general.scale_coords(image_tensors[i].shape[1:], det[:, :4], image_tensors[i].shape[1:]).round()
+
+            for *xyxy, conf, cls in reversed(det):
+                # normalized center-x, center-y, width and height
+                xywh = (general.xyxy2xywh(tensor(xyxy).view(1, 4)) / tensor(image_tensors[i].shape[1:])[[1, 0, 1, 0]]).view(-1).tolist()
+
+                api_box = general.convert_yolo_to_xywh(xywh)
+                api_box = general.truncate_float_array(api_box, precision=3)
+
+                conf = general.truncate_float(conf.tolist(), precision=3)
+
+                cls = int(cls.tolist()) + 1
+                if cls not in (1, 2, 3):
+                    raise KeyError(f'{cls} is not a valid class.')
+
+                detections.append({
+                    'category': str(cls),
+                    'conf': conf,
+                    'bbox1': api_box[0],
+                    'bbox2': api_box[1],
+                    'bbox3': api_box[2],
+                    'bbox4': api_box[3],
+                })
+                max_conf = max(max_conf, conf)
+
+            data = {'file': image_paths[i],
+                    'max_detection_conf': float(round(max_conf, 4)),
+                    'detections': detections}
+            results.append(data)
+        else:
+            data = {'file': image_paths[i],
+                    'max_detection_conf': float(round(max_conf, 4)),
+                    'detections': []}
+            results.append(data)
+
+    return results
+
+
+def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
+                     threshold=0, file_col="Frame", yolo_version='v5'):
     """
     Converts numerical output from classifier to common name species label
 

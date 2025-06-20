@@ -50,13 +50,13 @@ def from_paths(image_dir: str,
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
-        detector = megadetector.MegaDetector(detector_file, device=device)
-        md_results = detect.detect_MD_batch(detector, all_frames, file_col="Frame",
-                                            checkpoint_path=working_dir.mdraw,
-                                            checkpoint_frequency=5000, quiet=True)
+        detector = detect.load_detector(detector_file, device=device)
+        md_results = detect.detect_batch(detector, all_frames, file_col="Frame",
+                                         checkpoint_path=working_dir.mdraw,
+                                         checkpoint_frequency=5000, quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
-        detections = detect.parse_MD(md_results, manifest=all_frames, out_file=working_dir.detections)
+        detections = detect.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
@@ -144,14 +144,13 @@ def from_config(config):
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
-        detector = megadetector.MegaDetector(cfg['detector_file'], device=device)
-        md_results = detect.detect_MD_batch(detector, all_frames, file_col=cfg.get('file_col_detection', 'Frame'),
-                                            checkpoint_path=working_dir.mdraw,
-                                            checkpoint_frequency=cfg.get('checkpoint_frequency', -1),
-                                            quiet=True)
+        detector = detect.load_detector(cfg['detector_file'], device=device)
+        md_results = detect.detect_batch(detector, all_frames, file_col=cfg.get('file_col_detection', 'Frame'),
+                                         checkpoint_path=working_dir.mdraw,
+                                         checkpoint_frequency=cfg.get('checkpoint_frequency', -1), quiet=True)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
-        detections = detect.parse_MD(md_results, manifest=all_frames, out_file=working_dir.detections)
+        detections = detect.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)

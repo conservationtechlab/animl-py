@@ -17,7 +17,6 @@ from typing import Optional
 VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
                     ".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
-
 IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff"}
 
 
@@ -60,7 +59,6 @@ def build_file_manifest(image_dir: str,
 
     invalid = []
 
-    
     def check_time(timestamp):
         input_formats = ['%Y:%m:%d %H:%M:%S', "%d-%m-%Y %H:%M", "%Y/%m/%d %H:%M:%S"]
         desired_format = '%Y-%m-%d %H:%M:%S'
@@ -70,7 +68,6 @@ def build_file_manifest(image_dir: str,
                 return timestamp
         except ValueError:
             pass
-
         # Try other input formats
         for fmt in input_formats:
             try:
@@ -78,10 +75,8 @@ def build_file_manifest(image_dir: str,
                 return newtimestamp.strftime(desired_format)
             except ValueError:
                 continue
-
-        #timestamp not recognized
+        # timestamp not recognized
         return None
-
 
     if exif:
         for i, row in files.iterrows():
