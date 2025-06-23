@@ -2,8 +2,8 @@ import os
 import yaml
 import torch
 import pandas as pd
-from animl import (file_management, video_processing, detect,
-                   split, classification, link)
+from animl import (classify, file_management, video_processing, detect,
+                   split, link)
 from animl.utils.general import get_device
 
 
@@ -66,17 +66,17 @@ def from_paths(image_dir: str,
     print("Predicting species of animal detections...")
     class_list = pd.read_csv(classlist_file)
     print(len(class_list))
-    classifier = classification.load_model(classifier_file, len(class_list), device=device)
-    predictions_raw = classification.predict_species(animals, classifier, device=device,
+    classifier = classify.load_classifier(classifier_file, len(class_list), device=device)
+    predictions_raw = classify.predict_species(animals, classifier, device=device,
                                                      file_col="Frame", batch_size=4, out_file=working_dir.predictions)
     if simple:
         print("Classifying individual frames...")
-        animals = classification.single_classification(animals, predictions_raw, class_list[class_label])
+        animals = classify.single_classification(animals, predictions_raw, class_list[class_label])
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
         # TODO: single output per file
     else:
         print("Classifying sequences...")
-        manifest = classification.sequence_classification(animals, empty, predictions_raw,
+        manifest = classify.sequence_classification(animals, empty, predictions_raw,
                                                           class_list[class_label],
                                                           station_col='Station',
                                                           empty_class="",
@@ -159,15 +159,15 @@ def from_config(config):
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
     class_list = pd.read_csv(cfg['class_list'])
-    classifier = classification.load_model(cfg['classifier_file'], len(class_list), device=device)
-    predictions_raw = classification.predict_species(animals, classifier, device=device,
+    classifier = classify.load_model(cfg['classifier_file'], len(class_list), device=device)
+    predictions_raw = classify.predict_species(animals, classifier, device=device,
                                                      file_col=cfg.get('file_col_classification', 'Frame'),
                                                      batch_size=cfg.get('batch_size', 4),
                                                      out_file=working_dir.predictions)
 
     # merge animal and empty, create symlinks
     if station_dir:
-        manifest = classification.sequence_classification(animals, empty, predictions_raw,
+        manifest = classify.sequence_classification(animals, empty, predictions_raw,
                                                           class_list[cfg.get('class_label_col', 'Code')],
                                                           station_col='Station',
                                                           empty_class="",
@@ -175,7 +175,7 @@ def from_config(config):
                                                           file_col=cfg.get('file_col_classification', 'Frame'),
                                                           maxdiff=60)
     else:
-        animals = classification.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'code')])
+        animals = classify.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'code')])
         # merge animal and empty, create symlinks
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 

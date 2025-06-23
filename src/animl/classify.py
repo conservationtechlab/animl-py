@@ -19,7 +19,7 @@ from animl.model_architecture import EfficientNet, ConvNeXtBase
 from animl.utils.general import get_device, softmax, tensor_to_onnx
 
 
-def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
+def save_classifier(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
     '''
     Saves model state weights.
 
@@ -50,7 +50,7 @@ def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
     torch.save(checkpoint, open(f'{out_dir}/{epoch}.pt', 'wb'))
 
 
-def load_model(model_path, classes, device=None, architecture="CTL"):
+def load_classifier(model_path, classes, device=None, architecture="CTL"):
     '''
     Creates a model instance and loads the latest model state weights.
 
@@ -392,8 +392,8 @@ def classify_with_config(config):
     # get available device
     device = get_device()
 
-    classifier, class_list = load_model(cfg['classifier_file'], cfg['class_list'],
-                                        device=device, architecture=cfg.get('class_list', "CTL"))
+    classifier, class_list = load_classifier(cfg['classifier_file'], cfg['class_list'],
+                                             device=device, architecture=cfg.get('class_list', "CTL"))
 
     if cfg.get('split_animals', True):
         manifest = split.get_animals(manifest)

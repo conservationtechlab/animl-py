@@ -21,7 +21,7 @@ from sklearn.metrics import precision_score, recall_score
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR, CosineAnnealingLR
 from torch.amp import autocast, GradScaler
 from animl.generator import train_dataloader
-from animl.classification import save_model, load_model
+from animl.classify import save_classifier, load_classifier
 
 # # log values using comet ml (comet.com)
 # from comet_ml import Experiment
@@ -46,7 +46,7 @@ def init_seed(seed):
         cudnn.deterministic = True
 
 
-def train_func(data_loader, model, optimizer, device='cpu'):
+def train_func(data_loader, model, optimizer,  scheduler, device='cpu'):
     '''
         Training Function
 
@@ -248,25 +248,7 @@ def load_checkpoint(model_path, model, optimizer, scheduler, device):
         return 0
 
 
-def main():
-    return
-
-
-if __name__ == '__main__':
-    '''
-    Command line function
-
-    Example usage :
-    > python train.py --config configs/exp_resnet18.yaml
-    '''
-    parser = argparse.ArgumentParser(description='Train deep learning model.')
-    parser.add_argument('--config', help='Path to config file', default='exp_resnet18.yaml')
-    args = parser.parse_args()
-
-    # load config
-    print(f'Using config "{args.config}"')
-    cfg = yaml.safe_load(open(args.config, 'r'))
-
+def main(cfg):
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
     crop = cfg.get('crop', True)
@@ -282,7 +264,7 @@ if __name__ == '__main__':
     # initialize model and get class list
     classes = pd.read_csv(cfg['class_file'])
     # model will be on CPU after this call if cfg['experiment_folder'] is a directory
-    model, current_epoch = load_model(cfg['experiment_folder'], len(classes), device=device, architecture=cfg['architecture'])
+    model, current_epoch = load_classifier(cfg['experiment_folder'], len(classes), device=device, architecture=cfg['architecture'])
 
     # Move model to the target device BEFORE optimizer initialization
     model.to(device)
@@ -337,7 +319,6 @@ if __name__ == '__main__':
 
     # training loop
     while current_epoch < numEpochs:
-
         current_epoch += 1
         print(f'Epoch {current_epoch}/{numEpochs}')
         print(f"Using learning rate : {scheduler.get_last_lr()[0]}")
@@ -371,13 +352,13 @@ if __name__ == '__main__':
         checkpoint = cfg.get('checkpoint_frequency', 10)
         # experiment.log_metrics(stats, step=current_epoch)
         if current_epoch % checkpoint == 0:
-            save_model(cfg['experiment_folder'], current_epoch, model, stats, optim, scheduler)
+            save_classifier(cfg['experiment_folder'], current_epoch, model, stats, optim, scheduler)
 
         # best.pt saving
         if loss_val < best_val_loss:
             best_val_loss = loss_val
             epochs_no_improve = 0
-            save_model(cfg['experiment_folder'], 'best', model, stats)
+            save_classifier(cfg['experiment_folder'], 'best', model, stats)
             print(f"Current best model saved at epoch {current_epoch} with ...")
             print(f"     val loss : {best_val_loss:.5f}")
             print(f"       val OA : {oa_val:.5f}")
@@ -387,7 +368,7 @@ if __name__ == '__main__':
             epochs_no_improve += 1
 
         # last.pt saving
-        save_model(cfg['experiment_folder'], 'last', model, stats)
+        save_classifier(cfg['experiment_folder'], 'last', model, stats)
 
         # if user specified early stopping
         if early_stopping:
@@ -395,3 +376,13 @@ if __name__ == '__main__':
             if epochs_no_improve >= patience:
                 print(f"Early stopping triggered after {patience} epochs without improvement.")
                 break
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Train deep learning model.')
+    parser.add_argument('--config', help='Path to config file', default='exp_resnet18.yaml')
+    args = parser.parse_args()
+
+    print(f'Using config "{args.config}"')
+    cfg = yaml.safe_load(open(args.config, 'r'))
+    main(cfg)

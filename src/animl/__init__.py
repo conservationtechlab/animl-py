@@ -1,5 +1,5 @@
 from animl import api
-from animl import classification
+from animl import classify
 from animl import custom_detector
 from animl import custom_yolo_run
 from animl import detect
@@ -23,8 +23,8 @@ from animl.api import (MiewGenerator, animl_results_to_md_results, animl_to_md,
                        detection_category_id_to_name, main, matchypatchy,
                        miew_embedding, reid_dataloader, timelapse,
                        viewpoint_estimator,)
-from animl.classification import (classify_with_config, load_model,
-                                  predict_species, save_model,
+from animl.classify import (classify_with_config, load_classifier,
+                                  predict_species, save_classifier,
                                   sequence_classification,
                                   single_classification,)
 from animl.custom_detector import (CustomYOLO,)
@@ -97,7 +97,7 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'autopad', 'box_area', 'box_iou', 'build_file_manifest',
            'check_anchor_order', 'check_file', 'check_img_size',
            'check_python', 'check_requirements', 'check_suffix',
-           'check_version', 'classification', 'classify_mp',
+           'check_version', 'classify', 'classify_mp',
            'classify_with_config', 'clean_str', 'clip_coords', 'common',
            'convert_raw_detections', 'convert_yolo_detections',
            'convert_yolo_to_xywh', 'copy_attr', 'csv_converter',
@@ -114,7 +114,7 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'intersect_dicts', 'is_parallel', 'l2_norm',
            'labels_to_class_weights', 'labels_to_image_weights', 'letterbox',
            'link', 'load_checkpoint', 'load_data', 'load_detector',
-           'load_miew', 'load_model', 'main', 'main_config', 'main_paths',
+           'load_miew', 'load_classifier', 'main', 'main_config', 'main_paths',
            'make_divisible', 'manifest_dataloader', 'matchypatchy',
            'miew_embedding', 'miewid', 'model_architecture', 'model_info',
            'models', 'multi_species', 'multi_species_detection',
@@ -122,7 +122,7 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'parse_detections', 'parse_model', 'pipeline',
            'plot_all_bounding_boxes', 'plot_boxes', 'predict_species',
            'print_args', 'prune', 'reid', 'reid_dataloader', 'remove_link',
-           'resample_segments', 'save_data', 'save_model', 'scale_coords',
+           'resample_segments', 'save_data', 'save_classifier', 'scale_coords',
            'scale_img', 'segment2box', 'segments2boxes', 'select_device',
            'sequence_classification', 'single_classification', 'softmax',
            'sort_MD', 'sort_species', 'sparsity', 'split', 'tensor_to_onnx',
