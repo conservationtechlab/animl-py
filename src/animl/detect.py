@@ -1,12 +1,9 @@
 import json
 import os
-import pandas as pd
 import time
-import math
-import numpy as np
 import typing
 import torch
-
+import pandas as pd
 from tqdm import tqdm
 from shutil import copyfile
 from torch import tensor
@@ -18,24 +15,24 @@ from animl.utils import general
 
 from ultralytics import YOLO
 
+
 def load_detector(model_path, model_type, device=None):
     """
-    Load MegaDetector model from file path
+    Load Detector model from filepath
 
     Args:
-        - model_path (str): file path to model file
-        - device (str): specify to run on cpu or gpu
-        - version (str): version of MegaDetector, defaults to MDV5
+        model_path (str): path to model file
+        model_type (str): type of model expected ["MDV5", "MDV6", "YOLO"]
+        device (str): specify to run on cpu or gpu
 
     Returns:
-        loaded MegaDetector model object
+        object: loaded model object
     """
-
     if device is None:
         device = general.get_device()
     print('Device set to', device)
 
-    if model_type=="MDV5":
+    if model_type == "MDV5":
         checkpoint = torch.load(model_path, map_location=device, weights_only=False)
         # Compatibility fix that allows older YOLOv5 models with
         # newer versions of YOLOv5/PT
@@ -44,12 +41,11 @@ def load_detector(model_path, model_type, device=None):
                 t = type(m)
                 if t is torch.nn.Upsample and not hasattr(m, 'recompute_scale_factor'):
                     m.recompute_scale_factor = None
-
         model = checkpoint['model'].float().fuse().eval()  # FP32 model
-        model.model_type="MDV5"        
-    elif model_type=="YOLO" or model_type=="MDV6":
-        model = YOLO(model_path,task='detect')
-        model.model_type="YOLO"
+        model.model_type = "MDV5"
+    elif model_type == "YOLO" or model_type == "MDV6":
+        model = YOLO(model_path, task='detect')
+        model.model_type = "YOLO"
     else:
         print(f"Please chose a supported model. Version {model_type} is not supported.")
 
@@ -58,46 +54,41 @@ def load_detector(model_path, model_type, device=None):
 
 
 def detect_batch(detector: object,
-                    image_file_names: typing.List[str],
-                    batch_size=1, 
-                    workers=1,
-                    device=None,
-                    checkpoint_path: typing.Optional[str] = None,
-                    checkpoint_frequency: int = -1,
-                    confidence_threshold: float = 0.1,
-                    image_size: typing.Optional[int] = 1280,
-                    file_col: str = 'Frame') -> typing.List[typing.Dict]:
+                 image_file_names: typing.List[str],
+                 batch_size=1,
+                 workers=1,
+                 device=None,
+                 checkpoint_path: typing.Optional[str] = None,
+                 checkpoint_frequency: int = -1,
+                 confidence_threshold: float = 0.1,
+                 image_size: typing.Optional[int] = 1280,
+                 file_col: str = 'Frame') -> typing.List[typing.Dict]:
     """
-    Runs MegaDetector on a batch of image files.
+    Runs Detector model on a batches of image files
 
         Args:
-            - detector: preloaded md model
-            - image_file_names (mult): list of image filenames, a single image filename,
+            detector (object): preloaded detector model
+            image_file_names (mult): list of image filenames, a single image filename,
                                 a folder to recursively search for images in, or a .json file
                                 containing a list of images.
-            - batch_size (int): size of each batch
-            - workers (int): number of processes to handle the data
-            - device (str): specify to run on cpu or gpu
-            - checkpoint_path (str): path to checkpoint file
-            - checkpoint_frequency (int): write results to checkpoint file every N images
-            - confidence_threshold (float): only detections above this threshold are returned
-            - quiet (bool): print debugging statements when false, defaults to true
-            - image_size (int): overrides default image size, 1280
-            - file_col (str): column name containing file paths
-            - MegaDetector version (str): version of megadetector, defaults to MD5
+            batch_size (int): size of each batch
+            workers (int): number of processes to handle the data
+            device (str): specify to run on cpu or gpu
+            checkpoint_path (str): path to checkpoint file
+            checkpoint_frequency (int): write results to checkpoint file every N images
+            confidence_threshold (float): only detections above this threshold are returned
+            image_size (int): overrides default image size, 1280
+            file_col (str): column name containing file paths
 
         Returns:
-            - results: list of dict, each dict represents detections on one image
+            list: list of dicts, each dict represents detections on one image
     """
-
-
     if confidence_threshold is None:
-        confidence_threshold = 0.005  # Defult from MegaDetector
-
+        confidence_threshold = 0.01  # Defult from MegaDetector
     if checkpoint_frequency is None:
         checkpoint_frequency = -1
-    elif  checkpoint_frequency != -1:
-        checkpoint_frequency = round(checkpoint_frequency/batch_size,0)
+    elif checkpoint_frequency != -1:
+        checkpoint_frequency = round(checkpoint_frequency/batch_size, 0)
 
     # check to make sure GPU is available if chosen
     if device is None:
@@ -154,28 +145,30 @@ def detect_batch(detector: object,
     # create a data frame from image_file_names
     manifest = pd.DataFrame(image_file_names, columns=['file'])
     # create dataloader
-    dataloader=manifest_dataloader(manifest,batch_size=batch_size,workers=workers,crop=False,normalize=True,resize_width=image_size,resize_height=image_size)
+    # TODO: letterbox if mdv5
+    dataloader = manifest_dataloader(manifest, batch_size=batch_size,
+                                     workers=workers, crop=False, normalize=True,
+                                     resize_width=image_size,
+                                     resize_height=image_size)
 
     print("Starting batch processing...")
     start_time = time.time()
-    for batch_idx, batch_from_dataloader in tqdm(enumerate(dataloader),total=len(dataloader)):
+    for batch_idx, batch_from_dataloader in tqdm(enumerate(dataloader), total=len(dataloader)):
         count += 1
 
         image_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
-        current_image_paths = batch_from_dataloader[1] # List of image names for the current batch
+        current_image_paths = batch_from_dataloader[1]  # List of image names for the current batch
 
         # Run inference on the current batch of image_tensors
-        if detector.model_type=="MDV5":
-            prediction=detector(image_tensors.to(device))
-
+        if detector.model_type == "MDV5":
+            prediction = detector(image_tensors.to(device))
             pred: list = prediction[0]
             pred = general.non_max_suppression(prediction=pred, conf_thres=0.1)
+            results.extend(convert_raw_detections(pred, image_tensors, current_image_paths))
 
-            results.extend(convert_raw_detections(pred,image_tensors,current_image_paths))
         else:
             prediction = detector.predict(source=image_tensors.to(device), conf=0.1, verbose=False)
-
-            results.extend(convert_yolo_detections(prediction,current_image_paths))
+            results.extend(convert_yolo_detections(prediction, current_image_paths))
 
         # Write a checkpoint if necessary
         if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
@@ -197,23 +190,62 @@ def detect_batch(detector: object,
             if checkpoint_tmp_path is not None:
                 os.remove(checkpoint_tmp_path)
 
-    print(f"\nFinished batch processing. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time),1)} img/s.")
+    print(f"\nFinished batch processing. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
 
     return results
 
 
-def convert_yolo_detections(predictions,image_paths):
+# TODO
+def detect_single(file_path: str,
+                  detector: object,
+                  device=None,
+                  confidence_threshold: float = 0.01,
+                  image_size: typing.Optional[int] = 1280) -> typing.Dict:
     """
-    Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
+    Run Detector model on a single image
 
     Args:
-        - predictions (list): YOLO detection output (list of dictionaries with detections for each file)
-        - image_paths (list): List of image file paths corresponding to predictions
+        file_path (str): path to image file
+        detector: loaded model
+        device (str): device used for inference "cuda", "cpu", etc 
+        confidence_threshold (float): only detections above this threshold are returned
+        image_size (int): overrides default image size, 1280
 
     Returns:
-        - df (pd.DataFrame): Formatted YOLO outputs, one row per detection
+        dict: model detections on one image
+        see the 'images' key in
+        https://github.com/agentmorris/MegaDetector/tree/master/api/batch_processing#batch-processing-api-output-format
     """
-        
+    if not isinstance(file_path, str):
+        raise TypeError(f"Expected str for file_path, got {type(file_path)}")
+    if not isinstance(confidence_threshold, float):
+        raise TypeError(f"Expected float for confidence_threshold, got {type(confidence_threshold)}")
+
+    # open the file
+    try:
+        image = Image.open(file_path).convert(mode='RGB')
+        image.load()
+    except Exception as e:
+        print('Image {} cannot be loaded. Exception: {}'.format(file_path, e))
+        return None
+
+    # TODO
+    # RUN MODEL
+
+    return
+
+
+def convert_yolo_detections(predictions, image_paths):
+    """
+    Converts YOLO output into a nested list
+
+    Args:
+        predictions (list): YOLO detection output (list of dictionaries with detections for each file)
+        image_paths (list): List of image file paths corresponding to predictions
+
+    Returns:
+        df (pd.DataFrame): Formatted YOLO outputs, one row per detection
+    """
     results = []
 
     for i, pred in enumerate(predictions):
@@ -226,59 +258,59 @@ def convert_yolo_detections(predictions,image_paths):
 
         if len(conf) == 0:
             data = {'file': file,
-                    'max_detection_conf': float(round(max_detection_conf,4)),
+                    'max_detection_conf': float(round(max_detection_conf, 4)),
                     'detections': []}
             results.append(data)
 
         else:
             detections = []
             for i in range(len(conf)):
-                data = {'category': int(category[i]+1), 
-                        'conf': float(round(conf[i],4)),
-                        'bbox1': float(round(boxes[i][0],4)),
-                        'bbox2': float(round(boxes[i][1],4)),
-                        'bbox3': float(round(boxes[i][2]-boxes[i][0],4)),
-                        'bbox4': float(round(boxes[i][3]-boxes[i][1],4))}
+                data = {'category': int(category[i]+1),
+                        'conf': float(round(conf[i], 4)),
+                        'bbox1': float(round(boxes[i][0], 4)),
+                        'bbox2': float(round(boxes[i][1], 4)),
+                        'bbox3': float(round(boxes[i][2]-boxes[i][0], 4)),
+                        'bbox4': float(round(boxes[i][3]-boxes[i][1], 4))}
                 detections.append(data)
 
             data = {'file': file,
-                    'max_detection_conf': float(round(max_detection_conf,4)),
+                    'max_detection_conf': float(round(max_detection_conf, 4)),
                     'detections': detections}
             results.append(data)
 
     return results
 
-def convert_raw_detections(predictions,image_tensors,image_paths):
+
+def convert_raw_detections(predictions, image_tensors, image_paths):
     """
-    Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
+    Converts MDv5 output into a nested list
 
     Args:
-        - predictions (list): YOLO detection output (list of dictionaries with detections for each file)
-        - image_paths (list): List of image file paths corresponding to predictions
+        predictions (list): YOLO detection output (list of dictionaries with detections for each file)
+        image_paths (list): List of image file paths corresponding to predictions
 
     Returns:
-        - df (pd.DataFrame): Formatted YOLO outputs, one row per detection
+        df (pd.DataFrame): Formatted YOLO outputs, one row per detection
     """
-        
     results = []
 
     # This is a loop over detection batches, which will always be length 1
-    for i,det in enumerate(predictions):
+    for i, det in enumerate(predictions):
         detections = []
         max_conf = 0.0
 
         if len(det):
             # Rescale boxes from img_size to im0 size
-            #det[:, :4] = general.scale_coords(image_tensors[i].shape[1:], det[:, :4], image_tensors[i].shape[1:]).round()
+            # det[:, :4] = general.scale_coords(image_tensors[i].shape[1:], det[:, :4], image_tensors[i].shape[1:]).round()
 
             for *xyxy, conf, cls in reversed(det):
                 # normalized center-x, center-y, width and height
-                xywh = (general.xyxy2xywh(tensor(xyxy).view(1, 4)) / tensor(image_tensors[i].shape[1:])[[1,0,1,0]]).view(-1).tolist()
+                xywh = (general.xyxy2xywh(tensor(xyxy).view(1, 4)) / tensor(image_tensors[i].shape[1:])[[1, 0, 1, 0]]).view(-1).tolist()
 
-                api_box = convert_yolo_to_xywh(xywh)
-                api_box = truncate_float_array(api_box, precision=3)
+                api_box = general.convert_yolo_to_xywh(xywh)
+                api_box = general.truncate_float_array(api_box, precision=3)
 
-                conf = truncate_float(conf.tolist(), precision=3)
+                conf = general.truncate_float(conf.tolist(), precision=3)
 
                 cls = int(cls.tolist()) + 1
                 if cls not in (1, 2, 3):
@@ -295,144 +327,33 @@ def convert_raw_detections(predictions,image_tensors,image_paths):
                 max_conf = max(max_conf, conf)
 
             data = {'file': image_paths[i],
-                    'max_detection_conf': float(round(max_conf,4)),
+                    'max_detection_conf': float(round(max_conf, 4)),
                     'detections': detections}
             results.append(data)
         else:
             data = {'file': image_paths[i],
-                    'max_detection_conf': float(round(max_conf,4)),
+                    'max_detection_conf': float(round(max_conf, 4)),
                     'detections': []}
             results.append(data)
 
     return results
 
-# From MegeDetector/ct_utils
-def convert_yolo_to_xywh(yolo_box):
+
+def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
+                     threshold=0, file_col="Frame"):
     """
-    Converts a YOLO format bounding box to [x_min, y_min, width_of_box, height_of_box].
+    Converts listed output from detector to DataFrame
 
     Args:
-        yolo_box: bounding box of format [x_center, y_center, width_of_box, height_of_box].
+        results (list): md output dicts
+        manifest (pd.DataFrame): full file manifest, if not None, merge md predictions automatically
+        out_file (str): path to save dataframe
+        buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
+        threshold (float): parse only detections above given confidence threshold
+        file_col (str): if manifest, merge results onto file_col
 
     Returns:
-        bbox with coordinates represented as [x_min, y_min, width_of_box, height_of_box].
-    """
-    x_center, y_center, width_of_box, height_of_box = yolo_box
-    x_min = x_center - width_of_box / 2.0
-    y_min = y_center - height_of_box / 2.0
-    return [x_min, y_min, width_of_box, height_of_box]
-
-
-def truncate_float(x, precision=3):
-    """
-    Truncates a floating-point value to a specific number of significant digits.
-    For example: truncate_float(0.0003214884) --> 0.000321
-    This function is primarily used to achieve a certain float representation
-    before exporting to JSON.
-
-    Args:
-        - x (float): Scalar to truncate
-        - precision (int): The number of significant digits to preserve, should be
-                      greater or equal 1
-    """
-    assert precision > 0
-
-    if np.isclose(x, 0):
-        return 0
-    else:
-        # Determine the factor, which shifts the decimal point of x
-        # just behind the last significant digit.
-        factor = math.pow(10, precision - 1 - math.floor(math.log10(abs(x))))
-        # Shift decimal point by multiplicatipon with factor, flooring, and
-        # division by factor.
-        return math.floor(x * factor)/factor
-
-
-def truncate_float_array(xs, precision=3):
-    """
-    Vectorized version of truncate_float(...)
-
-    Args:
-        - xs (list of float): List of floats to truncate
-        - precision (int): The number of significant digits to preserve,
-                           should be greater or equal 1
-    """
-    return [truncate_float(x, precision=precision) for x in xs]
-
-
-def process_image(im_file: str,
-                  detector: object,
-                  confidence_threshold: float,
-                  quiet: bool = True,
-                  image_size: typing.Optional[int] = None,
-                  skip_image_resize: bool = False) -> typing.Dict:
-    """
-    From AgentMorris/MegaDetector
-    Runs MegaDetector on a single image file.
-
-    Args:
-        - im_file (str): path to image file
-        - detector: loaded model
-        - confidence_threshold (float): only detections above this threshold are returned
-        - quiet (bool): print debugging statements when false, defaults to true
-        - image_size (int): overrides default image size, 1280
-        - skip_image_resizing (bool): skip internal image resizing and rely on external resizing
-
-    Returns:
-        - result: dict representing detections on one image
-        see the 'images' key in
-        https://github.com/agentmorris/MegaDetector/tree/master/api/batch_processing#batch-processing-api-output-format
-    """
-    if not isinstance(im_file, str):
-        raise TypeError(f"Expected str for im_file, got {type(im_file)}")
-    if not isinstance(confidence_threshold, float):
-        raise TypeError(f"Expected float for confidence_threshold, got {type(confidence_threshold)}")
-
-    if not quiet:
-        print('Processing image {}'.format(im_file))
-    # open the file
-    try:
-        image = Image.open(im_file).convert(mode='RGB')
-        image.load()
-    except Exception as e:
-        if not quiet:
-            print('Image {} cannot be loaded. Exception: {}'.format(im_file, e))
-        result = {
-            'file': im_file,
-            'failure': 'Failure image access'
-        }
-        return result
-    # run MD
-    try:
-        result = detector.generate_detections_one_image(image, im_file,
-                                                        confidence_threshold=confidence_threshold,
-                                                        image_size=image_size,
-                                                        skip_image_resize=skip_image_resize)
-    except Exception as e:
-        if not quiet:
-            print('Image {} cannot be processed. Exception: {}'.format(im_file, e))
-        result = {
-            'file': im_file,
-            'failure': 'Failure inference'
-        }
-        return result
-
-    return result
-
-
-def parse_detections(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", yolo_version='v5'):
-    """
-    Converts numerical output from classifier to common name species label
-
-    Args:
-        - results (list): md output dicts
-        - manifest (pd.DataFrame): full file manifest, if not None, merge md predictions automatically
-        - out_file (str): path to save dataframe
-        - buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
-        - threshold (float): parse only detections above given confidence threshold
-
-    Returns:
-        - df (pd.DataFrame): formatted md outputs, one row per detection
+        df (pd.DataFrame): formatted md outputs, one row per detection
     """
     # load checkpoint
     if file_management.check_file(out_file):  # checkpoint comes back empty
@@ -493,6 +414,7 @@ def parse_detections(results, manifest=None, out_file=None, buffer=0.02, thresho
     return df
 
 
+# TODO: check if still necessary
 def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", convert=True):
     """
     Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
@@ -567,8 +489,8 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
                         'bbox4': detection['bbox4'],
                     }
                     if convert:
-                        image_size = get_image_size(frame['file'])
-                        data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4'] = absolute2relative(
+                        image_size = general.get_image_size(frame['file'])
+                        data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4'] = general.absolute_to_relative(
                             [data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4']], image_size
                         )
                     lst.append(data)
@@ -585,39 +507,3 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
         file_management.save_data(df, out_file)
 
     return df
-
-
-def get_image_size(image_path):
-    """
-    Returns the size of an image.
-
-    Args:
-        image_path (str): Path to the image file.
-
-    Returns:
-        tuple: Image size in the format (width, height).
-    """
-    with Image.open(image_path) as img:
-        return img.size
-
-
-def absolute2relative(bbox, img_size):
-    """
-    Converts absolute bounding box coordinates to relative coordinates.
-
-    Args:
-        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
-        img_size (tuple): Image size in the format (width, height).
-
-    Returns:
-        list: Bounding box coordinates in the format [x_center, y_center, width, height].
-    """
-    x_min, y_min, width, height = bbox
-    img_width, img_height = img_size
-
-    x_center = (x_min + width / 2) / img_width
-    y_center = (y_min + height / 2) / img_height
-    width /= img_width
-    height /= img_height
-
-    return [x_center, y_center, width, height]

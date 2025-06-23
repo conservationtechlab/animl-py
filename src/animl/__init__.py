@@ -7,7 +7,6 @@ from animl import file_management
 from animl import generator
 from animl import link
 from animl import model_architecture
-from animl import models
 from animl import multi_species
 from animl import pipeline
 from animl import plot_boxes
@@ -29,11 +28,9 @@ from animl.classification import (classify_with_config, load_model,
                                   single_classification,)
 from animl.custom_detector import (CustomYOLO,)
 from animl.custom_yolo_run import (main_config, main_paths,)
-from animl.detect import (absolute2relative, convert_raw_detections,
-                          convert_yolo_detections, convert_yolo_to_xywh,
-                          detect_batch, get_image_size, load_detector,
-                          parse_YOLO, parse_detections, process_image,
-                          truncate_float, truncate_float_array,)
+from animl.detect import (convert_raw_detections, convert_yolo_detections,
+                          detect_batch, detect_single, load_detector,
+                          parse_YOLO, parse_detections,)
 from animl.file_management import (IMAGE_EXTENSIONS, VALID_EXTENSIONS,
                                    WorkingDirectory, active_times,
                                    build_file_manifest, check_file, load_data,

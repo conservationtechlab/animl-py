@@ -45,6 +45,7 @@ def get_device():
     return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
+
 def softmax(x):
     '''
     Helper function to softmax
@@ -296,7 +297,6 @@ def _setup_size(size):
 
 # Settings
 NUM_THREADS = min(8, max(1, os.cpu_count() - 1))  # number of YOLOv5 multiprocessing threads
-
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
 np.set_printoptions(linewidth=320, formatter={'float_kind': '{:11.5g}'.format})  # format short g, %precision=5
 pd.options.display.max_columns = 10
@@ -305,6 +305,19 @@ os.environ['NUMEXPR_MAX_THREADS'] = str(NUM_THREADS)  # NumExpr max threads
 os.environ['OMP_NUM_THREADS'] = str(NUM_THREADS)  # OpenMP max threads (PyTorch and SciPy)
 
 
+def get_image_size(image_path):
+    """
+    Returns the size of an image.
+
+
+    Args:
+        image_path (str): Path to the image file.
+    Returns:
+        tuple: Image size in the format (width, height).
+    """
+    with Image.open(image_path) as img:
+        return img.size
+      
 
 def print_args(args: Optional[dict] = None, show_file=True, show_fcn=False):
     # Print function arguments (optional args dict)
@@ -315,6 +328,7 @@ def print_args(args: Optional[dict] = None, show_file=True, show_fcn=False):
         args = {k: v for k, v in frm.items() if k in args}
     s = (f'{Path(file).stem}: ' if show_file else '') + (f'{fcn}: ' if show_fcn else '')
     print(s + ', '.join(f'{k}={v}' for k, v in args.items()))
+
 
 
 def intersect_dicts(da, db, exclude=()):
@@ -406,7 +420,7 @@ def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
     class_counts = np.array([np.bincount(x[:, 0].astype(np.int), minlength=nc) for x in labels])
     return (class_weights.reshape(1, nc) * class_counts).sum(1)
 
-
+ 
 def xyxy2xywh(x):
     # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
@@ -512,6 +526,141 @@ def clip_coords(boxes, shape):
         boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, shape[0])  # y1, y2
 
 
+# From metrics.py ------------------------------------------------------------------------------------------------------
+def fitness(x):
+    # Model fitness as a weighted combination of metrics
+    w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
+    return (x[:, :4] * w).sum(1)
+
+def box_area(box):
+    # box = xyxy(4,n)
+    return (box[2] - box[0]) * (box[3] - box[1])
+
+
+def box_iou(box1, box2):
+    # https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
+    """
+    Return intersection-over-union (Jaccard index) of boxes.
+    Both sets of boxes are expected to be in (x1, y1, x2, y2) format.
+    Arguments:
+        box1 (Tensor[N, 4])
+        box2 (Tensor[M, 4])
+    Returns:
+        iou (Tensor[N, M]): the NxM matrix containing the pairwise
+            IoU values for every element in boxes1 and boxes2
+    """
+
+    # inter(N,M) = (rb(N,M,2) - lt(N,M,2)).clamp(0).prod(2)
+    (a1, a2), (b1, b2) = box1[:, None].chunk(2, 2), box2.chunk(2, 1)
+    inter = (torch.min(a2, b2) - torch.max(a1, b1)).clamp(0).prod(2)
+
+    # IoU = inter / (area1 + area2 - inter)
+    return inter / (box_area(box1.T)[:, None] + box_area(box2.T) - inter)
+
+
+# From torchvision.transforms
+def _setup_size(size):
+    if isinstance(size, int):
+        return int(size), int(size)
+
+    if isinstance(size, Sequence) and len(size) == 1:
+        return size[0], size[0]
+
+    if len(size) != 2:
+        raise ValueError('Please provide up to two dimensions (h,w)')
+    return size
+
+
+def absolute_to_relative(bbox, img_size):
+    """
+    Converts absolute bounding box coordinates to relative coordinates.
+
+    Args:
+        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
+        img_size (tuple): Image size in the format (width, height).
+
+    Returns:
+        list: Bounding box coordinates in the format [x_center, y_center, width, height].
+    """
+    x_min, y_min, width, height = bbox
+    img_width, img_height = img_size
+
+    x_center = (x_min + width / 2) / img_width
+    y_center = (y_min + height / 2) / img_height
+    width /= img_width
+    height /= img_height
+
+    return [x_center, y_center, width, height]
+
+
+def tensor_to_onnx(tensor, channel_last=True):
+    '''
+    Helper function for onnx, shifts dims to BxHxWxC
+    '''
+    if channel_last:
+        tensor = tensor.permute(0, 2, 3, 1)  # reorder BxCxHxW to BxHxWxC
+
+    tensor = tensor.numpy()
+
+    return tensor
+
+
+# From MegeDetector/ct_utils
+def convert_yolo_to_xywh(yolo_box):
+    """
+    Converts a YOLO format bounding box to [x_min, y_min, width_of_box, height_of_box].
+
+    Args:
+        yolo_box: bounding box of format [x_center, y_center, width_of_box, height_of_box].
+
+    Returns:
+        bbox with coordinates represented as [x_min, y_min, width_of_box, height_of_box].
+    """
+    x_center, y_center, width_of_box, height_of_box = yolo_box
+    x_min = x_center - width_of_box / 2.0
+    y_min = y_center - height_of_box / 2.0
+    return [x_min, y_min, width_of_box, height_of_box]
+
+
+# from megadetector
+def truncate_float(x, precision=3):
+    """
+    Truncates a floating-point value to a specific number of significant digits.
+    For example: truncate_float(0.0003214884) --> 0.000321
+    This function is primarily used to achieve a certain float representation
+    before exporting to JSON.
+
+    Args:
+        - x (float): Scalar to truncate
+        - precision (int): The number of significant digits to preserve, should be
+                      greater or equal 1
+    """
+    assert precision > 0
+
+    if np.isclose(x, 0):
+        return 0
+    else:
+        # Determine the factor, which shifts the decimal point of x
+        # just behind the last significant digit.
+        factor = math.pow(10, precision - 1 - math.floor(math.log10(abs(x))))
+        # Shift decimal point by multiplicatipon with factor, flooring, and
+        # division by factor.
+        return math.floor(x * factor)/factor
+
+
+def truncate_float_array(xs, precision=3):
+    """
+    Vectorized version of truncate_float(...)
+
+    Args:
+        - xs (list of float): List of floats to truncate
+        - precision (int): The number of significant digits to preserve,
+                           should be greater or equal 1
+    """
+    return [truncate_float(x, precision=precision) for x in xs]
+
+
+
 def non_max_suppression(prediction,
                         conf_thres=0.25,
                         iou_thres=0.45,
@@ -525,7 +674,6 @@ def non_max_suppression(prediction,
     Returns:
          list of detections, on (n,6) tensor per image [xyxy, conf, cls]
     """
-
     bs = prediction.shape[0]  # batch size
     nc = prediction.shape[2] - 5  # number of classes
     xc = prediction[..., 4] > conf_thres  # candidates
@@ -539,17 +687,11 @@ def non_max_suppression(prediction,
     max_wh = 7680  # (pixels) maximum box width and height
     max_nms = 30000  # maximum number of boxes into torchvision.ops.nms()
     
-    # This is a modification from the original YOLOv5 repo.  No matter what,
-    # this limit won't cause us to abort NMS, but even for printing a warning,
-    # we raise the time limit.
-    time_limit = 1 # 0.3 + 0.03 * bs  # seconds to quit after
+
     redundant = True  # require redundant detections
     multi_label &= nc > 1  # multiple labels per box (adds 0.5ms/img)
     merge = False  # use merge-NMS
 
-    printed_nms_warning = False
-    
-    t = time.time()
     output = [torch.zeros((0, 6), device=prediction.device)] * bs
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
@@ -613,6 +755,7 @@ def non_max_suppression(prediction,
                 i = i[iou.sum(1) > 1]  # require redundancy
 
         output[xi] = x[i]
+
                 
         if (time.time() - t) > time_limit:
             
