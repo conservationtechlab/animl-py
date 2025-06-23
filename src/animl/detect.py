@@ -14,7 +14,6 @@ from PIL import Image
 
 from animl import file_management
 from animl.generator import manifest_dataloader
-from animl.utils.torch import get_device
 from animl.utils import general
 
 from ultralytics import YOLO
@@ -33,7 +32,7 @@ def load_detector(model_path, model_type, device=None):
     """
 
     if device is None:
-        device = get_device()
+        device = general.get_device()
     print('Device set to', device)
 
     if model_type=="MDV5":
@@ -102,7 +101,7 @@ def detect_batch(detector: object,
 
     # check to make sure GPU is available if chosen
     if device is None:
-        device = get_device()
+        device = general.get_device()
     print('Device set to', device)
 
     # Handle the case where image_file_names is not yet actually a list

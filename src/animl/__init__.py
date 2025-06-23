@@ -26,8 +26,7 @@ from animl.api import (MiewGenerator, animl_results_to_md_results, animl_to_md,
 from animl.classification import (classify_with_config, load_model,
                                   predict_species, save_model,
                                   sequence_classification,
-                                  single_classification, softmax,
-                                  tensor_to_onnx,)
+                                  single_classification,)
 from animl.custom_detector import (CustomYOLO,)
 from animl.custom_yolo_run import (main_config, main_paths,)
 from animl.detect import (absolute2relative, convert_raw_detections,
@@ -78,9 +77,9 @@ from animl.utils import (FILE, NUM_THREADS, RANK, ROOT, autopad, box_area,
                          model_info, non_max_suppression, one_cycle,
                          print_args, profile, prune, resample_segments,
                          scale_coords, scale_img, segment2box, segments2boxes,
-                         select_device, sparsity, strip_optimizer, time_sync,
-                         torch, xyn2xy, xywh2xyxy, xywhn2xyxy, xyxy2xywh,
-                         xyxy2xywhn, yolo5,)
+                         select_device, softmax, sparsity, strip_optimizer,
+                         tensor_to_onnx, time_sync, xyn2xy, xywh2xyxy,
+                         xywhn2xyxy, xyxy2xywh, xyxy2xywhn, yolo5,)
 from animl.video_processing import (extract_frame_single, extract_frames,)
 
 __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
@@ -128,10 +127,10 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'segments2boxes', 'select_device', 'sequence_classification',
            'single_classification', 'softmax', 'sort_MD', 'sort_species',
            'sparsity', 'split', 'strip_optimizer', 'tensor_to_onnx', 'test',
-           'test_func', 'time_sync', 'timelapse', 'torch', 'train',
-           'train_dataloader', 'train_func', 'train_val_test',
-           'truncate_float', 'truncate_float_array', 'update_labels', 'utils',
-           'validate', 'video_processing', 'viewpoint_estimator',
+           'test_func', 'time_sync', 'timelapse', 'train', 'train_dataloader',
+           'train_func', 'train_val_test', 'truncate_float',
+           'truncate_float_array', 'update_labels', 'utils', 'validate',
+           'video_processing', 'viewpoint_estimator',
            'weights_init_classifier', 'weights_init_kaiming', 'xyn2xy',
            'xywh2xyxy', 'xywhn2xyxy', 'xyxy2xywh', 'xyxy2xywhn', 'yolo',
            'yolo5']

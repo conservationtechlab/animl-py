@@ -24,8 +24,8 @@ from torch.cuda import amp
 
 from animl.utils.yolo5 import check_requirements, check_suffix, check_version, autopad
 from animl.utils.general import (increment_path, make_divisible, non_max_suppression, 
-                                 scale_coords, xywh2xyxy, xyxy2xywh, exif_transpose, letterbox)
-from animl.utils.torch import copy_attr, time_sync
+                                 scale_coords, xywh2xyxy, xyxy2xywh, exif_transpose, letterbox,
+                                 copy_attr, time_sync)
 
 
 

@@ -4,7 +4,7 @@ import torch
 import pandas as pd
 from animl import (file_management, video_processing, detect,
                    split, classification, link)
-from animl.utils.torch import get_device
+from animl.utils.general import get_device
 
 
 def from_paths(image_dir: str,

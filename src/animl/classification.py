@@ -16,14 +16,7 @@ import onnxruntime
 
 from animl import generator, file_management, split
 from animl.model_architecture import EfficientNet, ConvNeXtBase
-from animl.utils.torch import get_device
-
-
-def softmax(x):
-    '''
-    Helper function to softmax
-    '''
-    return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
+from animl.utils.general import get_device, softmax, tensor_to_onnx
 
 
 def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
@@ -160,18 +153,6 @@ def load_model(model_path, classes, device=None, architecture="CTL"):
     # no dir or file found
     else:
         raise ValueError("Model not found at given path")
-
-
-def tensor_to_onnx(tensor, channel_last=True):
-    '''
-    Helper function for onnx, shifts dims to BxHxWxC
-    '''
-    if channel_last:
-        tensor = tensor.permute(0, 2, 3, 1)  # reorder BxCxHxW to BxHxWxC
-
-    tensor = tensor.numpy()
-
-    return tensor
 
 
 def predict_species(detections, model,

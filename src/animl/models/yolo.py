@@ -26,8 +26,8 @@ from animl.models.common import (Bottleneck, BottleneckCSP, C3,
                                  Contract, Conv, CrossConv, DWConv,
                                  DWConvTranspose2d, Expand, Focus, GhostBottleneck,
                                  GhostConv, SPP, SPPF)
-from animl.utils.general import make_divisible
-from animl.utils.torch import (fuse_conv_and_bn, initialize_weights, model_info, scale_img, time_sync)
+from animl.utils.general import (make_divisible, fuse_conv_and_bn, initialize_weights, 
+                                 model_info, scale_img, time_sync)
 from animl.utils.yolo5 import check_version
 
 try:
