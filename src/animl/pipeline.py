@@ -50,10 +50,10 @@ def from_paths(image_dir: str,
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
-        detector = detect.load_detector(detector_file, device=device)
+        detector = detect.load_detector(detector_file, "MDV5", device=device)
         md_results = detect.detect_batch(detector, all_frames, file_col="Frame",
-                                         checkpoint_path=working_dir.mdraw,
-                                         checkpoint_frequency=5000, quiet=True)
+                                            checkpoint_path=working_dir.mdraw,
+                                            checkpoint_frequency=5000)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
