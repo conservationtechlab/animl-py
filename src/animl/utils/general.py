@@ -12,7 +12,6 @@ import re
 import random
 import subprocess
 import time
-
 import warnings
 from copy import deepcopy
 from datetime import datetime
@@ -36,14 +35,14 @@ except ImportError:
 # Suppress PyTorch warnings
 warnings.filterwarnings('ignore', message='User provided device_type of \'cuda\', but CUDA is not available. Disabling')
 
-
-# FROM CTL
-def get_device():
-    """
-    Get Torch device if available
-    """
-    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+# Settings
+NUM_THREADS = min(8, max(1, os.cpu_count() - 1))  # number of YOLOv5 multiprocessing threads
+torch.set_printoptions(linewidth=320, precision=5, profile='long')
+np.set_printoptions(linewidth=320, formatter={'float_kind': '{:11.5g}'.format})  # format short g, %precision=5
+pd.options.display.max_columns = 10
+cv2.setNumThreads(0)  # prevent OpenCV from multithreading (incompatible with PyTorch DataLoader)
+os.environ['NUMEXPR_MAX_THREADS'] = str(NUM_THREADS)  # NumExpr max threads
+os.environ['OMP_NUM_THREADS'] = str(NUM_THREADS)  # OpenMP max threads (PyTorch and SciPy)
 
 
 def softmax(x):
@@ -63,6 +62,99 @@ def tensor_to_onnx(tensor, channel_last=True):
     tensor = tensor.numpy()
 
     return tensor
+
+
+def truncate_float(x, precision=3):
+    """
+    Truncates a floating-point value to a specific number of significant digits.
+    For example: truncate_float(0.0003214884) --> 0.000321
+    This function is primarily used to achieve a certain float representation
+    before exporting to JSON.
+
+    Args:
+        - x (float): Scalar to truncate
+        - precision (int): The number of significant digits to preserve, should be
+                      greater or equal 1
+    """
+    assert precision > 0
+
+    if np.isclose(x, 0):
+        return 0
+    else:
+        # Determine the factor, which shifts the decimal point of x
+        # just behind the last significant digit.
+        factor = math.pow(10, precision - 1 - math.floor(math.log10(abs(x))))
+        # Shift decimal point by multiplicatipon with factor, flooring, and
+        # division by factor.
+        return math.floor(x * factor)/factor
+
+
+def truncate_float_array(xs, precision=3):
+    """
+    Vectorized version of truncate_float(...)
+
+    Args:
+        - xs (list of float): List of floats to truncate
+        - precision (int): The number of significant digits to preserve,
+                           should be greater or equal 1
+    """
+    return [truncate_float(x, precision=precision) for x in xs]
+
+
+def clean_str(s):
+    # Cleans a string by replacing special characters with underscore _
+    return re.sub(pattern="[|@#!¡·$€%&()=?¿^*;:,¨´><+]", repl="_", string=s)
+
+
+def intersect_dicts(da, db, exclude=()):
+    # Dictionary intersection of matching keys and shapes, omitting 'exclude' keys, using da values
+    return {k: v for k, v in da.items() if k in db and not any(x in k for x in exclude) and v.shape == db[k].shape}
+
+
+def file_age(path=__file__):
+    # Return days since last file update
+    dt = (datetime.now() - datetime.fromtimestamp(Path(path).stat().st_mtime))  # delta
+    return dt.days  # + dt.seconds / 86400  # fractional days
+
+
+def file_date(path=__file__):
+    # Return human-readable file modification date, i.e. '2021-3-26'
+    t = datetime.fromtimestamp(Path(path).stat().st_mtime)
+    return f'{t.year}-{t.month}-{t.day}'
+
+
+def file_size(path):
+    # Return file/dir size (MB)
+    mb = 1 << 20  # bytes to MiB (1024 ** 2)
+    path = Path(path)
+    if path.is_file():
+        return path.stat().st_size / mb
+    elif path.is_dir():
+        return sum(f.stat().st_size for f in path.glob('**/*') if f.is_file()) / mb
+    else:
+        return 0.0
+    
+def get_image_size(image_path):
+    """
+    Returns the size of an image.
+
+    Args:
+        image_path (str): Path to the image file.
+    Returns:
+        tuple: Image size in the format (width, height).
+    """
+    with Image.open(image_path) as img:
+        return img.size
+
+# ==============================================================================
+# CUDA
+# ==============================================================================
+
+def get_device():
+    """
+    Get Torch device if available
+    """
+    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def init_seeds(seed=0):
@@ -112,58 +204,9 @@ def time_sync():
         torch.cuda.synchronize()
     return time.time()
 
-
-def profile(input, ops, n=10, device=None):
-    # YOLOv5 speed/memory/FLOPs profiler
-    #
-    # Usage:
-    #     input = torch.randn(16, 3, 640, 640)
-    #     m1 = lambda x: x * torch.sigmoid(x)
-    #     m2 = nn.SiLU()
-    #     profile(input, [m1, m2], n=100)  # profile over 100 iterations
-
-    results = []
-    if not isinstance(device, torch.device):
-        device = select_device(device)
-    print(f"{'Params':>12s}{'GFLOPs':>12s}{'GPU_mem (GB)':>14s}{'forward (ms)':>14s}{'backward (ms)':>14s}"
-          f"{'input':>24s}{'output':>24s}")
-
-    for x in input if isinstance(input, list) else [input]:
-        x = x.to(device)
-        x.requires_grad = True
-        for m in ops if isinstance(ops, list) else [ops]:
-            m = m.to(device) if hasattr(m, 'to') else m  # device
-            m = m.half() if hasattr(m, 'half') and isinstance(x, torch.Tensor) and x.dtype is torch.float16 else m
-            tf, tb, t = 0, 0, [0, 0, 0]  # dt forward, backward
-            try:
-                flops = thop.profile(m, inputs=(x,), verbose=False)[0] / 1E9 * 2  # GFLOPs
-            except Exception:
-                flops = 0
-
-            try:
-                for _ in range(n):
-                    t[0] = time_sync()
-                    y = m(x)
-                    t[1] = time_sync()
-                    try:
-                        _ = (sum(yi.sum() for yi in y) if isinstance(y, list) else y).sum().backward()
-                        t[2] = time_sync()
-                    except Exception:  # no backward method
-                        # print(e)  # for debug
-                        t[2] = float('nan')
-                    tf += (t[1] - t[0]) * 1000 / n  # ms per op forward
-                    tb += (t[2] - t[1]) * 1000 / n  # ms per op backward
-                mem = torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0  # (GB)
-                s_in, s_out = (tuple(x.shape) if isinstance(x, torch.Tensor) else 'list' for x in (x, y))  # shapes
-                p = sum(x.numel() for x in m.parameters()) if isinstance(m, nn.Module) else 0  # parameters
-                print(f'{p:12}{flops:12.4g}{mem:>14.3f}{tf:14.4g}{tb:14.4g}{str(s_in):>24s}{str(s_out):>24s}')
-                results.append([p, flops, mem, tf, tb, s_in, s_out])
-            except Exception as e:
-                print(e)
-                results.append(None)
-            torch.cuda.empty_cache()
-    return results
-
+# ==============================================================================
+# TRAINING
+# ==============================================================================
 
 def is_parallel(model):
     # Returns True if model is of type DP or DDP
@@ -292,31 +335,6 @@ def _setup_size(size):
     if len(size) != 2:
         raise ValueError('Please provide up to two dimensions (h,w)')
     return size
-
-
-
-# Settings
-NUM_THREADS = min(8, max(1, os.cpu_count() - 1))  # number of YOLOv5 multiprocessing threads
-torch.set_printoptions(linewidth=320, precision=5, profile='long')
-np.set_printoptions(linewidth=320, formatter={'float_kind': '{:11.5g}'.format})  # format short g, %precision=5
-pd.options.display.max_columns = 10
-cv2.setNumThreads(0)  # prevent OpenCV from multithreading (incompatible with PyTorch DataLoader)
-os.environ['NUMEXPR_MAX_THREADS'] = str(NUM_THREADS)  # NumExpr max threads
-os.environ['OMP_NUM_THREADS'] = str(NUM_THREADS)  # OpenMP max threads (PyTorch and SciPy)
-
-
-def get_image_size(image_path):
-    """
-    Returns the size of an image.
-
-
-    Args:
-        image_path (str): Path to the image file.
-    Returns:
-        tuple: Image size in the format (width, height).
-    """
-    with Image.open(image_path) as img:
-        return img.size
       
 
 def print_args(args: Optional[dict] = None, show_file=True, show_fcn=False):
@@ -330,40 +348,10 @@ def print_args(args: Optional[dict] = None, show_file=True, show_fcn=False):
     print(s + ', '.join(f'{k}={v}' for k, v in args.items()))
 
 
-
-def intersect_dicts(da, db, exclude=()):
-    # Dictionary intersection of matching keys and shapes, omitting 'exclude' keys, using da values
-    return {k: v for k, v in da.items() if k in db and not any(x in k for x in exclude) and v.shape == db[k].shape}
-
-
 def get_latest_run(search_dir='.'):
     # Return path to most recent 'last.pt' in /runs (i.e. to --resume from)
     last_list = glob.glob(f'{search_dir}/**/last*.pt', recursive=True)
     return max(last_list, key=os.path.getctime) if last_list else ''
-
-
-def file_age(path=__file__):
-    # Return days since last file update
-    dt = (datetime.now() - datetime.fromtimestamp(Path(path).stat().st_mtime))  # delta
-    return dt.days  # + dt.seconds / 86400  # fractional days
-
-
-def file_date(path=__file__):
-    # Return human-readable file modification date, i.e. '2021-3-26'
-    t = datetime.fromtimestamp(Path(path).stat().st_mtime)
-    return f'{t.year}-{t.month}-{t.day}'
-
-
-def file_size(path):
-    # Return file/dir size (MB)
-    mb = 1 << 20  # bytes to MiB (1024 ** 2)
-    path = Path(path)
-    if path.is_file():
-        return path.stat().st_size / mb
-    elif path.is_dir():
-        return sum(f.stat().st_size for f in path.glob('**/*') if f.is_file()) / mb
-    else:
-        return 0.0
 
 
 def check_img_size(imgsz, s=32, floor=0):
@@ -383,11 +371,6 @@ def make_divisible(x, divisor):
     if isinstance(divisor, torch.Tensor):
         divisor = int(divisor.max())  # to int
     return math.ceil(x / divisor) * divisor
-
-
-def clean_str(s):
-    # Cleans a string by replacing special characters with underscore _
-    return re.sub(pattern="[|@#!¡·$€%&()=?¿^*;:,¨´><+]", repl="_", string=s)
 
 
 def one_cycle(y1=0.0, y2=1.0, steps=100):
@@ -420,7 +403,29 @@ def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
     class_counts = np.array([np.bincount(x[:, 0].astype(np.int), minlength=nc) for x in labels])
     return (class_weights.reshape(1, nc) * class_counts).sum(1)
 
+
+def increment_path(path, exist_ok=False, sep='', mkdir=False):
+    # Increment file or directory path, i.e. runs/exp --> runs/exp{sep}2, runs/exp{sep}3, ... etc.
+    path = Path(path)  # os-agnostic
+    if path.exists() and not exist_ok:
+        path, suffix = (path.with_suffix(''), path.suffix) if path.is_file() else (path, '')
+
+        # Method 1
+        for n in range(2, 9999):
+            p = f'{path}{sep}{n}{suffix}'  # increment path
+            if not os.path.exists(p):  #
+                break
+        path = Path(p)
+
+    if mkdir:
+        path.mkdir(parents=True, exist_ok=True)  # make directory
+
+    return path
  
+# ==============================================================================
+# COORDINATE CONVERSION
+# ==============================================================================
+
 def xyxy2xywh(x):
     # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
@@ -498,6 +503,45 @@ def resample_segments(segments, n=1000):
     return segments
 
 
+def absolute_to_relative(bbox, img_size):
+    """
+    Converts absolute bounding box coordinates to relative coordinates.
+
+    Args:
+        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
+        img_size (tuple): Image size in the format (width, height).
+
+    Returns:
+        list: Bounding box coordinates in the format [x_center, y_center, width, height].
+    """
+    x_min, y_min, width, height = bbox
+    img_width, img_height = img_size
+
+    x_center = (x_min + width / 2) / img_width
+    y_center = (y_min + height / 2) / img_height
+    width /= img_width
+    height /= img_height
+
+    return [x_center, y_center, width, height]
+
+
+# From MegeDetector/ct_utils
+def convert_yolo_to_xywh(yolo_box):
+    """
+    Converts a YOLO format bounding box to [x_min, y_min, width_of_box, height_of_box].
+
+    Args:
+        yolo_box: bounding box of format [x_center, y_center, width_of_box, height_of_box].
+
+    Returns:
+        bbox with coordinates represented as [x_min, y_min, width_of_box, height_of_box].
+    """
+    x_center, y_center, width_of_box, height_of_box = yolo_box
+    x_min = x_center - width_of_box / 2.0
+    y_min = y_center - height_of_box / 2.0
+    return [x_min, y_min, width_of_box, height_of_box]
+
+
 def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     # Rescale coords (xyxy) from img1_shape to img0_shape
     if ratio_pad is None:  # calculate from img0_shape
@@ -526,11 +570,9 @@ def clip_coords(boxes, shape):
         boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, shape[0])  # y1, y2
 
 
-# From metrics.py ------------------------------------------------------------------------------------------------------
-def fitness(x):
-    # Model fitness as a weighted combination of metrics
-    w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
-    return (x[:, :4] * w).sum(1)
+# ==============================================================================
+# 
+# ==============================================================================
 
 def box_area(box):
     # box = xyxy(4,n)
@@ -556,109 +598,6 @@ def box_iou(box1, box2):
 
     # IoU = inter / (area1 + area2 - inter)
     return inter / (box_area(box1.T)[:, None] + box_area(box2.T) - inter)
-
-
-# From torchvision.transforms
-def _setup_size(size):
-    if isinstance(size, int):
-        return int(size), int(size)
-
-    if isinstance(size, Sequence) and len(size) == 1:
-        return size[0], size[0]
-
-    if len(size) != 2:
-        raise ValueError('Please provide up to two dimensions (h,w)')
-    return size
-
-
-def absolute_to_relative(bbox, img_size):
-    """
-    Converts absolute bounding box coordinates to relative coordinates.
-
-    Args:
-        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
-        img_size (tuple): Image size in the format (width, height).
-
-    Returns:
-        list: Bounding box coordinates in the format [x_center, y_center, width, height].
-    """
-    x_min, y_min, width, height = bbox
-    img_width, img_height = img_size
-
-    x_center = (x_min + width / 2) / img_width
-    y_center = (y_min + height / 2) / img_height
-    width /= img_width
-    height /= img_height
-
-    return [x_center, y_center, width, height]
-
-
-def tensor_to_onnx(tensor, channel_last=True):
-    '''
-    Helper function for onnx, shifts dims to BxHxWxC
-    '''
-    if channel_last:
-        tensor = tensor.permute(0, 2, 3, 1)  # reorder BxCxHxW to BxHxWxC
-
-    tensor = tensor.numpy()
-
-    return tensor
-
-
-# From MegeDetector/ct_utils
-def convert_yolo_to_xywh(yolo_box):
-    """
-    Converts a YOLO format bounding box to [x_min, y_min, width_of_box, height_of_box].
-
-    Args:
-        yolo_box: bounding box of format [x_center, y_center, width_of_box, height_of_box].
-
-    Returns:
-        bbox with coordinates represented as [x_min, y_min, width_of_box, height_of_box].
-    """
-    x_center, y_center, width_of_box, height_of_box = yolo_box
-    x_min = x_center - width_of_box / 2.0
-    y_min = y_center - height_of_box / 2.0
-    return [x_min, y_min, width_of_box, height_of_box]
-
-
-# from megadetector
-def truncate_float(x, precision=3):
-    """
-    Truncates a floating-point value to a specific number of significant digits.
-    For example: truncate_float(0.0003214884) --> 0.000321
-    This function is primarily used to achieve a certain float representation
-    before exporting to JSON.
-
-    Args:
-        - x (float): Scalar to truncate
-        - precision (int): The number of significant digits to preserve, should be
-                      greater or equal 1
-    """
-    assert precision > 0
-
-    if np.isclose(x, 0):
-        return 0
-    else:
-        # Determine the factor, which shifts the decimal point of x
-        # just behind the last significant digit.
-        factor = math.pow(10, precision - 1 - math.floor(math.log10(abs(x))))
-        # Shift decimal point by multiplicatipon with factor, flooring, and
-        # division by factor.
-        return math.floor(x * factor)/factor
-
-
-def truncate_float_array(xs, precision=3):
-    """
-    Vectorized version of truncate_float(...)
-
-    Args:
-        - xs (list of float): List of floats to truncate
-        - precision (int): The number of significant digits to preserve,
-                           should be greater or equal 1
-    """
-    return [truncate_float(x, precision=precision) for x in xs]
-
 
 
 def non_max_suppression(prediction,
@@ -756,86 +695,11 @@ def non_max_suppression(prediction,
 
         output[xi] = x[i]
 
-                
-        if (time.time() - t) > time_limit:
-            
-            # This a modification from the original YOLOv5 repo.  We don't want
-            # NMS time limits to cause NMS failures; we always want the same result,
-            # even if we have to wait a while for it.  So we just print a warning, but 
-            # we don't break.
-            if not printed_nms_warning:
-                printed_nms_warning = True
-            # break  # time limit exceeded
-
     return output
 
-
-def strip_optimizer(f='best.pt', s=''):  # from utils.general import *; strip_optimizer()
-    # Strip optimizer from 'f' to finalize training, optionally save as 's'
-    x = torch.load(f, map_location=torch.device('cpu'))
-    if x.get('ema'):
-        x['model'] = x['ema']  # replace model with ema
-    for k in 'optimizer', 'best_fitness', 'wandb_id', 'ema', 'updates':  # keys
-        x[k] = None
-    x['epoch'] = -1
-    x['model'].half()  # to FP16
-    for p in x['model'].parameters():
-        p.requires_grad = False
-    torch.save(x, s or f)
-    mb = os.path.getsize(s or f) / 1E6  # filesize
-
-
-def increment_path(path, exist_ok=False, sep='', mkdir=False):
-    # Increment file or directory path, i.e. runs/exp --> runs/exp{sep}2, runs/exp{sep}3, ... etc.
-    path = Path(path)  # os-agnostic
-    if path.exists() and not exist_ok:
-        path, suffix = (path.with_suffix(''), path.suffix) if path.is_file() else (path, '')
-
-        # Method 1
-        for n in range(2, 9999):
-            p = f'{path}{sep}{n}{suffix}'  # increment path
-            if not os.path.exists(p):  #
-                break
-        path = Path(p)
-
-    if mkdir:
-        path.mkdir(parents=True, exist_ok=True)  # make directory
-
-    return path
-
-
-# From metrics.py ------------------------------------------------------------------------------------------------------
-def fitness(x):
-    # Model fitness as a weighted combination of metrics
-    w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
-    return (x[:, :4] * w).sum(1)
-
-
-def box_area(box):
-    # box = xyxy(4,n)
-    return (box[2] - box[0]) * (box[3] - box[1])
-
-
-def box_iou(box1, box2):
-    # https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
-    """
-    Return intersection-over-union (Jaccard index) of boxes.
-    Both sets of boxes are expected to be in (x1, y1, x2, y2) format.
-    Arguments:
-        box1 (Tensor[N, 4])
-        box2 (Tensor[M, 4])
-    Returns:
-        iou (Tensor[N, M]): the NxM matrix containing the pairwise
-            IoU values for every element in boxes1 and boxes2
-    """
-
-    # inter(N,M) = (rb(N,M,2) - lt(N,M,2)).clamp(0).prod(2)
-    (a1, a2), (b1, b2) = box1[:, None].chunk(2, 2), box2.chunk(2, 1)
-    inter = (torch.min(a2, b2) - torch.max(a1, b1)).clamp(0).prod(2)
-
-    # IoU = inter / (area1 + area2 - inter)
-    return inter / (box_area(box1.T)[:, None] + box_area(box2.T) - inter)
-
+# ==============================================================================
+# Augmentations
+# ==============================================================================
 
 def letterbox(im: np.ndarray, new_shape = (640, 640),
               color = (114, 114, 114),
