@@ -11,7 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip,
                                     Normalize, RandomAffine, RandomGrayscale, RandomApply,
                                     ColorJitter, GaussianBlur)
-from animl.utils.torch_utils import _setup_size
+from animl.utils.general import _setup_size
 import hashlib
 import os
 
@@ -299,5 +299,6 @@ def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file",
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
                             shuffle=False,
+                            pin_memory=True,
                             num_workers=workers)
     return dataLoader

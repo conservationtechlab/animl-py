@@ -18,7 +18,7 @@ import torch
 import pandas as pd
 from animl import (file_management, video_processing, custom_detector, detect,
                    split, link)
-from animl.utils.torch_utils import get_device
+from animl.utils.general import get_device
 import typing
 
 
@@ -59,7 +59,7 @@ def main_paths(image_dir: str,
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
-        from animl.models import custom_detector
+        from animl import custom_detector
         detector = custom_detector.CustomYOLO(device=device)
         detections = detector.detect_batch(all_frames)
         detections = detect.parse_YOLO(detections, manifest=all_frames, out_file=working_dir.detections)
