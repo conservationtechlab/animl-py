@@ -14,7 +14,7 @@ from PIL import Image
 
 from animl import file_management
 from animl.generator import manifest_dataloader
-from animl.utils.torch_utils import get_device
+from animl.utils.torch import get_device
 from animl.utils import general
 
 from ultralytics import YOLO

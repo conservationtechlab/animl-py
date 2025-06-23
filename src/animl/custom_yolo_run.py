@@ -18,7 +18,7 @@ import torch
 import pandas as pd
 from animl import (file_management, video_processing, custom_detector, detect,
                    split, link)
-from animl.utils.torch_utils import get_device
+from animl.utils.torch import get_device
 import typing
 
 

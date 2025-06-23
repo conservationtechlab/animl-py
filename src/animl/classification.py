@@ -12,12 +12,11 @@ from time import time
 from tqdm import tqdm
 
 import torch
-import torch.onnx
 import onnxruntime
 
 from animl import generator, file_management, split
 from animl.model_architecture import EfficientNet, ConvNeXtBase
-from animl.utils.torch_utils import get_device
+from animl.utils.torch import get_device
 
 
 def softmax(x):

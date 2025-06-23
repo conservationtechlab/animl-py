@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import timm
 from animl.reid.heads import ElasticArcFace, ArcFaceSubCenterDynamic
-from animl.utils.torch_utils import get_device
+from animl.utils.torch import get_device
 from animl.generator import manifest_dataloader
 
 IMAGE_HEIGHT = 440

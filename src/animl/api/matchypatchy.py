@@ -11,7 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, ToTensor, Normalize)
 
 from animl.classification import load_model, predict_species, single_classification
-from animl.utils.torch_utils import get_device
+from animl.utils.torch import get_device
 
 from animl.reid import miewid
 

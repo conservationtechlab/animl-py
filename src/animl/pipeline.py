@@ -2,9 +2,9 @@ import os
 import yaml
 import torch
 import pandas as pd
-from animl import (file_management, video_processing, megadetector, detect,
+from animl import (file_management, video_processing, detect,
                    split, classification, link)
-from animl.utils.torch_utils import get_device
+from animl.utils.torch import get_device
 
 
 def from_paths(image_dir: str,
@@ -53,7 +53,7 @@ def from_paths(image_dir: str,
         detector = detect.load_detector(detector_file, "MDV5", device=device)
         md_results = detect.detect_batch(detector, all_frames, file_col="Frame",
                                             checkpoint_path=working_dir.mdraw,
-                                            checkpoint_frequency=5000, quiet=True)
+                                            checkpoint_frequency=5000)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)

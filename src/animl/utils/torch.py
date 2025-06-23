@@ -1,24 +1,21 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
 PyTorch utils
 """
-
 import math
 import os
 import platform
+import random
 import subprocess
 import time
 import warnings
-from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
+import numpy as np
 
 import torch
-import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 
-from animl.utils.general import LOGGER, file_date, git_describe
 
 try:
     import thop  # for FLOPs computation
@@ -28,6 +25,7 @@ except ImportError:
 # Suppress PyTorch warnings
 warnings.filterwarnings('ignore', message='User provided device_type of \'cuda\', but CUDA is not available. Disabling')
 
+
 # FROM CTL
 def get_device():
     """
@@ -36,14 +34,14 @@ def get_device():
     return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-@contextmanager
-def torch_distributed_zero_first(local_rank: int):
-    # Decorator to make all processes in distributed training wait for each local_master to do something
-    if local_rank not in [-1, 0]:
-        dist.barrier(device_ids=[local_rank])
-    yield
-    if local_rank == 0:
-        dist.barrier(device_ids=[0])
+def init_seeds(seed=0):
+    # Initialize random number generator (RNG) seeds https://pytorch.org/docs/stable/notes/randomness.html
+    # cudnn seed 0 settings are slower and more reproducible, else faster and less reproducible
+    import torch.backends.cudnn as cudnn
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    cudnn.benchmark, cudnn.deterministic = (False, True) if seed == 0 else (True, False)
 
 
 def device_count():
@@ -58,7 +56,6 @@ def device_count():
 
 def select_device(device='', batch_size=0, newline=True):
     # device = None or 'cpu' or 0 or '0' or '0,1,2,3'
-    s = f'YOLOv5 🚀 {git_describe() or file_date()} Python-{platform.python_version()} torch-{torch.__version__} '
     device = str(device).strip().lower().replace('cuda:', '').replace('none', '')  # to string, 'cuda:0' to '0'
     cpu = device == 'cpu'
     mps = device == 'mps'  # Apple Metal Performance Shaders (MPS)
@@ -75,18 +72,6 @@ def select_device(device='', batch_size=0, newline=True):
         n = len(devices)  # device count
         if n > 1 and batch_size > 0:  # check batch_size is divisible by device_count
             assert batch_size % n == 0, f'batch-size {batch_size} not multiple of GPU count {n}'
-        space = ' ' * (len(s) + 1)
-        for i, d in enumerate(devices):
-            p = torch.cuda.get_device_properties(i)
-            s += f"{'' if i == 0 else space}CUDA:{d} ({p.name}, {p.total_memory / (1 << 20):.0f}MiB)\n"  # bytes to MB
-    elif mps:
-        s += 'MPS\n'
-    else:
-        s += 'CPU\n'
-
-    if not newline:
-        s = s.rstrip()
-    LOGGER.info(s.encode().decode('ascii', 'ignore') if platform.system() == 'Windows' else s)  # emoji-safe
     return torch.device('cuda:0' if cuda else 'mps' if mps else 'cpu')
 
 
@@ -241,7 +226,7 @@ def model_info(model, verbose=False, img_size=640):
         fs = ''
 
     name = Path(model.yaml_file).stem.replace('yolov5', 'YOLOv5') if hasattr(model, 'yaml_file') else 'Model'
-    LOGGER.info(f"{name} summary: {len(list(model.modules()))} layers, {n_p} parameters, {n_g} gradients{fs}")
+    print(f"{name} summary: {len(list(model.modules()))} layers, {n_p} parameters, {n_g} gradients{fs}")
 
 
 def scale_img(img, ratio=1.0, same_shape=False, gs=32):  # img(16,3,256,416)
@@ -276,59 +261,3 @@ def _setup_size(size):
     if len(size) != 2:
         raise ValueError('Please provide up to two dimensions (h,w)')
     return size
-
-
-class EarlyStopping:
-    # YOLOv5 simple early stopper
-    def __init__(self, patience=30):
-        self.best_fitness = 0.0  # i.e. mAP
-        self.best_epoch = 0
-        self.patience = patience or float('inf')  # epochs to wait after fitness stops improving to stop
-        self.possible_stop = False  # possible stop may occur next epoch
-
-    def __call__(self, epoch, fitness):
-        if fitness >= self.best_fitness:  # >= 0 to allow for early zero-fitness stage of training
-            self.best_epoch = epoch
-            self.best_fitness = fitness
-        delta = epoch - self.best_epoch  # epochs without improvement
-        self.possible_stop = delta >= (self.patience - 1)  # possible stop may occur next epoch
-        stop = delta >= self.patience  # stop training if patience exceeded
-        if stop:
-            LOGGER.info(f'Stopping training early as no improvement observed in last {self.patience} epochs. '
-                        f'Best results observed at epoch {self.best_epoch}, best model saved as best.pt.\n'
-                        f'To update EarlyStopping(patience={self.patience}) pass a new patience value, '
-                        f'i.e. `python train.py --patience 300` or use `--patience 0` to disable EarlyStopping.')
-        return stop
-
-
-class ModelEMA:
-    """ Updated Exponential Moving Average (EMA) from https://github.com/rwightman/pytorch-image-models
-    Keeps a moving average of everything in the model state_dict (parameters and buffers)
-    For EMA details see https://www.tensorflow.org/api_docs/python/tf/train/ExponentialMovingAverage
-    """
-
-    def __init__(self, model, decay=0.9999, tau=2000, updates=0):
-        # Create EMA
-        self.ema = deepcopy(de_parallel(model)).eval()  # FP32 EMA
-        # if next(model.parameters()).device.type != 'cpu':
-        #     self.ema.half()  # FP16 EMA
-        self.updates = updates  # number of EMA updates
-        self.decay = lambda x: decay * (1 - math.exp(-x / tau))  # decay exponential ramp (to help early epochs)
-        for p in self.ema.parameters():
-            p.requires_grad_(False)
-
-    def update(self, model):
-        # Update EMA parameters
-        with torch.no_grad():
-            self.updates += 1
-            d = self.decay(self.updates)
-
-            msd = de_parallel(model).state_dict()  # model state_dict
-            for k, v in self.ema.state_dict().items():
-                if v.dtype.is_floating_point:
-                    v *= d
-                    v += (1 - d) * msd[k].detach()
-
-    def update_attr(self, model, include=(), exclude=('process_group', 'reducer')):
-        # Update EMA attributes
-        copy_attr(self.ema, model, include, exclude)
