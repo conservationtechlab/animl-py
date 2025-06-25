@@ -12,6 +12,7 @@ from animl import models
 from animl import multi_species
 from animl import pipeline
 from animl import plot_boxes
+from animl import pose
 from animl import reid
 from animl import split
 from animl import test
@@ -54,6 +55,8 @@ from animl.multi_species import (multi_species_detection,)
 from animl.pipeline import (from_config, from_paths,)
 from animl.plot_boxes import (demo_boxes, draw_bounding_boxes, main,
                               plot_all_bounding_boxes,)
+from animl.pose import (main, predict_viewpoints,create_bounding_boxes,
+                        merge_and_split, process_dataset,)
 from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         ArcMarginProduct, ArcMarginProduct_subcenter,
                         ElasticArcFace, GeM, IMAGE_HEIGHT, IMAGE_WIDTH,
@@ -131,9 +134,9 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'classification', 'classify_mp', 'classify_with_config',
            'clean_str', 'clip_coords', 'coco80_to_coco91_class', 'colorstr',
            'common', 'convert_yolo_to_xywh', 'copy_attr', 'copy_paste',
-           'create_dataloader', 'create_folder', 'csv_converter',
-           'custom_detector', 'custom_yolo_run', 'cutout', 'dataloaders',
-           'dataset_stats', 'de_parallel', 'demo_boxes', 'detect',
+           'create_bounding_boxes', 'create_dataloader', 'create_folder', 
+           'csv_converter', 'custom_detector', 'custom_yolo_run', 'cutout', 
+           'dataloaders', 'dataset_stats', 'de_parallel', 'demo_boxes', 'detect',
            'detect_MD_batch', 'detection_category_id_to_name',
            'device_count', 'download', 'draw_bounding_boxes', 'emojis',
            'exif_size', 'exif_transpose', 'extract_boxes',
@@ -151,15 +154,15 @@ __all__ = ['AUTOINSTALL', 'Albumentations', 'ArcFaceLossAdaptiveMargin',
            'l2_norm', 'labels_to_class_weights', 'labels_to_image_weights',
            'letterbox', 'link', 'load_data', 'load_miew', 'load_model', 'main',
            'main_config', 'main_paths', 'make_divisible',
-           'manifest_dataloader', 'matchypatchy', 'megadetector', 'methods',
-           'miew_embedding', 'miewid', 'mixup', 'model_architecture',
+           'manifest_dataloader', 'matchypatchy', 'megadetector', 'methods', 
+           'merge_and_split', 'miew_embedding', 'miewid', 'mixup', 'model_architecture',
            'model_info', 'models', 'multi_species', 'multi_species_detection',
            'non_max_suppression', 'one_cycle', 'parse_MD', 'parse_YOLO',
            'parse_model', 'pipeline', 'plot_all_bounding_boxes', 'plot_boxes',
-           'predict_species', 'print_args', 'print_mutation', 'process_image',
-           'profile', 'prune', 'random_perspective', 'reid', 'reid_dataloader',
-           'remove_link', 'replicate', 'resample_segments', 'save_data',
-           'save_model', 'scale_coords', 'scale_img', 'segment2box',
+           'predict_species', 'predict_viewpoints', 'print_args', 'print_mutation', 
+           'process_dataset', 'process_image','profile', 'prune', 'random_perspective',
+           'reid', 'reid_dataloader', 'remove_link', 'replicate', 'resample_segments', 
+           'save_data', 'save_model', 'scale_coords', 'scale_img', 'segment2box',
            'segments2boxes', 'select_device', 'sequence_classification',
            'set_logging', 'single_classification', 'softmax', 'sort_MD',
            'sort_species', 'sparsity', 'split', 'strip_optimizer',
