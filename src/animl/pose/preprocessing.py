@@ -173,10 +173,10 @@ def process_dataset(file_path: dict, dataset_name: str):
     category_list = []
     if dataset_name == "ap-10k":
         for category in dataset.get("categories", []):
-            new_category = {}
-            new_category["species"] = category["name"]
-            new_category["id"] = category["id"]    
-            category_list.append(new_category)
+            #new_category = {}
+            #new_category["species"] = category["name"]
+            #new_category["id"] = category["id"]    
+            category_list.append({'species': category['name'], 'id': category['id']})
     
     image_df = pd.DataFrame.from_dict(image_list)
     ann_df = pd.DataFrame.from_dict(ann_list)
@@ -241,13 +241,26 @@ def create_bounding_boxes(image_dir: str, model_path: str, working_dir: str, out
         detections.to_csv(f, index=False)
     return detections
 
+def datetime(csv:str,out:str):
+    df = pd.read_csv(csv)
+    #df['DateTime'] = df['DateTime'].str.replace(
+    #r'^(\d{4}):(\d{2}):(\d{2})', r'\1-\2-\3', regex=True)
+    # Now convert to datetime
+    #df['DateTime'] = pd.to_datetime(df['DateTime'], format='%Y-%m-%d %H:%M:%S')
+    df['CreateDate'] = pd.to_datetime(
+    df['CreateDate'].str.replace(r'^(\d{4}):(\d{2}):(\d{2})', r'\1-\2-\3', regex=True),
+    errors='coerce')
+    #df.dropna(subset='CreateDate', inplace=True)
+    print(df['CreateDate'])
+    df.to_csv(out, index=False)         
+
 if __name__ == "__main__":
     #file_paths = {"/mnt/machinelearning/Viewpoint/annotations/StanfordExtra_v12.json": "stanford-dogs", "/mnt/machinelearning/Viewpoint/annotations/merged_ap10k.json": "ap-10k",
     #               "/mnt/machinelearning/Viewpoint/annotations/merged_ATRW.json": "ATRW", "/mnt/machinelearning/Viewpoint/annotations/animal-pose.json": "animal-pose"}
     #df_list = [process_dataset(file, dataset) for file, dataset in file_paths.items()]
-    test = create_bounding_boxes(image_dir="/mnt/machinelearning/Uniqorn/Jaguar/Output/sym10", model_path="/mnt/machinelearning/megadetector/md_v5a.0.0.pt",
-                          working_dir="/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/jaguar.json",out_file="/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/test.csv")
-
+    #test = create_bounding_boxes(image_dir="/mnt/machinelearning/Uniqorn/Jaguar/Output/sym10", model_path="/mnt/machinelearning/megadetector/md_v5a.0.0.pt",
+    #                      working_dir="/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/jaguar.json",out_file="/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/test.csv")
+    datetime("/home/jcampbell/trainingdata2_2025-06-18.csv", "/home/jcampbell/trainingdata2_2025-06-18.csv")
     #df_list.append(test)
     #remove = ['hippo', 'otter', 'uakari', 'monkey', 'chimpanzee', 'noisy night monkey', 'spider monkey', 'alouatta']
     #train, val, test = merge_and_split(df_list=df_list, out_dir='/mnt/machinelearning/Viewpoint/jcampbell_experiments/full_experiment3/', species_to_remove=remove, imbalanced_class='viewpoint')

@@ -11,8 +11,9 @@ import torch
 from typing import Union
 from sklearn.metrics import confusion_matrix, precision_score, recall_score
 
-from animl.generator import manifest_dataloader
 from animl.classification import load_model
+from animl.generator import manifest_dataloader
+from animl.api import matchypatchy
 
 
 def predict_viewpoints(dataset: pd.DataFrame,
@@ -34,15 +35,19 @@ def predict_viewpoints(dataset: pd.DataFrame,
 
     dataset['sequence'] = dataset['sequence_id'].diff().gt(6).cumsum().add(1)
     grouped = dataset.groupby('sequence')
+    image_paths = pd.Series(dataset["filepath"].values, index=dataset["media_id"]).to_dict()
     progressBar = trange(len(dataset['sequence'].value_counts()))
     with torch.no_grad():
         for group in grouped: #sequence group
             df = group[1]
-            half1 = df.loc[df.groupby(['camera']).ngroup() == 0].reset_index()
-            half2 = df.loc[df.groupby(['camera']).ngroup() == 1].reset_index()
+            print(f"df: {df}")
+            print(df.groupby('camera_id').ngroups)
+            half1 = df.loc[df.groupby(['camera_id']).ngroup() == 0].reset_index()
+            print(f"half1: {half1}")
+            half2 = df.loc[df.groupby(['camera_id']).ngroup() == 1].reset_index()
+            print(f"half2: {half2}")
             if len(half2) > 0: # if there are 2 cameras
-                group1 = manifest_dataloader(half1, batch_size=len(half1), workers=1, 
-                                file_col=half1['filepath'], crop=True)
+                group1 = matchypatchy.reid_dataloader(half1, image_paths)
                 for batch in enumerate(group1):
                     g1batch = batch[1]
                     data = g1batch[0]
@@ -54,8 +59,7 @@ def predict_viewpoints(dataset: pd.DataFrame,
                     # get filepath
                     g1_paths = g1batch[1]
 
-                group2 = manifest_dataloader(half2, batch_size=len(half2), workers=1, 
-                                file_col=half2['filepath'], crop=True)
+                group2 = manifest_dataloader(half2, image_paths)
                 for batch in enumerate(group2):
                     g2batch = batch[1]
                     data = g2batch[0]
@@ -101,8 +105,11 @@ def predict_viewpoints(dataset: pd.DataFrame,
                     filepaths.extend(paths)
 
             progressBar.update(1)
+    predictions = pd.DataFrame({'FilePath': paths,
+                                'prediction': pred})
         
-    return pred_labels, filepaths # output roi id
+    #return pred_labels, filepaths # output roi id
+    return predictions
 
 
 def main():
