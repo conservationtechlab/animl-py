@@ -53,7 +53,7 @@ def load_miew(file_path, device=None):
     return miew
 
 
-def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, workers=1, device=None):
+def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, num_workers=1, device=None):
     """
     Wrapper for MiewID embedding extraction within MatchyPatchy
     """
@@ -61,7 +61,7 @@ def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, 
         device = get_device()
     output = []
     if isinstance(manifest, pd.DataFrame):
-        dataloader = manifest_dataloader(manifest, batch_size=batch_size, workers=workers,
+        dataloader = manifest_dataloader(manifest, batch_size=batch_size, num_workers=num_workers,
                                          file_col=file_col, crop=True, normalize=True,
                                          resize_width=IMAGE_WIDTH, resize_height=IMAGE_HEIGHT)
         with torch.no_grad():

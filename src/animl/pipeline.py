@@ -4,14 +4,14 @@ import torch
 import pandas as pd
 from animl import (classify, file_management, video_processing, detect,
                    split, link)
-from animl.utils.general import get_device
+from animl.utils.general import get_device, NUM_THREADS
 
 
 def from_paths(image_dir: str,
                detector_file: str,
                classifier_file: str,
                classlist_file: str,
-               class_label: str = "code",
+               class_label: str = "class",
                sort: bool = True,
                simple=True) -> pd.DataFrame:
     """
@@ -36,6 +36,7 @@ def from_paths(image_dir: str,
     files = file_management.build_file_manifest(image_dir,
                                                 out_file=working_dir.filemanifest,
                                                 exif=True)
+    print(files)
     # files["Station"] = files["FilePath"].apply(lambda x: x.split(os.sep)[-2])
     print("Found %d files." % len(files))
 
@@ -43,7 +44,7 @@ def from_paths(image_dir: str,
     print("Processing videos...")
     all_frames = video_processing.extract_frames(files, out_dir=working_dir.vidfdir,
                                                  out_file=working_dir.imageframes,
-                                                 parallel=True, frames=3)
+                                                 parallel=True, num_workers=NUM_THREADS, frames=3)
 
     # Run all images and video frames through MegaDetector
     print("Running images and video frames through MegaDetector...")
@@ -51,9 +52,13 @@ def from_paths(image_dir: str,
         detections = file_management.load_data(working_dir.detections)
     else:
         detector = detect.load_detector(detector_file, "MDV5", device=device)
-        md_results = detect.detect_batch(detector, all_frames, file_col="Frame",
-                                            checkpoint_path=working_dir.mdraw,
-                                            checkpoint_frequency=5000)
+        md_results = detect.detect_batch(detector,
+                                         all_frames,
+                                         file_col="Frame",
+                                         batch_size=4,
+                                         num_workers=NUM_THREADS,
+                                         checkpoint_path=working_dir.mdraw,
+                                         checkpoint_frequency=5000)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
@@ -67,8 +72,13 @@ def from_paths(image_dir: str,
     class_list = pd.read_csv(classlist_file)
     print(len(class_list))
     classifier = classify.load_classifier(classifier_file, len(class_list), device=device)
-    predictions_raw = classify.predict_species(animals, classifier, device=device,
-                                                     file_col="Frame", batch_size=4, out_file=working_dir.predictions)
+    predictions_raw = classify.predict_species(animals,
+                                               classifier,
+                                               device=device,
+                                               file_col="Frame",
+                                               batch_size=4,
+                                               num_workers=NUM_THREADS,
+                                               out_file=working_dir.predictions)
     if simple:
         print("Classifying individual frames...")
         animals = classify.single_classification(animals, predictions_raw, class_list[class_label])
@@ -76,13 +86,15 @@ def from_paths(image_dir: str,
         # TODO: single output per file
     else:
         print("Classifying sequences...")
-        manifest = classify.sequence_classification(animals, empty, predictions_raw,
-                                                          class_list[class_label],
-                                                          station_col='Station',
-                                                          empty_class="",
-                                                          sort_columns=None,
-                                                          file_col="FilePath",
-                                                          maxdiff=60)
+        manifest = classify.sequence_classification(animals,
+                                                    empty,
+                                                    predictions_raw,
+                                                    class_list[class_label],
+                                                    station_col='Station',
+                                                    empty_class="",
+                                                    sort_columns=None,
+                                                    file_col="FilePath",
+                                                    maxdiff=60)
     # create symlinks
     if sort:
         print("Sorting...")
@@ -137,6 +149,7 @@ def from_config(config):
     all_frames = video_processing.extract_frames(files, out_dir=working_dir.vidfdir,
                                                  out_file=working_dir.imageframes,
                                                  parallel=cfg.get('parallel', True),
+                                                 num_workers=cfg.get('num_workers', NUM_THREADS),
                                                  frames=cfg.get('frames', 1), fps=fps)
 
     # Run all images and video frames through MegaDetector
@@ -145,9 +158,13 @@ def from_config(config):
         detections = file_management.load_data(working_dir.detections)
     else:
         detector = detect.load_detector(cfg['detector_file'], device=device)
-        md_results = detect.detect_batch(detector, all_frames, file_col=cfg.get('file_col_detection', 'Frame'),
+        md_results = detect.detect_batch(detector,
+                                         all_frames,
+                                         file_col=cfg.get('file_col_detection', 'Frame'),
+                                         batch_size=cfg.get('batch_size', 4),
+                                         num_workers=cfg.get('num_workers', NUM_THREADS),
                                          checkpoint_path=working_dir.mdraw,
-                                         checkpoint_frequency=cfg.get('checkpoint_frequency', -1), quiet=True)
+                                         checkpoint_frequency=cfg.get('checkpoint_frequency', -1))
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detect.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
@@ -161,21 +178,22 @@ def from_config(config):
     class_list = pd.read_csv(cfg['class_list'])
     classifier = classify.load_model(cfg['classifier_file'], len(class_list), device=device)
     predictions_raw = classify.predict_species(animals, classifier, device=device,
-                                                     file_col=cfg.get('file_col_classification', 'Frame'),
-                                                     batch_size=cfg.get('batch_size', 4),
-                                                     out_file=working_dir.predictions)
+                                               file_col=cfg.get('file_col_classification', 'Frame'),
+                                               batch_size=cfg.get('batch_size', 4),
+                                               num_workers=cfg.get('num_workers', NUM_THREADS),
+                                               out_file=working_dir.predictions)
 
     # merge animal and empty, create symlinks
     if station_dir:
         manifest = classify.sequence_classification(animals, empty, predictions_raw,
-                                                          class_list[cfg.get('class_label_col', 'Code')],
-                                                          station_col='Station',
-                                                          empty_class="",
-                                                          sort_columns=["Station", "DateTime", "FrameNumber"],
-                                                          file_col=cfg.get('file_col_classification', 'Frame'),
-                                                          maxdiff=60)
+                                                    class_list[cfg.get('class_label_col', 'class')],
+                                                    station_col='Station',
+                                                    empty_class="",
+                                                    sort_columns=["Station", "DateTime", "FrameNumber"],
+                                                    file_col=cfg.get('file_col_classification', 'Frame'),
+                                                    maxdiff=60)
     else:
-        animals = classify.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'code')])
+        animals = classify.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'class')])
         # merge animal and empty, create symlinks
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 

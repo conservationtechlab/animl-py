@@ -20,8 +20,10 @@ from torch.optim import SGD, AdamW
 from sklearn.metrics import precision_score, recall_score
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR, CosineAnnealingLR
 from torch.amp import autocast, GradScaler
+
 from animl.generator import train_dataloader
 from animl.classify import save_classifier, load_classifier
+from animl.utils.general import NUM_THREADS
 
 # # log values using comet ml (comet.com)
 # from comet_ml import Experiment
@@ -277,10 +279,10 @@ def main(cfg):
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
 
     # Initialize data loaders for training and validation set
-    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
+    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], num_workers=cfg.get('num_workers', NUM_THREADS),
                                 file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),
                                 cache_dir=cfg.get('cache_folder', None))
-    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size', 16), workers=cfg['num_workers'],
+    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size', 16), num_workers=cfg.get('num_workers', NUM_THREADS),
                               file_col=file_col, label_col=label_col, crop=crop, augment=False, cache_dir=cfg.get('cache_folder', None))
 
     # set up model optimizer

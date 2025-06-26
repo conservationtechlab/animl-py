@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader
 
 from animl.generator import train_dataloader
 from animl.classify import load_classifier
+from animl.utils.general import NUM_THREADS
 
 
 def test_func(data_loader: DataLoader, model: torch.nn.Module, device: Union[str, torch.device] = 'cpu') -> float:
@@ -92,9 +93,15 @@ def main():
 
     # initialize data loaders for training and validation set
     test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
-    dl_test = train_dataloader(test_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
-                               file_col=cfg.get('file_col', 'FilePath'), label_col=cfg.get('label_col', 'species'),
-                               crop=crop, augment=False, cache_dir=cfg.get('cache_folder', None))
+    dl_test = train_dataloader(test_dataset,
+                               categories,
+                               batch_size=cfg['batch_size'],
+                               num_workers=cfg.get('num_workers', NUM_THREADS),
+                               file_col=cfg.get('file_col', 'FilePath'),
+                               label_col=cfg.get('label_col', 'species'),
+                               crop=crop,
+                               augment=False,
+                               cache_dir=cfg.get('cache_folder', None))
 
     # get predictions
     pred, true, paths = test_func(dl_test, model, device)

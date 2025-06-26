@@ -16,7 +16,7 @@ import onnxruntime
 
 from animl import generator, file_management, split
 from animl.model_architecture import EfficientNet, ConvNeXtBase
-from animl.utils.general import get_device, softmax, tensor_to_onnx
+from animl.utils.general import get_device, softmax, tensor_to_onnx, NUM_THREADS
 
 
 def save_classifier(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
@@ -135,7 +135,7 @@ def predict_species(detections, model,
                     device=None, out_file=None,
                     file_col='Frame', crop=True,
                     resize_width=299, resize_height=299,
-                    normalize=True, batch_size=1, workers=1):
+                    normalize=True, batch_size=1, num_workers=1):
     """
     Predict species using classifier model
 
@@ -152,7 +152,7 @@ def predict_species(detections, model,
         - resize_height (int): image height input size
         - normalize (bool): normalize the tensor before inference
         - batch_size (int): data generator batch size
-        - workers (int): number of cores
+        - num_workers (int): number of cores
 
     Returns
         - detections (pd.DataFrame): MD detections with classifier prediction and confidence
@@ -173,7 +173,7 @@ def predict_species(detections, model,
 
         dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=crop,
                                                 resize_width=resize_width, resize_height=resize_height,
-                                                normalize=normalize, batch_size=batch_size, workers=workers)
+                                                normalize=normalize, batch_size=batch_size, num_workers=num_workers)
 
         with torch.no_grad():
             for _, batch in tqdm(enumerate(dataset)):
@@ -315,10 +315,10 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
         rows = [i]
         last_index = i+1
 
-        while last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, "DateTime"]) \
-            and not pd.isna(animals_sort.loc[last_index, "DateTime"]) \
-            and animals_sort.loc[last_index, station_col] == animals_sort.loc[i, station_col] \
-            and (animals_sort.loc[last_index, "FileModifyDate"] - animals_sort.loc[i, "FileModifyDate"]).total_seconds() <= maxdiff:
+        while (last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, "DateTime"]) and
+               not pd.isna(animals_sort.loc[last_index, "DateTime"]) and
+               animals_sort.loc[last_index, station_col] == animals_sort.loc[i, station_col] and
+               (animals_sort.loc[last_index, "FileModifyDate"] - animals_sort.loc[i, "FileModifyDate"]).total_seconds() <= maxdiff):
             rows.append(last_index)
             last_index += 1
 
@@ -402,12 +402,12 @@ def classify_with_config(config):
                                   raw=cfg.get('raw', False), file_col=cfg['file_col'], crop=cfg['crop'],
                                   resize_width=cfg['resize_width'], resize_height=cfg['resize_height'],
                                   normalize=cfg.get('normalize', True), batch_size=cfg.get('batch_size', 1),
-                                  workers=cfg.get('workers', 1))
+                                  num_workers=cfg.get('num_workers', NUM_THREADS))
     return predictions
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train deep learning model.')
+    parser = argparse.ArgumentParser(description='Run a deep learning species classification model.')
     parser.add_argument('--config', help='Path to config file', default='exp_resnet18.yaml')
     args = parser.parse_args()
     classify_with_config(args.config)
