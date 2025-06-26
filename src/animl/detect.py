@@ -7,10 +7,9 @@ import pandas as pd
 from tqdm import tqdm
 from shutil import copyfile
 from torch import tensor
-from PIL import Image
 
 from animl import file_management
-from animl.generator import manifest_dataloader
+from animl.generator import manifest_dataloader, image_to_tensor
 from animl.utils import general
 
 from ultralytics import YOLO
@@ -53,8 +52,7 @@ def load_detector(model_path, model_type, device=None):
     return model
 
 
-def detect_batch(detector: object,
-                 image_file_names: typing.List[str],
+def detect_batch(detector, image_file_names,
                  batch_size=1,
                  workers=1,
                  device=None,
@@ -125,11 +123,11 @@ def detect_batch(detector: object,
     # column from pd.DataFrame, expected input
     elif isinstance(image_file_names, pd.Series):
         pass
-
     else:
         raise ValueError('image_file_names is not a recognized object')
 
-    if file_management.check_file(checkpoint_path):  # checkpoint comes back empty
+    # load checkpoint
+    if file_management.check_file(checkpoint_path):
         with open(checkpoint_path, 'r') as f:
             data = json.load(f)
             results = data['images']
@@ -195,19 +193,16 @@ def detect_batch(detector: object,
     return results
 
 
-# TODO
-def detect_single(file_path: str,
-                  detector: object,
-                  device=None,
-                  confidence_threshold: float = 0.01,
+def detect_single(detector, file_path, device=None,
+                  confidence_threshold: float = 0.1,
                   image_size: typing.Optional[int] = 1280) -> typing.Dict:
     """
     Run Detector model on a single image
 
     Args:
+        detector (obj): loaded model
         file_path (str): path to image file
-        detector: loaded model
-        device (str): device used for inference "cuda", "cpu", etc 
+        device (str): device used for inference "cuda", "cpu", etc
         confidence_threshold (float): only detections above this threshold are returned
         image_size (int): overrides default image size, 1280
 
@@ -221,18 +216,26 @@ def detect_single(file_path: str,
     if not isinstance(confidence_threshold, float):
         raise TypeError(f"Expected float for confidence_threshold, got {type(confidence_threshold)}")
 
-    # open the file
-    try:
-        image = Image.open(file_path).convert(mode='RGB')
-        image.load()
-    except Exception as e:
-        print('Image {} cannot be loaded. Exception: {}'.format(file_path, e))
-        return None
+    # check to make sure GPU is available if chosen
+    if device is None:
+        device = general.get_device()
+    print('Device set to', device)
 
-    # TODO
-    # RUN MODEL
+    # convert img path to tensor
+    image_tensor = image_to_tensor(file_path, resize_width=image_size, resize_height=image_size)
 
-    return
+    # Run inference on the image
+    if detector.model_type == "MDV5":
+        prediction = detector(image_tensor.to(device))
+        pred: list = prediction[0]
+        pred = general.non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
+        results = convert_raw_detections(pred, image_tensor, [file_path])
+
+    else:
+        prediction = detector.predict(source=image_tensor.to(device), conf=confidence_threshold, verbose=False)
+        results = convert_yolo_detections(prediction, [file_path])
+
+    return results
 
 
 def convert_yolo_detections(predictions, image_paths):

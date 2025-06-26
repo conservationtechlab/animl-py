@@ -24,9 +24,9 @@ from animl.api import (MiewGenerator, animl_results_to_md_results, animl_to_md,
                        miew_embedding, reid_dataloader, timelapse,
                        viewpoint_estimator,)
 from animl.classify import (classify_with_config, load_classifier,
-                                  predict_species, save_classifier,
-                                  sequence_classification,
-                                  single_classification,)
+                            predict_species, save_classifier,
+                            sequence_classification,
+                            single_classification,)
 from animl.custom_detector import (CustomYOLO,)
 from animl.custom_yolo_run import (main_config, main_paths,)
 from animl.detect import (convert_raw_detections, convert_yolo_detections,
@@ -37,7 +37,7 @@ from animl.file_management import (IMAGE_EXTENSIONS, VALID_EXTENSIONS,
                                    build_file_manifest, check_file, load_data,
                                    save_data,)
 from animl.generator import (ImageGenerator, ResizeWithPadding, TrainGenerator,
-                             manifest_dataloader, train_dataloader,)
+                             image_to_tensor, manifest_dataloader, train_dataloader,)
 from animl.link import (remove_link, sort_MD, sort_species, update_labels,)
 from animl.model_architecture import (ConvNeXtBase, EfficientNet,)
 from animl.models import (AutoShape, Bottleneck, BottleneckCSP, C3, C3Ghost,
@@ -111,7 +111,7 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'get_animals', 'get_animals_custom', 'get_device', 'get_empty',
            'get_empty_custom', 'get_image_size', 'get_latest_run', 'heads',
            'increment_path', 'init_seed', 'init_seeds', 'initialize_weights',
-           'intersect_dicts', 'is_parallel', 'l2_norm',
+           'image_to_tensor', 'intersect_dicts', 'is_parallel', 'l2_norm',
            'labels_to_class_weights', 'labels_to_image_weights', 'letterbox',
            'link', 'load_checkpoint', 'load_data', 'load_detector',
            'load_miew', 'load_classifier', 'main', 'main_config', 'main_paths',

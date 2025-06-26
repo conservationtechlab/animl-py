@@ -65,6 +65,32 @@ class ResizeWithPadding(torch.nn.Module):
         return f"{self.__class__.__name__}(size={self.size})"
 
 
+def image_to_tensor(file_path, resize_width, resize_height):
+    '''
+    Convert an image to tensor for single detection or classification
+
+    Args:
+        file_path (str): path to image
+        resize_width (int): resize width in pixels
+        resize_height (int): resize height in pixels
+
+    Returns:
+
+    '''
+    try:
+        img = Image.open(file_path).convert(mode='RGB')
+        img.load()
+    except Exception as e:
+        print('Image {} cannot be loaded. Exception: {}'.format(file_path, e))
+        return None
+
+    tensor_transform = Compose([Resize((resize_height, resize_width)), ToTensor(), ])  # torch.resize order is H,W
+    img_tensor = tensor_transform(img)
+    img_tensor = torch.unsqueeze(img_tensor, 0)  # add batch dimension
+    img.close()
+    return img_tensor
+
+
 class ImageGenerator(Dataset):
     '''
     Data generator that crops images on the fly, requires relative bbox coordinates,
@@ -86,11 +112,9 @@ class ImageGenerator(Dataset):
         self.resize_width = int(resize_width)
         self.buffer = 0
         self.normalize = normalize
-        self.transform = Compose([
-            # torch.resize order is H,W
-            Resize((self.resize_height, self.resize_width)),
-            ToTensor(),
-            ])
+        # torch.resize order is H,W
+        self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                  ToTensor(), ])
 
     def __len__(self) -> int:
         return len(self.x)
@@ -175,8 +199,7 @@ class TrainGenerator(Dataset):
                                       Resize((self.resize_height, self.resize_width)),
                                       ToTensor(), ])
         else:
-            self.transform = Compose([
-                                      Resize((self.resize_height, self.resize_width)),
+            self.transform = Compose([Resize((self.resize_height, self.resize_width)),
                                       ToTensor(), ])
         self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
 
