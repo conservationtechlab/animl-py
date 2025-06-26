@@ -251,6 +251,15 @@ def load_checkpoint(model_path, model, optimizer, scheduler, device):
 
 
 def main(cfg):
+    '''
+    Command line function
+
+    Example usage:
+    > python train.py --config configs/exp_resnet18.yaml
+    '''
+    # load cfg file
+    cfg = yaml.safe_load(open(args.config, 'r'))
+    
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
     crop = cfg.get('crop', True)
@@ -386,5 +395,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f'Using config "{args.config}"')
-    cfg = yaml.safe_load(open(args.config, 'r'))
-    main(cfg)
+    main(args.config)
