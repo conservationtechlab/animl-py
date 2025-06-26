@@ -18,9 +18,10 @@ fps: None
 # inference
 checkpoint_frequency: 1000
 batch_size: 4
+num_workers: 8
 file_col_detection: Frame
 file_col_classification: Frame
-class_label_col: Code
+class_label_col: class
 
 # sort
 sort: False

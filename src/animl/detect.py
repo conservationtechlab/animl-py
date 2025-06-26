@@ -54,7 +54,7 @@ def load_detector(model_path, model_type, device=None):
 
 def detect_batch(detector, image_file_names,
                  batch_size=1,
-                 workers=1,
+                 num_workers=1,
                  device=None,
                  checkpoint_path: typing.Optional[str] = None,
                  checkpoint_frequency: int = -1,
@@ -70,7 +70,7 @@ def detect_batch(detector, image_file_names,
                                 a folder to recursively search for images in, or a .json file
                                 containing a list of images.
             batch_size (int): size of each batch
-            workers (int): number of processes to handle the data
+            num_workers (int): number of processes to handle the data
             device (str): specify to run on cpu or gpu
             checkpoint_path (str): path to checkpoint file
             checkpoint_frequency (int): write results to checkpoint file every N images
@@ -145,7 +145,7 @@ def detect_batch(detector, image_file_names,
     # create dataloader
     # TODO: letterbox if mdv5
     dataloader = manifest_dataloader(manifest, batch_size=batch_size,
-                                     workers=workers, crop=False, normalize=True,
+                                     num_workers=num_workers, crop=False, normalize=True,
                                      resize_width=image_size,
                                      resize_height=image_size)
 

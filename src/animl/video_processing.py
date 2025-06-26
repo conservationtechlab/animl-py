@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional, Union, List
 
 from animl import file_management
+from animl.utils.general import NUM_THREADS
 
 
 def extract_frame_single(file_path: Union[str, pd.DataFrame],
@@ -93,7 +94,7 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
                    frames: Optional[int] = None,
                    file_col: str = "FilePath",
                    parallel: bool = False,
-                   workers: int = mp.cpu_count(),
+                   num_workers: int = NUM_THREADS,
                    checkpoint: int = 1000):
     """
     Extract frames from video for classification
@@ -106,7 +107,7 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
         - frames: number of frames to sample
         - file_col: column containing file paths
         - parallel: Toggle for parallel processing, defaults to FALSE
-        - workers: number of processors to use if parallel, defaults to 1
+        - num_workers: number of processors to use if parallel, defaults to NUM_THREADS
         - checkpoint: if not parallel, checkpoint ever n files, defaults to 1000
 
     Return
@@ -132,10 +133,9 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
     videos = videos.drop(columns=["Frame"])  # drop existing Frame column for videos
 
     if not videos.empty:
-        # TODO add checkpoint to parallel
         video_frames = []
         if parallel:
-            pool = mp.Pool(workers)
+            pool = mp.Pool(num_workers)
             output = [pool.apply(extract_frame_single, args=(video, out_dir, fps, frames)) for video in tqdm(videos[file_col])]
             output = list(filter(None, output))
             video_frames = vstack(output)

@@ -71,7 +71,7 @@ def miew_embedding(model, batch, device=None):
 
 def reid_dataloader(rois, image_path_dict,
                     resize_height=miewid.IMAGE_HEIGHT, resize_width=miewid.IMAGE_WIDTH,
-                    batch_size=1, workers=1):
+                    batch_size=1, num_workers=1):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.
         Always dynamically crops
@@ -82,7 +82,7 @@ def reid_dataloader(rois, image_path_dict,
             - resize_width (int): size in pixels for input width
             - resize_height (int): size in pixels for input height
             - batch_size (int): size of each batch
-            - workers (int): number of processes to handle the data
+            - num_workers (int): number of processes to handle the data
 
         Returns:
             dataloader object
@@ -97,7 +97,7 @@ def reid_dataloader(rois, image_path_dict,
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
                             shuffle=False,
-                            num_workers=workers)
+                            num_workers=num_workers)
     return dataLoader
 
 

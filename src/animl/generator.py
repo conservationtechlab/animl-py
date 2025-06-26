@@ -261,7 +261,7 @@ class TrainGenerator(Dataset):
         return img_tensor, label, image_name
 
 
-def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath", label_col="species",
+def train_dataloader(manifest, classes, batch_size=1, num_workers=1, file_col="FilePath", label_col="species",
                      crop=False, resize_height=480, resize_width=480, augment=False, cache_dir=None):
     '''
         Loads a dataset for training and wraps it in a
@@ -271,7 +271,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
             - manifest (DataFrame): data to be fed into the model
             - classes (dict): all possible class labels
             - batch_size (int): size of each batch
-            - workers (int): number of processes to handle the data
+            - num_workers (int): number of processes to handle the data
             - file_col (str): column name containing full file paths
             - crop (bool): if true, dynamically crop images
             - resize_width (int): size in pixels for input width
@@ -289,11 +289,11 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
                             pin_memory=True,
                             batch_size=batch_size,
                             shuffle=True,
-                            num_workers=workers)
+                            num_workers=num_workers)
     return dataLoader
 
 
-def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file",
+def manifest_dataloader(manifest, batch_size=1, num_workers=1, file_col="file",
                         crop=True, normalize=True, resize_width=299, resize_height=299):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.
@@ -302,7 +302,7 @@ def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file",
         Args:
             - manifest (DataFrame): data to be fed into the model
             - batch_size (int): size of each batch
-            - workers (int): number of processes to handle the data
+            - num_workers (int): number of processes to handle the data
             - file_col: column name containing full file paths
             - crop (bool): if true, dynamically crop images
             - normalize (bool): if true, normalize array to values [0,1]
@@ -323,5 +323,5 @@ def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file",
                             batch_size=batch_size,
                             shuffle=False,
                             pin_memory=True,
-                            num_workers=workers)
+                            num_workers=num_workers)
     return dataLoader
