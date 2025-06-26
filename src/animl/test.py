@@ -60,21 +60,15 @@ def test_func(data_loader: DataLoader, model: torch.nn.Module, device: Union[str
     return pred_labels, true_labels, filepaths
 
 
-def main():
+def main(cfg):
     '''
     Command line function
 
     Example usage:
-    > python train.py --config configs/exp_resnet18.yaml
+    > python test.py --config configs/exp_resnet18.yaml
     '''
-    parser = argparse.ArgumentParser(description='Test species classifier model.')
-    parser.add_argument('--config', help='Path to config file')
-    args = parser.parse_args()
-
-    # load config
-    print(f'Using config "{args.config}"')
-    cfg = yaml.safe_load(open(args.config, 'r'))
-    crop = cfg.get('crop', False)
+    # load cfg file
+    cfg = yaml.safe_load(open(cfg, 'r'))
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -99,7 +93,7 @@ def main():
                                num_workers=cfg.get('num_workers', NUM_THREADS),
                                file_col=cfg.get('file_col', 'FilePath'),
                                label_col=cfg.get('label_col', 'species'),
-                               crop=crop,
+                               crop=cfg.get('crop', True),
                                augment=False,
                                cache_dir=cfg.get('cache_folder', None))
 
@@ -122,4 +116,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='Test species classifier model.')
+    parser.add_argument('--config', help='Path to config file')
+    args = parser.parse_args()
+
+    # load config
+    print(f'Using config "{args.config}"')
+    main(args.config)

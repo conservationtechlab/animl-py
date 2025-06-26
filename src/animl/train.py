@@ -48,7 +48,7 @@ def init_seed(seed):
         cudnn.deterministic = True
 
 
-def train_func(data_loader, model, optimizer,  scheduler, device='cpu'):
+def train_func(data_loader, model, optimizer, scheduler, device='cpu', mixed_precision=False):
     '''
         Training Function
 
@@ -73,7 +73,7 @@ def train_func(data_loader, model, optimizer,  scheduler, device='cpu'):
 
     progressBar = trange(len(data_loader))
 
-    if cfg.get('mixed_precision', False) and device != 'cpu' and torch.cuda.is_available():
+    if mixed_precision and device != 'cpu' and torch.cuda.is_available():
         # Creates a GradScaler once at the beginning of training.
         scaler = GradScaler('cuda', enabled=True)
 
@@ -86,7 +86,7 @@ def train_func(data_loader, model, optimizer,  scheduler, device='cpu'):
         optimizer.zero_grad()
 
         # mixed precision training if GPU is available
-        if cfg.get('mixed_precision', False) and device != 'cpu' and torch.cuda.is_available():
+        if mixed_precision and device != 'cpu' and torch.cuda.is_available():
             # Scales the loss, and calls backward() on the scaled loss to create
             # backward gradients. This is a more efficient way to calculate gradients.
             with autocast(device_type='cuda', dtype=torch.float16):
@@ -133,7 +133,7 @@ def train_func(data_loader, model, optimizer,  scheduler, device='cpu'):
     return loss_total, oa_total
 
 
-def validate(data_loader, model, device="cpu"):
+def validate_func(data_loader, model, device="cpu"):
     '''
         Validation function. Note that this looks almost the same as the training
         function, except that we don't use any optimizer or gradient steps.
@@ -251,6 +251,15 @@ def load_checkpoint(model_path, model, optimizer, scheduler, device):
 
 
 def main(cfg):
+    '''
+    Command line function
+
+    Example usage:
+    > python train.py --config configs/exp_resnet18.yaml
+    '''
+    # load cfg file
+    cfg = yaml.safe_load(open(cfg, 'r'))
+
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
     crop = cfg.get('crop', True)
@@ -262,6 +271,8 @@ def main(cfg):
     if device != 'cpu' and not torch.cuda.is_available():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
         device = 'cpu'
+    # get mixed precision
+    mixed_precision = cfg.get('mixed_precision', False)
 
     # initialize model and get class list
     classes = pd.read_csv(cfg['class_file'])
@@ -299,7 +310,12 @@ def main(cfg):
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
     # Load checkpoint for model weights, optimizer state, scheduler state, and actual current_epoch
-    current_epoch = load_checkpoint(cfg['experiment_folder'], model, optim, scheduler, device)
+    current_epoch = load_checkpoint(cfg['experiment_folder'],
+                                    model,
+                                    optim,
+                                    scheduler,
+                                    device=device,
+                                    mixed_precision=mixed_precision)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
@@ -329,8 +345,8 @@ def main(cfg):
             for param in model.parameters():
                 param.requires_grad = True
 
-        loss_train, oa_train = train_func(dl_train, model, optim, device)
-        loss_val, oa_val, precision, recall = validate(dl_val, model, device)
+        loss_train, oa_train = train_func(dl_train, model, optim, device, mixed_precision=mixed_precision)
+        loss_val, oa_val, precision, recall = validate_func(dl_val, model, device)
 
         # combine stats and save
         stats = {
@@ -386,5 +402,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f'Using config "{args.config}"')
-    cfg = yaml.safe_load(open(args.config, 'r'))
-    main(cfg)
+    main(args.config)
