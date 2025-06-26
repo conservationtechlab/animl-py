@@ -61,7 +61,7 @@ from animl.split import (get_animals, get_animals_custom, get_empty,
                          get_empty_custom, train_val_test,)
 from animl.test import (main, test_func,)
 from animl.train import (init_seed, load_checkpoint, main, train_func,
-                         validate,)
+                         validate_func,)
 from animl.utils import (FILE, NUM_THREADS, RANK, ROOT, absolute_to_relative,
                          autopad, box_area, box_iou, check_file,
                          check_img_size, check_python, check_requirements,
@@ -129,7 +129,7 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'test', 'test_func', 'time_sync', 'timelapse', 'train',
            'train_dataloader', 'train_func', 'train_val_test',
            'truncate_float', 'truncate_float_array', 'update_labels', 'utils',
-           'validate', 'video_processing', 'viewpoint_estimator',
+           'validate_func', 'video_processing', 'viewpoint_estimator',
            'weights_init_classifier', 'weights_init_kaiming', 'xyn2xy',
            'xywh2xyxy', 'xywhn2xyxy', 'xyxy2xywh', 'xyxy2xywhn', 'yolo',
            'yolo5']
