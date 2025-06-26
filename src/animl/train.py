@@ -258,7 +258,7 @@ def main(cfg):
     > python train.py --config configs/exp_resnet18.yaml
     '''
     # load cfg file
-    cfg = yaml.safe_load(open(args.config, 'r'))
+    cfg = yaml.safe_load(open(cfg, 'r'))
     
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
