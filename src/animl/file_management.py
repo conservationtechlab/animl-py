@@ -54,6 +54,7 @@ def build_file_manifest(image_dir: str,
         return pd.DataFrame()
 
     files = pd.DataFrame(files, columns=["FilePath"])
+    files["Frame"] = files["FilePath"]
     files["FileName"] = files["FilePath"].apply(lambda x: os.path.split(x)[1])
     files["Extension"] = files["FilePath"].apply(lambda x: os.path.splitext(os.path.basename(x))[1].lower())
 
