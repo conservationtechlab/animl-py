@@ -48,7 +48,7 @@ def init_seed(seed):
         cudnn.deterministic = True
 
 
-def train_func(cfg, data_loader, model, optimizer, scheduler, device='cpu', mixed_precision=False):
+def train_func(data_loader, model, optimizer, scheduler, device='cpu', mixed_precision=False):
     '''
         Training Function
 
