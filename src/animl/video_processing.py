@@ -120,9 +120,6 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
         print("If both fps and frames are defined fps will be used.")
     if (fps is None) and (frames is None):
         raise AssertionError("Either fps or frames need to be defined.")
-    # if file_management.check_file(outfile):
-    #    temporary = fileManagement.load_data(outfile)
-    #    check against checkpoint
 
     images = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin([".jpg", ".jpeg", ".png"])]
@@ -132,6 +129,8 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
     videos = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",
                                                         ".mpg", ".mpeg", ".asf", ".m4v"])]
+    videos = videos.drop(columns=["Frame"])  # drop existing Frame column for videos
+
     if not videos.empty:
         # TODO add checkpoint to parallel
         video_frames = []
