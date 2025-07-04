@@ -126,8 +126,7 @@ class ImageGenerator(Dataset):
             img = Image.open(image_name).convert('RGB')
         except OSError:
             print("File error", image_name)
-            del self.x.iloc[idx]
-            return self.__getitem__(idx)
+            return None
 
         width, height = img.size
 
@@ -231,8 +230,7 @@ class TrainGenerator(Dataset):
                 img = Image.open(image_name).convert('RGB')
             except OSError:
                 print("File error", image_name)
-                self.x = self.x.drop(idx, axis=0).reset_index()
-                return self.__getitem__(idx)
+                return None
 
             if self.crop:
                 width, height = img.size
@@ -289,7 +287,8 @@ def train_dataloader(manifest, classes, batch_size=1, num_workers=1, file_col="F
                             pin_memory=True,
                             batch_size=batch_size,
                             shuffle=True,
-                            num_workers=num_workers)
+                            num_workers=num_workers,
+                            collate_fn=collate_fn)
     return dataLoader
 
 
@@ -323,5 +322,10 @@ def manifest_dataloader(manifest, batch_size=1, num_workers=1, file_col="file",
                             batch_size=batch_size,
                             shuffle=False,
                             pin_memory=True,
-                            num_workers=num_workers)
+                            num_workers=num_workers,
+                            collate_fn=collate_fn)
     return dataLoader
+
+def collate_fn(batch):
+    batch = list(filter(lambda x: x is not None, batch))
+    return torch.utils.data.dataloader.default_collate(batch)

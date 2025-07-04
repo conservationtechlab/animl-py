@@ -176,7 +176,7 @@ def predict_species(detections, model,
                                                 normalize=normalize, batch_size=batch_size, num_workers=num_workers)
 
         with torch.no_grad():
-            for _, batch in tqdm(enumerate(dataset)):
+            for _, batch in tqdm(enumerate(dataset), total=len(dataloader)):
                 # pytorch
                 if model.framework == "pytorch" or model.framework == "EfficientNet":
                     data = batch[0]

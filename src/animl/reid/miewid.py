@@ -6,6 +6,7 @@ Code to run Miew_ID
 """
 from tqdm import tqdm
 import pandas as pd
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -55,7 +56,7 @@ def load_miew(file_path, device=None):
 
 def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, num_workers=1, device=None):
     """
-    Wrapper for MiewID embedding extraction within MatchyPatchy
+    Wrapper for MiewID embedding extraction
     """
     if device is None:
         device = get_device()
@@ -65,10 +66,11 @@ def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, 
                                          file_col=file_col, crop=True, normalize=True,
                                          resize_width=IMAGE_WIDTH, resize_height=IMAGE_HEIGHT)
         with torch.no_grad():
-            for _, batch in tqdm(enumerate(dataloader)):
+            for _, batch in tqdm(enumerate(dataloader),total=len(dataloader)):
                 img = batch[0]
                 emb = miew_model.extract_feat(img.to(device))
-                output.append(emb.cpu().detach().numpy()[0])
+                output.extend(emb.detach().cpu().numpy())
+        output = np.vstack(output)
     return output
 
 
