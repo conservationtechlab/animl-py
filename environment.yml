@@ -1,0 +1,20 @@
+# warning: onnxruntime-gpu must be run on CUDA<=11.8
+name: animl-gpu
+channels:
+  - anaconda
+  - defaults
+dependencies:
+  - pip=24.0
+  - python=3.12.3
+  - pip:
+      - numpy==1.26.4
+      - onnxruntime-gpu==1.17.1
+      - opencv-python
+      - pandas
+      - pillow
+      - pyexiftool==0.5.6
+      - scikit-learn
+      - torch==2.2.2
+      - torchvision==0.17.2
+      - tqdm
+      - wget

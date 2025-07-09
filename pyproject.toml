@@ -12,7 +12,7 @@ authors = [{name = "Kyra Swanson", email = "tswanson@sdzwa.org" }]
 requires-python = ">=3.8"
 dependencies = [
     "numpy==1.26.4", 
-    "onnxruntime==1.19.2", 
+    "onnxruntime-gpu==1.19.2", 
     "pandas==2.2.2", 
     "pillow==10.4.0", 
     "opencv-python==4.10.0.84", 
