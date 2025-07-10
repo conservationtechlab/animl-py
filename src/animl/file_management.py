@@ -10,15 +10,21 @@ from pathlib import Path
 from glob import glob
 from datetime import datetime, timedelta
 import pandas as pd
-from exiftool import ExifToolHelper
+import PIL
+from typing import Optional
 
 
 VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
                     ".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
+IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff"}
 
 
-def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive=True):
+def build_file_manifest(image_dir: str,
+                        exif: bool = True,
+                        out_file: Optional[str] = None,
+                        offset: int = 0,
+                        recursive: bool = True):
     """
     Find Image/Video Files and Gather exif Data
 
@@ -48,31 +54,54 @@ def build_file_manifest(image_dir, exif=True, out_file=None, offset=0, recursive
         return pd.DataFrame()
 
     files = pd.DataFrame(files, columns=["FilePath"])
-    files["FileName"] = files["FilePath"].apply(
-        lambda x: os.path.split(x)[1])
+    files["Frame"] = files["FilePath"]
+    files["FileName"] = files["FilePath"].apply(lambda x: os.path.split(x)[1])
+    files["Extension"] = files["FilePath"].apply(lambda x: os.path.splitext(os.path.basename(x))[1].lower())
+
+    invalid = []
+
+    def check_time(timestamp):
+        input_formats = ['%Y:%m:%d %H:%M:%S', "%d-%m-%Y %H:%M", "%Y/%m/%d %H:%M:%S"]
+        desired_format = '%Y-%m-%d %H:%M:%S'
+        try:
+            # If it already matches, return as is
+            if datetime.strptime(timestamp, desired_format).strftime(desired_format) == timestamp:
+                return timestamp
+        except ValueError:
+            pass
+        # Try other input formats
+        for fmt in input_formats:
+            try:
+                newtimestamp = datetime.strptime(timestamp, fmt)
+                return newtimestamp.strftime(desired_format)
+            except ValueError:
+                continue
+        # timestamp not recognized
+        return None
 
     if exif:
-        et = ExifToolHelper()
-        file_exif = et.get_tags(files["FilePath"].tolist(), tags=["CreateDate", "ImageWidth", "ImageHeight"])
-        et.terminate()  # close exiftool
-        # merge exif data with manifest
-        file_exif = pd.DataFrame(file_exif).rename(columns={"EXIF:CreateDate": "CreateDate",
-                                                            "File:ImageWidth": "Width",
-                                                            "File:ImageHeight": "Height"})
+        for i, row in files.iterrows():
+            if row["Extension"] in IMAGE_EXTENSIONS:
+                try:
+                    img = PIL.Image.open(row['FilePath'])
+                    files.loc[i, "Width"] = img.size[0]
+                    files.loc[i, "Height"] = img.size[1]
+                    files.loc[i, "CreateDate"] = img.getexif().get(0x0132)
+                except PIL.UnidentifiedImageError:
+                    invalid.append(i)
 
-        # adjust for windows if necessary
-        file_exif["SourceFile"] = file_exif["SourceFile"].apply(lambda x: os.path.normpath(x))
-        files = files.merge(pd.DataFrame(file_exif), left_on="FilePath", right_on="SourceFile")
         # get filemodifydate as backup (videos, etc)
-        files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)))
-        files["FileModifyDate"] = files["FileModifyDate"] + timedelta(hours=offset)
+        files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
+        files["FileModifyDate"] = pd.to_datetime(files["FileModifyDate"]) + timedelta(hours=offset)
         try:
             # select createdate if exists, else choose filemodify date
             files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
-            files["CreateDate"] = files['CreateDate'].apply(lambda x: datetime.strptime(str(x), '%Y:%m:%d %H:%M:%S') if isinstance(x, str) else x)
+            files["CreateDate"] = files['CreateDate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
             files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
         except KeyError:
             files["DateTime"] = files["FileModifyDate"]
+
+    files = files.drop(index=invalid).reset_index(drop=True)
 
     if out_file:
         save_data(files, out_file)
@@ -112,7 +141,7 @@ class WorkingDirectory():
         self.mdraw = self.datadir / Path("MD_Raw.json")
 
 
-def save_data(data, out_file, prompt=True):
+def save_data(data: pd.DataFrame, out_file: str, prompt: bool = True) -> None:
     """
     Save Data to Given File
 
@@ -132,7 +161,7 @@ def save_data(data, out_file, prompt=True):
         data.to_csv(out_file, index=False)
 
 
-def load_data(file):
+def load_data(file: str) -> pd.DataFrame:
     """
     Load .csv File
 
@@ -140,7 +169,7 @@ def load_data(file):
         - file (str): the full path of the file to load
 
     Returns:
-        - data extracted from the file
+        - data extracted from the file. pd.dataframe form
     """
     ext = os.path.splitext(file)[1]
     if ext == ".csv":
@@ -149,7 +178,7 @@ def load_data(file):
         raise AssertionError("Error. Expecting a .csv file.")
 
 
-def check_file(file):
+def check_file(file: str) -> bool:
     """
     Check for files existence and prompt user if they want to load
 
@@ -162,16 +191,17 @@ def check_file(file):
     """
 
     if file is not None and os.path.isfile(file):
-        date = os.path.getmtime(file)
-        date = datetime.fromtimestamp(date)
-        prompt = "Output file already exists and was last modified {}, \
-                 would you like to load it? y/n: ".format(date)
+        date = datetime.fromtimestamp(os.path.getmtime(file))
+        prompt = "Output file already exists and was last modified {}, would you like to load it? y/n: ".format(date)
         if input(prompt).lower() == "y":
             return True
     return False
 
 
-def active_times(manifest_dir, depth=1, recursive=True, offset=0):
+def active_times(manifest_dir: str,
+                 depth: int = 1,
+                 recursive: bool = True,
+                 offset: int = 0) -> pd.DataFrame:
     """
     Get start and stop dates for each camera folder
 

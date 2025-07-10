@@ -4,8 +4,11 @@ detector_file: "/path/to/detector.ext"
 classifier_file: "/path/to/classifier.ext"
 class_list: "/path/to/classlist.csv"
 
-exif: False
 device: cuda:0
+
+# file metadata
+exif: True
+station_dir: -1 
 
 # video processing
 parallel: True
@@ -15,8 +18,10 @@ fps: None
 # inference
 checkpoint_frequency: 1000
 batch_size: 4
+num_workers: 8
 file_col_detection: Frame
 file_col_classification: Frame
+class_label_col: class
 
 # sort
 sort: False

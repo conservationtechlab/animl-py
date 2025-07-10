@@ -2,6 +2,8 @@
 Generators and Dataloaders
 
 """
+from typing import Tuple
+import pandas as pd
 from PIL import Image, ImageOps, ImageFile
 import torch
 from torch import Tensor
@@ -9,11 +11,12 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip,
                                     Normalize, RandomAffine, RandomGrayscale, RandomApply,
                                     ColorJitter, GaussianBlur)
-from .utils.torch_utils import _setup_size
+from animl.utils.general import _setup_size
+import hashlib
+import os
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-from typing import Optional, List, Tuple, Dict, Any
-import pandas as pd
+
 
 class ResizeWithPadding(torch.nn.Module):
     """Pads a crop to given size
@@ -62,6 +65,32 @@ class ResizeWithPadding(torch.nn.Module):
         return f"{self.__class__.__name__}(size={self.size})"
 
 
+def image_to_tensor(file_path, resize_width, resize_height):
+    '''
+    Convert an image to tensor for single detection or classification
+
+    Args:
+        file_path (str): path to image
+        resize_width (int): resize width in pixels
+        resize_height (int): resize height in pixels
+
+    Returns:
+
+    '''
+    try:
+        img = Image.open(file_path).convert(mode='RGB')
+        img.load()
+    except Exception as e:
+        print('Image {} cannot be loaded. Exception: {}'.format(file_path, e))
+        return None
+
+    tensor_transform = Compose([Resize((resize_height, resize_width)), ToTensor(), ])  # torch.resize order is H,W
+    img_tensor = tensor_transform(img)
+    img_tensor = torch.unsqueeze(img_tensor, 0)  # add batch dimension
+    img.close()
+    return img_tensor
+
+
 class ImageGenerator(Dataset):
     '''
     Data generator that crops images on the fly, requires relative bbox coordinates,
@@ -73,19 +102,19 @@ class ImageGenerator(Dataset):
         - crop: if true, dynamically crop
         - normalize: tensors are normalized by default, set to false to un-normalize
     '''
-    def __init__( self, x: pd.DataFrame, file_col: str = "file", resize_height: int = 299, resize_width: int = 299, crop: bool = True, normalize: bool = True,) -> None:
-        self.x = x
+    def __init__(self, x: pd.DataFrame, file_col: str = "file",
+                 resize_height: int = 299, resize_width: int = 299,
+                 crop: bool = True, normalize: bool = True,) -> None:
+        self.x = x.reset_index(drop=True)
         self.file_col = file_col
         self.crop = crop
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
         self.buffer = 0
         self.normalize = normalize
-        self.transform = Compose([
-            # torch.resize order is H,W
-            Resize((self.resize_height, self.resize_width)),
-            ToTensor(),
-            ])
+        # torch.resize order is H,W
+        self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                  ToTensor(), ])
 
     def __len__(self) -> int:
         return len(self.x)
@@ -128,59 +157,6 @@ class ImageGenerator(Dataset):
         return img_tensor, image_name
 
 
-class MiewGenerator(Dataset):
-    '''
-    Data generator that crops images on the fly, requires relative bbox coordinates,
-    ie from MegaDetector
-
-    Options:
-        - resize: dynamically resize images to target (square) [W,H]
-    '''
-    def __init__(self,x: pd.DataFrame,image_path_dict: Dict[str, str], resize_height: int = 440,resize_width: int = 440,) -> None:
-        self.x = x
-        self.image_path_dict = image_path_dict
-        self.resize_height = int(resize_height)
-        self.resize_width = int(resize_width)
-        self.transform = Compose([Resize((self.resize_height, self.resize_width)),
-                                  ToTensor(),
-                                  Normalize(mean=[0.485, 0.456, 0.406],
-                                            std=[0.229, 0.224, 0.225]),])
-
-    def __len__(self) -> int:
-        return len(self.x)
-
-    def __getitem__(self, idx):
-        id = self.x.loc[idx, 'roi_id']
-        media_id = self.x.loc[idx, 'media_id']
-        image_name = self.image_path_dict[media_id]
-        try:
-            img = Image.open(image_name).convert('RGB')
-        except OSError:
-            print("File error", image_name)
-            del self.x.iloc[idx]
-            return self.__getitem__(idx)
-
-        width, height = img.size
-
-        bbox1 = self.x['bbox_x'].iloc[idx]
-        bbox2 = self.x['bbox_y'].iloc[idx]
-        bbox3 = self.x['bbox_w'].iloc[idx]
-        bbox4 = self.x['bbox_h'].iloc[idx]
-
-        left = width * bbox1
-        top = height * bbox2
-        right = width * (bbox1 + bbox3)
-        bottom = height * (bbox2 + bbox4)
-
-        img = img.crop((left, top, right, bottom))
-
-        img_tensor = self.transform(img)
-        img.close()
-
-        return img_tensor, id
-
-
-# currently working on this class
 class TrainGenerator(Dataset):
     '''
     Data generator for training. Requires a list of possible classes
@@ -193,7 +169,7 @@ class TrainGenerator(Dataset):
         - agument: add image augmentations at each batch
     '''
     def __init__(self, x, classes, file_col='FilePath', label_col='species',
-                 crop=True, resize_height=299, resize_width=299, augment=False):
+                 crop=True, resize_height=299, resize_width=299, augment=False, cache_dir=None):
         self.x = x
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
@@ -202,6 +178,10 @@ class TrainGenerator(Dataset):
         self.buffer = 0
         self.crop = crop
         self.augment = augment
+        self.cache_dir = cache_dir
+        if self.cache_dir is not None:
+            os.makedirs(self.cache_dir, exist_ok=True)
+
         augmentations = Compose([
             # rotate ± 15 degrees and shear ± 7 degrees
             RandomAffine(degrees=15, shear=(-7, 7)),
@@ -217,54 +197,72 @@ class TrainGenerator(Dataset):
             self.transform = Compose([augmentations,  # augmentations
                                       RandomHorizontalFlip(p=0.5),  # random horizontal flip
                                       Resize((self.resize_height, self.resize_width)),
-                                      ToTensor(),])
+                                      ToTensor(), ])
         else:
-            self.transform = Compose([RandomHorizontalFlip(p=0.5),  # random horizontal flip
-                                      Resize((self.resize_height, self.resize_width)),
-                                      ToTensor(),])
+            self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                      ToTensor(), ])
         self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
 
     def __len__(self):
         return len(self.x)
 
+    def _get_cache_path(self, img_path):
+        if self.cache_dir is None:
+            return ""
+
+        if self.crop:
+            identifier = f"{img_path}_{self.x['bbox1']}_{self.x['bbox2']}_{self.x['bbox3']}_{self.x['bbox4']}"
+        else:
+            identifier = f"{img_path}"
+        hash_id = hashlib.md5(identifier.encode()).hexdigest()
+        return os.path.join(self.cache_dir, f"{hash_id}.jpg")
+
     def __getitem__(self, idx):
         image_name = self.x.loc[idx, self.file_col]
         label = self.categories[self.x.loc[idx, self.label_col]]
+        cache_path = self._get_cache_path(image_name)
 
-        try:
-            img = Image.open(image_name).convert('RGB')
-        except OSError:
-            print("File error", image_name)
-            del self.x.iloc[idx]
-            return self.__getitem__(idx)
+        if os.path.exists(cache_path):
+            img = Image.open(cache_path).convert("RGB")
+            img_tensor = self.transform(img)
+            return img_tensor, label, image_name
+        else:
+            try:
+                img = Image.open(image_name).convert('RGB')
+            except OSError:
+                print("File error", image_name)
+                self.x = self.x.drop(idx, axis=0).reset_index()
+                return self.__getitem__(idx)
 
-        if self.crop:
-            width, height = img.size
+            if self.crop:
+                width, height = img.size
 
-            bbox1 = self.x['bbox1'].iloc[idx]
-            bbox2 = self.x['bbox2'].iloc[idx]
-            bbox3 = self.x['bbox3'].iloc[idx]
-            bbox4 = self.x['bbox4'].iloc[idx]
+                bbox1 = self.x['bbox1'].iloc[idx]
+                bbox2 = self.x['bbox2'].iloc[idx]
+                bbox3 = self.x['bbox3'].iloc[idx]
+                bbox4 = self.x['bbox4'].iloc[idx]
 
-            left = width * bbox1
-            top = height * bbox2
-            right = width * (bbox1 + bbox3)
-            bottom = height * (bbox2 + bbox4)
+                left = width * bbox1
+                top = height * bbox2
+                right = width * (bbox1 + bbox3)
+                bottom = height * (bbox2 + bbox4)
 
-            left = max(0, int(left) - self.buffer)
-            top = max(0, int(top) - self.buffer)
-            right = min(width, int(right) + self.buffer)
-            bottom = min(height, int(bottom) + self.buffer)
-            img = img.crop((left, top, right, bottom))
+                left = max(0, int(left) - self.buffer)
+                top = max(0, int(top) - self.buffer)
+                right = min(width, int(right) + self.buffer)
+                bottom = min(height, int(bottom) + self.buffer)
+                img = img.crop((left, top, right, bottom))
 
-        img_tensor = self.transform(img)
-        img.close()
+            img_tensor = self.transform(img)
+            if self.cache_dir is not None:
+                img.save(cache_path, format="JPEG")
+            img.close()
 
         return img_tensor, label, image_name
 
 
-def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FilePath",
-                     crop=False, resize_height=480, resize_width=480, augment=False):
+def train_dataloader(manifest, classes, batch_size=1, num_workers=1, file_col="FilePath", label_col="species",
+                     crop=False, resize_height=480, resize_width=480, augment=False, cache_dir=None):
     '''
         Loads a dataset for training and wraps it in a
         PyTorch DataLoader object. Shuffles the data before loading.
@@ -273,7 +271,7 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
             - manifest (DataFrame): data to be fed into the model
             - classes (dict): all possible class labels
             - batch_size (int): size of each batch
-            - workers (int): number of processes to handle the data
+            - num_workers (int): number of processes to handle the data
             - file_col (str): column name containing full file paths
             - crop (bool): if true, dynamically crop images
             - resize_width (int): size in pixels for input width
@@ -283,18 +281,19 @@ def train_dataloader(manifest, classes, batch_size=1, workers=1, file_col="FileP
         Returns:
             dataloader object
     '''
-    dataset_instance = TrainGenerator(manifest, classes, file_col, crop=crop,
+    dataset_instance = TrainGenerator(manifest, classes, file_col, label_col=label_col, crop=crop,
                                       resize_height=resize_height, resize_width=resize_width,
-                                      augment=augment)
+                                      augment=augment, cache_dir=cache_dir)
 
     dataLoader = DataLoader(dataset=dataset_instance,
+                            pin_memory=True,
                             batch_size=batch_size,
                             shuffle=True,
-                            num_workers=workers)
+                            num_workers=num_workers)
     return dataLoader
 
 
-def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file",
+def manifest_dataloader(manifest, batch_size=1, num_workers=1, file_col="file",
                         crop=True, normalize=True, resize_width=299, resize_height=299):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.
@@ -303,7 +302,7 @@ def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file",
         Args:
             - manifest (DataFrame): data to be fed into the model
             - batch_size (int): size of each batch
-            - workers (int): number of processes to handle the data
+            - num_workers (int): number of processes to handle the data
             - file_col: column name containing full file paths
             - crop (bool): if true, dynamically crop images
             - normalize (bool): if true, normalize array to values [0,1]
@@ -323,120 +322,6 @@ def manifest_dataloader(manifest, batch_size=1, workers=1, file_col="file",
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
                             shuffle=False,
-                            num_workers=workers)
+                            pin_memory=True,
+                            num_workers=num_workers)
     return dataLoader
-
-
-def reid_dataloader(rois, image_path_dict, resize_height, resize_width, batch_size=1, workers=1):
-    '''
-        Loads a dataset and wraps it in a PyTorch DataLoader object.
-        Always dynamically crops
-
-        Args:
-            - rois (DataFrame): data to be fed into the model
-            - image_path_dict (dict): map of roi_id to filepath
-            - resize_width (int): size in pixels for input width
-            - resize_height (int): size in pixels for input height
-            - batch_size (int): size of each batch
-            - workers (int): number of processes to handle the data
-
-        Returns:
-            dataloader object
-
-
-        MIEWIDNET - 440, 440
-    '''
-    dataset_instance = MiewGenerator(rois, image_path_dict,
-                                     resize_height=resize_height,
-                                     resize_width=resize_width)
-
-    dataLoader = DataLoader(dataset=dataset_instance,
-                            batch_size=batch_size,
-                            shuffle=False,
-                            num_workers=workers)
-    return dataLoader
-
-
-'''
-TENSORFLOW LEGACY
-
-def resize_with_padding(img, expected_size):
-    """Pads a crop to given size
-    If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
-    If image size is smaller than output size along any edge, image is padded with 0 and
-    then center cropped.
-
-    Args:
-        - img (Img): a loaded Img object
-        - expected_size (sequence or int): Desired output size of the crop. If size is an
-            int instead of sequence like (h, w), a square crop (size, size) is
-            made. If provided a sequence of length 1, it will be interpreted as
-            (size[0], size[0]).
-    Returns:
-        - the padded Img object
-    """
-    if img.size[0] == 0 or img.size[1] == 0:
-        return img
-    if img.size[0] > img.size[1]:
-        new_size = (expected_size[0],
-                    int(expected_size[1] * img.size[1] / img.size[0]))
-    else:
-        new_size = (int(expected_size[0] * img.size[0] / img.size[1]),
-                    expected_size[1])
-    img = img.resize(new_size, Image.BILINEAR)  # NEAREST BILINEAR
-    delta_width = expected_size[0] - img.size[0]
-    delta_height = expected_size[1] - img.size[1]
-    pad_width = delta_width // 2
-    pad_height = delta_height // 2
-    padding = (pad_width, pad_height,
-               delta_width - pad_width,
-               delta_height - pad_height)
-    return ImageOps.expand(img, padding)
-
-
-class LegacyGenerator(Dataset):
-
-    def __init__(self, x, file_col='Frame', crop=False, resize=456, buffer=0):
-        self.x = x
-        self.file_col = file_col
-        self.crop = crop
-        self.resize = int(resize)
-        self.buffer = buffer
-
-    def __len__(self):
-        return len(self.x.index)
-
-    def __getitem__(self, idx):
-        try:
-            file = self.x[self.file_col].iloc[idx]
-            #img = Image.open(file).convert('RGB')
-            img = Image.open(file)
-        except OSError:
-            print("File error", file)
-            del self.x.iloc[idx]
-            return self.__getitem__(idx)
-
-        if self.crop:
-            width, height = img.size
-            bbox1 = self.x['bbox1'].iloc[idx]
-            bbox2 = self.x['bbox2'].iloc[idx]
-            bbox3 = self.x['bbox3'].iloc[idx]
-            bbox4 = self.x['bbox4'].iloc[idx]
-
-            left = width * bbox1
-            top = height * bbox2
-            right = width * (bbox1 + bbox3)
-            bottom = height * (bbox2 + bbox4)
-
-            left = max(0, left - self.buffer)
-            top = max(0, top - self.buffer)
-            right = min(width, right + self.buffer)
-            bottom = min(height, bottom + self.buffer)
-            img = img.crop((left, top, right, bottom))
-
-        img = img.resize((self.resize, self.resize))
-        img = np.asarray(img, dtype=np.float32)
-
-        return img, file
-'''
