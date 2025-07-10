@@ -19,7 +19,6 @@
 import argparse
 import os
 import wget
-<<<<<<< HEAD
 import yaml
 import torch
 import pandas as pd
@@ -179,9 +178,6 @@ def main_config(config):
 
     return manifest
 
-=======
-from animl import pipeline
->>>>>>> ced7511e7c1bf176ab5319bc46ec59f11ff48251
 
 # IF RUN FROM COMMAND LINE
 parser = argparse.ArgumentParser(description='Folder locations for the main script')
@@ -202,21 +198,18 @@ args = parser.parse_args()
 
 # first argument is config file
 if os.path.isfile(args.imagedir_config):
-    pipeline.main_config(args.imagedir_config)
+    main_config(args.imagedir_config)
 
 # first argument is a directory
 else:
-    prompt = "megadetector or custom yolo? m/c: "
-    if input(prompt).lower() == "m":
-        if not os.path.isfile(args.detector):
-            prompt = "MegaDetector not found, would you like to download? y/n: "
-            if input(prompt).lower() == "y":
-                if not os.path.isdir(home):
-                    os.mkdir(home)
-                print('Saving to', home)
-                wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt', out=home)
-    elif input(prompt).lower() == "c":
-        args.detector = "C"
+    if not os.path.isfile(args.detector):
+        prompt = "MegaDetector not found, would you like to download? y/n: "
+        if input(prompt).lower() == "y":
+            if not os.path.isdir(home):
+                os.mkdir(home)
+            print('Saving to', home)
+            wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt',
+                          out=home)
 
     if not os.path.isfile(args.classifier):
         prompt = "Classifier not found, would you like to download Southwest_v3? y/n: "
@@ -236,4 +229,4 @@ else:
             wget.download('https://sandiegozoo.box.com/shared/static/tetfkotf295espoaw8jyco4tk1t0trtt.csv',
                           out=home)
     # Call the main function
-    pipeline.from_paths(args.imagedir_config, args.detector, args.classifier, args.classlist)
+    main_paths(args.imagedir_config, args.detector, args.classifier, args.classlist)

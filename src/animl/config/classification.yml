@@ -19,4 +19,4 @@ normalize: True
 
 # dataloader
 batch_size: 1 
-num_workers: 1
+workers: 1

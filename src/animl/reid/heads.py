@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
 
-def l2_norm(input: torch.Tensor, axis: int = 1) -> torch.Tensor:
+def l2_norm(input, axis=1):
     norm = torch.norm(input, 2, axis, True)
     output = torch.div(input, norm)
     return output
@@ -49,7 +49,7 @@ class ArcMarginProduct(nn.Module):
         self.th = math.cos(math.pi - m)
         self.mm = math.sin(math.pi - m) * m
 
-    def forward(self, input: torch.Tensor, label: torch.Tensor) -> torch.Tensor:
+    def forward(self, input, label):
         # --------------------------- cos(theta) & phi(theta) ---------------------------
         cosine = F.linear(F.normalize(input), F.normalize(self.weight))
         sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
@@ -72,7 +72,9 @@ class ArcMarginProduct(nn.Module):
 
 
 class ElasticArcFace(nn.Module):
-    def __init__(self, in_features, out_features, s=64.0, m=0.50, std=0.0125, plus=False, k=None):
+    def __init__(self, in_features, out_features,
+                 s=64.0, m=0.50, std=0.0125,
+                 plus=False, k=None):
         super(ElasticArcFace, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -83,10 +85,10 @@ class ElasticArcFace(nn.Module):
         self.std = std
         self.plus = plus
 
-    def forward(self, embeddings, label):
-        embeddings = l2_norm(embeddings, axis=1)
+    def forward(self, embbedings, label):
+        embbedings = l2_norm(embbedings, axis=1)
         kernel_norm = l2_norm(self.kernel, axis=0)
-        cos_theta = torch.mm(embeddings, kernel_norm)
+        cos_theta = torch.mm(embbedings, kernel_norm)
         cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
         index = torch.where(label != -1)[0]
         m_hot = torch.zeros(index.size()[0], cos_theta.size()[1], device=cos_theta.device)
@@ -108,7 +110,7 @@ class ElasticArcFace(nn.Module):
 # Subcenter Arcface with dynamic margin
 
 class ArcMarginProduct_subcenter(nn.Module):
-    def __init__(self, in_features: int, out_features: int, k: int = 3) -> None:
+    def __init__(self, in_features, out_features, k=3):
         super().__init__()
         self.weight = nn.Parameter(torch.FloatTensor(out_features*k, in_features))
         self.reset_parameters()
@@ -119,7 +121,7 @@ class ArcMarginProduct_subcenter(nn.Module):
         stdv = 1. / math.sqrt(self.weight.size(1))
         self.weight.data.uniform_(-stdv, stdv)
 
-    def forward(self, features: torch.Tensor):
+    def forward(self, features):
         cosine_all = F.linear(F.normalize(features), F.normalize(self.weight))
         cosine_all = cosine_all.view(-1, self.out_features, self.k)
         cosine, _ = torch.max(cosine_all, dim=2)
@@ -127,14 +129,14 @@ class ArcMarginProduct_subcenter(nn.Module):
 
 
 class ArcFaceLossAdaptiveMargin(nn.modules.Module):
-    def __init__(self, margins: torch.Tensor, out_dim: int, s: float) -> None:
+    def __init__(self, margins, out_dim, s):
         super().__init__()
 #       self.crit = nn.CrossEntropyLoss()
         self.s = s
         self.register_buffer('margins', torch.tensor(margins))
         self.out_dim = out_dim
 
-    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    def forward(self, logits, labels):
         # ms = []
         # ms = self.margins[labels.cpu().numpy()]
         ms = self.margins[labels]
@@ -153,8 +155,10 @@ class ArcFaceLossAdaptiveMargin(nn.modules.Module):
 
 
 class ArcFaceSubCenterDynamic(nn.Module):
-    def __init__(self, embedding_dim, output_classes, margins, s, k=2):
+    def __init__(self, embedding_dim, output_classes,
+                 margins, s, k=2):
         super().__init__()
+
         self.embedding_dim = embedding_dim
         self.output_classes = output_classes
         self.margins = margins
@@ -165,7 +169,7 @@ class ArcFaceSubCenterDynamic(nn.Module):
                                                          out_dim=self.output_classes,
                                                          s=self.s)
 
-    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    def forward(self, features, labels):
         logits = self.wmetric_classify(features.float())
         logits = self.warcface_margin(logits, labels)
         return logits

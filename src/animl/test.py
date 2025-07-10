@@ -11,19 +11,13 @@ from tqdm import trange
 import pandas as pd
 import torch
 import numpy as np
-from typing import Union
 from sklearn.metrics import confusion_matrix
 
 from animl.generator import train_dataloader
-from animl.classify import load_classifier
-from animl.utils.general import NUM_THREADS
+from animl.classification import load_model
 
 
-<<<<<<< HEAD
 def test(data_loader, model, device='cpu'):
-=======
-def test_func(data_loader: DataLoader, model: torch.nn.Module, device: Union[str, torch.device] = 'cpu') -> float:
->>>>>>> ced7511e7c1bf176ab5319bc46ec59f11ff48251
     '''
         Run trained model on test split
 
@@ -63,15 +57,21 @@ def test_func(data_loader: DataLoader, model: torch.nn.Module, device: Union[str
     return pred_labels, true_labels, filepaths
 
 
-def main(cfg):
+def main():
     '''
     Command line function
 
     Example usage:
-    > python test.py --config configs/exp_resnet18.yaml
+    > python train.py --config configs/exp_resnet18.yaml
     '''
-    # load cfg file
-    cfg = yaml.safe_load(open(cfg, 'r'))
+    parser = argparse.ArgumentParser(description='Test species classifier model.')
+    parser.add_argument('--config', help='Path to config file')
+    args = parser.parse_args()
+
+    # load config
+    print(f'Using config "{args.config}"')
+    cfg = yaml.safe_load(open(args.config, 'r'))
+    crop = cfg.get('crop', False)
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -80,28 +80,15 @@ def main(cfg):
         device = 'cpu'
 
     # initialize model and get class list
-    classes = pd.read_csv(cfg['class_file'])
-    model = load_classifier(cfg['active_model'], len(classes), device=device, architecture=cfg['architecture'])
-
-    class_list_label = cfg.get('class_list_label', 'class')
-    class_list_index = cfg.get('class_list_index', 'id')
-
-    categories = dict([[x[class_list_label], x[class_list_index]] for _, x in classes.iterrows()])
+    model, classes = load_model(cfg['active_model'], cfg['class_file'], device=device, architecture=cfg['architecture'])
+    categories = dict([[x["class"], x["id"]] for _, x in classes.iterrows()])
 
     # initialize data loaders for training and validation set
     test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
-    dl_test = train_dataloader(test_dataset,
-                               categories,
-                               batch_size=cfg['batch_size'],
-                               num_workers=cfg.get('num_workers', NUM_THREADS),
-                               file_col=cfg.get('file_col', 'FilePath'),
-                               label_col=cfg.get('label_col', 'species'),
-                               crop=cfg.get('crop', True),
-                               augment=False,
-                               cache_dir=cfg.get('cache_folder', None))
+    dl_test = train_dataloader(test_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], crop=crop)
 
     # get predictions
-    pred, true, paths = test_func(dl_test, model, device)
+    pred, true, paths = test(dl_test, model, device)
     pred = np.asarray(pred)
     true = np.asarray(true)
 
@@ -114,15 +101,9 @@ def main(cfg):
     results.to_csv(cfg['experiment_folder'] + "/test_results.csv")
 
     cm = confusion_matrix(true, pred)
-    confuse = pd.DataFrame(cm, columns=classes[class_list_label], index=classes[class_list_label])
+    confuse = pd.DataFrame(cm, columns=classes['class'], index=classes['class'])
     confuse.to_csv(cfg['experiment_folder'] + "/confusion_matrix.csv")
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Test species classifier model.')
-    parser.add_argument('--config', help='Path to config file')
-    args = parser.parse_args()
-
-    # load config
-    print(f'Using config "{args.config}"')
-    main(args.config)
+    main()

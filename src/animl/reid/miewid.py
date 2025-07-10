@@ -4,21 +4,18 @@ Code to run Miew_ID
 (source)
 
 """
-from tqdm import tqdm
-import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
 from animl.reid.heads import ElasticArcFace, ArcFaceSubCenterDynamic
-from animl.utils.general import get_device
-from animl.generator import manifest_dataloader
+
 
 IMAGE_HEIGHT = 440
 IMAGE_WIDTH = 440
 
 
-def filter(rois: pd.DataFrame) -> pd.DataFrame:
+def filter(rois):
     """
     Return only rois that have not yet had embedding extracted
 
@@ -31,7 +28,8 @@ def filter(rois: pd.DataFrame) -> pd.DataFrame:
     return rois[rois['emb_id'] == 0].reset_index(drop=True)
 
 
-def load_miew(file_path, device=None):
+def load(file_path, device='cpu'):
+    # TODO: check device
     """
     Load MiewID from file path
 
@@ -42,34 +40,12 @@ def load_miew(file_path, device=None):
     Returns:
         loaded miewid model object
     """
-    if device is None:
-        device = get_device()
-    print('Sending model to %s' % device)
     weights = torch.load(file_path, weights_only=True)
-    miew = MiewIdNet(device=device)
+    miew = MiewIdNet()
     miew.to(device)
     miew.load_state_dict(weights, strict=False)
     miew.eval()
     return miew
-
-
-def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, num_workers=1, device=None):
-    """
-    Wrapper for MiewID embedding extraction within MatchyPatchy
-    """
-    if device is None:
-        device = get_device()
-    output = []
-    if isinstance(manifest, pd.DataFrame):
-        dataloader = manifest_dataloader(manifest, batch_size=batch_size, num_workers=num_workers,
-                                         file_col=file_col, crop=True, normalize=True,
-                                         resize_width=IMAGE_WIDTH, resize_height=IMAGE_HEIGHT)
-        with torch.no_grad():
-            for _, batch in tqdm(enumerate(dataloader)):
-                img = batch[0]
-                emb = miew_model.extract_feat(img.to(device))
-                output.append(emb.cpu().detach().numpy()[0])
-    return output
 
 
 def weights_init_kaiming(m):
@@ -87,7 +63,7 @@ def weights_init_kaiming(m):
             nn.init.constant_(m.bias, 0.0)
 
 
-def weights_init_classifier(m: nn.Module) -> None:
+def weights_init_classifier(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
         nn.init.normal_(m.weight, std=0.001)
@@ -96,18 +72,18 @@ def weights_init_classifier(m: nn.Module) -> None:
 
 
 class GeM(nn.Module):
-    def __init__(self, p: int = 3, eps: float = 1e-6) -> None:
+    def __init__(self, p=3, eps=1e-6):
         super(GeM, self).__init__()
         self.p = nn.Parameter(torch.ones(1)*p)
         self.eps = eps
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         return self.gem(x, p=self.p, eps=self.eps)
 
-    def gem(self, x: torch.Tensor, p: torch.Tensor, eps: float) -> torch.Tensor:
+    def gem(self, x, p=3, eps=1e-6):
         return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1./p)
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return self.__class__.__name__ + \
                 '(' + 'p=' + '{:.4f}'.format(self.p.data.tolist()[0]) + \
                 ', ' + 'eps=' + str(self.eps) + ')'
@@ -115,7 +91,6 @@ class GeM(nn.Module):
 
 class MiewIdNet(nn.Module):
     def __init__(self,
-                 device=None,
                  n_classes=10,
                  model_name='efficientnetv2_rw_m',
                  use_fc=False,
@@ -134,7 +109,6 @@ class MiewIdNet(nn.Module):
         print('Building Model Backbone for {} model'.format(model_name))
 
         self.model_name = model_name
-        self.device = device
 
         self.backbone = timm.create_model(model_name, pretrained=pretrained)
         if model_name.startswith('efficientnetv2_rw'):
@@ -174,13 +148,13 @@ class MiewIdNet(nn.Module):
         else:
             self.final = nn.Linear(final_in_features, n_classes)
 
-    def _init_params(self) -> None:
+    def _init_params(self):
         nn.init.xavier_normal_(self.fc.weight)
         nn.init.constant_(self.fc.bias, 0)
         nn.init.constant_(self.bn.weight, 1)
         nn.init.constant_(self.bn.bias, 0)
 
-    def forward(self, x: torch.Tensor, label: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, x, label=None):
         feature = self.extract_feat(x)
         return feature
         # if not self.training:
@@ -194,7 +168,7 @@ class MiewIdNet(nn.Module):
         #
         # return logits
 
-    def extract_feat(self, x: torch.Tensor) -> torch.Tensor:
+    def extract_feat(self, x):
         batch_size = x.shape[0]
         x = self.backbone.forward_features(x)
         if self.model_name.startswith('swinv2'):
@@ -209,7 +183,7 @@ class MiewIdNet(nn.Module):
 
         return x
 
-    def extract_logits(self, x: torch.Tensor, label: torch.Tensor = None) -> torch.Tensor:
+    def extract_logits(self, x, label=None):
         feature = self.extract_feat(x)
         assert label is not None
         if self.loss_module in ('arcface', 'arcface_subcenter_dynamic'):

@@ -7,20 +7,9 @@ import argparse
 import pandas as pd
 import os
 import numpy as np
-<<<<<<< HEAD
 
 
 def plot_all_bounding_boxes(data_frame, output_dir, file_col, min_conf=0, prediction=False):
-=======
-from typing import Union, Optional
-
-
-def plot_all_bounding_boxes(data_frame: pd.DataFrame,
-                            output_dir: str,
-                            file_col: str,
-                            min_conf: Union[int, float] = 0,
-                            prediction: bool = False):
->>>>>>> ced7511e7c1bf176ab5319bc46ec59f11ff48251
     """
     This function takes the data frame output from MegaDetector, makes a copy of each image,
     plots the boxes in the new image, and saves it the specified directory.
@@ -180,14 +169,7 @@ def plot_all_bounding_boxes(data_frame: pd.DataFrame,
         cv2.imwrite(new_file_path, img)
 
 
-<<<<<<< HEAD
 def draw_bounding_boxes(row, box_number, image_output_path=None, prediction=False):
-=======
-def draw_bounding_boxes(row: pd.Series,
-                        box_number: int,
-                        image_output_path: Optional[str] = None,
-                        prediction: bool = False):
->>>>>>> ced7511e7c1bf176ab5319bc46ec59f11ff48251
     """
     Draws bounding boxes and labels on image DataFrame.
     Args:
@@ -234,11 +216,7 @@ def draw_bounding_boxes(row: pd.Series,
         cv2.imwrite(filename, img)
 
 
-<<<<<<< HEAD
 def demo_boxes(manifest, file_col, min_conf=0.9, prediction=True):
-=======
-def demo_boxes(manifest: pd.DataFrame, file_col: str, min_conf: float = 0.9, prediction: bool = True):
->>>>>>> ced7511e7c1bf176ab5319bc46ec59f11ff48251
     """
     Draws bounding boxes and labels on image DataFrame.
 
@@ -301,11 +279,7 @@ def demo_boxes(manifest: pd.DataFrame, file_col: str, min_conf: float = 0.9, pre
     cv2.destroyAllWindows()
 
 
-<<<<<<< HEAD
 def main(csv_file, output_dir):
-=======
-def main(csv_file: str, output_dir: str):
->>>>>>> ced7511e7c1bf176ab5319bc46ec59f11ff48251
     """
     Read a CSV file values and perform box plotting on the images.
 

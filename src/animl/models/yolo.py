@@ -5,6 +5,8 @@ YOLO-specific modules
 Usage:
     $ python path/to/models/yolo.py --cfg yolov5s.yaml
 """
+
+import argparse
 import os
 import platform
 import sys
@@ -21,29 +23,22 @@ if str(ROOT) not in sys.path:
 if platform.system() != 'Windows':
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from animl.models.common import (Bottleneck, BottleneckCSP, C3,
-                                 C3Ghost, C3SPP, C3TR, C3x,
+from .common import (Bottleneck, BottleneckCSP, C3,
+                                 C3Ghost, C3SPP, C3TR, C3x, Concat,
                                  Contract, Conv, CrossConv, DWConv,
                                  DWConvTranspose2d, Expand, Focus, GhostBottleneck,
-                                 GhostConv, SPP, SPPF)
-from animl.utils.general import (make_divisible, fuse_conv_and_bn, initialize_weights, 
-                                 model_info, scale_img, time_sync)
-from animl.utils.yolo5 import check_version
+                                 GhostConv, SPP, SPPF, check_anchor_order)
+#from models.experimental import *
+#from utils.autoanchor import check_anchor_order (moved to common)
+from animl.utils.general import LOGGER, check_version, check_yaml, make_divisible, print_args
+from animl.utils.torch_utils import (fuse_conv_and_bn, initialize_weights, model_info, profile, scale_img, select_device,
+                               time_sync)
 
 try:
     import thop  # for FLOPs computation
 except ImportError:
     thop = None
-    
 
-# FROM autoanchor.py
-def check_anchor_order(m):
-    # Check anchor order against stride order for YOLOv5 Detect() module m, and correct if necessary
-    a = m.anchors.prod(-1).mean(-1).view(-1)  # mean anchor area per output layer
-    da = a[-1] - a[0]  # delta a
-    ds = m.stride[-1] - m.stride[0]  # delta s
-    if da and (da.sign() != ds.sign()):  # same order
-        m.anchors[:] = m.anchors.flip(0)
 
 class Detect(nn.Module):
     stride = None  # strides computed during build
@@ -115,10 +110,10 @@ class Model(nn.Module):
         # Define model
         ch = self.yaml['ch'] = self.yaml.get('ch', ch)  # input channels
         if nc and nc != self.yaml['nc']:
-            print(f"Overriding model.yaml nc={self.yaml['nc']} with nc={nc}")
+            LOGGER.info(f"Overriding model.yaml nc={self.yaml['nc']} with nc={nc}")
             self.yaml['nc'] = nc  # override yaml value
         if anchors:
-            print(f'Overriding model.yaml anchors with anchors={anchors}')
+            LOGGER.info(f'Overriding model.yaml anchors with anchors={anchors}')
             self.yaml['anchors'] = round(anchors)  # override yaml value
         self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
         self.names = [str(i) for i in range(self.yaml['nc'])]  # default names
@@ -138,6 +133,7 @@ class Model(nn.Module):
         # Init weights, biases
         initialize_weights(self)
         self.info()
+        LOGGER.info('')
 
     def forward(self, x, augment=False, profile=False, visualize=False):
         if augment:
@@ -205,10 +201,10 @@ class Model(nn.Module):
             m(x.copy() if c else x)
         dt.append((time_sync() - t) * 100)
         if m == self.model[0]:
-            print(f"{'time (ms)':>10s} {'GFLOPs':>10s} {'params':>10s}  module")
-        print(f'{dt[-1]:10.2f} {o:10.2f} {m.np:10.0f}  {m.type}')
+            LOGGER.info(f"{'time (ms)':>10s} {'GFLOPs':>10s} {'params':>10s}  module")
+        LOGGER.info(f'{dt[-1]:10.2f} {o:10.2f} {m.np:10.0f}  {m.type}')
         if c:
-            print(f"{sum(dt):10.2f} {'-':>10s} {'-':>10s}  Total")
+            LOGGER.info(f"{sum(dt):10.2f} {'-':>10s} {'-':>10s}  Total")
 
     def _initialize_biases(self, cf=None):  # initialize biases into Detect(), cf is class frequency
         # https://arxiv.org/abs/1708.02002 section 3.3
@@ -224,16 +220,16 @@ class Model(nn.Module):
         m = self.model[-1]  # Detect() module
         for mi in m.m:  # from
             b = mi.bias.detach().view(m.na, -1).T  # conv.bias(255) to (3,85)
-            print(
+            LOGGER.info(
                 ('%6g Conv2d.bias:' + '%10.3g' * 6) % (mi.weight.shape[1], *b[:5].mean(1).tolist(), b[5:].mean()))
 
     # def _print_weights(self):
     #     for m in self.model.modules():
     #         if type(m) is Bottleneck:
-    #             print('%10.3g' % (m.w.detach().sigmoid() * 2))  # shortcut weights
+    #             LOGGER.info('%10.3g' % (m.w.detach().sigmoid() * 2))  # shortcut weights
 
     def fuse(self):  # fuse model Conv2d() + BatchNorm2d() layers
-        print('Fusing layers... ')
+        LOGGER.info('Fusing layers... ')
         for m in self.model.modules():
             if isinstance(m, (Conv, DWConv)) and hasattr(m, 'bn'):
                 m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
@@ -258,7 +254,7 @@ class Model(nn.Module):
 
 
 def parse_model(d, ch):  # model_dict, input_channels(3)
-    print(f"\n{'':>3}{'from':>18}{'n':>3}{'params':>10}  {'module':<40}{'arguments':<30}")
+    LOGGER.info(f"\n{'':>3}{'from':>18}{'n':>3}{'params':>10}  {'module':<40}{'arguments':<30}")
     anchors, nc, gd, gw = d['anchors'], d['nc'], d['depth_multiple'], d['width_multiple']
     na = (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors  # number of anchors
     no = na * (nc + 5)  # number of outputs = anchors * (classes + 5)
@@ -273,7 +269,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
                 pass
 
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
-        if m in (Conv, GhostConv, Bottleneck, GhostBottleneck, SPP, SPPF, DWConv, Focus, CrossConv,
+        if m in (Conv, GhostConv, Bottleneck, GhostBottleneck, SPP, SPPF, DWConv, MixConv2d, Focus, CrossConv,
                  BottleneckCSP, C3, C3TR, C3SPP, C3Ghost, nn.ConvTranspose2d, DWConvTranspose2d, C3x):
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
@@ -302,10 +298,45 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         t = str(m)[8:-2].replace('__main__.', '')  # module type
         np = sum(x.numel() for x in m_.parameters())  # number params
         m_.i, m_.f, m_.type, m_.np = i, f, t, np  # attach index, 'from' index, type, number params
-        print(f'{i:>3}{str(f):>18}{n_:>3}{np:10.0f}  {t:<40}{str(args):<30}')  # print
+        LOGGER.info(f'{i:>3}{str(f):>18}{n_:>3}{np:10.0f}  {t:<40}{str(args):<30}')  # print
         save.extend(x % i for x in ([f] if isinstance(f, int) else f) if x != -1)  # append to savelist
         layers.append(m_)
         if i == 0:
             ch = []
         ch.append(c2)
     return nn.Sequential(*layers), sorted(save)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cfg', type=str, default='yolov5s.yaml', help='model.yaml')
+    parser.add_argument('--batch-size', type=int, default=1, help='total batch size for all GPUs')
+    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--profile', action='store_true', help='profile model speed')
+    parser.add_argument('--line-profile', action='store_true', help='profile model speed layer by layer')
+    parser.add_argument('--test', action='store_true', help='test all yolo*.yaml')
+    opt = parser.parse_args()
+    opt.cfg = check_yaml(opt.cfg)  # check YAML
+    print_args(vars(opt))
+    device = select_device(opt.device)
+
+    # Create model
+    im = torch.rand(opt.batch_size, 3, 640, 640).to(device)
+    model = Model(opt.cfg).to(device)
+
+    # Options
+    if opt.line_profile:  # profile layer by layer
+        _ = model(im, profile=True)
+
+    elif opt.profile:  # profile forward-backward
+        results = profile(input=im, ops=[model], n=3)
+
+    elif opt.test:  # test all models
+        for cfg in Path(ROOT / 'models').rglob('yolo*.yaml'):
+            try:
+                _ = Model(cfg)
+            except Exception as e:
+                print(f'Error in {cfg}: {e}')
+
+    else:  # report fused model summary
+        model.fuse()
