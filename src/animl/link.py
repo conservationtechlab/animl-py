@@ -5,17 +5,30 @@
 
     @ Kyra Swanson 2023
 """
-
 import os
+import argparse
 import pandas as pd
 from shutil import copy2
 from random import randrange
 from pathlib import Path
+<<<<<<< HEAD
+=======
+from pandas import DataFrame
+from tqdm import tqdm
+>>>>>>> ced7511e7c1bf176ab5319bc46ec59f11ff48251
 
 from animl import file_management
 
 
+<<<<<<< HEAD
 def sort_species(manifest, link_dir, file_col="FilePath", unique_name='UniqueName', copy=False):
+=======
+def sort_species(manifest: DataFrame,
+                 link_dir: str,
+                 file_col: str = "FilePath",
+                 unique_name: str = 'UniqueName',
+                 copy: bool = False) -> DataFrame:
+>>>>>>> ced7511e7c1bf176ab5319bc46ec59f11ff48251
     """
     Creates symbolic links of images into species folders
 
@@ -32,33 +45,54 @@ def sort_species(manifest, link_dir, file_col="FilePath", unique_name='UniqueNam
     link_dir = Path(link_dir)
     # Create species folders
     for species in manifest['prediction'].unique():
-        path = link_dir / Path(species)
+        path = link_dir / Path(str(species))
         path.mkdir(exist_ok=True)
 
     # create new column
     manifest['Link'] = link_dir
 
-    for i, row in manifest.iterrows():
-        if unique_name in manifest.columns:
+    for i, row in tqdm(manifest.iterrows()):
+        try:
             name = row[unique_name]
-        else:  # create a unique name
-            uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
-            filename = os.path.basename(row[file_col])
+        except KeyError:
+            filename = os.path.basename(str(row[file_col]))
             filename, extension = os.path.splitext(filename)
-            name = "_".join([filename, uniqueid]) + extension
+
+            # get datetime
+            if "DateTime" in manifest.columns:
+                reformat_date = pd.to_datetime(row['DateTime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+            else:
+                reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
+            # get station
+            if "Station" in manifest.columns:
+                station = row['Station']
+                name = "_".join([station, reformat_date, filename]) + extension
+            else:
+                name = "_".join([reformat_date, filename]) + extension
+
+            manifest.loc[i, unique_name] = name
 
         link = link_dir / Path(row['prediction']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
-        if copy:  # make a hard copy
-            copy2(row[file_col], link)
-        else:  # make a hard
-            os.link(row[file_col], link)
+        if not link.is_file():
+            if copy:  # make a hard copy
+                copy2(row[file_col], link)
+            else:  # make a hard
+                os.link(row[file_col], link,)
 
     return manifest
 
 
+<<<<<<< HEAD
 def sort_MD(manifest, link_dir, file_col="file", unique_name='UniqueName', copy=False):
+=======
+def sort_MD(manifest: DataFrame,
+            link_dir: str,
+            file_col: str = "file",
+            unique_name: str = 'UniqueName',
+            copy: bool = False) -> DataFrame:
+>>>>>>> ced7511e7c1bf176ab5319bc46ec59f11ff48251
     """
     Creates symbolic links of images into species folders
 
@@ -80,27 +114,45 @@ def sort_MD(manifest, link_dir, file_col="file", unique_name='UniqueName', copy=
 
     # create new column
     manifest['Link'] = link_dir
-    for i, row in manifest.iterrows():
-        if unique_name in manifest.columns:
+    for i, row in tqdm(manifest.iterrows()):
+        try:
             name = row[unique_name]
-        else:
-            uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
-            filename = os.path.basename(row[file_col])
+        except KeyError:
+            filename = os.path.basename(str(row[file_col]))
             filename, extension = os.path.splitext(filename)
-            name = "_".join([filename, uniqueid]) + extension
+
+            # get datetime
+            if "DateTime" in manifest.columns:
+                reformat_date = pd.to_datetime(row['DateTime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+            else:
+                reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
+            # get station
+            if "Station" in manifest.columns:
+                station = row['Station']
+                name = "_".join([station, reformat_date, filename]) + extension
+            else:
+                name = "_".join([reformat_date, filename]) + extension
+
+            manifest.loc[i, unique_name] = name
 
         link = link_dir / Path(row['category']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
-        if copy:  # make a hard copy
-            copy2(row[file_col], link)
-        else:  # make a hard link
-            os.link(row[file_col], link)
+        if not link.is_file():
+            if copy:  # make a hard copy
+                copy2(row[file_col], link)
+            else:  # make a hard link
+                os.link(row[file_col], link)
 
     return manifest
 
 
+<<<<<<< HEAD
 def remove_link(manifest, link_col='Link'):
+=======
+def remove_link(manifest: DataFrame,
+                link_col: str = 'Link') -> DataFrame:
+>>>>>>> ced7511e7c1bf176ab5319bc46ec59f11ff48251
     """
     Deletes symbolic links of images
 
@@ -116,7 +168,13 @@ def remove_link(manifest, link_col='Link'):
     return manifest
 
 
+<<<<<<< HEAD
 def update_labels(manifest, link_dir, unique_name='UniqueName'):
+=======
+def update_labels(manifest: DataFrame,
+                  link_dir: str,
+                  unique_name: str = 'UniqueName') -> DataFrame:
+>>>>>>> ced7511e7c1bf176ab5319bc46ec59f11ff48251
     """
     Update manifest after human review of symlink directories
 
@@ -131,13 +189,31 @@ def update_labels(manifest, link_dir, unique_name='UniqueName'):
     if unique_name not in manifest.columns:
         raise AssertionError("Manifest does not have unique names, cannot match to sorted directories.")
 
+    print("Searching directory...")
     ground_truth = file_management.build_file_manifest(link_dir, exif=False)
 
     if len(ground_truth) != len(manifest):
         print(f"Warning, found {len(ground_truth)} files in link dir but {len(manifest)} files in manifest.")
 
     # last level should be label level
-    ground_truth['label'] = ground_truth["FilePath"].apply(
-        lambda x: os.path.split(os.path.split(x)[0])[1])
+    ground_truth = ground_truth.rename(columns={'FileName': unique_name})
+    ground_truth['label'] = ground_truth["FilePath"].apply(lambda x: os.path.split(os.path.split(x)[0])[1])
 
-    return pd.merge(manifest, ground_truth, left_on=unique_name, right_on="FileName")
+    return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Update manifest')
+    parser.add_argument('--manifest', help='Path to manifest file')
+    parser.add_argument('--link_dir', help='Sorted directory')
+    parser.add_argument('--unique', help='Column referring to unique file name', default='UniqueName')
+    args = parser.parse_args()
+
+    if not Path(args.manifest).is_file():
+        raise FileNotFoundError(f'Manifest "{args.manifest}" not found.')
+
+    manifest = pd.read_csv(args.manifest)
+
+    new_manifest = update_labels(manifest, args.link_dir, args.unique)
+    print("Rewriting manifest...")
+    new_manifest.to_csv(os.path.split(args.manifest)[0] + "/Results_corrected.csv", index=False)
