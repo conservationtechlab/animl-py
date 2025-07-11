@@ -1,8 +1,8 @@
 from animl import api
-from animl import classify
+from animl import classification
 from animl import custom_detector
 from animl import custom_yolo_run
-from animl import detect
+from animl import detection
 from animl import file_management
 from animl import generator
 from animl import link
@@ -23,21 +23,22 @@ from animl.api import (MiewGenerator, animl_results_to_md_results, animl_to_md,
                        detection_category_id_to_name, main, matchypatchy,
                        miew_embedding, reid_dataloader, timelapse,
                        viewpoint_estimator,)
-from animl.classify import (classify_with_config, load_classifier,
-                            predict_species, save_classifier,
-                            sequence_classification,
-                            single_classification,)
+from animl.classification import (classify, classify_with_config,
+                                  load_classifier, save_classifier,
+                                  sequence_classification,
+                                  single_classification,)
 from animl.custom_detector import (CustomYOLO,)
 from animl.custom_yolo_run import (main_config, main_paths,)
-from animl.detect import (convert_raw_detections, convert_yolo_detections,
-                          detect_batch, detect_single, load_detector,
-                          parse_YOLO, parse_detections,)
+from animl.detection import (convert_raw_detections, convert_yolo_detections,
+                             detect, load_detector, parse_YOLO,
+                             parse_detections,)
 from animl.file_management import (IMAGE_EXTENSIONS, VALID_EXTENSIONS,
                                    WorkingDirectory, active_times,
                                    build_file_manifest, check_file, load_data,
                                    save_data,)
 from animl.generator import (ImageGenerator, ResizeWithPadding, TrainGenerator,
-                             image_to_tensor, manifest_dataloader, train_dataloader,)
+                             image_to_tensor, manifest_dataloader,
+                             train_dataloader,)
 from animl.link import (remove_link, sort_MD, sort_species, update_labels,)
 from animl.model_architecture import (ConvNeXtBase, EfficientNet,)
 from animl.models import (AutoShape, Bottleneck, BottleneckCSP, C3, C3Ghost,
@@ -97,33 +98,32 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'autopad', 'box_area', 'box_iou', 'build_file_manifest',
            'check_anchor_order', 'check_file', 'check_img_size',
            'check_python', 'check_requirements', 'check_suffix',
-           'check_version', 'classify', 'classify_mp',
+           'check_version', 'classification', 'classify', 'classify_mp',
            'classify_with_config', 'clean_str', 'clip_coords', 'common',
            'convert_raw_detections', 'convert_yolo_detections',
            'convert_yolo_to_xywh', 'copy_attr', 'csv_converter',
            'custom_detector', 'custom_yolo_run', 'de_parallel', 'demo_boxes',
-           'detect', 'detect_batch', 'detect_single',
-           'detection_category_id_to_name', 'device_count',
-           'draw_bounding_boxes', 'exif_transpose', 'extract_embeddings',
-           'extract_frame_single', 'extract_frames', 'file_age', 'file_date',
-           'file_management', 'file_size', 'find_modules', 'from_config',
-           'from_paths', 'fuse_conv_and_bn', 'general', 'generator',
-           'get_animals', 'get_animals_custom', 'get_device', 'get_empty',
-           'get_empty_custom', 'get_image_size', 'get_latest_run', 'heads',
-           'increment_path', 'init_seed', 'init_seeds', 'initialize_weights',
-           'image_to_tensor', 'intersect_dicts', 'is_parallel', 'l2_norm',
-           'labels_to_class_weights', 'labels_to_image_weights', 'letterbox',
-           'link', 'load_checkpoint', 'load_data', 'load_detector',
-           'load_miew', 'load_classifier', 'main', 'main_config', 'main_paths',
-           'make_divisible', 'manifest_dataloader', 'matchypatchy',
-           'miew_embedding', 'miewid', 'model_architecture', 'model_info',
-           'models', 'multi_species', 'multi_species_detection',
-           'non_max_suppression', 'one_cycle', 'parse_YOLO',
-           'parse_detections', 'parse_model', 'pipeline',
-           'plot_all_bounding_boxes', 'plot_boxes', 'predict_species',
-           'print_args', 'prune', 'reid', 'reid_dataloader', 'remove_link',
-           'resample_segments', 'save_data', 'save_classifier', 'scale_coords',
-           'scale_img', 'segment2box', 'segments2boxes', 'select_device',
+           'detect', 'detection', 'detection_category_id_to_name',
+           'device_count', 'draw_bounding_boxes', 'exif_transpose',
+           'extract_embeddings', 'extract_frame_single', 'extract_frames',
+           'file_age', 'file_date', 'file_management', 'file_size',
+           'find_modules', 'from_config', 'from_paths', 'fuse_conv_and_bn',
+           'general', 'generator', 'get_animals', 'get_animals_custom',
+           'get_device', 'get_empty', 'get_empty_custom', 'get_image_size',
+           'get_latest_run', 'heads', 'image_to_tensor', 'increment_path',
+           'init_seed', 'init_seeds', 'initialize_weights', 'intersect_dicts',
+           'is_parallel', 'l2_norm', 'labels_to_class_weights',
+           'labels_to_image_weights', 'letterbox', 'link', 'load_checkpoint',
+           'load_classifier', 'load_data', 'load_detector', 'load_miew',
+           'main', 'main_config', 'main_paths', 'make_divisible',
+           'manifest_dataloader', 'matchypatchy', 'miew_embedding', 'miewid',
+           'model_architecture', 'model_info', 'models', 'multi_species',
+           'multi_species_detection', 'non_max_suppression', 'one_cycle',
+           'parse_YOLO', 'parse_detections', 'parse_model', 'pipeline',
+           'plot_all_bounding_boxes', 'plot_boxes', 'print_args', 'prune',
+           'reid', 'reid_dataloader', 'remove_link', 'resample_segments',
+           'save_classifier', 'save_data', 'scale_coords', 'scale_img',
+           'segment2box', 'segments2boxes', 'select_device',
            'sequence_classification', 'single_classification', 'softmax',
            'sort_MD', 'sort_species', 'sparsity', 'split', 'tensor_to_onnx',
            'test', 'test_func', 'time_sync', 'timelapse', 'train',

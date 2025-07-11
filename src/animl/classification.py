@@ -65,7 +65,6 @@ def load_classifier(model_path, classes, device=None, architecture="CTL"):
         - classes: associated species class list
         - start_epoch (int, optional): current epoch, 0 if not resuming training
     '''
-    # read class file
     model_path = Path(model_path)
 
     # check to make sure GPU is available if chosen
@@ -131,11 +130,11 @@ def load_classifier(model_path, classes, device=None, architecture="CTL"):
         raise ValueError("Model not found at given path")
 
 
-def predict_species(detections, model,
-                    device=None, out_file=None,
-                    file_col='Frame', crop=True,
-                    resize_width=299, resize_height=299,
-                    normalize=True, batch_size=1, num_workers=1):
+def classify(model, detections,
+             device=None, out_file=None,
+             file_col='Frame', crop=True,
+             resize_width=299, resize_height=299,
+             normalize=True, batch_size=1, num_workers=1):
     """
     Predict species using classifier model
 
@@ -189,7 +188,7 @@ def predict_species(detections, model,
                     data = batch[0]
                     data = tensor_to_onnx(data)
                     output = model.run(None, {model.get_inputs()[0].name: data})[0]
-                    raw_output.extend(softmax(output))
+                    raw_output.extend(output)
 
                 else:
                     raise AssertionError("Model architechture not supported.")
@@ -263,7 +262,7 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
         animals["conf"] = 1
 
     if empty_class > "":
-        empty_col = class_list[class_list == "empty"].index[0]
+        empty_col = class_list[class_list == empty_class].index[0]
     else:
         empty_col = None
 
