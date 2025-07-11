@@ -314,8 +314,7 @@ def main(cfg):
                                     model,
                                     optim,
                                     scheduler,
-                                    device=device,
-                                    mixed_precision=mixed_precision)
+                                    device=device)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
