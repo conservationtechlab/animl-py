@@ -16,7 +16,7 @@ from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
 
 from animl.generator import train_dataloader
-from animl.classify import load_classifier
+from animl.classification import load_classifier
 from animl.utils.general import NUM_THREADS
 
 

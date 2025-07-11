@@ -95,29 +95,28 @@ def detect(detector,
 
     # Single Image
     if isinstance(image_file_names, str):
-            # convert img path to tensor
+        # convert img path to tensor
         image_tensor = image_to_tensor(image_file_names, resize_width=image_size, resize_height=image_size)
-
         # Run inference on the image
         if detector.model_type == "MDV5":
             prediction = detector(image_tensor.to(device))
             pred: list = prediction[0]
             pred = general.non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
             results = convert_raw_detections(pred, image_tensor, [image_file_names])
-
         else:
             prediction = detector.predict(source=image_tensor.to(device), conf=confidence_threshold, verbose=False)
             results = convert_yolo_detections(prediction, [image_file_names])
-
         return results
-    
 
-    # full manifest, select file_col
+    # Full manifest, select file_col
     elif isinstance(image_file_names, pd.DataFrame):
         image_file_names = image_file_names[file_col]
 
-    # column from pd.DataFrame, expected input
+    # List of file names, expected input
     elif isinstance(image_file_names, pd.Series):
+        pass
+        # column from pd.DataFrame, expected input
+    elif isinstance(image_file_names, list):
         pass
     else:
         raise ValueError('image_file_names is not a recognized object')
@@ -187,7 +186,6 @@ def detect(detector,
     print(f"\nFinished batch processing. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
 
     return results
-
 
 
 def convert_yolo_detections(predictions, image_paths):
@@ -369,7 +367,79 @@ def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
     return df
 
 
-# TODO: check if still necessary
+# TODO: check if still necessary ===============================================
+'''
+class CustomYOLO:
+    """ Custom YOLO class for image detection"""
+    def __init__(self, config_path="custom_yolo.yaml", device="cpu"):
+        """
+        Initializes YOLO with settings from a configuration file.
+        """
+        with open(config_path, "r") as f:
+            self.config = yaml.safe_load(f)
+
+        model_path = self.config["detector_file"]
+        self.device = self.config["device"]
+
+        try:
+            self.model = YOLO(model_path)  # Load the YOLO model
+            self.model.to(self.device)    # Move model to device (CPU/GPU)
+        except Exception as e:
+            raise ValueError(f"Failed to load the YOLO model from {model_path}: {e}")
+
+    # TODO try to feed it from the manifest
+    def detect_batch(self, image_input=None, image_size=None):
+        """
+        Runs YOLO on a batch of images.
+        - Inputs: image_input can be a folder path (str) or a DataFrame.
+        - Outputs: a list of dictionaries with image file paths and detections
+        """
+        if image_input is None:
+            image_input = self.config["paths"]["image_folder"]
+
+        if isinstance(image_input, str) and os.path.isdir(image_input):
+            image_file_names = [
+                os.path.join(image_input, f) for f in os.listdir(image_input)
+                if f.lower().endswith(('.png', '.jpg', '.jpeg'))
+            ]
+            print(f'Found {len(image_file_names)} images in {image_input}')
+
+        elif isinstance(image_input, pd.DataFrame):
+            file_col = self.config["file_col"]  # Column that stores file paths
+            image_file_names = image_input[file_col].tolist()
+            print(f'Loaded {len(image_file_names)} images from DataFrame.')
+        elif isinstance(image_input, list):
+            image_file_names = image_input
+            print(f'Processing {len(image_file_names)} image files from a list.')
+
+        else:
+            raise ValueError("Invalid input: image_input must be a folder path, DataFrame, or a list.")
+
+        results = []
+        for image_file in tqdm(image_file_names):
+            try:
+                prediction = self.model.predict(image_file)
+                detections = [
+                    {
+                        "class": int(box.cls.item()),
+                        "conf": float(box.conf.item()),
+                        "bbox1": float(box.xyxy[0][0].item()),
+                        "bbox2": float(box.xyxy[0][1].item()),
+                        "bbox3": float(box.xyxy[0][2].item()),  # can be changed to xywh
+                        "bbox4": float(box.xyxy[0][3].item())
+                    }
+                    for box in prediction[0].boxes
+                    if box.conf.item() >= 0.01
+                ]
+
+                results.append({"file": image_file, "detections": detections})
+
+            except Exception as e:
+                print(f"Detection failed for image {image_file}: {e}")
+                print(f"Error occurred at line: {e.__traceback__.tb_lineno}")
+        return results
+
+
 def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", convert=True):
     """
     Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
@@ -462,3 +532,4 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
         file_management.save_data(df, out_file)
 
     return df
+'''
