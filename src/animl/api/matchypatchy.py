@@ -2,39 +2,16 @@
 API for MatchyPatchy
 
 """
-import yaml
-import pandas as pd
-from pathlib import Path
 from PIL import Image, ImageFile
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, ToTensor, Normalize)
 
-from animl.classify import load_classifier, predict_species, single_classification
 from animl.utils.general import get_device
 
 from animl.reid import miewid
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-
-def classify_mp(animals, config_file):
-    """
-    Wrapper for classification within MatchyPatchy
-    """
-    try:
-        cfg = yaml.safe_load(open(config_file, 'r'))
-    except yaml.YAMLError as exc:
-        print(exc)
-    classifier_file = config_file.parent / Path(cfg.get('file_name'))
-    classlist_file = config_file.parent / Path(cfg.get('class_file'))
-    classes = pd.read_csv(classlist_file)
-    classifier, classes = load_classifier(classifier_file, len(classes), device=get_device())
-    predictions = predict_species(animals, classifier, classes, device=get_device(), file_col="filepath",
-                                  resize_width=cfg.get('resize_width'), resize_height=cfg.get('resize_height'),
-                                  normalize=cfg.get('normalize'), batch_size=4)
-    animals = single_classification(animals, predictions)
-    return animals
 
 
 def viewpoint_estimator(model, batch, device=None):

@@ -22,7 +22,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR, CosineAnnealin
 from torch.amp import autocast, GradScaler
 
 from animl.generator import train_dataloader
-from animl.classify import save_classifier, load_classifier
+from animl.classification import save_classifier, load_classifier
 from animl.utils.general import NUM_THREADS
 
 # # log values using comet ml (comet.com)

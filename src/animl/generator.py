@@ -2,18 +2,21 @@
 Generators and Dataloaders
 
 """
+import hashlib
+import os
 from typing import Tuple
 import pandas as pd
 from PIL import Image, ImageOps, ImageFile
+
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip,
                                     Normalize, RandomAffine, RandomGrayscale, RandomApply,
                                     ColorJitter, GaussianBlur)
+
 from animl.utils.general import _setup_size
-import hashlib
-import os
+
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -126,7 +129,11 @@ class ImageGenerator(Dataset):
             img = Image.open(image_name).convert('RGB')
         except OSError:
             print("File error", image_name)
-            del self.x.iloc[idx]
+            self.x = self.x.drop(idx, axis=0).reset_index()
+            return self.__getitem__(idx)
+        except FileNotFoundError:
+            print("File not found", image_name)
+            self.x = self.x.drop(idx, axis=0).reset_index()
             return self.__getitem__(idx)
 
         width, height = img.size

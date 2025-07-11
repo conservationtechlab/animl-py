@@ -1,10 +1,8 @@
 '''
-    Tools for Saving, Loading, and Building Species Classifiers
+Tools for Saving, Loading, and Building Species Classifiers
 
-    @ Kyra Swanson 2023
+@ Kyra Swanson 2023
 '''
-import argparse
-import yaml
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -14,7 +12,7 @@ from tqdm import tqdm
 import torch
 import onnxruntime
 
-from animl import generator, file_management, split
+from animl import generator, file_management
 from animl.model_architecture import EfficientNet, ConvNeXtBase
 from animl.utils.general import get_device, softmax, tensor_to_onnx, NUM_THREADS
 
@@ -65,7 +63,6 @@ def load_classifier(model_path, classes, device=None, architecture="CTL"):
         - classes: associated species class list
         - start_epoch (int, optional): current epoch, 0 if not resuming training
     '''
-    # read class file
     model_path = Path(model_path)
 
     # check to make sure GPU is available if chosen
@@ -131,11 +128,24 @@ def load_classifier(model_path, classes, device=None, architecture="CTL"):
         raise ValueError("Model not found at given path")
 
 
-def predict_species(detections, model,
-                    device=None, out_file=None,
-                    file_col='Frame', crop=True,
-                    resize_width=299, resize_height=299,
-                    normalize=True, batch_size=1, num_workers=1):
+def load_class_list(classlist_file):
+    """
+    Return classlist file as pd.DataFrame
+
+    Args
+        classlist_file (str): file path to class list
+    """
+    return pd.read_csv(classlist_file)
+
+
+def classify(model,
+             detections,
+             device=None,
+             out_file=None,
+             file_col='Frame',
+             crop=True, normalize=True,
+             resize_width=299, resize_height=299,
+             batch_size=1, num_workers=NUM_THREADS):
     """
     Predict species using classifier model
 
@@ -148,9 +158,9 @@ def predict_species(detections, model,
         - raw (bool): return raw logits instead of applying labels
         - file_col (str): column name containing file paths
         - crop (bool): use bbox to crop images before feeding into model
+        - normalize (bool): normalize the tensor before inference
         - resize_width (int): image width input size
         - resize_height (int): image height input size
-        - normalize (bool): normalize the tensor before inference
         - batch_size (int): data generator batch size
         - num_workers (int): number of cores
 
@@ -160,41 +170,51 @@ def predict_species(detections, model,
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
 
-    if not torch.cuda.is_available():
-        device = 'cpu'
-    elif torch.cuda.is_available() and device is None:
-        device = 'cuda:0'
-    else:
-        device = device
+    if device is None:
+        device = get_device()
 
+    # initialize lists
+    raw_output = []
+
+    # Manifest
     if isinstance(detections, pd.DataFrame):
-        # initialize lists
-        raw_output = []
-
         dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=crop,
                                                 resize_width=resize_width, resize_height=resize_height,
                                                 normalize=normalize, batch_size=batch_size, num_workers=num_workers)
-
-        with torch.no_grad():
-            for _, batch in tqdm(enumerate(dataset)):
-                # pytorch
-                if model.framework == "pytorch" or model.framework == "EfficientNet":
-                    data = batch[0]
-                    data = data.to(device)
-                    output = model(data)
-                    raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
-
-                # onnx
-                elif model.framework == "onnx":
-                    data = batch[0]
-                    data = tensor_to_onnx(data)
-                    output = model.run(None, {model.get_inputs()[0].name: data})[0]
-                    raw_output.extend(softmax(output))
-
-                else:
-                    raise AssertionError("Model architechture not supported.")
+    # Single File
+    elif isinstance(detections, str):
+        detections = pd.DataFrame({file_col: detections}, index=[0])
+        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
+                                                resize_width=resize_width, resize_height=resize_height,
+                                                normalize=normalize, batch_size=1, num_workers=1)
+    # List of Files
+    elif isinstance(detections, list):
+        detections = pd.DataFrame({file_col: detections}, index=range(len(detections)))
+        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
+                                                resize_width=resize_width, resize_height=resize_height,
+                                                normalize=normalize, batch_size=batch_size, num_workers=1)
     else:
-        raise AssertionError("Input must be a data frame of crops or vector of file names.")
+        raise AssertionError("Input must be a data frame of crops, single file path or vector of file paths.")
+
+    # Predict
+    with torch.no_grad():
+        for _, batch in tqdm(enumerate(dataset)):
+            # pytorch
+            if model.framework == "pytorch" or model.framework == "EfficientNet":
+                data = batch[0]
+                data = data.to(device)
+                output = model(data)
+                raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
+
+            # onnx
+            elif model.framework == "onnx":
+                data = batch[0]
+                data = tensor_to_onnx(data)
+                output = model.run(None, {model.get_inputs()[0].name: data})[0]
+                raw_output.extend(softmax(output))
+
+            else:
+                raise AssertionError("Model architechture not supported.")
 
     raw_output = np.vstack(raw_output)
 
@@ -204,7 +224,7 @@ def predict_species(detections, model,
     return raw_output
 
 
-def single_classification(animals, predictions_raw, class_list):
+def individual_classification(animals, predictions_raw, class_list):
     """
     Get maximum likelihood prediction from softmaxed logits
     """
@@ -263,7 +283,7 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
         animals["conf"] = 1
 
     if empty_class > "":
-        empty_col = class_list[class_list == "empty"].index[0]
+        empty_col = class_list[class_list == empty_class].index[0]
     else:
         empty_col = None
 
@@ -371,43 +391,3 @@ def sequence_classification(animals, empty, predictions_raw, class_list, station
     animals_sort['sequence'] = sequence_placeholder
 
     return animals_sort
-
-
-def classify_with_config(config):
-    """
-    Run Classification from Config File
-
-    Args:
-        - config (str): path to config file
-
-    Returns:
-        predictions dataframe
-    """
-    # get config file
-    print(f'Using config "{config}"')
-    cfg = yaml.safe_load(open(config, 'r'))
-
-    manifest = pd.read_csv(cfg['manifest'])
-
-    # get available device
-    device = get_device()
-
-    classifier, class_list = load_classifier(cfg['classifier_file'], cfg['class_list'],
-                                             device=device, architecture=cfg.get('class_list', "CTL"))
-
-    if cfg.get('split_animals', True):
-        manifest = split.get_animals(manifest)
-
-    predictions = predict_species(manifest, classifier, class_list, device=device, out_file=cfg['out_file'],
-                                  raw=cfg.get('raw', False), file_col=cfg['file_col'], crop=cfg['crop'],
-                                  resize_width=cfg['resize_width'], resize_height=cfg['resize_height'],
-                                  normalize=cfg.get('normalize', True), batch_size=cfg.get('batch_size', 1),
-                                  num_workers=cfg.get('num_workers', NUM_THREADS))
-    return predictions
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Run a deep learning species classification model.')
-    parser.add_argument('--config', help='Path to config file', default='exp_resnet18.yaml')
-    args = parser.parse_args()
-    classify_with_config(args.config)
