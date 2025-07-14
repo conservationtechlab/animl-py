@@ -1,7 +1,6 @@
 """
 Tools for splitting the data for different workflows
 
-
 @ Kyra Swanson 2023
 """
 import pandas as pd
@@ -112,7 +111,6 @@ def train_val_test(manifest: pd.DataFrame,
         file_col (str): column containing file paths
         percentage (tuple): fraction of data dedicated to train-val-test
         seed (int): RNG seed, if none will pick one at random within [0,100]
-        - repeat_column (str): column with repeats that need to be grouped together (i.e one filename with multiple annotations)
 
     Returns:
         train manifest

@@ -190,7 +190,7 @@ class TrainGenerator(Dataset):
                  augment: bool = False,
                  resize_height: int = 299,
                  resize_width: int = 299,
-                cache_dir: str = None, crop_coord='relative'):
+                 cache_dir: str = None):
         self.x = x
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
