@@ -1,9 +1,8 @@
 '''
-    Training script. Here, we load the training and validation datasets (and
-    data loaders) and the model and train and validate the model accordingly.
+Test Script to Verify Model on Holdout Dataset
 
-    Original script from
-    2022 Benjamin Kellenberger
+Original script from
+2022 Benjamin Kellenberger
 '''
 import argparse
 import yaml
@@ -20,14 +19,16 @@ from animl.classification import load_classifier
 from animl.utils.general import NUM_THREADS
 
 
-def test_func(data_loader: DataLoader, model: torch.nn.Module, device: Union[str, torch.device] = 'cpu') -> float:
+def test_func(data_loader: DataLoader,
+              model: torch.nn.Module,
+              device: Union[str, torch.device] = 'cpu') -> float:
     '''
-        Run trained model on test split
+    Run trained model on test split
 
-        Args:
-            - data_loader: test set dataloader
-            - model: trained model object
-            - device: run model on gpu or cpu, defaults to cpu
+    Args:
+        data_loader: test set dataloader
+        model: trained model object
+        device: run model on gpu or cpu, defaults to cpu
     '''
     model.to(device)
     model.eval()  # put the model into training mode

@@ -1,3 +1,11 @@
+"""
+Object Detection Module
+
+Functions for loading MegaDetector v5 and v6, as well as custom YOLO models
+parse_detections() converts json output into a dataframe
+
+@ Kyra Swanson 2023
+"""
 import json
 import os
 import time
@@ -17,7 +25,7 @@ from ultralytics import YOLO
 
 def load_detector(model_path, model_type, device=None):
     """
-    Load Detector model from filepath
+    Load Detector model from filepath.
 
     Args:
         model_path (str): path to model file
@@ -63,23 +71,23 @@ def detect(detector,
            image_size: typing.Optional[int] = 1280,
            file_col: str = 'Frame') -> typing.List[typing.Dict]:
     """
-    Runs Detector model on a batches of image files
+    Runs Detector model on a batches of image files.
 
-        Args:
-            detector (object): preloaded detector model
-            image_file_names (mult): list of image filenames, a single image filename, or manifest
-                                     containing a list of images.
-            batch_size (int): size of each batch
-            num_workers (int): number of processes to handle the data
-            device (str): specify to run on cpu or gpu
-            checkpoint_path (str): path to checkpoint file
-            checkpoint_frequency (int): write results to checkpoint file every N images
-            confidence_threshold (float): only detections above this threshold are returned
-            image_size (int): overrides default image size, 1280
-            file_col (str): column name containing file paths
+    Args:
+        detector (object): preloaded detector model
+        image_file_names (mult): list of image filenames, a single image filename, or manifest
+                                    containing a list of images.
+        batch_size (int): size of each batch
+        num_workers (int): number of processes to handle the data
+        device (str): specify to run on cpu or gpu
+        checkpoint_path (str): path to checkpoint file
+        checkpoint_frequency (int): write results to checkpoint file every N images
+        confidence_threshold (float): only detections above this threshold are returned
+        image_size (int): overrides default image size, 1280
+        file_col (str): column name containing file paths
 
-        Returns:
-            list: list of dicts, each dict represents detections on one image
+    Returns:
+        list: list of dicts, each dict represents detections on one image
     """
     if confidence_threshold is None:
         confidence_threshold = 0.1
@@ -112,12 +120,14 @@ def detect(detector,
     elif isinstance(image_file_names, pd.DataFrame):
         image_file_names = image_file_names[file_col]
 
-    # List of file names, expected input
+    # TODO: TEST ROW VS COLUMN
     elif isinstance(image_file_names, pd.Series):
         pass
-        # column from pd.DataFrame, expected input
+    # column from pd.DataFrame, expected input
     elif isinstance(image_file_names, list):
         pass
+    elif isinstance(image_file_names, str):
+        image_file_names = [image_file_names]
     else:
         raise ValueError('image_file_names is not a recognized object')
 
@@ -190,7 +200,7 @@ def detect(detector,
 
 def convert_yolo_detections(predictions, image_paths):
     """
-    Converts YOLO output into a nested list
+    Converts YOLO output into a nested list.
 
     Args:
         predictions (list): YOLO detection output (list of dictionaries with detections for each file)
@@ -236,14 +246,15 @@ def convert_yolo_detections(predictions, image_paths):
 
 def convert_raw_detections(predictions, image_tensors, image_paths):
     """
-    Converts MDv5 output into a nested list
+    Converts MDv5 output into a nested list.
 
     Args:
         predictions (list): YOLO detection output (list of dictionaries with detections for each file)
+        image_tensors (list): array of image tensors from mdv6 output
         image_paths (list): List of image file paths corresponding to predictions
 
     Returns:
-        df (pd.DataFrame): Formatted YOLO outputs, one row per detection
+        results (pd.DataFrame): Formatted YOLO outputs, one row per detection
     """
     results = []
 
@@ -295,7 +306,7 @@ def convert_raw_detections(predictions, image_tensors, image_paths):
 def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
                      threshold=0, file_col="Frame"):
     """
-    Converts listed output from detector to DataFrame
+    Converts listed output from detector to DataFrame.
 
     Args:
         results (list): md output dicts

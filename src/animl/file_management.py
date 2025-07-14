@@ -1,9 +1,9 @@
 """
-    File Management Module
+File Management Module
 
-    This module provides functions and classes for managing files and directories.
+This module provides functions and classes for managing files and directories.
 
-    @ Kyra Swanson 2023
+@ Kyra Swanson 2023
 """
 import os
 from pathlib import Path
@@ -26,17 +26,17 @@ def build_file_manifest(image_dir: str,
                         offset: int = 0,
                         recursive: bool = True):
     """
-    Find Image/Video Files and Gather exif Data
+    Find Image/Video Files and Gather exif Data.
 
     Args:
-        - image_dir (str): directory of files to analyze
-        - exif (bool): returns date and time info from exif data, defaults to True
-        - out_file (str): file path to which the dataframe should be saved
-        - offset (int): add timezone offset in hours to datetime column
-        - recursive (bool): recursively search thhrough all child directories
+        image_dir (str): directory of files to analyze
+        exif (bool): returns date and time info from exif data, defaults to True
+        out_file (str): file path to which the dataframe should be saved
+        offset (int): add timezone offset in hours to datetime column
+        recursive (bool): recursively search thhrough all child directories
 
     Returns:
-        - files (pd.DataFrame): list of files with or without file modify dates
+        files (pd.DataFrame): list of files with or without file modify dates
     """
     image_dir = Path(image_dir)
     if check_file(out_file):
@@ -111,7 +111,7 @@ def build_file_manifest(image_dir: str,
 
 class WorkingDirectory():
     """
-    Set Working Directory and Save File Global Variables
+    Set Working Directory and save file global variables.
 
     Constructor requires root working_directory
     """
@@ -143,12 +143,12 @@ class WorkingDirectory():
 
 def save_data(data: pd.DataFrame, out_file: str, prompt: bool = True) -> None:
     """
-    Save Data to Given File
+    Save data to given file.
 
     Args:
-        - data (pd.DataFrame): the dataframe to be saved
-        - out_file (str): full path to save file to
-        - prompt (bool): prompts the user to confirm overwrite
+        data (pd.DataFrame): the dataframe to be saved
+        out_file (str): full path to save file to
+        prompt (bool): prompts the user to confirm overwrite
 
     Returns:
         None
@@ -163,13 +163,13 @@ def save_data(data: pd.DataFrame, out_file: str, prompt: bool = True) -> None:
 
 def load_data(file: str) -> pd.DataFrame:
     """
-    Load .csv File
+    Load .csv File.
 
     Args:
-        - file (str): the full path of the file to load
+        file (str): the full path of the file to load
 
     Returns:
-        - data extracted from the file. pd.dataframe form
+        data extracted from the file. pd.dataframe form
     """
     ext = os.path.splitext(file)[1]
     if ext == ".csv":
@@ -180,14 +180,13 @@ def load_data(file: str) -> pd.DataFrame:
 
 def check_file(file: str) -> bool:
     """
-    Check for files existence and prompt user if they want to load
+    Check for files existence and prompt user if they want to load.
 
     Args:
-        - file (str): the full path of the file to check
+        file (str): the full path of the file to check
 
     Returns:
-        - a boolean indicating whether a file was found and
-          the user wants to load or not
+        a boolean indicating whether a file was found and the user wants to load or not
     """
 
     if file is not None and os.path.isfile(file):
@@ -203,17 +202,16 @@ def active_times(manifest_dir: str,
                  recursive: bool = True,
                  offset: int = 0) -> pd.DataFrame:
     """
-    Get start and stop dates for each camera folder
+    Get start and stop dates for each camera folder.
 
     Args:
-        - manifest_dir (str): either file manifest or directory of files to analyze
-        - depth (int): directory depth from which to split cameras
-        - recursive (bool): recursively search thhrough all child directories
-        - offset (int): add timezone offset in hours to datetime column
+        manifest_dir (str): either file manifest or directory of files to analyze
+        depth (int): directory depth from which to split cameras
+        recursive (bool): recursively search thhrough all child directories
+        offset (int): add timezone offset in hours to datetime column
 
     Returns:
-        - times (pd.DataFrame): list of files with or without file modify dates
-
+        times (pd.DataFrame): list of files with or without file modify dates
     """
     # from manifest file
     if check_file(manifest_dir):

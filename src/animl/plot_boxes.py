@@ -1,6 +1,9 @@
 """
-Module: animl.plot_boxes
+Plot Bounding Boxes and Save Images
+
 Functionality to draw bounding boxes and labels provided image DataFrame.
+
+@ Kyra Swanson 2023
 """
 import cv2
 import argparse
@@ -20,19 +23,16 @@ def plot_all_bounding_boxes(data_frame: pd.DataFrame,
     plots the boxes in the new image, and saves it the specified directory.
 
     Args:
-        - data_frame (Pandas DataFrame): Output of Mega Detector
-        - output_dir (String): Name of the output directory
-        - file_col (str): Column name containing file paths
-        - min_conf (Optional) (Int or Float): Confidence threshold to plot the box
-        - prediction (Optional) (Boolean): Should the prediction be printed alongside bounding box
+        data_frame (Pandas DataFrame): Output of Mega Detector
+        output_dir (str): Name of the output directory
+        file_col (str): Column name containing file paths
+        min_conf (Optional) (Int or Float): Confidence threshold to plot the box
+        prediction (Optional) (Boolean): Should the prediction be printed alongside bounding box
 
     Raises:
     - Exception: If 'data_frame' is not a pandas DataFrame
     - Exception: If 'min_conf' is not a number between [0,1]
     - Exception: If 'prediction' is not a boolean
-
-    Returns:
-    - None
     """
 
     # Sanity check to verify that data_frame is a Pandas DataFrame
@@ -183,8 +183,9 @@ def draw_bounding_boxes(row: pd.Series,
                         prediction: bool = False):
     """
     Draws bounding boxes and labels on image DataFrame.
+
     Args:
-        - row : DataFrame containing image data - coordinates and predictions.
+        row : DataFrame containing image data - coordinates and predictions.
             The DataFrame should have the following columns:
             - 'Frame': Filename or path to the image file.
             - 'bbox1': Normalized x-coordinate of the top-left corner.
@@ -192,12 +193,9 @@ def draw_bounding_boxes(row: pd.Series,
             - 'bbox3': Normalized width of the bounding box (range: 0-1).
             - 'bbox4': Normalized height of the bounding box (range: 0-1).
             - 'prediction': Object prediction label for the bounding box.
-        - box_number (int): Number used for generating the output image filename.
-        - image_output_path (str): Output directory to saved images.
-        - prediction (bool): if true, add prediction label
-
-    Returns:
-        None
+        box_number (int): Number used for generating the output image filename.
+        image_output_path (str): Output directory to saved images.
+        prediction (bool): if true, add prediction label
     """
     img = cv2.imread(row["Frame"])  # Use row directly without indexing
     height, width, _ = img.shape
@@ -226,26 +224,25 @@ def draw_bounding_boxes(row: pd.Series,
         print(filename)
         cv2.imwrite(filename, img)
 
+    cv2.destroyAllWindows()
+
 
 def demo_boxes(manifest: pd.DataFrame, file_col: str, min_conf: float = 0.9, prediction: bool = True):
     """
     Draws bounding boxes and labels on image DataFrame.
 
     Args:
-        - manifest : DataFrame containing image data - coordinates and predictions.
+        manifest : DataFrame containing image data - coordinates and predictions.
             The DataFrame should have the following columns:
-            - 'Frame': Filename or path to the image file.
+            - file_col: Filename or path to the image file.
             - 'bbox1': Normalized x-coordinate of the top-left corner.
             - 'bbox2': Normalized y-coordinate of the top-left corner.
             - 'bbox3': Normalized width of the bounding box (range: 0-1).
             - 'bbox4': Normalized height of the bounding box (range: 0-1).
             - 'prediction': Object prediction label for the bounding box.
-        - file_col (str): column containing file paths
-        - min_conf (float): minimum confidence threshold to plot box
-        - prediction (bool): if true, add prediction label
-
-    Returns:
-        None
+        file_col (str): column containing file paths
+        min_conf (float): minimum confidence threshold to plot box
+        prediction (bool): if true, add prediction label
     """
     images = manifest[file_col].unique()
 
