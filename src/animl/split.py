@@ -1,5 +1,7 @@
 """
 Tools for splitting the data for different workflows
+
+@ Kyra Swanson 2023
 """
 import pandas as pd
 import numpy as np
@@ -13,17 +15,45 @@ def get_animals(manifest: pd.DataFrame):
     Pulls MD animal detections for classification
 
     Args:
-        - manifest: DataFrame containing one row for ever MD detection
+        manifest (pd.DataFrame): DataFrame containing one row for every MD detection
 
     Returns:
         subset of manifest containing only animal detections
     """
-    if not isinstance(manifest, pd.DataFrame):
-        raise AssertionError("'manifest' must be DataFrame.")
     return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
 
 
-def get_animals_custom(manifest, prediction_dict):
+def get_empty(manifest: pd.DataFrame):
+    """
+    Pulls MD non-animal detections
+
+    Args:
+        manifest (pd.DataFrame): DataFrame containing one row for every MD detection
+
+    Returns:
+        otherdf: subset of manifest containing empty, vehicle and human detections
+        with added prediction and confidence columns
+    """
+    # Removes all images that MegaDetector gave no detection for
+    otherdf = manifest[manifest['category'].astype(int) != 1].reset_index(drop=True)
+    otherdf['prediction'] = otherdf['category'].astype(int)
+
+    # Numbers the class of the non-animals correctly
+    if not otherdf.empty:
+        otherdf['prediction'] = otherdf['prediction'].replace(2, "human")
+        otherdf['prediction'] = otherdf['prediction'].replace(3, "vehicle")
+        otherdf['prediction'] = otherdf['prediction'].replace(0, "empty")
+        otherdf['confidence'] = otherdf['conf']
+        otherdf['confidence'] = otherdf['confidence'].replace(np.nan, 1)  # correct empty conf
+
+    else:
+        otherdf = pd.DataFrame(columns=manifest.columns.values)
+
+    return otherdf
+
+
+# TODO: remove with custom_yolo function
+def get_animals_custom(manifest: pd.DataFrame, prediction_dict: dict):
     """
     Pulls MD animal custom detections for classification.
 
@@ -34,9 +64,6 @@ def get_animals_custom(manifest, prediction_dict):
     Returns:
         pd.DataFrame: Subset of manifest containing only animal detections.
     """
-    if not isinstance(manifest, pd.DataFrame):
-        raise AssertionError("'manifest' must be DataFrame.")
-
     # Convert 'category' to integer.
     manifest['prediction'] = manifest['category'].astype(int)
     mapping = {int(k): v for k, v in prediction_dict.items()}
@@ -48,7 +75,7 @@ def get_animals_custom(manifest, prediction_dict):
     return animal_manifest
 
 
-def get_empty_custom(manifest):
+def get_empty_custom(manifest: pd.DataFrame):
     """
     Pulls MD non-animal detections.
 
@@ -60,45 +87,10 @@ def get_empty_custom(manifest):
                       with added 'prediction' and 'confidence' columns. If a detection has no
                       confidence value, it is labeled as "empty".
     """
-    if not isinstance(manifest, pd.DataFrame):
-        raise AssertionError("'manifest' must be DataFrame.")
-
     # If the confidence value is missing (NaN), treat that detection as "empty".
     manifest.loc[manifest['max_detection_conf'].isna(), 'prediction'] = "empty"
 
     return manifest
-
-
-def get_empty(manifest):
-    """
-    Pulls MD non-animal detections
-
-    Args:
-        - manifest: DataFrame containing one row for ever MD detection
-
-    Returns:
-        subset of manifest containing empty, vehicle and human detections
-        with added prediction and confidence columns
-    """
-    if not isinstance(manifest, pd.DataFrame):
-        raise AssertionError("'manifest' must be DataFrame.")
-
-    # Removes all images that MegaDetector gave no detection for
-    otherdf = manifest[manifest['category'].astype(int) != 1].reset_index(drop=True)
-    otherdf['prediction'] = otherdf['category'].astype(int)
-
-    # Numbers the class of the non-animals correctly
-    if not otherdf.empty:
-        otherdf['prediction'] = otherdf['prediction'].replace(2, "human")
-        otherdf['prediction'] = otherdf['prediction'].replace(3, "vehicle")
-        otherdf['prediction'] = otherdf['prediction'].replace(0, "empty")
-        otherdf['confidence'] = otherdf['conf']
-        otherdf['confidence'] = otherdf['confidence'].replace(np.nan, 1) #correct empty conf
-
-    else:
-        otherdf = pd.DataFrame(columns=manifest.columns.values)
-
-    return otherdf
 
 
 def train_val_test(manifest: pd.DataFrame,
@@ -113,18 +105,19 @@ def train_val_test(manifest: pd.DataFrame,
     Credit: Unduwap Kandage-Don
 
     Args:
-        - manifest (DataFrame): list of files to split for training
-        - out_dir (str): location to save split lists to
-        - label_col (str): column name containing class labels
-        - percentage (tuple): fraction of data dedicated to train-val-test
-        - seed (int): RNG seed, if none will pick one at random within [0,100]
+        manifest (DataFrame): list of files to split for training
+        out_dir (str): location to save split lists to
+        label_col (str): column name containing class labels
+        file_col (str): column containing file paths
+        percentage (tuple): fraction of data dedicated to train-val-test
+        seed (int): RNG seed, if none will pick one at random within [0,100]
         - repeat_column (str): column with repeats that need to be grouped together (i.e one filename with multiple annotations)
 
     Returns:
-        - train
-        - validate
-        - test
-        - stats
+        train manifest
+        validate manifest
+        test manifest
+        stats file
     '''
     if seed is None:
         seed = np.random.randint(0, 100)

@@ -1,11 +1,10 @@
 '''
-    Training script. Here, we load the training and validation datasets (and
-    data loaders) and the model and train and validate the model accordingly.
+Classifier Training Script
 
-    Original script from
-    2022 Benjamin Kellenberger
+Original script from
+2022 Benjamin Kellenberger
 
-    Modified by Peter van Lunteren 2024
+Modified by Peter van Lunteren 2024
 '''
 import argparse
 import yaml
@@ -13,6 +12,7 @@ import os
 from tqdm import trange
 import pandas as pd
 import random
+
 import torch.nn as nn
 import torch
 from torch.backends import cudnn
@@ -23,19 +23,21 @@ from torch.amp import autocast, GradScaler
 from animl.generator import train_dataloader
 from animl.classification import save_model, load_model
 
-# # log values using comet ml (comet.com)
-from comet_ml import Experiment
-from comet_ml.integration.pytorch import log_model
+try:
+    import comet_ml
+except ImportError:
+    comet_ml = None
 
 
 def init_seed(seed):
     '''
-        Initalizes the seed for all random number generators used. This is
-        important to be able to reproduce results and experiment with different
-        random setups of the same code and experiments.
+    Initalize the seed for all random number generators.
 
-        Args:
-            - seed (int): seed for RNG
+    This is important to be able to reproduce results and experiment with different
+    random setups of the same code and experiments.
+
+    Args:
+        seed (int): seed for RNG
     '''
     if seed is not None:
         random.seed(seed)
@@ -47,17 +49,19 @@ def init_seed(seed):
 
 def train_func(data_loader, model, optimizer, scheduler, device='cpu', mixed_precision=False):
     '''
-        Training Function
+    Main training loop.
 
-        Args:
-            - data_loader: dataloader object
-            - model: loaded model object
-            - optimizer: optimizer object
-            - device (str): device to load model and data to
+    Args:
+        data_loader: dataloader object
+        model: loaded model object
+        optimizer: optimizer object
+        scheduler: learning rate scheduler
+        device (str): device to load model and data to
+        mixed_precision (bool): flag to enable mixed precision for GPU
 
-        Returns:
-            - loss_total: loss for epoch
-            - oa_total: overall accuracy for epoch
+    Returns:
+        loss_total: loss for epoch
+        oa_total: overall accuracy for epoch
     '''
     model.to(device)
     model.train()  # put the model into training mode
@@ -133,19 +137,21 @@ def train_func(data_loader, model, optimizer, scheduler, device='cpu', mixed_pre
 
 def validate_func(data_loader, model, device="cpu"):
     '''
-        Validation function. Note that this looks almost the same as the training
-        function, except that we don't use any optimizer or gradient steps.
+    Model validation function for each epoch.
+
+    Note that this looks almost the same as the training
+    function, except that we don't use any optimizer or gradient steps.
 
     Args:
-        - data_loader: dataloader object
-        - model: loaded model object
-        - device (str): device to load model and data to
+        data_loader: dataloader object
+        model: loaded model object
+        device (str): device to load model and data to
 
     Returns:
-        - loss_total: loss for validation set
-        - oa_total: accuracy for validation set
-        - precision: precision for validation set
-        - recall: recall for validation set
+        loss_total: loss for validation set
+        oa_total: accuracy for validation set
+        precision: precision for validation set
+        recall: recall for validation set
     '''
     model.to(device)
     model.eval()  # put the model into evaluation mode
@@ -206,7 +212,21 @@ def validate_func(data_loader, model, device="cpu"):
 
     return loss_total, oa_total, precision, recall
 
-def load_checkpoint(model_path,model, optimizer, scheduler,device):
+
+def load_checkpoint(model_path, model, optimizer, scheduler, device):
+    '''
+    Load checkpoint model weights to resume training.
+
+    Args:
+        model_path: path to saved weights
+        model: loaded model object
+        optimizer: optimizer object
+        scheduler: learning rate scheduler
+        device (str): device to load model and data to
+
+    Returns:
+        starting epoch (int)
+    '''
     model_states = []
     for file in os.listdir(model_path):
         if os.path.splitext(file)[1] == ".pt":
@@ -257,6 +277,10 @@ def main(cfg):
     '''
     # load cfg file
     cfg = yaml.safe_load(open(cfg, 'r'))
+
+    # TODO
+    if comet_ml:
+        experiment = comet_ml.Experiment()
 
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
@@ -366,7 +390,10 @@ def main(cfg):
 
         # <current_epoch>.pt checkpoint saving every *checkpoint_frequency* epochs
         checkpoint = cfg.get('checkpoint_frequency', 10)
-        experiment.log_metrics(stats, step=current_epoch)
+
+        if comet_ml:
+            experiment.log_metrics(stats, step=current_epoch)
+
         if current_epoch % checkpoint == 0:
             save_model(cfg['experiment_folder'], current_epoch, model, stats,optim,scheduler)
 

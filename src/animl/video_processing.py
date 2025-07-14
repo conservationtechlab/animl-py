@@ -18,14 +18,14 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
     """
     Extract frames from video for classification
 
-    Args
-        - file_path: dataframe of videos
-        - out_dir: directory to save frames to
-        - fps: frames per second, otherwise determine mathematically
-        - frames: number of frames to sample
+    Args:
+        file_path: dataframe of videos
+        out_dir: directory to save frames to
+        fps: frames per second, otherwise determine mathematically
+        frames: number of frames to sample
 
     Return
-        - frames_saved: dataframe of still frames for each video
+        frames_saved: dataframe of still frames for each video
     """
     # Typechecking
     if frames is None and fps is None:
@@ -95,19 +95,19 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
     """
     Extract frames from video for classification
 
-    Args
-        - files: dataframe of videos
-        - out_dir: directory to save frames to
-        - out_file: file to which results will be saved
-        - fps: frames per second, otherwise determine mathematically
-        - frames: number of frames to sample
-        - file_col: column containing file paths
-        - parallel: Toggle for parallel processing, defaults to FALSE
-        - workers: number of processors to use if parallel, defaults to 1
-        - checkpoint: if not parallel, checkpoint ever n files, defaults to 1000
+    Args:
+        files: dataframe of videos
+        out_dir: directory to save frames to
+        out_file: file to which results will be saved
+        fps: frames per second, otherwise determine mathematically
+        frames: number of frames to sample
+        file_col: column containing file paths
+        parallel: Toggle for parallel processing, defaults to FALSE
+        num_workers: number of processors to use if parallel, defaults to NUM_THREADS
+        checkpoint: if not parallel, checkpoint ever n files, defaults to 1000
 
-    Return
-        - allframes: dataframe of still frames for each video
+    Returns:
+        allframes: dataframe of still frames for each video
     """
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
@@ -129,6 +129,7 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
     videos = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",
                                                         ".mpg", ".mpeg", ".asf", ".m4v"])]
+
     if not videos.empty:
         # TODO add checkpoint to parallel
         video_frames = []

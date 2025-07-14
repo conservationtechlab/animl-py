@@ -1,5 +1,5 @@
 '''
-    Tools for Saving, Loading, and Building Species Classifiers
+Tools for Saving, Loading, and Using Species Classifiers
 
     @ Kyra Swanson 2023
 '''
@@ -33,12 +33,12 @@ def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
     Saves model state weights.
 
     Args:
-        - out_dir (str): directory to save model to
-        - epoch (int): current training epoch
-        - model: pytorch model
-        - stats (dict): performance metrics of current epoch
-        - optimizer: pytorch optimizer (optional)
-        - scheduler: pytorch scheduler (optional)
+        out_dir (str): directory to save model to
+        epoch (int): current training epoch
+        model: pytorch model
+        stats (dict): performance metrics of current epoch
+        optimizer: pytorch optimizer (optional)
+        scheduler: pytorch scheduler (optional)
 
     Returns:
         None
@@ -61,20 +61,20 @@ def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
     torch.save(checkpoint, open(f'{out_dir}/{epoch}.pt', 'wb'))
     
 
-def load_model(model_path, classes, device=None, architecture="CTL"):
+def load_classifier(model_path: str, len_classes: int, device=None, architecture="CTL"):
     '''
     Creates a model instance and loads the latest model state weights.
 
     Args:
-        - model_path (str): file or directory path to model weights
-        - class_file (str): path to associated class list
-        - device (str): specify to run on cpu or gpu
-        - architecture (str): expected model architecture
+        model_path (str): file or directory path to model weights
+        class_file (int): path to associated class list
+        device (str): specify to run on cpu or gpu
+        architecture (str): expected model architecture
 
     Returns:
-        - model: model object of given architecture with loaded weights
-        - classes: associated species class list
-        - start_epoch (int, optional): current epoch, 0 if not resuming training
+        model: model object of given architecture with loaded weights
+        classes: associated species class list
+        start_epoch (int, optional): current epoch, 0 if not resuming training
     '''
     # read class file
     model_path = Path(model_path)
@@ -89,9 +89,9 @@ def load_model(model_path, classes, device=None, architecture="CTL"):
         model_path = str(model_path)
         start_epoch = 0
         if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-            model = EfficientNet(classes, device=device)
+            model = EfficientNet(len_classes, device=device)
         elif architecture == "convnext_base":
-            model = ConvNeXtBase(classes)
+            model = ConvNeXtBase(len_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
 
@@ -125,7 +125,7 @@ def load_model(model_path, classes, device=None, architecture="CTL"):
         # PyTorch dict
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-                model = EfficientNet(classes, device=device, tune=False)
+                model = EfficientNet(len_classes, device=device, tune=False)
                 # TODO: torch 2.6 defaults to weights_only = True
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
@@ -133,7 +133,7 @@ def load_model(model_path, classes, device=None, architecture="CTL"):
                 model.eval()
                 model.framework = "EfficientNet"
             elif architecture == "convnext_base":
-                model = ConvNeXtBase(classes, tune=False)
+                model = ConvNeXtBase(len_classes, tune=False)
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
@@ -164,43 +164,49 @@ def load_model(model_path, classes, device=None, architecture="CTL"):
         raise ValueError("Model not found at given path")
 
 
-def tensor_to_onnx(tensor, channel_last=True):
-    '''
-    Helper function for onnx, shifts dims to BxHxWxC
-    '''
-    if channel_last:
-        tensor = tensor.permute(0, 2, 3, 1)  # reorder BxCxHxW to BxHxWxC
-
-    tensor = tensor.numpy()
-
-    return tensor
-
-
-def predict_species(detections, model,
-                    device=None, out_file=None,
-                    file_col='Frame', crop=True,
-                    resize_width=299, resize_height=299,
-                    normalize=True, batch_size=1, workers=1):
+def load_class_list(classlist_file):
     """
-    Predict species using classifier model
+    Return classlist file as pd.DataFrame.
 
-    Args
-        - detections (pd.DataFrame): dataframe of (animal) detections
-        - model: preloaded classifier model
-        - classes: preloaded class list, pd Series
-        - device (str): specify to run model on cpu or gpu, default to cpu
-        - out_file (str): path to save prediction results to
-        - raw (bool): return raw logits instead of applying labels
-        - file_col (str): column name containing file paths
-        - crop (bool): use bbox to crop images before feeding into model
-        - resize_width (int): image width input size
-        - resize_height (int): image height input size
-        - normalize (bool): normalize the tensor before inference
-        - batch_size (int): data generator batch size
-        - workers (int): number of cores
+    Args:
+        classlist_file (str): file path to class list
 
-    Returns
-        - detections (pd.DataFrame): MD detections with classifier prediction and confidence
+    Returns:
+        pd.DataFrame of class list
+    """
+    return pd.read_csv(classlist_file)
+
+
+# TODO: change default resize after training models
+def classify(model,
+             detections,
+             device=None,
+             out_file=None,
+             file_col: str = 'Frame',
+             crop: bool = True,
+             normalize: bool = True,
+             resize_width: int = 299,
+             resize_height: int = 299,
+             batch_size: int = 1,
+             num_workers: int = NUM_THREADS):
+    """
+    Predict species using classifier model.
+
+    Args:
+        model: preloaded classifier model
+        detections (mult): dataframe of (animal) detections, list of filepaths or filepath str
+        device (str): specify to run model on cpu or gpu, default to cpu
+        out_file (str): path to save prediction results to
+        file_col (str): column name containing file paths
+        crop (bool): use bbox to crop images before feeding into model
+        normalize (bool): normalize the tensor before inference
+        resize_width (int): image width input size
+        resize_height (int): image height input size
+        batch_size (int): data generator batch size
+        num_workers (int): number of cores
+
+    Returns:
+        detections (pd.DataFrame): MD detections with classifier prediction and confidence
     """
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
@@ -249,9 +255,20 @@ def predict_species(detections, model,
     return raw_output
     
 
-def single_classification(animals, predictions_raw, class_list):   
+def individual_classification(animals: pd.DataFrame,
+                              predictions_raw: np.array,
+                              class_list: pd.DataFrame):
     """
-    Get maximum likelihood prediction from softmaxed logits
+    Get maximum likelihood prediction from softmaxed logits.
+
+    Args:
+        animals (pd.DataFrame): animal detections from manifest
+        predictions_raw (np.array): softmaxed logits from classify()
+        class_list (pd.DataFrame): class list associated with model
+
+    Returns:
+        animals dataframe with "prediction" label an "confidence" columns
+
     """
     class_list = pd.Series(class_list)
     animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
@@ -259,37 +276,45 @@ def single_classification(animals, predictions_raw, class_list):
     return animals
 
 
-
-def sequence_classification(animals, empty, predictions_raw, class_list, station_col,
-                            empty_class="empty", sort_columns=None,
-                            file_col="FilePath", maxdiff=60):
+def sequence_classification(animals: pd.DataFrame,
+                            empty,
+                            predictions_raw: np.array,
+                            class_list: pd.DataFrame,
+                            station_col: str,
+                            empty_class="",
+                            sort_columns=None,
+                            file_col: str = "FilePath",
+                            maxdiff: int = 60):
     """
+    Applies class labels to images based on sequential information.
+
     This function applies image classifications at a sequence level by leveraging information from
     multiple images. A sequence is defined as all images at the same camera and station where the
     time between consecutive images is <=maxdiff. This can improve classification accuracy, but
     assumes that only one species is present in each sequence. If you regularly expect multiple
     species to occur in an image or sequence don't use this function.
 
-    Parameters:
-    - animals (Pandas DataFrame): Sub-selection of all images that contain animals
-    - sort_columns (List of Strings): Defines sorting order for the DataFrame
-    - predictions (Numpy Array of Numpy Arrays): Logits of all entries in "animals"
-    - species (CSV File): File mapping index to species
-    - station_col (String): The name of the station column
-    - empty (Optional) (Pandas DataFrame): Sub-selection of all images that do not contain animals
-    - maxdiff (float) (Optional): Maximum time difference between any two images in a sequence
+    Args:
+        animals (pd.DataFrame): Sub-selection of all images that contain animals
+        empty (Optional) (pd.DataFrame): Sub-selection of all images that do not contain animals
+        predictions (Numpy Array of Numpy Arrays): Logits of all entries in "animals"
+        class_list (pd.DataFrame): class list associated with classifier model
+        station_col (str): The name of the station column
+        empty_class (str) (Optional): the name of class_list 'empty' label
+        sort_columns (List of Strings): Defines sorting order for the DataFrame
+        file_col (str): The name of the filepath column
+        maxdiff (int): Maximum time difference in seconds between any two images in a sequence
+
+    Returns:
+        final_df (pd.DataFrame): Sequence classified data from both animals and empty
 
     Raises:
-    - Exception: If 'animals' is not a pandas DataFrame
-    - Exception: If 'sort_columns' is not a list or is empty
-    - Exception: If 'station_col' is not a string or is empty
-    - Exception: If 'empty' is defined and is not a pandas DataFrame
-    - Exception: If maxdiff is defined and is not a positive number
-
-    Output:
-    - final_df (Pandas DataFrame): Sequence classified data from both animals and empty
+        Exception: If 'animals' is not a pandas DataFrame
+        Exception: If 'sort_columns' is not a list or is empty
+        Exception: If 'station_col' is not a string or is empty
+        Exception: If 'empty' is defined and is not a pandas DataFrame
+        Exception: If maxdiff is defined and is not a positive number
     """
-
     # Sanity check to verify that animals is a Pandas DataFrame
     if not isinstance(animals, pd.DataFrame):
         raise Exception("'animals' must be a DataFrame")

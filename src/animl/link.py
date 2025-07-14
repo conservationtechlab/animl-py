@@ -1,9 +1,9 @@
 """
-    Symlink Module
+Symlink Module
 
-    Provides functions for creating, removing, and updating sorted symlinks.
+Provides functions for creating, removing, and updating sorted symlinks.
 
-    @ Kyra Swanson 2023
+@ Kyra Swanson 2023
 """
 import os
 import argparse
@@ -23,16 +23,16 @@ def sort_species(manifest: DataFrame,
                  unique_name: str = 'UniqueName',
                  copy: bool = False) -> DataFrame:
     """
-    Creates symbolic links of images into species folders
+    Creates symbolic links of images into species folders.
 
-    Args
-        - manifest (DataFrame): dataframe containing images and associated predictions
-        - link_dir (str): root directory for species folders
-        - file_col (str): column containing source paths
-        - unique_name (str): column containing unique file name
-        - copy (bool): if true, hard copy
+    Args:
+        manifest (DataFrame): dataframe containing images and associated predictions
+        link_dir (str): root directory for species folders
+        file_col (str): column containing source paths
+        unique_name (str): column containing unique file name
+        copy (bool): if true, hard copy
 
-    Returns
+    Returns:
         copy of manifest with link path column
     """
     link_dir = Path(link_dir)
@@ -83,15 +83,16 @@ def sort_MD(manifest: DataFrame,
             unique_name: str = 'UniqueName',
             copy: bool = False) -> DataFrame:
     """
-    Creates symbolic links of images into species folders
+    Creates symbolic links of images into MegaDetector class folders
 
-    Args
-        - manifest (DataFrame): dataframe containing images and associated predictions
-        - link_dir (str): root directory for species folders
-        - file_col (str): column containing source paths
-        - copy (bool): if true, hard copy
+    Args:
+        manifest (DataFrame): dataframe containing images and associated predictions
+        link_dir (str): root directory for species folders
+        file_col (str): column containing source paths
+        unique_name (str): column containing unique file name
+        copy (bool): if true, hard copy
 
-    Returns
+    Returns:
         copy of manifest with link path column
     """
     link_dir = Path(link_dir)
@@ -139,11 +140,14 @@ def sort_MD(manifest: DataFrame,
 def remove_link(manifest: DataFrame,
                 link_col: str = 'Link') -> DataFrame:
     """
-    Deletes symbolic links of images
+    Deletes symbolic links of images.
 
-    Args
-        - manifest: dataframe containing images and associated predictions
-        - link_col: column name of paths to remove
+    Args:
+        manifest (pd.DataFrame): dataframe containing images and associated predictions
+        link_col (str): column name of paths to remove
+
+    Returns:
+        manifest without link column
     """
     # delete files
     for _, row in manifest.iterrows():
@@ -157,15 +161,15 @@ def update_labels(manifest: DataFrame,
                   link_dir: str,
                   unique_name: str = 'UniqueName') -> DataFrame:
     """
-    Update manifest after human review of symlink directories
+    Update manifest after human review of symlink directories.
 
-    Args
-        - manifest: dataframe containing images and associated predictions
-        - link_dir: root directory for species folders
-        - unique_name: column to merge sorted labels onto manifest
+    Args:
+        manifest (pd.DataFrame): dataframe containing images and associated predictions
+        link_dir (str): root directory for species folders
+        unique_name (str): column to merge sorted labels onto manifest
 
-    Return
-        - manifest: dataframe with updated
+    Returns:
+        manifest: dataframe with updated predictions
     """
     if unique_name not in manifest.columns:
         raise AssertionError("Manifest does not have unique names, cannot match to sorted directories.")

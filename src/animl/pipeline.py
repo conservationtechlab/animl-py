@@ -1,3 +1,8 @@
+"""
+Automated Pipeline Functions
+
+@ Kyra Swanson 2023
+"""
 import os
 import yaml
 import torch
@@ -13,17 +18,19 @@ def from_paths(image_dir: str,
                classlist_file: str,
                class_label: str = "Code",
                sort: bool = True,
-               simple=True) -> pd.DataFrame:
+               sequence: bool = False) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
 
     Args:
-        - image_dir (str): directory path containing the images or videos.
-        - model_file (str): file path of the MegaDetector model.
-        - class_model (str): file path of the classifier model.
-        - classlist_file (list): list of classes or species for classification.
-        - sort (bool): toggle option to create symlinks
+        image_dir (str): directory path containing the images or videos.
+        detector_file (str): file path of the MegaDetector model.
+        classifier_file (str): file path of the classifier model.
+        classlist_file (list): list of classes or species for classification.
+        class_label: column in the class list that contains the label wanted
+        sort (bool): toggle option to create symlinks
+        sequence (bool): if True, run sequence_classification
 
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
@@ -64,15 +71,14 @@ def from_paths(image_dir: str,
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
     class_list = pd.read_csv(classlist_file)
-    print(len(class_list))
-    classifier = classification.load_model(classifier_file, len(class_list), device=device)
-    predictions_raw = classification.predict_species(animals, classifier, device=device,
-                                                     file_col="Frame", batch_size=4, out_file=working_dir.predictions)
-    if simple:
-        print("Classifying individual frames...")
-        animals = classification.single_classification(animals, predictions_raw, class_list[class_label])
-        manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
-    else:
+    classifier = classification.load_classifier(classifier_file, len(class_list), device=device)
+    predictions_raw = classification.classify(classifier, animals,
+                                              device=device,
+                                              file_col="Frame",
+                                              batch_size=4,
+                                              num_workers=NUM_THREADS,
+                                              out_file=working_dir.predictions)
+    if sequence:
         print("Classifying sequences...")
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
                                                           class_list[class_label],
@@ -81,6 +87,12 @@ def from_paths(image_dir: str,
                                                           sort_columns=None,
                                                           file_col="FilePath",
                                                           maxdiff=60)
+    else:
+        print("Classifying individual frames...")
+        animals = classification.individual_classification(animals, predictions_raw, class_list[class_label])
+        manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+        # TODO: single output per file
+
     # create symlinks
     if sort:
         print("Sorting...")
@@ -92,13 +104,13 @@ def from_paths(image_dir: str,
     return manifest
 
 
-def from_config(config):
+def from_config(config: str):
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
 
     Args:
-        - config (str): path containing config file for inference
+        config (str): path containing config file for inference
 
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
