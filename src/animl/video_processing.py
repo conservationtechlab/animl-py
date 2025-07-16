@@ -130,6 +130,8 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
     videos = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",
                                                         ".mpg", ".mpeg", ".asf", ".m4v"])]
+    
+    videos = videos.drop(columns="Frame", errors='ignore')
 
     if not videos.empty:
         video_frames = []
