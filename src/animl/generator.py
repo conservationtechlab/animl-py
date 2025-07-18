@@ -319,7 +319,6 @@ def train_dataloader(manifest: pd.DataFrame,
                             batch_size=batch_size,
                             num_workers=num_workers,
                             shuffle=True,
-                            num_workers=num_workers,
                             collate_fn=collate_fn)
     return dataLoader
 
@@ -363,7 +362,6 @@ def manifest_dataloader(manifest: pd.DataFrame,
                             num_workers=num_workers,
                             shuffle=False,
                             pin_memory=True,
-                            num_workers=num_workers,
                             collate_fn=collate_fn)
     return dataLoader
 
