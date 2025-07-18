@@ -203,7 +203,7 @@ def classify(model,
 
     # Predict
     with torch.no_grad():
-        for _, batch in tqdm(enumerate(dataset)):
+        for _, batch in tqdm(enumerate(dataset), total=len(dataloader)):
             # pytorch
             if model.framework == "pytorch" or model.framework == "EfficientNet":
                 data = batch[0]
