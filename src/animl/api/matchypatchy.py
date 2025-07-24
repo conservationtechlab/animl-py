@@ -94,7 +94,7 @@ class MiewGenerator(Dataset):
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
         self.normalize = normalize
-        if self.normalize:
+        if self.normalize is True:
             self.transform = Compose([Resize((self.resize_height, self.resize_width)),
                                     ToTensor(),
                                     Normalize(mean=[0.485, 0.456, 0.406],
@@ -130,8 +130,6 @@ class MiewGenerator(Dataset):
 
         img = img.crop((left, top, right, bottom))
         img_tensor = self.transform(img)
-        if not self.normalize:
-            img_tensor = img_tensor * 255
         img.close()
 
         return img_tensor, id
