@@ -30,6 +30,10 @@ megadetector = Path.cwd() / 'models/md_v5a.0.0.pt'
 classifier = Path.cwd() / 'models/sdzwa_southwest_v3.pt'
 class_list = Path.cwd() / 'models/sdzwa_southwest_v3_classes.csv'
 
+workingdir = Path(image_dir) / 'Animl-Directory'
+if workingdir.exists():
+    workingdir.rmdir()
+
 pipeline.from_paths(image_dir, megadetector, classifier, class_list, sort=False)
 
 
@@ -43,7 +47,7 @@ if results_path.exists():
         print("Test Successful!")
     else:
         print(test_manifest.ne(gt_manifest))
-        
+
         print("Test Failure :(")
 
 print(f"Pipeline took {time.time() - start_time:.2f} seconds")
