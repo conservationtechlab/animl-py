@@ -48,7 +48,7 @@ def miew_embedding(model, batch, device=None):
 
 def reid_dataloader(rois, image_path_dict,
                     resize_height=miewid.IMAGE_HEIGHT, resize_width=miewid.IMAGE_WIDTH,
-                    batch_size=1, num_workers=1):
+                    batch_size=1, num_workers=1, normalize = True):
     '''
         Loads a dataset and wraps it in a PyTorch DataLoader object.
         Always dynamically crops
@@ -60,6 +60,7 @@ def reid_dataloader(rois, image_path_dict,
             - resize_height (int): size in pixels for input height
             - batch_size (int): size of each batch
             - num_workers (int): number of processes to handle the data
+            - normalize (bool): tensors are normalized by default, set to false to un-normalize
 
         Returns:
             dataloader object
@@ -67,9 +68,10 @@ def reid_dataloader(rois, image_path_dict,
 
         MIEWIDNET - 440, 440
     '''
+
     dataset_instance = MiewGenerator(rois, image_path_dict,
                                      resize_height=resize_height,
-                                     resize_width=resize_width)
+                                     resize_width=resize_width, normalize=normalize)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
@@ -86,16 +88,20 @@ class MiewGenerator(Dataset):
     Options:
         - resize: dynamically resize images to target (square) [W,H]
     '''
-    def __init__(self, x, image_path_dict, resize_height=440, resize_width=440):
+    def __init__(self, x, image_path_dict, resize_height=440, resize_width=440, normalize=True):
         self.x = x.reset_index()
         self.image_path_dict = image_path_dict
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
-        self.transform = Compose([Resize((self.resize_height, self.resize_width)),
-                                  ToTensor(),
-                                  Normalize(mean=[0.485, 0.456, 0.406],
-                                            std=[0.229, 0.224, 0.225]), ])
-
+        self.normalize = normalize
+        if self.normalize:
+            self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                    ToTensor(),
+                                    Normalize(mean=[0.485, 0.456, 0.406],
+                                                std=[0.229, 0.224, 0.225]), ])
+        else:
+            self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                    ToTensor(), ])
     def __len__(self) -> int:
         return len(self.x)
 
@@ -123,8 +129,10 @@ class MiewGenerator(Dataset):
         bottom = height * (bbox2 + bbox4)
 
         img = img.crop((left, top, right, bottom))
-
         img_tensor = self.transform(img)
+        if not self.normalize:
+            img_tensor = img_tensor * 255
         img.close()
 
         return img_tensor, id
+    
