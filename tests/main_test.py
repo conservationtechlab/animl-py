@@ -41,12 +41,12 @@ results_path = Path(image_dir) / 'Animl-Directory' / 'Data' / 'Results.csv'
 gt_path = Path.cwd() / 'tests' / 'GroundTruth' / 'Data' / 'Results.csv'
 if results_path.exists():
     test_manifest = pd.read_csv(results_path)
-    gt_manifest = pd.read_csv(results_path)
+    gt_manifest = pd.read_csv(gt_path)
 
-    if test_manifest.equals(gt_manifest):
+    if test_manifest['FilePath'].equals(gt_manifest['FilePath']) and test_manifest['prediction'].equals(gt_manifest['prediction']):
         print("Test Successful!")
     else:
-        print(test_manifest.ne(gt_manifest))
+        print(test_manifest.compare(gt_manifest))
 
         print("Test Failure :(")
 
