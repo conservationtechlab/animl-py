@@ -117,7 +117,8 @@ class WorkingDirectory():
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self, working_dir):
-        working_dir = Path(r"" + working_dir)  # OS-agnostic path
+        if type(working_dir) == str:
+            working_dir = Path(r"" + working_dir)  # OS-agnostic path
         if not working_dir.is_dir():
             raise FileNotFoundError(f"The given directory: {working_dir}, does not exist.")
 
