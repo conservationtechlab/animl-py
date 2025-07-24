@@ -18,7 +18,7 @@
 '''
 import time
 start_time = time.time()
-import os
+import shutil
 from pathlib import Path
 import pandas as pd
 
@@ -32,7 +32,7 @@ class_list = Path.cwd() / 'models/sdzwa_southwest_v3_classes.csv'
 
 workingdir = Path(image_dir) / 'Animl-Directory'
 if workingdir.exists():
-    workingdir.rmdir()
+    shutil.rmtree(workingdir)
 
 pipeline.from_paths(image_dir, megadetector, classifier, class_list, sort=False)
 
