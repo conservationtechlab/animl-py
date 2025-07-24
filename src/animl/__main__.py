@@ -16,6 +16,8 @@
 
     @ Kyra Swanson, 2023
 '''
+import time
+start_time = time.time()
 import argparse
 import os
 import wget
@@ -72,3 +74,5 @@ else:
                           out=home)
     # Call the main function
     pipeline.from_paths(args.imagedir_config, args.detector, args.classifier, args.classlist)
+
+print(f"Pipeline took {time.time() - start_time:.2f} seconds")
