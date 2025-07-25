@@ -7,7 +7,9 @@ import os
 import yaml
 import torch
 import pandas as pd
+
 from animl import (classification, detection, file_management, video_processing, split, link)
+from animl.utils import visualization
 from animl.utils.general import get_device, NUM_THREADS
 
 
@@ -74,6 +76,9 @@ def from_paths(image_dir: str,
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
     empty = split.get_empty(detections)
+
+    # Plot boxes
+    # visualization.plot_all_bounding_boxes(animals, 'test/', file_col='Frame', prediction=False)
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")

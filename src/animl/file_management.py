@@ -6,7 +6,7 @@ This module provides functions and classes for managing files and directories.
 @ Kyra Swanson 2023
 """
 import os
-from pathlib import Path
+from pathlib import Path, PosixPath
 from glob import glob
 from datetime import datetime, timedelta
 import pandas as pd
@@ -117,7 +117,7 @@ class WorkingDirectory():
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self, working_dir):
-        if type(working_dir) == str:
+        if not isinstance(working_dir, PosixPath):
             working_dir = Path(r"" + working_dir)  # OS-agnostic path
         if not working_dir.is_dir():
             raise FileNotFoundError(f"The given directory: {working_dir}, does not exist.")
