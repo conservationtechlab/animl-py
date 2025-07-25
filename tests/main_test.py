@@ -18,7 +18,7 @@
 '''
 import time
 start_time = time.time()
-import os
+import shutil
 from pathlib import Path
 import pandas as pd
 
@@ -30,6 +30,10 @@ megadetector = Path.cwd() / 'models/md_v5a.0.0.pt'
 classifier = Path.cwd() / 'models/sdzwa_southwest_v3.pt'
 class_list = Path.cwd() / 'models/sdzwa_southwest_v3_classes.csv'
 
+workingdir = Path(image_dir) / 'Animl-Directory'
+if workingdir.exists():
+    shutil.rmtree(workingdir)
+
 pipeline.from_paths(image_dir, megadetector, classifier, class_list, sort=False)
 
 
@@ -37,13 +41,13 @@ results_path = Path(image_dir) / 'Animl-Directory' / 'Data' / 'Results.csv'
 gt_path = Path.cwd() / 'tests' / 'GroundTruth' / 'Data' / 'Results.csv'
 if results_path.exists():
     test_manifest = pd.read_csv(results_path)
-    gt_manifest = pd.read_csv(results_path)
+    gt_manifest = pd.read_csv(gt_path)
 
-    if test_manifest.equals(gt_manifest):
+    if test_manifest['FilePath'].equals(gt_manifest['FilePath']) and test_manifest['prediction'].equals(gt_manifest['prediction']):
         print("Test Successful!")
     else:
-        print(test_manifest.ne(gt_manifest))
-        
+        print(test_manifest.compare(gt_manifest))
+
         print("Test Failure :(")
 
 print(f"Pipeline took {time.time() - start_time:.2f} seconds")
