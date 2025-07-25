@@ -112,15 +112,15 @@ class MiewGenerator(Dataset):
 
         width, height = img.size
 
-        bbox1 = self.x['bbox_x'].iloc[idx]
-        bbox2 = self.x['bbox_y'].iloc[idx]
-        bbox3 = self.x['bbox_w'].iloc[idx]
-        bbox4 = self.x['bbox_h'].iloc[idx]
+        bbox_x = self.x['bbox_x'].iloc[idx]
+        bbox_y = self.x['bbox_y'].iloc[idx]
+        bbox_w = self.x['bbox_w'].iloc[idx]
+        bbox_h = self.x['bbox_h'].iloc[idx]
 
-        left = width * bbox1
-        top = height * bbox2
-        right = width * (bbox1 + bbox3)
-        bottom = height * (bbox2 + bbox4)
+        left = width * bbox_x
+        top = height * bbox_y
+        right = width * (bbox_x + bbox_w)
+        bottom = height * (bbox_y + bbox_h)
 
         img = img.crop((left, top, right, bottom))
 

@@ -144,15 +144,15 @@ class ImageGenerator(Dataset):
         width, height = img.size
 
         if self.crop:
-            bbox1 = self.x['bbox1'].iloc[idx]
-            bbox2 = self.x['bbox2'].iloc[idx]
-            bbox3 = self.x['bbox3'].iloc[idx]
-            bbox4 = self.x['bbox4'].iloc[idx]
+            bbox_x = self.x['bbox_x'].iloc[idx]
+            bbox_y = self.x['bbox_y'].iloc[idx]
+            bbox_w = self.x['bbox_w'].iloc[idx]
+            bbox_h = self.x['bbox_h'].iloc[idx]
 
-            left = width * bbox1
-            top = height * bbox2
-            right = width * (bbox1 + bbox3)
-            bottom = height * (bbox2 + bbox4)
+            left = width * bbox_x
+            top = height * bbox_y
+            right = width * (bbox_x + bbox_w)
+            bottom = height * (bbox_y + bbox_h)
 
             left = max(0, int(left) - self.buffer)
             top = max(0, int(top) - self.buffer)
@@ -231,7 +231,7 @@ class TrainGenerator(Dataset):
             return ""
 
         if self.crop:
-            identifier = f"{img_path}_{self.x['bbox1']}_{self.x['bbox2']}_{self.x['bbox3']}_{self.x['bbox4']}"
+            identifier = f"{img_path}_{self.x['bbox_x']}_{self.x['bbox_y']}_{self.x['bbox_w']}_{self.x['bbox_h']}"
         else:
             identifier = f"{img_path}"
         hash_id = hashlib.md5(identifier.encode()).hexdigest()
@@ -256,15 +256,15 @@ class TrainGenerator(Dataset):
             if self.crop:
                 width, height = img.size
 
-                bbox1 = self.x['bbox1'].iloc[idx]
-                bbox2 = self.x['bbox2'].iloc[idx]
-                bbox3 = self.x['bbox3'].iloc[idx]
-                bbox4 = self.x['bbox4'].iloc[idx]
+                bbox_x = self.x['bbox_x'].iloc[idx]
+                bbox_y = self.x['bbox_y'].iloc[idx]
+                bbox_w = self.x['bbox_w'].iloc[idx]
+                bbox_h = self.x['bbox_h'].iloc[idx]
 
-                left = width * bbox1
-                top = height * bbox2
-                right = width * (bbox1 + bbox3)
-                bottom = height * (bbox2 + bbox4)
+                left = width * bbox_x
+                top = height * bbox_y
+                right = width * (bbox_x + bbox_w)
+                bottom = height * (bbox_y + bbox_h)
 
                 left = max(0, int(left) - self.buffer)
                 top = max(0, int(top) - self.buffer)
@@ -350,7 +350,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
     Returns:
         dataloader object
     '''
-    if crop is True and not any(manifest.columns.isin(["bbox1"])):
+    if crop is True and not any(manifest.columns.isin(["bbox_x"])):
         crop = False
 
     # default values file_col='file', resize=299
@@ -364,6 +364,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
                             pin_memory=True,
                             collate_fn=collate_fn)
     return dataLoader
+
 
 def collate_fn(batch):
     batch = list(filter(lambda x: x is not None, batch))

@@ -31,8 +31,8 @@ def csv_converter(animals, empty, imagedir, only_animl=True):
     os.makedirs(ICdir, exist_ok=True)
 
     expected_columns = ('FilePath', 'FileName', 'FileModifyDate', 'Frame', 'file',
-                        'max_detection_conf', 'category', 'conf', 'bbox1', 'bbox2', 'bbox3',
-                        'bbox4', 'prediction', 'confidence')
+                        'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
+                        'bbox_h', 'prediction', 'confidence')
 
     for s in expected_columns:
         assert s in animals.columns, 'Expected column {} not found in animals DataFrame'.format(s)

@@ -230,10 +230,10 @@ def convert_yolo_detections(predictions, image_paths):
             for i in range(len(conf)):
                 data = {'category': int(category[i]+1),
                         'conf': float(round(conf[i], 4)),
-                        'bbox1': float(round(boxes[i][0], 4)),
-                        'bbox2': float(round(boxes[i][1], 4)),
-                        'bbox3': float(round(boxes[i][2]-boxes[i][0], 4)),
-                        'bbox4': float(round(boxes[i][3]-boxes[i][1], 4))}
+                        'bbox_x': float(round(boxes[i][0], 4)),
+                        'bbox_y': float(round(boxes[i][1], 4)),
+                        'bbox_w': float(round(boxes[i][2]-boxes[i][0], 4)),
+                        'bbox_h': float(round(boxes[i][3]-boxes[i][1], 4))}
                 detections.append(data)
 
             data = {'file': file,
@@ -283,10 +283,10 @@ def convert_raw_detections(predictions, image_tensors, image_paths):
                 detections.append({
                     'category': str(cls),
                     'conf': conf,
-                    'bbox1': api_box[0],
-                    'bbox2': api_box[1],
-                    'bbox3': api_box[2],
-                    'bbox4': api_box[3],
+                    'bbox_x': api_box[0],
+                    'bbox_y': api_box[1],
+                    'bbox_w': api_box[2],
+                    'bbox_h': api_box[3],
                 })
                 max_conf = max(max_conf, conf)
 
@@ -326,7 +326,7 @@ def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
 
     else:
         df = pd.DataFrame(columns=('file', 'max_detection_conf', 'category', 'conf',
-                                   'bbox1', 'bbox2', 'bbox3', 'bbox4'))
+                                   'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'))
         already_processed = set()
 
     if not isinstance(results, list):
@@ -351,8 +351,8 @@ def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
         if len(detections) == 0:
             data = {'file': frame['file'],
                     'max_detection_conf': frame['max_detection_conf'],
-                    'category': 0, 'conf': None, 'bbox1': None,
-                    'bbox2': None, 'bbox3': None, 'bbox4': None}
+                    'category': 0, 'conf': None, 'bbox_x': None,
+                    'bbox_y': None, 'bbox_w': None, 'bbox_h': None}
             lst.append(data)
 
         else:
@@ -361,10 +361,10 @@ def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
                     data = {'file': frame['file'],
                             'max_detection_conf': frame['max_detection_conf'],
                             'category': detection['category'], 'conf': detection['conf'],
-                            'bbox1': min(max(detection['bbox1'], buffer), 1 - buffer),
-                            'bbox2': min(max(detection['bbox2'], buffer), 1 - buffer),
-                            'bbox3': min(max(detection['bbox3'], buffer), 1 - buffer),
-                            'bbox4': min(max(detection['bbox4'], buffer), 1 - buffer)}
+                            'bbox_x': min(max(detection['bbox_x'], buffer), 1 - buffer),
+                            'bbox_y': min(max(detection['bbox_y'], buffer), 1 - buffer),
+                            'bbox_w': min(max(detection['bbox_w'], buffer), 1 - buffer),
+                            'bbox_h': min(max(detection['bbox_h'], buffer), 1 - buffer)}
                     lst.append(data)
 
     df = pd.DataFrame(lst)
@@ -434,10 +434,10 @@ class CustomYOLO:
                     {
                         "class": int(box.cls.item()),
                         "conf": float(box.conf.item()),
-                        "bbox1": float(box.xyxy[0][0].item()),
-                        "bbox2": float(box.xyxy[0][1].item()),
-                        "bbox3": float(box.xyxy[0][2].item()),  # can be changed to xywh
-                        "bbox4": float(box.xyxy[0][3].item())
+                        "bbox_x": float(box.xyxy[0][0].item()),
+                        "bbox_y": float(box.xyxy[0][1].item()),
+                        "bbox_w": float(box.xyxy[0][2].item()),  # can be changed to xywh
+                        "bbox_h": float(box.xyxy[0][3].item())
                     }
                     for box in prediction[0].boxes
                     if box.conf.item() >= 0.01
@@ -472,7 +472,7 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
         already_processed = set(df['file'])
     else:
         df = pd.DataFrame(columns=('file', 'max_detection_conf', 'category', 'conf',
-                                   'bbox1', 'bbox2', 'bbox3', 'bbox4'))
+                                   'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'))
         already_processed = set()
 
     # Ensure the results are in the expected format
@@ -504,10 +504,10 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
                 'max_detection_conf': None,
                 'category': 0,
                 'conf': None,
-                'bbox1': None,
-                'bbox2': None,
-                'bbox3': None,
-                'bbox4': None,
+                'bbox_x': None,
+                'bbox_y': None,
+                'bbox_w': None,
+                'bbox_h': None,
             }
             lst.append(data)
         else:
@@ -519,15 +519,15 @@ def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, 
                         'max_detection_conf': max(d['conf'] for d in detections),  # Maximum confidence for the frame
                         'category': detection['class'],  # YOLO uses "class" for category
                         'conf': detection['conf'],  # Confidence score
-                        'bbox1': detection['bbox1'],
-                        'bbox2': detection['bbox2'],
-                        'bbox3': detection['bbox3'],
-                        'bbox4': detection['bbox4'],
+                        'bbox_x': detection['bbox_x'],
+                        'bbox_y': detection['bbox_y'],
+                        'bbox_w': detection['bbox_w'],
+                        'bbox_h': detection['bbox_h'],
                     }
                     if convert:
                         image_size = general.get_image_size(frame['file'])
-                        data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4'] = general.absolute_to_relative(
-                            [data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4']], image_size
+                        data['bbox_x'], data['bbox_y'], data['bbox_w'], data['bbox_h'] = general.absolute_to_relative(
+                            [data['bbox_x'], data['bbox_y'], data['bbox_w'], data['bbox_h']], image_size
                         )
                     lst.append(data)
 

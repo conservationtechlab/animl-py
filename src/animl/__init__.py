@@ -8,7 +8,6 @@ from animl import model_architecture
 from animl import models
 from animl import multi_species
 from animl import pipeline
-from animl import plot_boxes
 from animl import reid
 from animl import split
 from animl import test
@@ -30,7 +29,7 @@ from animl.file_management import (IMAGE_EXTENSIONS, VALID_EXTENSIONS,
                                    build_file_manifest, check_file, load_data,
                                    save_data,)
 from animl.generator import (ImageGenerator, ResizeWithPadding, TrainGenerator,
-                             image_to_tensor, manifest_dataloader,
+                             collate_fn, image_to_tensor, manifest_dataloader,
                              train_dataloader,)
 from animl.link import (remove_link, sort_MD, sort_species, update_labels,)
 from animl.model_architecture import (ConvNeXtBase, EfficientNet,)
@@ -43,8 +42,6 @@ from animl.models import (AutoShape, Bottleneck, BottleneckCSP, C3, C3Ghost,
                           check_anchor_order, common, parse_model, yolo,)
 from animl.multi_species import (multi_species_detection,)
 from animl.pipeline import (from_config, from_paths,)
-from animl.plot_boxes import (demo_boxes, draw_bounding_boxes, main,
-                              plot_all_bounding_boxes,)
 from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         ArcMarginProduct, ArcMarginProduct_subcenter,
                         ElasticArcFace, GeM, IMAGE_HEIGHT, IMAGE_WIDTH,
@@ -60,19 +57,22 @@ from animl.utils import (FILE, NUM_THREADS, RANK, ROOT, absolute_to_relative,
                          autopad, box_area, box_iou, check_file,
                          check_img_size, check_python, check_requirements,
                          check_suffix, check_version, clean_str, clip_coords,
-                         convert_yolo_to_xywh, copy_attr, de_parallel,
-                         device_count, exif_transpose, file_age, file_date,
-                         file_size, find_modules, fuse_conv_and_bn, general,
-                         get_device, get_image_size, get_latest_run,
+                         convert_minxywh_to_absxyxy, convert_yolo_to_xywh,
+                         copy_attr, de_parallel, demo_boxes, device_count,
+                         draw_bounding_boxes, exif_transpose, file_age,
+                         file_date, file_size, find_modules, fuse_conv_and_bn,
+                         general, get_device, get_image_size, get_latest_run,
                          increment_path, init_seeds, initialize_weights,
                          intersect_dicts, is_parallel, labels_to_class_weights,
-                         labels_to_image_weights, letterbox, make_divisible,
-                         model_info, non_max_suppression, one_cycle,
+                         labels_to_image_weights, letterbox, main,
+                         make_divisible, model_info, non_max_suppression,
+                         one_cycle, plot_all_bounding_boxes, plot_box,
                          print_args, prune, resample_segments, scale_coords,
                          scale_img, segment2box, segments2boxes, select_device,
                          softmax, sparsity, tensor_to_onnx, time_sync,
-                         truncate_float, truncate_float_array, xyn2xy,
-                         xywh2xyxy, xywhn2xyxy, xyxy2xywh, xyxy2xywhn, yolo5,)
+                         truncate_float, truncate_float_array, visualization,
+                         xyn2xy, xywh2xyxy, xywhn2xyxy, xyxy2xywh, xyxy2xywhn,
+                         yolo5,)
 from animl.video_processing import (extract_frame_single, extract_frames,)
 
 __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
@@ -92,9 +92,10 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'check_anchor_order', 'check_file', 'check_img_size',
            'check_python', 'check_requirements', 'check_suffix',
            'check_version', 'classification', 'classify', 'clean_str',
-           'clip_coords', 'common', 'convert_raw_detections',
-           'convert_yolo_detections', 'convert_yolo_to_xywh', 'copy_attr',
-           'csv_converter', 'de_parallel', 'demo_boxes', 'detect', 'detection',
+           'clip_coords', 'collate_fn', 'common', 'convert_minxywh_to_absxyxy',
+           'convert_raw_detections', 'convert_yolo_detections',
+           'convert_yolo_to_xywh', 'copy_attr', 'csv_converter', 'de_parallel',
+           'demo_boxes', 'detect', 'detection',
            'detection_category_id_to_name', 'device_count',
            'draw_bounding_boxes', 'exif_transpose', 'extract_embeddings',
            'extract_frame_single', 'extract_frames', 'file_age', 'file_date',
@@ -111,7 +112,7 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'matchypatchy', 'miew_embedding', 'miewid', 'model_architecture',
            'model_info', 'models', 'multi_species', 'multi_species_detection',
            'non_max_suppression', 'one_cycle', 'parse_detections',
-           'parse_model', 'pipeline', 'plot_all_bounding_boxes', 'plot_boxes',
+           'parse_model', 'pipeline', 'plot_all_bounding_boxes', 'plot_box',
            'print_args', 'prune', 'reid', 'reid_dataloader', 'remove_link',
            'resample_segments', 'save_classifier', 'save_data', 'scale_coords',
            'scale_img', 'segment2box', 'segments2boxes', 'select_device',
@@ -120,6 +121,6 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'time_sync', 'timelapse', 'train', 'train_dataloader', 'train_func',
            'train_val_test', 'truncate_float', 'truncate_float_array',
            'update_labels', 'utils', 'validate_func', 'video_processing',
-           'viewpoint_estimator', 'weights_init_classifier',
+           'viewpoint_estimator', 'visualization', 'weights_init_classifier',
            'weights_init_kaiming', 'xyn2xy', 'xywh2xyxy', 'xywhn2xyxy',
            'xyxy2xywh', 'xyxy2xywhn', 'yolo', 'yolo5']
