@@ -43,11 +43,20 @@ if results_path.exists():
     test_manifest = pd.read_csv(results_path)
     gt_manifest = pd.read_csv(gt_path)
 
-    if test_manifest['FilePath'].equals(gt_manifest['FilePath']) and test_manifest['prediction'].equals(gt_manifest['prediction']):
-        print("Test Successful!")
-    else:
+    try: 
+        test_manifest['FilePath'].equals(gt_manifest['FilePath']) 
+    except ValueError:
+        print("FilePath columns do not match. Test Failure :(")
         print(test_manifest.compare(gt_manifest))
+        exit(1)
+    
+    try: 
+        test_manifest['prediction'].equals(gt_manifest['prediction'])
+    except ValueError:
+        print("Prediction columns do not match. Test Failure :(")
+        print(test_manifest.compare(gt_manifest))
+        exit(1)
 
-        print("Test Failure :(")
+    print("Test Successful!")
 
 print(f"Pipeline took {time.time() - start_time:.2f} seconds")
