@@ -525,6 +525,27 @@ def absolute_to_relative(bbox, img_size):
     return [x_center, y_center, width, height]
 
 
+def convert_minxywh_to_absxyxy(bbox, width, height):
+    """
+    Converts bounding box from [x_min, y_min, width, height] to [x1, y1, x2, y2] format.
+
+    Args:
+        bbox (list): Bounding box in the format [x_min, y_min, width, height].
+        width (int): Width of the image.
+        height (int): Height of the image.
+
+    Returns:
+        list: Bounding box in the format [x1, y1, x2, y2].
+    """
+    x_min, y_min, w, h = bbox
+    x1 = x_min
+    y1 = y_min
+    x2 = x_min + w
+    y2 = y_min + h
+
+    return [int(x1 * width), int(y1 * height), int(x2 * width), int(y2 * height)]
+
+
 # From MegeDetector/ct_utils
 def convert_yolo_to_xywh(yolo_box):
     """

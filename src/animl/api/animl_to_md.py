@@ -13,7 +13,7 @@
 # file
 # category (MD category identifies: 0==empty, 1==animal, 2==person, 3==vehicle)
 # detection_conf
-# bbox1,bbox2,bbox3,bbox4
+# bbox_x,bbox_y,bbox_w,bbox_h
 # class
 # classification_conf
 #
@@ -41,7 +41,7 @@ def animl_results_to_md_results(input_file, output_file=None):
     df = pd.read_csv(input_file)
 
     expected_columns = ('file', 'category', 'detection_conf',
-                        'bbox1', 'bbox2', 'bbox3', 'bbox4',
+                        'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h',
                         'class', 'classification_conf')
 
     for s in expected_columns:
@@ -73,7 +73,7 @@ def animl_results_to_md_results(input_file, output_file=None):
         detection = {}
         detection['category'] = detection_category_id
         detection['conf'] = row['detection_conf']
-        bbox = [row['bbox1'], row['bbox2'], row['bbox3'], row['bbox4']]
+        bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         detection['bbox'] = bbox
         classification_category_name = row['class']
 
