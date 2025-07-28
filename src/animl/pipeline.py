@@ -82,7 +82,7 @@ def from_paths(image_dir: str,
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
-    class_list = pd.read_csv(classlist_file)
+    class_list = classification.load_class_list(classlist_file)
     classifier = classification.load_classifier(classifier_file, len(class_list), device=device)
     predictions_raw = classification.classify(classifier, animals,
                                               device=device,
@@ -186,7 +186,7 @@ def from_config(config: str):
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
-    class_list = pd.read_csv(cfg['class_list'])
+    class_list = classification.load_class_list(cfg['class_list'])
     classifier = classification.load_classifier(cfg['classifier_file'], len(class_list), device=device)
     predictions_raw = classification.classify(classifier, animals,
                                               device=device,
@@ -211,7 +211,9 @@ def from_config(config: str):
 
     # Create Symlinks
     if cfg.get('sort', False):
-        manifest = link.sort_species(manifest, cfg.get('link_dir', working_dir.linkdir),
+        manifest = link.sort_species(manifest,
+                                     out_dir=cfg.get('link_dir', working_dir.linkdir),
+                                     out_file=working_dir.results,
                                      copy=cfg.get('copy', False))
 
     file_management.save_data(manifest, working_dir.results)
