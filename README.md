@@ -159,44 +159,7 @@ train, val, test, stats = animl.train_val_test(manifest, out_dir='path/to/save/d
                    percentage=(0.7, 0.2, 0.1), seed=None)
 ```
 
-2. Set up training configuration file. Specify the paths to the data splits from the previous step. Example .yaml file:
-```
-seed: 28  # random number generator seed (long integer value)
-device: cuda:0  # set to local gpu device 
-num_workers: 8  # number of cores
-
-# dataset parameters
-num_classes: 53 # might need to be adjusted based on the classes file
-training_set: "/path/to/save/train_data.csv"
-validate_set: "/path/to/save/validate_data.csv"
-test_set: "/path/to/save/test_data.csv"
-class_file: "/home/usr/machinelearning/Models/Animl-Test/test_classes.txt" 
-
-# training hyperparameters
-architecture: "efficientnet_v2_m" # or choose "convnext_base"
-image_size: [299, 299]
-batch_size: 16
-num_epochs: 100
-checkpoint_frequency: 10
-patience: 10 # remove from config file to disable
-learning_rate: 0.003
-weight_decay: 0.001
-
-# overwrite .pt files
-overwrite: False
-experiment_folder: '/home/usr/machinelearning/Models/Animl-Test/'
-
-# model to test
-active_model: '/home/usr/machinelearning/Models/Animl-Test/best.pt' 
-```
-
-class_file refers to a flle that contains index,label pairs. For example:<br>
-test_class.txt
-```
-id,class,Species,Common
-1,cat, Felis catus, domestic cat
-2,dog, Canis familiaris, domestic dog
-```
+2. Set up training configuration file. Specify the paths to the data splits from the previous step. See [config README]()
 
 3. (Optional) Update train.py to include MLOPS connection. 
 
