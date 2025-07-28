@@ -214,7 +214,7 @@ def validate_func(data_loader, model, device="cpu"):
     return loss_total, oa_total, precision, recall
 
 
-def load_checkpoint(model_path, model, optimizer, scheduler, device):
+def load_model_checkpoint(model_path, model, optimizer, scheduler, device):
     '''
     Load checkpoint model weights to resume training.
 
@@ -332,11 +332,11 @@ def main(cfg):
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
     # Load checkpoint for model weights, optimizer state, scheduler state, and actual current_epoch
-    current_epoch = load_checkpoint(cfg['experiment_folder'],
-                                    model,
-                                    optim,
-                                    scheduler,
-                                    device=device)
+    current_epoch = load_model_checkpoint(cfg['experiment_folder'],
+                                          model,
+                                          optim,
+                                          scheduler,
+                                          device=device)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']

@@ -17,12 +17,14 @@
     @ Kyra Swanson, 2023
 '''
 import time
-start_time = time.time()
 import argparse
 import os
 import wget
 
 from animl import pipeline
+
+# Start timer
+start_time = time.time()
 
 # IF RUN FROM COMMAND LINE
 parser = argparse.ArgumentParser(description='Folder locations for the main script')

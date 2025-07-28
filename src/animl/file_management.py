@@ -6,6 +6,8 @@ This module provides functions and classes for managing files and directories.
 @ Kyra Swanson 2023
 """
 import os
+import json
+from shutil import copyfile
 from pathlib import Path, PosixPath
 from glob import glob
 from datetime import datetime, timedelta
@@ -18,6 +20,8 @@ VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
                     ".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
 IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff"}
+VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
+                    ".mpg", ".mpeg", ".asf", ".m4v"}
 
 
 def build_file_manifest(image_dir: str,
@@ -196,6 +200,27 @@ def check_file(file: str) -> bool:
         if input(prompt).lower() == "y":
             return True
     return False
+
+
+def save_checkpoint(checkpoint_path, results):
+    """
+    Save a checkpoint of the detection results to a JSON file.
+    """
+    assert checkpoint_path is not None
+    # Back up any previous checkpoints, to protect against crashes while we're writing
+    # the checkpoint file.
+    checkpoint_tmp_path = None
+    if os.path.isfile(checkpoint_path):
+        checkpoint_tmp_path = str(checkpoint_path) + '_tmp'
+        copyfile(checkpoint_path, checkpoint_tmp_path)
+
+    # Write the new checkpoint
+    with open(checkpoint_path, 'w') as f:
+        json.dump({'images': results}, f, indent=1)
+
+    # Remove the backup checkpoint if it exists
+    if checkpoint_tmp_path is not None:
+        os.remove(checkpoint_tmp_path)
 
 
 def active_times(manifest_dir: str,
