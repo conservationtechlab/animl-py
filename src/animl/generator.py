@@ -177,8 +177,10 @@ class TrainGenerator(Dataset):
         - file_col: column name containing full file paths
         - label_col: column name containing class labels
         - crop: if true, dynamically crop
-        - resize: dynamically resize images to target (square)
-        - agument: add image augmentations at each batch
+        - augment: add image augmentations at each batch
+        - resize_height: size in pixels for input height
+        - resize_width: size in pixels for input width
+        - cache_dir: if not None, use given cache directory to store preprocessed images
     '''
     def __init__(self, x: pd.DataFrame,
                  classes: dict,
@@ -300,6 +302,7 @@ def train_dataloader(manifest: pd.DataFrame,
         manifest (DataFrame): data to be fed into the model
         classes (dict): all possible class labels
         file_col (str): column name containing full file paths
+        label_col (str): column name containing class labels
         crop (bool): if true, dynamically crop images
         augment (bool): flag to augment images within loader
         resize_height (int): size in pixels for input height
