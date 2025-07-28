@@ -51,16 +51,9 @@ def from_paths(image_dir: str,
     # files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[-2])
     print("Found %d files." % len(files))
 
-    # Video-processing to extract individual frames as images in to directory
-    print("Processing videos...")
-    all_frames = video_processing.extract_frames(files,
-                                                 out_dir=working_dir.vidfdir,
-                                                 out_file=working_dir.imageframes,
-                                                 parallel=True,
-                                                 num_workers=NUM_THREADS,
-                                                 frames=3)
+    #split out videos
+    all_frames = video_processing.extract_frames(files)
 
-    # Run all images and video frames through MegaDetector
     print("Running images and video frames through MegaDetector...")
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
@@ -78,7 +71,6 @@ def from_paths(image_dir: str,
                                       checkpoint_frequency=5000)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
-        detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
@@ -161,17 +153,7 @@ def from_config(config: str):
     if station_dir:
         files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[station_dir])
 
-    # Video-processing to extract individual frames as images in to directory
-    print("Processing videos...")
-    fps = cfg.get('fps', None)
-    if fps == "None":
-        fps = None
-    all_frames = video_processing.extract_frames(files,
-                                                 out_dir=working_dir.vidfdir,
-                                                 out_file=working_dir.imageframes,
-                                                 parallel=cfg.get('parallel', True),
-                                                 num_workers=cfg.get('num_workers', NUM_THREADS),
-                                                 frames=cfg.get('frames', 1), fps=fps)
+    all_frames = video_processing.extract_frames(files)
 
     # Run all images and video frames through MegaDetector
     print("Running images and video frames through MegaDetector...")
@@ -180,7 +162,7 @@ def from_config(config: str):
     else:
         detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'mdv5'), device=device)
         md_results = detection.detect(detector,
-                                      all_frames,
+                                      files,
                                       resize_height=model_architecture.MEGADETECTORv5_SIZE,
                                       resize_width=model_architecture.MEGADETECTORv5_SIZE,
                                       file_col=cfg.get('file_col_detection', 'frame'),
@@ -191,7 +173,7 @@ def from_config(config: str):
                                       checkpoint_frequency=cfg.get('checkpoint_frequency', -1))
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
-        detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
+        detections = detection.parse_detections(md_results, manifest=files, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)

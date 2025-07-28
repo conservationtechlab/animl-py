@@ -20,7 +20,6 @@ from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, R
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
 
-
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
@@ -427,7 +426,8 @@ def manifest_dataloader(manifest: pd.DataFrame,
                         resize_width: int = SDZWA_CLASSIFIER_SIZE,
                         transform: Compose = None,
                         batch_size: int = 1,
-                        num_workers: int = 1):
+                        num_workers: int = 1,
+                        video: bool = False) -> DataLoader:
     '''
     Loads a dataset and wraps it in a PyTorch DataLoader object.
 
@@ -469,3 +469,127 @@ def manifest_dataloader(manifest: pd.DataFrame,
 def collate_fn(batch):
     batch = list(filter(lambda x: x is not None, batch))
     return torch.utils.data.dataloader.default_collate(batch)
+
+
+
+class ImageGenerator(Dataset):
+    '''
+    Data generator that crops images on the fly, requires relative bbox coordinates,
+    ie from MegaDetector
+
+    Options:
+        file_col: column name containing full file paths
+        resize_height: size in pixels for input height
+        resize_width: size in pixels for input width
+        crop: if true, dynamically crop
+        crop_coord: if relative, will calculate absolute values based on image size
+        normalize: tensors are normalized by default, set to false to un-normalize
+        transform: torchvision transforms to apply to images
+    '''
+    def __init__(self, x: pd.DataFrame,
+                 file_col: str = "file",
+                 resize_height: int = SDZWA_CLASSIFIER_SIZE,
+                 resize_width: int = SDZWA_CLASSIFIER_SIZE,
+                 crop: bool = True,
+                 crop_coord: str = 'relative',
+                 normalize: bool = True,
+                 letterbox: bool = False,
+                 transform: Compose = None) -> None:
+        self.x = x.reset_index(drop=True)
+        self.file_col = file_col
+        if self.file_col not in self.x.columns:
+            raise ValueError(f"file_col '{self.file_col}' not found in dataframe columns")
+        self.crop = crop
+        if self.crop and not {'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(self.x.columns):
+            raise ValueError("No bbox columns found for cropping")
+        self.crop_coord = crop_coord
+        if self.crop_coord not in ['relative', 'absolute']:
+            raise ValueError("crop_coord must be either 'relative' or 'absolute'")
+
+        self.resize_height = resize_height
+        self.resize_width = resize_width
+        self.buffer = 0
+        self.normalize = normalize
+        self.letterbox = letterbox
+
+        # letterbox and resize
+        if self.letterbox:
+            if transform is None:
+                self.transform = Compose([Letterbox(self.resize_height, self.resize_width),
+                                         ToImage(),
+                                         ToDtype(torch.float32, scale=True),])
+            else:
+                self.transform = Compose([Letterbox(self.resize_height, self.resize_width),
+                                          ToImage(),
+                                          ToDtype(torch.float32, scale=True),
+                                          transform])
+        # simply resize - torch.resize order is H,W
+        else:
+            if transform is None:
+                self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                          ToImage(),
+                                          ToDtype(torch.float32, scale=True),])
+            else:
+                self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                          ToImage(),
+                                          ToDtype(torch.float32, scale=True),
+                                          transform,])
+
+    def __len__(self) -> int:
+        return len(self.x)
+
+    def __getitem__(self, idx: int) -> Tuple[Tensor, str]:
+        image_name = self.x.loc[idx, self.file_col]
+        ext = Path(image_name).suffix.lower()
+
+        try:
+            img = Image.open(image_name).convert('RGB')
+        except OSError:
+            print("File error", image_name)
+            return None
+
+        width, height = img.size
+
+        # maintain aspect ratio if one dimension is zero
+        if self.resize_width > 0 and self.resize_height <= 0:
+            self.height = int(width / height * self.resize_width)
+        elif self.resize_width <= 0 and self.resize_height > 0:
+            self.width = int(height / width * self.height)
+
+        if self.crop:
+            bbox_x = self.x['bbox_x'].iloc[idx]
+            bbox_y = self.x['bbox_y'].iloc[idx]
+            bbox_w = self.x['bbox_w'].iloc[idx]
+            bbox_h = self.x['bbox_h'].iloc[idx]
+
+            if self.crop_coord == 'relative':
+                left = width * bbox_x
+                top = height * bbox_y
+                right = width * (bbox_x + bbox_w)
+                bottom = height * (bbox_y + bbox_h)
+
+                left = max(0, int(left) - self.buffer)
+                top = max(0, int(top) - self.buffer)
+                right = min(width, int(right) + self.buffer)
+                bottom = min(height, int(bottom) + self.buffer)
+                img = img.crop((left, top, right, bottom))
+
+            elif self.crop_coord == 'absolute':
+                left = bbox_x
+                top = bbox_y
+                right = bbox_x + bbox_w
+                bottom = bbox_y + bbox_h
+
+                left = max(0, int(left) - self.buffer)
+                top = max(0, int(top) - self.buffer)
+                right = min(width, int(right) + self.buffer)
+                bottom = min(height, int(bottom) + self.buffer)
+                img = img.crop((left, top, right, bottom))
+
+        img_tensor = self.transform(img)
+        img.close()
+
+        if not self.normalize:  # un-normalize
+            img_tensor = img_tensor * 255
+
+        return img_tensor, str(image_name), torch.tensor((height, width))
