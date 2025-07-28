@@ -79,62 +79,72 @@ The sandbox.ipynb notebook has all of these steps available for further explorat
 
 1. It is recommended that you use the animl working directory for storing intermediate steps.
 ```python
-from animl import file_management
-workingdir = file_management.WorkingDirectory('/path/to/save/data')
+import animl
+workingdir = animl.WorkingDirectory('/path/to/save/data')
 ```
 
 2. Build the file manifest of your given directory. This will find both images and videos.
 ```python
-files = file_management.build_file_manifest('/path/to/images',  out_file=workingdir.filemanifest, exif=True)
+files = animl.build_file_manifest('/path/to/images', out_file=workingdir.filemanifest, exif=True)
 ```
 
 3. If there are videos, extract individual frames for processing.
    Select either the number of frames or fps using the argumments.
    The other option can be set to None or removed.
 ```python
-from animl import video_processing
-allframes = video_processing.extract_frames(files, out_dir=workingdir.vidfdir, out_file=workingdir.imageframes,
-                                            parallel=True, frames=3, fps=None)
+allframes = animl.extract_frames(files, out_dir=workingdir.vidfdir, out_file=workingdir.imageframes,
+                                 parallel=True, frames=3, fps=None)
 ```
 
 4. Pass all images into MegaDetector. We recommend [MDv5a](https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt).
    The function parse_MD will convert the json to a pandas DataFrame and merge detections with the original file manifest, if provided.
 
 ```python
-from animl import detect, megadetector
-detector = megadetector.MegaDetector('/path/to/mdmodel.pt', device='cuda:0')
-mdresults = detect.detect_MD_batch(detector, allframes, file_col="Frame",  checkpoint_path=working_dir.mdraw, quiet=True)
-detections = detect.parse_MD(mdresults, manifest=all_frames, out_file=workingdir.detections)
+detector = animl.load_detector('/path/to/mdmodel.pt', model_type="MDV5", device='cuda:0')
+mdresults = animl.detect(detector, allframes, file_col="Frame", checkpoint_path=working_dir.mdraw, quiet=True)
+detections = animl.parse_detections(mdresults, manifest=all_frames, out_file=workingdir.detections)
 ```
 
 5. For speed and efficiency, extract the empty/human/vehicle detections before classification.
 ```python
-from animl import split
-animals = split.get_animals(detections)
-empty = split.get_empty(detections)
+animals = animl.get_animals(detections)
+empty = animl.get_empty(detections)
 ```
 6. Classify using the appropriate species model. Merge the output with the rest of the detections
    if desired.
 ```python
-from animl import classifiers, inference
-classifier, class_list = classifiers.load_model('/path/to/model', '/path/to/classlist.txt', device='cuda:0')
-animals = inference.predict_species(animals, classifier, class_list, file_col="Frame",
-                                    batch_size=4, out_file=working_dir.predictions)
+class_list = animl.load_class_list('/path/to/classlist.txt')
+classifier = animl.load_classifier('/path/to/model', len(class_list), device='cuda:0')
+raw_predictions = animl.classify(classifier, animals, file_col="Frame",
+                         batch_size=4, out_file=working_dir.predictions)
+```
+
+7. Apply labels from class list with or without utilizing timestamp-based sequences.
+```python
+animals = animl.individual_classification(animals, raw_predictions, class_list['class'])
 manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 ```
-
-7. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
-
+or 
 ```python
-from animl import timelapse, animl_results_to_md_results
-csv_loc = timelapse.csv_converter(animals, empty, imagedir, only_animl = True)
-animl_results_to_md_results.animl_results_to_md_results(csv_loc, imagedir + "final_result.json")
+manifest = animl.sequence_classification(animals, empty, 
+                                         raw_predictions,
+                                         class_list['class'],
+                                         station_col='Station',
+                                         empty_class="",
+                                         sort_columns=None,
+                                         file_col="FilePath",
+                                         maxdiff=60)
 ```
 
-8. (OPTIONAL) Create symlinks within a given directory for file browser access.
+8. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
 ```python
-manifest = link.sort_species(manifest, working_dir.linkdir)
-file_management.save_data(manifest, working_dir.results)
+csv_loc = animl.csv_converter(animals, empty, imagedir, only_animl = True)
+animl.animl_results_to_md_results(csv_loc, imagedir + "final_result.json")
+```
+
+9. (OPTIONAL) Create symlinks within a given directory for file browser access.
+```python
+manifest = animl.sort_species(manifest, out_dir=working_dir.linkdir, out_file=working_dir.results)
 ```
 
 ---
@@ -145,8 +155,7 @@ Training workflows are still under development. Please submit Issues as you come
 1. Assuming a file manifest of training data with species labels, first split the data into training, validation and test splits.
    This function splits each label proportionally by the given percentages, by default 0.7 training, 0.2 validation, 0.1 Test.
 ```python
-from animl import split
-train, val, test, stats = split.train_val_test(manifest, out_dir='path/to/save/data/', label_col="species",
+train, val, test, stats = animl.train_val_test(manifest, out_dir='path/to/save/data/', label_col="species",
                    percentage=(0.7, 0.2, 0.1), seed=None)
 ```
 
