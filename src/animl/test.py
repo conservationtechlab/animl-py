@@ -16,7 +16,8 @@ from sklearn.metrics import confusion_matrix, precision_score, recall_score
 from torch.utils.data import DataLoader
 
 from animl.generator import train_dataloader
-from animl.classification import load_model
+from animl.classification import load_classifier
+from animl.utils.general import NUM_THREADS
 
 
 def test_func(data_loader: DataLoader,
@@ -78,7 +79,7 @@ def main(cfg):
 
     # initialize model and get class list
     classes = pd.read_csv(cfg['class_file'])
-    model = load_model(cfg['active_model'], len(classes), device=device, architecture=cfg['architecture'])
+    model = load_classifier(cfg['active_model'], len(classes), device=device, architecture=cfg['architecture'])
 
     class_list_label = cfg.get('class_list_label', 'class')
     class_list_index = cfg.get('class_list_index', 'id')
@@ -89,7 +90,7 @@ def main(cfg):
     test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
     dl_test = train_dataloader(test_dataset, categories,
                                batch_size=cfg['batch_size'],
-                               workers=cfg['num_workers'],
+                               num_workers=cfg.get('num_workers', NUM_THREADS),
                                file_col=cfg.get('file_col', 'FilePath'),
                                label_col=cfg.get('label_col', 'species'),
                                crop=crop, augment=False,
