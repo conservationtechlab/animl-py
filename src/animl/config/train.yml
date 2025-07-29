@@ -24,7 +24,6 @@ class_list_label: 'class'
 architecture: "efficientnet_v2_m" # or choose "convnext_base"
 image_size: [480, 480]
 crop: True # train on cropped images or not
-crop_coord: 'absolute' #relative or absolute bounding box coordinates
 batch_size: 12
 val_batch_size: 48
 num_epochs: 60
