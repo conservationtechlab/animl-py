@@ -62,20 +62,16 @@ def test_func(data_loader: DataLoader, model: torch.nn.Module, device: Union[str
     return pred_labels, true_labels, filepaths, prec, recall
 
 
-def main():
+def main(cfg):
     '''
     Command line function
 
     Example usage:
     > python test.py --config configs/exp_resnet18.yaml
     '''
-    parser = argparse.ArgumentParser(description='Test species classifier model.')
-    parser.add_argument('--config', help='Path to config file')
-    args = parser.parse_args()
 
     # load config
-    print(f'Using config "{args.config}"')
-    cfg = yaml.safe_load(open(args.config, 'r'))
+
     crop = cfg.get('crop', False)
 
     # check if GPU is available
@@ -120,4 +116,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='Test species classifier model.')
+    parser.add_argument('--config', help='Path to config file')
+    args = parser.parse_args()
+    
+    print(f'Using config "{args.config}"')
+    cfg = yaml.safe_load(open(args.config, 'r'))
+    main(cfg)
