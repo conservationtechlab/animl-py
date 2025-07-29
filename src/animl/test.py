@@ -1,9 +1,9 @@
 '''
-    Training script. Here, we load the training and validation datasets (and
-    data loaders) and the model and train and validate the model accordingly.
+Training script. Here, we load the training and validation datasets (and
+data loaders) and the model and train and validate the model accordingly.
 
-    Original script from
-    2022 Benjamin Kellenberger
+Original script from
+2022 Benjamin Kellenberger
 '''
 import argparse
 import yaml
@@ -19,7 +19,9 @@ from animl.generator import train_dataloader
 from animl.classification import load_model
 
 
-def test_func(data_loader: DataLoader, model: torch.nn.Module, device: Union[str, torch.device] = 'cpu') -> float:
+def test_func(data_loader: DataLoader,
+              model: torch.nn.Module,
+              device: Union[str, torch.device] = 'cpu') -> float:
     '''
     Run trained model on test split
 
@@ -56,10 +58,7 @@ def test_func(data_loader: DataLoader, model: torch.nn.Module, device: Union[str
 
             progressBar.update(1)
 
-    # calculate precision and recall
-    prec = precision_score(true_labels, pred_labels, average='weighted')
-    recall = recall_score(true_labels, pred_labels, average='weighted')
-    return pred_labels, true_labels, filepaths, prec, recall
+    return pred_labels, true_labels, filepaths
 
 
 def main(cfg):
@@ -69,9 +68,6 @@ def main(cfg):
     Example usage:
     > python test.py --config configs/exp_resnet18.yaml
     '''
-
-    # load config
-
     crop = cfg.get('crop', False)
 
     # check if GPU is available
@@ -91,11 +87,19 @@ def main(cfg):
 
     # initialize data loaders for training and validation set
     test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
-    dl_test = train_dataloader(test_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'], 
-                               file_col=cfg.get('file_col', 'FilePath'), label_col=cfg.get('label_col', 'species'), 
-                               crop=crop, augment=False, cache_dir=cfg.get('cache_folder', None), crop_coord=cfg['crop_coord'])
+    dl_test = train_dataloader(test_dataset, categories,
+                               batch_size=cfg['batch_size'],
+                               workers=cfg['num_workers'],
+                               file_col=cfg.get('file_col', 'FilePath'),
+                               label_col=cfg.get('label_col', 'species'),
+                               crop=crop, augment=False,
+                               cache_dir=cfg.get('cache_folder', None))
     # get predictions
-    pred, true, paths, prec, recall = test_func(dl_test, model, device)
+    pred, true, paths = test_func(dl_test, model, device)
+    # calculate precision and recall
+    prec = precision_score(true, pred, average='weighted')
+    recall = recall_score(true, pred, average='weighted')
+
     pred = np.asarray(pred)
     true = np.asarray(true)
 
@@ -119,7 +123,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Test species classifier model.')
     parser.add_argument('--config', help='Path to config file')
     args = parser.parse_args()
-    
+
     print(f'Using config "{args.config}"')
     cfg = yaml.safe_load(open(args.config, 'r'))
     main(cfg)
