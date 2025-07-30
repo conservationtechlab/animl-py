@@ -11,11 +11,10 @@ import yaml
 import os
 from tqdm import trange
 import pandas as pd
-import random
 
 import torch.nn as nn
 import torch
-from torch.backends import cudnn
+
 from torch.optim import SGD, AdamW
 from sklearn.metrics import precision_score, recall_score
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR, CosineAnnealingLR
@@ -23,30 +22,13 @@ from torch.amp import autocast, GradScaler
 
 from animl.generator import train_dataloader
 from animl.classification import save_classifier, load_classifier
-from animl.utils.general import NUM_THREADS
+from animl.utils.general import NUM_THREADS, init_seed
 
+# mlops
 try:
     import comet_ml
 except ImportError:
     comet_ml = None
-
-
-def init_seed(seed):
-    '''
-    Initalize the seed for all random number generators.
-
-    This is important to be able to reproduce results and experiment with different
-    random setups of the same code and experiments.
-
-    Args:
-        seed (int): seed for RNG
-    '''
-    if seed is not None:
-        random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-        cudnn.benchmark = True
-        cudnn.deterministic = True
 
 
 def train_func(data_loader, model, optimizer, scheduler, device='cpu', mixed_precision=False):
