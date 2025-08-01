@@ -40,36 +40,14 @@ def predict_viewpoints(dataset: pd.DataFrame,
     with torch.no_grad():
         for group in grouped: #sequence group
             df = group[1]
-            print(f"df: {df}")
-            print(df.groupby('camera_id').ngroups)
             half1 = df.loc[df.groupby(['camera_id']).ngroup() == 0].reset_index()
-            print(f"half1: {half1}")
             half2 = df.loc[df.groupby(['camera_id']).ngroup() == 1].reset_index()
-            print(f"half2: {half2}")
             if len(half2) > 0: # if there are 2 cameras
                 group1 = matchypatchy.reid_dataloader(half1, image_paths)
-                for batch in enumerate(group1):
-                    g1batch = batch[1]
-                    data = g1batch[0]
-                    data = data.to(device)
-                    prediction1 = model(data) # list of predictions
-                    g1_sums = torch.sum(prediction1, dim=0) # sum predictions for each viewpoint
-                    g1_pred = torch.argmax(g1_sums).item() # return column with the max sum for viewpoint prediction
-                    
-                    # get filepath
-                    g1_paths = g1batch[1]
+                g1_pred, g1_paths = enumerate(group1, device, model)
 
                 group2 = manifest_dataloader(half2, image_paths)
-                for batch in enumerate(group2):
-                    g2batch = batch[1]
-                    data = g2batch[0]
-                    data = data.to(device)
-                    prediction2 = model(data) # list of predictions
-                    g2_sums = torch.sum(prediction2, dim=0) # sum predictions for each viewpoint
-                    g2_pred = torch.argmax(g2_sums).item() # return column with the max sum for viewpoint prediction
-
-                    # get ground truth label
-                    g2_paths = g2batch[1]
+                g2_pred, g2_paths = enumerate(group2, device, model)
 
                 """ #this is currently lowering the overall accuracy
                 if g1_pred == g2_pred: # if viewpoint predictions are the same, whichever group has the higher summed probability will get that viewpoint
@@ -111,6 +89,18 @@ def predict_viewpoints(dataset: pd.DataFrame,
     #return pred_labels, filepaths # output roi id
     return predictions
 
+def enumerate(dataloader, device, model):
+    for batches in enumerate(dataloader):
+                    batch = batches[1]
+                    data = batch[0]
+                    data = data.to(device)
+                    prediction = model(data) # list of predictions
+                    sums = torch.sum(prediction, dim=0) # sum predictions for each viewpoint
+                    pred = torch.argmax(sums).item() # return column with the max sum for viewpoint prediction
+                    
+                    # get filepath
+                    paths = batch[1]
+    return pred, paths
 
 def main():
     '''
