@@ -8,6 +8,7 @@ Provides functions for creating, removing, and updating sorted symlinks.
 import os
 import argparse
 import pandas as pd
+from typing import Optional
 from shutil import copy2
 from random import randrange
 from pathlib import Path
@@ -18,7 +19,8 @@ from animl import file_management
 
 
 def sort_species(manifest: DataFrame,
-                 link_dir: str,
+                 out_dir: str,
+                 out_file: Optional[str] = None,
                  file_col: str = "FilePath",
                  unique_name: str = 'UniqueName',
                  copy: bool = False) -> DataFrame:
@@ -27,7 +29,8 @@ def sort_species(manifest: DataFrame,
 
     Args:
         manifest (DataFrame): dataframe containing images and associated predictions
-        link_dir (str): root directory for species folders
+        out_dir (str): root directory for species folders
+        out_file (Optional[str]): if provided, save the manifest to this file
         file_col (str): column containing source paths
         unique_name (str): column containing unique file name
         copy (bool): if true, hard copy
@@ -35,14 +38,14 @@ def sort_species(manifest: DataFrame,
     Returns:
         copy of manifest with link path column
     """
-    link_dir = Path(link_dir)
+    out_dir = Path(out_dir)
     # Create species folders
     for species in manifest['prediction'].unique():
-        path = link_dir / Path(str(species))
+        path = out_dir / Path(str(species))
         path.mkdir(exist_ok=True)
 
     # create new column
-    manifest['Link'] = link_dir
+    manifest['Link'] = out_dir
 
     for i, row in tqdm(manifest.iterrows()):
         try:
@@ -65,7 +68,7 @@ def sort_species(manifest: DataFrame,
 
             manifest.loc[i, unique_name] = name
 
-        link = link_dir / Path(row['prediction']) / Path(name)
+        link = out_dir / Path(row['prediction']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
         if not link.is_file():
@@ -78,7 +81,8 @@ def sort_species(manifest: DataFrame,
 
 
 def sort_MD(manifest: DataFrame,
-            link_dir: str,
+            out_dir: str,
+            out_file: Optional[str] = None,
             file_col: str = "file",
             unique_name: str = 'UniqueName',
             copy: bool = False) -> DataFrame:
@@ -87,7 +91,8 @@ def sort_MD(manifest: DataFrame,
 
     Args:
         manifest (DataFrame): dataframe containing images and associated predictions
-        link_dir (str): root directory for species folders
+        out_dir (str): root directory for species folders
+        out_file (Optional[str]): if provided, save the manifest to this file
         file_col (str): column containing source paths
         unique_name (str): column containing unique file name
         copy (bool): if true, hard copy
@@ -95,15 +100,15 @@ def sort_MD(manifest: DataFrame,
     Returns:
         copy of manifest with link path column
     """
-    link_dir = Path(link_dir)
+    out_dir = Path(out_dir)
     # Create class subfolders
     classes = ["empty", "animal", "human", "vehicle"]
     for i in range(classes):
-        path = link_dir / Path(classes)
+        path = out_dir / Path(classes)
         path.mkdir(exist_ok=True)
 
     # create new column
-    manifest['Link'] = link_dir
+    manifest['Link'] = out_dir
     for i, row in tqdm(manifest.iterrows()):
         try:
             name = row[unique_name]
@@ -125,7 +130,7 @@ def sort_MD(manifest: DataFrame,
 
             manifest.loc[i, unique_name] = name
 
-        link = link_dir / Path(row['category']) / Path(name)
+        link = out_dir / Path(row['category']) / Path(name)
         manifest.loc[i, 'Link'] = str(link)
 
         if not link.is_file():
@@ -158,14 +163,14 @@ def remove_link(manifest: DataFrame,
 
 
 def update_labels(manifest: DataFrame,
-                  link_dir: str,
+                  out_dir: str,
                   unique_name: str = 'UniqueName') -> DataFrame:
     """
     Update manifest after human review of symlink directories.
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
-        link_dir (str): root directory for species folders
+        out_dir (str): root directory for species folders
         unique_name (str): column to merge sorted labels onto manifest
 
     Returns:
@@ -175,7 +180,7 @@ def update_labels(manifest: DataFrame,
         raise AssertionError("Manifest does not have unique names, cannot match to sorted directories.")
 
     print("Searching directory...")
-    ground_truth = file_management.build_file_manifest(link_dir, exif=False)
+    ground_truth = file_management.build_file_manifest(out_dir, exif=False)
 
     if len(ground_truth) != len(manifest):
         print(f"Warning, found {len(ground_truth)} files in link dir but {len(manifest)} files in manifest.")
@@ -190,7 +195,7 @@ def update_labels(manifest: DataFrame,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Update manifest')
     parser.add_argument('--manifest', help='Path to manifest file')
-    parser.add_argument('--link_dir', help='Sorted directory')
+    parser.add_argument('--out_dir', help='Sorted directory')
     parser.add_argument('--unique', help='Column referring to unique file name', default='UniqueName')
     args = parser.parse_args()
 
@@ -199,6 +204,6 @@ if __name__ == '__main__':
 
     manifest = pd.read_csv(args.manifest)
 
-    new_manifest = update_labels(manifest, args.link_dir, args.unique)
+    new_manifest = update_labels(manifest, args.out_dir, args.unique)
     print("Rewriting manifest...")
     new_manifest.to_csv(os.path.split(args.manifest)[0] + "/Results_corrected.csv", index=False)

@@ -1,11 +1,8 @@
 '''
 Tools for Saving, Loading, and Using Species Classifiers
 
-    @ Kyra Swanson 2023
+@ Kyra Swanson 2023
 '''
-import argparse
-import os
-import yaml
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -13,22 +10,14 @@ from time import time
 from tqdm import tqdm
 
 import torch
-import torch.onnx
 import onnxruntime
 
-from animl import generator, file_management, split
+from animl import generator, file_management
 from animl.model_architecture import EfficientNet, ConvNeXtBase
-from animl.utils.torch_utils import get_device
+from animl.utils.general import get_device, softmax, tensor_to_onnx, NUM_THREADS
 
 
-def softmax(x):
-    '''
-    Helper function to softmax
-    '''
-    return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
-
-
-def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
+def save_classifier(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
     '''
     Saves model state weights.
 
@@ -46,11 +35,9 @@ def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     # get model parameters and add to stats
-    checkpoint = {
-        'model': model.state_dict(),
-        'stats': stats
-    }
-    #save optimizer and scheduler state dicts if they are provided
+    checkpoint = {'model': model.state_dict(),
+                  'stats': stats}
+    # save optimizer and scheduler state dicts if they are provided
     if optimizer is not None or scheduler is not None:
         checkpoint['epoch'] = epoch
     if optimizer is not None:
@@ -59,7 +46,7 @@ def save_model(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
         checkpoint['scheduler'] = scheduler.state_dict()
 
     torch.save(checkpoint, open(f'{out_dir}/{epoch}.pt', 'wb'))
-    
+
 
 def load_classifier(model_path: str, len_classes: int, device=None, architecture="CTL"):
     '''
@@ -76,7 +63,6 @@ def load_classifier(model_path: str, len_classes: int, device=None, architecture
         classes: associated species class list
         start_epoch (int, optional): current epoch, 0 if not resuming training
     '''
-    # read class file
     model_path = Path(model_path)
 
     # check to make sure GPU is available if chosen
@@ -94,34 +80,12 @@ def load_classifier(model_path: str, len_classes: int, device=None, architecture
             model = ConvNeXtBase(len_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
-
-        # model_states = []
-        # for file in os.listdir(model_path):
-        #     if os.path.splitext(file)[1] == ".pt":
-        #         model_states.append(file)
-
-        # if len(model_states):
-        #     # at least one save state found; get latest
-        #     model_epochs = [int(m.replace(model_path, '').replace('.pt', '')) for m in model_states]
-        #     start_epoch = max(model_epochs)
-
-        #     # load state dict and apply weights to model
-        #     print(f'Resuming from epoch {start_epoch}')
-        #     state = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'))
-        #     model.load_state_dict(state['model'])
-        # else:
-        #     # no save state found; start anew
-        #     print('No model state found, starting new model')
-
         return model, start_epoch
 
     # load a specific model file
     elif model_path.is_file():
         print(f'Loading model at {model_path}')
         start_time = time()
-        # TensorFlow
-        # if model_path.endswith('.h5'):
-        #    model = keras.models.load_model(model_path)
         # PyTorch dict
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
@@ -211,41 +175,51 @@ def classify(model,
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
 
-    if not torch.cuda.is_available():
-        device = 'cpu'
-    elif torch.cuda.is_available() and device is None:
-        device = 'cuda:0'
-    else:
-        device = device
+    if device is None:
+        device = get_device()
 
+    # initialize lists
+    raw_output = []
+
+    # Manifest
     if isinstance(detections, pd.DataFrame):
-        # initialize lists
-        raw_output = []
-
         dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=crop,
                                                 resize_width=resize_width, resize_height=resize_height,
-                                                normalize=normalize, batch_size=batch_size, workers=workers)
-
-        with torch.no_grad():
-            for _, batch in tqdm(enumerate(dataset)):
-                # pytorch
-                if model.framework == "pytorch" or model.framework == "EfficientNet":
-                    data = batch[0]
-                    data = data.to(device)
-                    output = model(data)
-                    raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
-
-                # onnx
-                elif model.framework == "onnx":
-                    data = batch[0]
-                    data = tensor_to_onnx(data)
-                    output = model.run(None, {model.get_inputs()[0].name: data})[0]
-                    raw_output.extend(softmax(output))
-
-                else:
-                    raise AssertionError("Model architechture not supported.")
+                                                normalize=normalize, batch_size=batch_size, num_workers=num_workers)
+    # Single File
+    elif isinstance(detections, str):
+        detections = pd.DataFrame({file_col: detections}, index=[0])
+        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
+                                                resize_width=resize_width, resize_height=resize_height,
+                                                normalize=normalize, batch_size=1, num_workers=1)
+    # List of Files
+    elif isinstance(detections, list):
+        detections = pd.DataFrame({file_col: detections}, index=range(len(detections)))
+        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
+                                                resize_width=resize_width, resize_height=resize_height,
+                                                normalize=normalize, batch_size=batch_size, num_workers=1)
     else:
-        raise AssertionError("Input must be a data frame of crops or vector of file names.")
+        raise AssertionError("Input must be a data frame of crops, single file path or vector of file paths.")
+
+    # Predict
+    with torch.no_grad():
+        for _, batch in tqdm(enumerate(dataset), total=len(dataset)):
+            # pytorch
+            if model.framework == "pytorch" or model.framework == "EfficientNet":
+                data = batch[0]
+                data = data.to(device)
+                output = model(data)
+                raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
+
+            # onnx
+            elif model.framework == "onnx":
+                data = batch[0]
+                data = tensor_to_onnx(data)
+                output = model.run(None, {model.get_inputs()[0].name: data})[0]
+                raw_output.extend(softmax(output))
+
+            else:
+                raise AssertionError("Model architechture not supported.")
 
     raw_output = np.vstack(raw_output)
 
@@ -253,7 +227,7 @@ def classify(model,
         file_management.save_data(pd.DataFrame(raw_output), out_file)
 
     return raw_output
-    
+
 
 def individual_classification(animals: pd.DataFrame,
                               predictions_raw: np.array,
@@ -334,7 +308,7 @@ def sequence_classification(animals: pd.DataFrame,
         animals["conf"] = 1
 
     if empty_class > "":
-        empty_col = class_list[class_list == "empty"].index[0]
+        empty_col = class_list[class_list == empty_class].index[0]
     else:
         empty_col = None
 
@@ -386,10 +360,10 @@ def sequence_classification(animals: pd.DataFrame,
         rows = [i]
         last_index = i+1
 
-        while last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, "DateTime"]) \
-            and not pd.isna(animals_sort.loc[last_index, "DateTime"]) \
-            and animals_sort.loc[last_index, station_col] == animals_sort.loc[i, station_col] \
-            and (animals_sort.loc[last_index, "FileModifyDate"] - animals_sort.loc[i, "FileModifyDate"]).total_seconds() <= maxdiff:
+        while (last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, "DateTime"]) and
+               not pd.isna(animals_sort.loc[last_index, "DateTime"]) and
+               animals_sort.loc[last_index, station_col] == animals_sort.loc[i, station_col] and
+               (animals_sort.loc[last_index, "FileModifyDate"] - animals_sort.loc[i, "FileModifyDate"]).total_seconds() <= maxdiff):
             rows.append(last_index)
             last_index += 1
 
@@ -414,8 +388,8 @@ def sequence_classification(animals: pd.DataFrame,
 
                 sel_all_empty = count_values == sum_values
                 sel_mixed = np.where(filtered_animals.isin(sel_all_empty[~sel_all_empty[0]].index))[0]
-                sel_no_empties = np.where(filtered_animals.isin(sel_all_empty[~sel_all_empty[0]].index) & (predclass!=empty_col))[0]
-                    
+                sel_no_empties = np.where(filtered_animals.isin(sel_all_empty[~sel_all_empty[0]].index) & (predclass != empty_col))[0]
+
                 if len(sel_mixed) > 0 and len(sel_no_empties) > 0:
                     predsort_confidence = predsort[rows[sel_no_empties]] * np.reshape(animals_sort.loc[rows[sel_no_empties], 'conf'].values, (-1, 1))
                     predbest = np.mean(predsort_confidence, axis=0)
@@ -435,50 +409,10 @@ def sequence_classification(animals: pd.DataFrame,
             predict_placeholder[rows] = class_list[np.argmax(predbest)]
 
         i = last_index
-        s+=1
+        s += 1
 
     animals_sort['confidence'] = conf_placeholder
     animals_sort['prediction'] = predict_placeholder
     animals_sort['sequence'] = sequence_placeholder
 
     return animals_sort
-
-
-def classify_with_config(config):
-    """
-    Run Classification from Config File
-
-    Args:
-        - config (str): path to config file
-
-    Returns:
-        predictions dataframe
-    """
-    # get config file
-    print(f'Using config "{config}"')
-    cfg = yaml.safe_load(open(config, 'r'))
-
-    manifest = pd.read_csv(cfg['manifest'])
-
-    # get available device
-    device = get_device()
-
-    classifier, class_list = load_model(cfg['classifier_file'], cfg['class_list'],
-                                        device=device, architecture=cfg.get('class_list', "CTL"))
-
-    if cfg.get('split_animals', True):
-        manifest = split.get_animals(manifest)
-
-    predictions = predict_species(manifest, classifier, class_list, device=device, out_file=cfg['out_file'],
-                                  raw=cfg.get('raw', False), file_col=cfg['file_col'], crop=cfg['crop'],
-                                  resize_width=cfg['resize_width'], resize_height=cfg['resize_height'],
-                                  normalize=cfg.get('normalize', True), batch_size=cfg.get('batch_size', 1),
-                                  workers=cfg.get('workers', 1))
-    return predictions
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train deep learning model.')
-    parser.add_argument('--config', help='Path to config file', default='exp_resnet18.yaml')
-    args = parser.parse_args()
-    classify_with_config(args.config)

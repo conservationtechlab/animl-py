@@ -6,7 +6,9 @@ This module provides functions and classes for managing files and directories.
 @ Kyra Swanson 2023
 """
 import os
-from pathlib import Path
+import json
+from shutil import copyfile
+from pathlib import Path, PosixPath
 from glob import glob
 from datetime import datetime, timedelta
 import pandas as pd
@@ -17,8 +19,9 @@ from typing import Optional
 VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
                     ".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
-
 IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff"}
+VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
+                    ".mpg", ".mpeg", ".asf", ".m4v"}
 
 
 def build_file_manifest(image_dir: str,
@@ -55,10 +58,30 @@ def build_file_manifest(image_dir: str,
         return pd.DataFrame()
 
     files = pd.DataFrame(files, columns=["FilePath"])
+    files["Frame"] = files["FilePath"]
     files["FileName"] = files["FilePath"].apply(lambda x: os.path.split(x)[1])
     files["Extension"] = files["FilePath"].apply(lambda x: os.path.splitext(os.path.basename(x))[1].lower())
 
     invalid = []
+
+    def check_time(timestamp):
+        input_formats = ['%Y:%m:%d %H:%M:%S', "%d-%m-%Y %H:%M", "%Y/%m/%d %H:%M:%S"]
+        desired_format = '%Y-%m-%d %H:%M:%S'
+        try:
+            # If it already matches, return as is
+            if datetime.strptime(timestamp, desired_format).strftime(desired_format) == timestamp:
+                return timestamp
+        except ValueError:
+            pass
+        # Try other input formats
+        for fmt in input_formats:
+            try:
+                newtimestamp = datetime.strptime(timestamp, fmt)
+                return newtimestamp.strftime(desired_format)
+            except ValueError:
+                continue
+        # timestamp not recognized
+        return None
 
     if exif:
         for i, row in files.iterrows():
@@ -77,7 +100,7 @@ def build_file_manifest(image_dir: str,
         try:
             # select createdate if exists, else choose filemodify date
             files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
-            files["CreateDate"] = files['CreateDate'].apply(lambda x: datetime.strptime(str(x), '%Y:%m:%d %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S') if isinstance(x, str) else x)
+            files["CreateDate"] = files['CreateDate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
             files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
         except KeyError:
             files["DateTime"] = files["FileModifyDate"]
@@ -98,7 +121,8 @@ class WorkingDirectory():
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self, working_dir):
-        working_dir = Path(r"" + working_dir)  # OS-agnostic path
+        if not isinstance(working_dir, PosixPath):
+            working_dir = Path(r"" + working_dir)  # OS-agnostic path
         if not working_dir.is_dir():
             raise FileNotFoundError(f"The given directory: {working_dir}, does not exist.")
 
@@ -176,6 +200,27 @@ def check_file(file: str) -> bool:
         if input(prompt).lower() == "y":
             return True
     return False
+
+
+def save_checkpoint(checkpoint_path, results):
+    """
+    Save a checkpoint of the detection results to a JSON file.
+    """
+    assert checkpoint_path is not None
+    # Back up any previous checkpoints, to protect against crashes while we're writing
+    # the checkpoint file.
+    checkpoint_tmp_path = None
+    if os.path.isfile(checkpoint_path):
+        checkpoint_tmp_path = str(checkpoint_path) + '_tmp'
+        copyfile(checkpoint_path, checkpoint_tmp_path)
+
+    # Write the new checkpoint
+    with open(checkpoint_path, 'w') as f:
+        json.dump({'images': results}, f, indent=1)
+
+    # Remove the backup checkpoint if it exists
+    if checkpoint_tmp_path is not None:
+        os.remove(checkpoint_tmp_path)
 
 
 def active_times(manifest_dir: str,

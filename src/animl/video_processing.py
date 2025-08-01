@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional, Union, List
 
 from animl import file_management
+from animl.utils.general import NUM_THREADS
 
 
 def extract_frame_single(file_path: Union[str, pd.DataFrame],
@@ -38,11 +39,14 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
         raise NotADirectoryError(f"Output directory {out_dir} does not exist")
 
     cap = cv2.VideoCapture(file_path)
+    if not cap.isOpened():  # corrupted video
+        return
+
     filename = os.path.basename(file_path)
     filename, extension = os.path.splitext(filename)
     uniqueid = '{:05}'.format(randrange(1, 10 ** 5))
     frames_saved = []
-   
+
     # Typechecking FPS
     if fps == 'None':
         fps = None
@@ -90,7 +94,7 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
                    frames: Optional[int] = None,
                    file_col: str = "FilePath",
                    parallel: bool = False,
-                   workers: int = mp.cpu_count(),
+                   num_workers: int = NUM_THREADS,
                    checkpoint: int = 1000):
     """
     Extract frames from video for classification
@@ -117,24 +121,21 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
         print("If both fps and frames are defined fps will be used.")
     if (fps is None) and (frames is None):
         raise AssertionError("Either fps or frames need to be defined.")
-    # if file_management.check_file(outfile):
-    #    temporary = fileManagement.load_data(outfile)
-    #    check against checkpoint
 
     images = files[files[file_col].apply(
-        lambda x: os.path.splitext(x)[1].lower()).isin([".jpg", ".jpeg", ".png"])]
+        lambda x: os.path.splitext(x)[1].lower()).isin(file_management.IMAGE_EXTENSIONS)]
     images = images.assign(Frame=images[file_col])
     images = images.assign(FrameNumber=0)
 
     videos = files[files[file_col].apply(
-        lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",
-                                                        ".mpg", ".mpeg", ".asf", ".m4v"])]
+        lambda x: os.path.splitext(x)[1].lower()).isin(file_management.VIDEO_EXTENSIONS)]
+
+    videos = videos.drop(columns="Frame", errors='ignore')
 
     if not videos.empty:
-        # TODO add checkpoint to parallel
         video_frames = []
         if parallel:
-            pool = mp.Pool(workers)
+            pool = mp.Pool(num_workers)
             output = [pool.apply(extract_frame_single, args=(video, out_dir, fps, frames)) for video in tqdm(videos[file_col])]
             output = list(filter(None, output))
             video_frames = vstack(output)
@@ -145,7 +146,7 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
         else:
             for i, video in tqdm(enumerate(videos[file_col])):
                 output = extract_frame_single(video, out_dir=out_dir,
-                                                     fps=fps, frames=frames)
+                                              fps=fps, frames=frames)
                 if output is not None:
                     video_frames.extend(output)
 

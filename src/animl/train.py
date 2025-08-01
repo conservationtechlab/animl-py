@@ -20,8 +20,10 @@ from torch.optim import SGD, AdamW
 from sklearn.metrics import precision_score, recall_score
 from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR, CosineAnnealingLR
 from torch.amp import autocast, GradScaler
+
 from animl.generator import train_dataloader
-from animl.classification import save_model, load_model
+from animl.classification import save_classifier, load_classifier
+from animl.utils.general import NUM_THREADS
 
 try:
     import comet_ml
@@ -110,7 +112,6 @@ def train_func(data_loader, model, optimizer, scheduler, device='cpu', mixed_pre
             # apply gradients to model parameters
             optimizer.step()
 
-    
         loss_total += loss.item()
 
         pred_label = torch.argmax(prediction, dim=1)
@@ -213,7 +214,11 @@ def validate_func(data_loader, model, device="cpu"):
     return loss_total, oa_total, precision, recall
 
 
+<<<<<<< HEAD
 def load_checkpoint(model_path, model, optimizer, scheduler, device):
+=======
+def load_model_checkpoint(model_path, model, optimizer, scheduler, device):
+>>>>>>> dev
     '''
     Load checkpoint model weights to resume training.
 
@@ -240,11 +245,10 @@ def load_checkpoint(model_path, model, optimizer, scheduler, device):
         # load state dict and apply weights to model
         print(f'Resuming from epoch {start_epoch}')
         checkpoint = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'), map_location=device)
-        
         model.load_state_dict(checkpoint['model'])
         # Model is assumed to be on the correct device already (moved in main before optimizer creation)
-        
-        #load optimzier state if available
+
+        # load optimzier state if available
         if 'optimizer' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
             # Ensure optimizer's state tensors are on the correct device
@@ -253,12 +257,12 @@ def load_checkpoint(model_path, model, optimizer, scheduler, device):
                     if isinstance(v, torch.Tensor) and v.device != device:
                         state[k] = v.to(device)
 
-        #load scheduler state if available
-        if 'scheduler' in checkpoint:      
+        # load scheduler state if available
+        if 'scheduler' in checkpoint:
             scheduler.load_state_dict(checkpoint['scheduler'])
 
-        #get last epoch from model if avialble
-        if 'epoch' in checkpoint: 
+        # get last epoch from model if avialble
+        if 'epoch' in checkpoint:
             return checkpoint['epoch']
         else:
             return start_epoch
@@ -285,8 +289,8 @@ def main(cfg):
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
     crop = cfg.get('crop', True)
-    file_col = cfg.get('file_col', 'FilePath') 
-    label_col = cfg.get('label_col', 'species') 
+    file_col = cfg.get('file_col', 'FilePath')
+    label_col = cfg.get('label_col', 'species')
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -299,23 +303,31 @@ def main(cfg):
     # initialize model and get class list
     classes = pd.read_csv(cfg['class_file'])
     # model will be on CPU after this call if cfg['experiment_folder'] is a directory
-    model, current_epoch = load_model(cfg['experiment_folder'], len(classes), device=device, architecture=cfg['architecture'])
+    model, current_epoch = load_classifier(cfg['experiment_folder'], len(classes), device=device, architecture=cfg['architecture'])
 
     # Move model to the target device BEFORE optimizer initialization
     model.to(device)
     print(f"Model moved to {device}")
 
-    categories = dict([[x[cfg.get('class_list_label', 'class')], x[ cfg.get('class_list_index', 'id')]] for _, x in classes.iterrows()])
+    categories = dict([[x[cfg.get('class_list_label', 'class')], x[cfg.get('class_list_index', 'id')]] for _, x in classes.iterrows()])
 
     # load datasets
     train_dataset = pd.read_csv(cfg['training_set']).reset_index(drop=True)
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
-    
+
     # Initialize data loaders for training and validation set
+<<<<<<< HEAD
     dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
                                 file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),cache_dir=cfg.get('cache_folder', None),crop_coord=cfg['crop_coord'])
     dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size',16), workers=cfg['num_workers'],
                               file_col=file_col, label_col=label_col, crop=crop, augment=False,cache_dir=cfg.get('cache_folder', None), crop_coord=cfg['crop_coord'])
+=======
+    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], num_workers=cfg.get('num_workers', NUM_THREADS),
+                                file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),
+                                cache_dir=cfg.get('cache_folder', None))
+    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size', 16), num_workers=cfg.get('num_workers', NUM_THREADS),
+                              file_col=file_col, label_col=label_col, crop=crop, augment=False, cache_dir=cfg.get('cache_folder', None))
+>>>>>>> dev
 
     # set up model optimizer
     if cfg.get("optimizer", "AdamW") == 'AdamW':
@@ -325,22 +337,30 @@ def main(cfg):
 
     # initialize scheduler
     if cfg.get("scheduler", True):
-        #scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=cfg['patience'])
-        scheduler = CosineAnnealingLR(optim, T_max=cfg.get('t_max',100), eta_min=0)
+        # scheduler = ReduceLROnPlateau(optim, mode='min', factor=0.5, patience=cfg['patience'])
+        scheduler = CosineAnnealingLR(optim, T_max=cfg.get('t_max', 100), eta_min=0)
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
     # Load checkpoint for model weights, optimizer state, scheduler state, and actual current_epoch
+<<<<<<< HEAD
     current_epoch = load_checkpoint(cfg['experiment_folder'],
                                     model,
                                     optim,
                                     scheduler,
                                     device=device,
                                     mixed_precision=mixed_precision)
+=======
+    current_epoch = load_model_checkpoint(cfg['experiment_folder'],
+                                          model,
+                                          optim,
+                                          scheduler,
+                                          device=device)
+>>>>>>> dev
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
-    frozen_epochs = cfg.get('frozen_epochs', 1) 
+    frozen_epochs = cfg.get('frozen_epochs', 1)
     if 'patience' in cfg:
         patience = cfg['patience']
         early_stopping = True
@@ -354,11 +374,10 @@ def main(cfg):
     log_file = cfg.get('log_file', None)
     if log_file is not None and current_epoch == 0:
         with open(log_file, 'a') as f:
-            f.write(f"Epoch,LearningRate,Train_Loss,Train_Accuracy,Val_Loss,Val_Accuracy,Precision,Recall\n")
-            
+            f.write("Epoch,LearningRate,Train_Loss,Train_Accuracy,Val_Loss,Val_Accuracy,Precision,Recall\n")
+
     # training loop
     while current_epoch < numEpochs:
-
         current_epoch += 1
         print(f'Epoch {current_epoch}/{numEpochs}')
         print(f"Using learning rate : {scheduler.get_last_lr()[0]}")
@@ -380,7 +399,7 @@ def main(cfg):
             'precision': precision,
             'recall': recall
         }
-        
+
         # Log epoch stats to file
         if log_file:
             with open(log_file, 'a') as f:
@@ -390,19 +409,27 @@ def main(cfg):
 
         # <current_epoch>.pt checkpoint saving every *checkpoint_frequency* epochs
         checkpoint = cfg.get('checkpoint_frequency', 10)
+<<<<<<< HEAD
 
         if comet_ml:
             experiment.log_metrics(stats, step=current_epoch)
 
         if current_epoch % checkpoint == 0:
             save_model(cfg['experiment_folder'], current_epoch, model, stats,optim,scheduler)
+=======
+>>>>>>> dev
 
+        if comet_ml:
+            experiment.log_metrics(stats, step=current_epoch)
+
+        if current_epoch % checkpoint == 0:
+            save_classifier(cfg['experiment_folder'], current_epoch, model, stats, optim, scheduler)
 
         # best.pt saving
         if loss_val < best_val_loss:
             best_val_loss = loss_val
             epochs_no_improve = 0
-            save_model(cfg['experiment_folder'], 'best', model, stats)
+            save_classifier(cfg['experiment_folder'], 'best', model, stats)
             print(f"Current best model saved at epoch {current_epoch} with ...")
             print(f"     val loss : {best_val_loss:.5f}")
             print(f"       val OA : {oa_val:.5f}")
@@ -412,7 +439,7 @@ def main(cfg):
             epochs_no_improve += 1
 
         # last.pt saving
-        save_model(cfg['experiment_folder'], 'last', model, stats)
+        save_classifier(cfg['experiment_folder'], 'last', model, stats)
 
         # if user specified early stopping
         if early_stopping:

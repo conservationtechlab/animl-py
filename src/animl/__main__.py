@@ -16,10 +16,15 @@
 
     @ Kyra Swanson, 2023
 '''
+import time
 import argparse
 import os
 import wget
+
 from animl import pipeline
+
+# Start timer
+start_time = time.time()
 
 # IF RUN FROM COMMAND LINE
 parser = argparse.ArgumentParser(description='Folder locations for the main script')
@@ -40,21 +45,17 @@ args = parser.parse_args()
 
 # first argument is config file
 if os.path.isfile(args.imagedir_config):
-    pipeline.main_config(args.imagedir_config)
+    pipeline.from_config(args.imagedir_config)
 
 # first argument is a directory
 else:
-    prompt = "megadetector or custom yolo? m/c: "
-    if input(prompt).lower() == "m":
-        if not os.path.isfile(args.detector):
-            prompt = "MegaDetector not found, would you like to download? y/n: "
-            if input(prompt).lower() == "y":
-                if not os.path.isdir(home):
-                    os.mkdir(home)
-                print('Saving to', home)
-                wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt', out=home)
-    elif input(prompt).lower() == "c":
-        args.detector = "C"
+    if not os.path.isfile(args.detector):
+        prompt = "MegaDetector not found, would you like to download? y/n: "
+        if input(prompt).lower() == "y":
+            if not os.path.isdir(home):
+                os.mkdir(home)
+            print('Saving to', home)
+            wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt', out=home)
 
     if not os.path.isfile(args.classifier):
         prompt = "Classifier not found, would you like to download Southwest_v3? y/n: "
@@ -75,3 +76,5 @@ else:
                           out=home)
     # Call the main function
     pipeline.from_paths(args.imagedir_config, args.detector, args.classifier, args.classlist)
+
+print(f"Pipeline took {time.time() - start_time:.2f} seconds")

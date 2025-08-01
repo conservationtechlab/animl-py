@@ -230,10 +230,10 @@ def convert_yolo_detections(predictions, image_paths):
             for i in range(len(conf)):
                 data = {'category': int(category[i]+1),
                         'conf': float(round(conf[i], 4)),
-                        'bbox1': float(round(boxes[i][0], 4)),
-                        'bbox2': float(round(boxes[i][1], 4)),
-                        'bbox3': float(round(boxes[i][2]-boxes[i][0], 4)),
-                        'bbox4': float(round(boxes[i][3]-boxes[i][1], 4))}
+                        'bbox_x': float(round(boxes[i][0], 4)),
+                        'bbox_y': float(round(boxes[i][1], 4)),
+                        'bbox_w': float(round(boxes[i][2]-boxes[i][0], 4)),
+                        'bbox_h': float(round(boxes[i][3]-boxes[i][1], 4))}
                 detections.append(data)
 
             data = {'file': file,
@@ -283,10 +283,10 @@ def convert_raw_detections(predictions, image_tensors, image_paths):
                 detections.append({
                     'category': str(cls),
                     'conf': conf,
-                    'bbox1': api_box[0],
-                    'bbox2': api_box[1],
-                    'bbox3': api_box[2],
-                    'bbox4': api_box[3],
+                    'bbox_x': api_box[0],
+                    'bbox_y': api_box[1],
+                    'bbox_w': api_box[2],
+                    'bbox_h': api_box[3],
                 })
                 max_conf = max(max_conf, conf)
 
@@ -326,7 +326,7 @@ def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
 
     else:
         df = pd.DataFrame(columns=('file', 'max_detection_conf', 'category', 'conf',
-                                   'bbox1', 'bbox2', 'bbox3', 'bbox4'))
+                                   'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'))
         already_processed = set()
 
     if not isinstance(results, list):
@@ -351,8 +351,8 @@ def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
         if len(detections) == 0:
             data = {'file': frame['file'],
                     'max_detection_conf': frame['max_detection_conf'],
-                    'category': 0, 'conf': None, 'bbox1': None,
-                    'bbox2': None, 'bbox3': None, 'bbox4': None}
+                    'category': 0, 'conf': None, 'bbox_x': None,
+                    'bbox_y': None, 'bbox_w': None, 'bbox_h': None}
             lst.append(data)
 
         else:
@@ -361,10 +361,10 @@ def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
                     data = {'file': frame['file'],
                             'max_detection_conf': frame['max_detection_conf'],
                             'category': detection['category'], 'conf': detection['conf'],
-                            'bbox1': min(max(detection['bbox1'], buffer), 1 - buffer),
-                            'bbox2': min(max(detection['bbox2'], buffer), 1 - buffer),
-                            'bbox3': min(max(detection['bbox3'], buffer), 1 - buffer),
-                            'bbox4': min(max(detection['bbox4'], buffer), 1 - buffer)}
+                            'bbox_x': min(max(detection['bbox_x'], buffer), 1 - buffer),
+                            'bbox_y': min(max(detection['bbox_y'], buffer), 1 - buffer),
+                            'bbox_w': min(max(detection['bbox_w'], buffer), 1 - buffer),
+                            'bbox_h': min(max(detection['bbox_h'], buffer), 1 - buffer)}
                     lst.append(data)
 
     df = pd.DataFrame(lst)
@@ -376,171 +376,3 @@ def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
         file_management.save_data(df, out_file)
 
     return df
-
-
-# TODO: check if still necessary ===============================================
-'''
-class CustomYOLO:
-    """ Custom YOLO class for image detection"""
-    def __init__(self, config_path="custom_yolo.yaml", device="cpu"):
-        """
-        Initializes YOLO with settings from a configuration file.
-        """
-        with open(config_path, "r") as f:
-            self.config = yaml.safe_load(f)
-
-        model_path = self.config["detector_file"]
-        self.device = self.config["device"]
-
-        try:
-            self.model = YOLO(model_path)  # Load the YOLO model
-            self.model.to(self.device)    # Move model to device (CPU/GPU)
-        except Exception as e:
-            raise ValueError(f"Failed to load the YOLO model from {model_path}: {e}")
-
-    # TODO try to feed it from the manifest
-    def detect_batch(self, image_input=None, image_size=None):
-        """
-        Runs YOLO on a batch of images.
-        - Inputs: image_input can be a folder path (str) or a DataFrame.
-        - Outputs: a list of dictionaries with image file paths and detections
-        """
-        if image_input is None:
-            image_input = self.config["paths"]["image_folder"]
-
-        if isinstance(image_input, str) and os.path.isdir(image_input):
-            image_file_names = [
-                os.path.join(image_input, f) for f in os.listdir(image_input)
-                if f.lower().endswith(('.png', '.jpg', '.jpeg'))
-            ]
-            print(f'Found {len(image_file_names)} images in {image_input}')
-
-        elif isinstance(image_input, pd.DataFrame):
-            file_col = self.config["file_col"]  # Column that stores file paths
-            image_file_names = image_input[file_col].tolist()
-            print(f'Loaded {len(image_file_names)} images from DataFrame.')
-        elif isinstance(image_input, list):
-            image_file_names = image_input
-            print(f'Processing {len(image_file_names)} image files from a list.')
-
-        else:
-            raise ValueError("Invalid input: image_input must be a folder path, DataFrame, or a list.")
-
-        results = []
-        for image_file in tqdm(image_file_names):
-            try:
-                prediction = self.model.predict(image_file)
-                detections = [
-                    {
-                        "class": int(box.cls.item()),
-                        "conf": float(box.conf.item()),
-                        "bbox1": float(box.xyxy[0][0].item()),
-                        "bbox2": float(box.xyxy[0][1].item()),
-                        "bbox3": float(box.xyxy[0][2].item()),  # can be changed to xywh
-                        "bbox4": float(box.xyxy[0][3].item())
-                    }
-                    for box in prediction[0].boxes
-                    if box.conf.item() >= 0.01
-                ]
-
-                results.append({"file": image_file, "detections": detections})
-
-            except Exception as e:
-                print(f"Detection failed for image {image_file}: {e}")
-                print(f"Error occurred at line: {e.__traceback__.tb_lineno}")
-        return results
-
-
-def parse_YOLO(results, manifest=None, out_file=None, buffer=0.02, threshold=0, file_col="Frame", convert=True):
-    """
-    Converts YOLO detection results to a formatted DataFrame, similar to parse_MD.
-
-    Args:
-        - results (list): YOLO detection output (list of dictionaries with detections for each file)
-        - manifest (pd.DataFrame): Full file manifest, if not None, merge YOLO predictions automatically
-        - out_file (str): Path to save the resulting DataFrame
-        - buffer (float): Adjust bbox by percentage of img size to avoid clipping out of bounds
-        - threshold (float): Parse only detections above the given confidence threshold
-        - file_col (str): Column name in the manifest to match with YOLO detection filenames
-
-    Returns:
-        - df (pd.DataFrame): Formatted YOLO outputs, one row per detection
-    """
-    # Load checkpoint if it exists
-    if file_management.check_file(out_file):
-        df = file_management.load_data(out_file)
-        already_processed = set(df['file'])
-    else:
-        df = pd.DataFrame(columns=('file', 'max_detection_conf', 'category', 'conf',
-                                   'bbox1', 'bbox2', 'bbox3', 'bbox4'))
-        already_processed = set()
-
-    # Ensure the results are in the expected format
-    if not isinstance(results, list):
-        raise AssertionError("YOLO results input must be a list.")
-
-    if len(results) == 0:
-        raise AssertionError("'results' contains no detections.")
-
-    # Parse results into a list of dictionaries
-    lst = []
-
-    for frame in tqdm(results):
-        # Skip already analyzed files
-        if frame['file'] in already_processed:
-            continue
-
-        # Extract detections for the frame
-        try:
-            detections = frame['detections']
-        except KeyError:
-            print(f"File error: {frame['file']}")
-            continue
-
-        # Handle files with no detections
-        if len(detections) == 0:
-            data = {
-                'file': frame['file'],
-                'max_detection_conf': None,
-                'category': 0,
-                'conf': None,
-                'bbox1': None,
-                'bbox2': None,
-                'bbox3': None,
-                'bbox4': None,
-            }
-            lst.append(data)
-        else:
-            # Process each detection
-            for detection in detections:
-                if detection['conf'] > threshold:
-                    data = {
-                        'file': frame['file'],
-                        'max_detection_conf': max(d['conf'] for d in detections),  # Maximum confidence for the frame
-                        'category': detection['class'],  # YOLO uses "class" for category
-                        'conf': detection['conf'],  # Confidence score
-                        'bbox1': detection['bbox1'],
-                        'bbox2': detection['bbox2'],
-                        'bbox3': detection['bbox3'],
-                        'bbox4': detection['bbox4'],
-                    }
-                    if convert:
-                        image_size = general.get_image_size(frame['file'])
-                        data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4'] = general.absolute_to_relative(
-                            [data['bbox1'], data['bbox2'], data['bbox3'], data['bbox4']], image_size
-                        )
-                    lst.append(data)
-
-    # Create DataFrame from the parsed data
-    df = pd.DataFrame(lst)
-
-    # Merge with manifest if provided
-    if isinstance(manifest, pd.DataFrame):
-        df = manifest.merge(df, left_on=file_col, right_on="file")
-
-    # Save to file if specified
-    if out_file:
-        file_management.save_data(df, out_file)
-
-    return df
-'''

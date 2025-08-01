@@ -5,9 +5,12 @@ Custom generators for training and inference
 
 @ Kyra Swanson 2023
 """
-from typing import Tuple, Dict
+import hashlib
+import os
+from typing import Tuple
 import pandas as pd
 from PIL import Image, ImageOps, ImageFile
+
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
@@ -15,7 +18,8 @@ from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalF
                                     RandomAffine, RandomGrayscale, RandomApply,
                                     ColorJitter, GaussianBlur)
 
-import os
+from animl.utils.general import _setup_size
+
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -121,11 +125,9 @@ class ImageGenerator(Dataset):
         self.resize_width = int(resize_width)
         self.buffer = 0
         self.normalize = normalize
-        self.transform = Compose([
-            # torch.resize order is H,W
-            Resize((self.resize_height, self.resize_width)),
-            ToTensor(),
-            ])
+        # torch.resize order is H,W
+        self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                  ToTensor(), ])
 
     def __len__(self) -> int:
         return len(self.x)
@@ -137,21 +139,20 @@ class ImageGenerator(Dataset):
             img = Image.open(image_name).convert('RGB')
         except OSError:
             print("File error", image_name)
-            del self.x.iloc[idx]
-            return self.__getitem__(idx)
+            return None
 
         width, height = img.size
 
         if self.crop:
-            bbox1 = self.x['bbox1'].iloc[idx]
-            bbox2 = self.x['bbox2'].iloc[idx]
-            bbox3 = self.x['bbox3'].iloc[idx]
-            bbox4 = self.x['bbox4'].iloc[idx]
+            bbox_x = self.x['bbox_x'].iloc[idx]
+            bbox_y = self.x['bbox_y'].iloc[idx]
+            bbox_w = self.x['bbox_w'].iloc[idx]
+            bbox_h = self.x['bbox_h'].iloc[idx]
 
-            left = width * bbox1
-            top = height * bbox2
-            right = width * (bbox1 + bbox3)
-            bottom = height * (bbox2 + bbox4)
+            left = width * bbox_x
+            top = height * bbox_y
+            right = width * (bbox_x + bbox_w)
+            bottom = height * (bbox_y + bbox_h)
 
             left = max(0, int(left) - self.buffer)
             top = max(0, int(top) - self.buffer)
@@ -168,8 +169,6 @@ class ImageGenerator(Dataset):
         return img_tensor, image_name
 
 
-
-# currently working on this class
 class TrainGenerator(Dataset):
     '''
     Data generator for training. Requires a list of possible classes
@@ -200,8 +199,9 @@ class TrainGenerator(Dataset):
         self.crop = crop
         self.augment = augment
         self.cache_dir = cache_dir
-        self.crop_coord = crop_coord
-        
+        if self.cache_dir is not None:
+            os.makedirs(self.cache_dir, exist_ok=True)
+
         augmentations = Compose([
                                 # random horizontal flip
                                 RandomHorizontalFlip(p=0.5),
@@ -220,17 +220,19 @@ class TrainGenerator(Dataset):
                                       Resize((self.resize_height, self.resize_width)),
                                       ToTensor(), ])
         else:
-            self.transform = Compose([
-                                      Resize((self.resize_height, self.resize_width)),
+            self.transform = Compose([Resize((self.resize_height, self.resize_width)),
                                       ToTensor(), ])
         self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
 
     def __len__(self):
         return len(self.x)
-    
+
     def _get_cache_path(self, img_path):
+        if self.cache_dir is None:
+            return ""
+
         if self.crop:
-            identifier = f"{img_path}_{self.x['bbox1']}_{self.x['bbox2']}_{self.x['bbox3']}_{self.x['bbox4']}"
+            identifier = f"{img_path}_{self.x['bbox_x']}_{self.x['bbox_y']}_{self.x['bbox_w']}_{self.x['bbox_h']}"
         else:
             identifier = f"{img_path}"
         hash_id = hashlib.md5(identifier.encode()).hexdigest()
@@ -241,7 +243,7 @@ class TrainGenerator(Dataset):
         label = self.categories[self.x.loc[idx, self.label_col]]
         cache_path = self._get_cache_path(image_name)
 
-        if self.cache_dir is not None and os.path.exists(cache_path):
+        if os.path.exists(cache_path):
             img = Image.open(cache_path).convert("RGB")
             img_tensor = self.transform(img)
             return img_tensor, label, image_name
@@ -250,28 +252,21 @@ class TrainGenerator(Dataset):
                 img = Image.open(image_name).convert('RGB')
             except OSError:
                 print("File error", image_name)
-                self.x = self.x.drop(idx, axis=0).reset_index()
-                return self.__getitem__(idx)
+                return None
 
             if self.crop:
                 width, height = img.size
 
-                if self.crop_coord == 'relative':
-                    bbox1 = self.x['bbox1'].iloc[idx]
-                    bbox2 = self.x['bbox2'].iloc[idx]
-                    bbox3 = self.x['bbox3'].iloc[idx]
-                    bbox4 = self.x['bbox4'].iloc[idx]
+                bbox_x = self.x['bbox_x'].iloc[idx]
+                bbox_y = self.x['bbox_y'].iloc[idx]
+                bbox_w = self.x['bbox_w'].iloc[idx]
+                bbox_h = self.x['bbox_h'].iloc[idx]
 
-                    left = width * bbox1
-                    top = height * bbox2
-                    right = width * (bbox1 + bbox3)
-                    bottom = height * (bbox2 + bbox4)
-                else: #given x,y,w,h
-                    left = self.x['bbox1'].iloc[idx]
-                    top = self.x['bbox2'].iloc[idx]
-                    right = left + self.x['bbox3'].iloc[idx]
-                    bottom = top + self.x['bbox4'].iloc[idx]
-                    
+                left = width * bbox_x
+                top = height * bbox_y
+                right = width * (bbox_x + bbox_w)
+                bottom = height * (bbox_y + bbox_h)
+
                 left = max(0, int(left) - self.buffer)
                 top = max(0, int(top) - self.buffer)
                 right = min(width, int(right) + self.buffer)
@@ -282,7 +277,6 @@ class TrainGenerator(Dataset):
 
             img_tensor = self.transform(img)
             if self.cache_dir is not None:
-                os.makedirs(self.cache_dir, exist_ok=True)
                 img.save(cache_path, format="JPEG")
             img.close()
 
@@ -322,13 +316,13 @@ def train_dataloader(manifest: pd.DataFrame,
     '''
     dataset_instance = TrainGenerator(manifest, classes, file_col, label_col=label_col, crop=crop,
                                       resize_height=resize_height, resize_width=resize_width,
-                                      augment=augment,cache_dir=cache_dir,crop_coord=crop_coord)
+                                      augment=augment, cache_dir=cache_dir)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
                             num_workers=num_workers,
                             shuffle=True,
-                            pin_memory=True)
+                            collate_fn=collate_fn)
     return dataLoader
 
 
@@ -359,7 +353,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
     Returns:
         dataloader object
     '''
-    if crop is True and not any(manifest.columns.isin(["bbox1"])):
+    if crop is True and not any(manifest.columns.isin(["bbox_x"])):
         crop = False
 
     # default values file_col='file', resize=299
@@ -370,5 +364,11 @@ def manifest_dataloader(manifest: pd.DataFrame,
                             batch_size=batch_size,
                             num_workers=num_workers,
                             shuffle=False,
-                            pin_memory=True)
+                            pin_memory=True,
+                            collate_fn=collate_fn)
     return dataLoader
+
+
+def collate_fn(batch):
+    batch = list(filter(lambda x: x is not None, batch))
+    return torch.utils.data.dataloader.default_collate(batch)
