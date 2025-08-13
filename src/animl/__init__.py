@@ -8,6 +8,7 @@ from animl import model_architecture
 from animl import models
 from animl import multi_species
 from animl import pipeline
+from animl import pose
 from animl import reid
 from animl import split
 from animl import test
@@ -43,6 +44,7 @@ from animl.models import (AutoShape, Bottleneck, BottleneckCSP, C3, C3Ghost,
                           check_anchor_order, common, parse_model, yolo,)
 from animl.multi_species import (multi_species_detection,)
 from animl.pipeline import (from_config, from_paths,)
+from animl.pose import (predict, predict_by_camera, predict_viewpoints,)
 from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         ArcMarginProduct, ArcMarginProduct_subcenter,
                         ElasticArcFace, GeM, IMAGE_HEIGHT, IMAGE_WIDTH,
@@ -115,7 +117,8 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'model_architecture', 'model_info', 'models', 'multi_species',
            'multi_species_detection', 'non_max_suppression', 'one_cycle',
            'parse_detections', 'parse_model', 'pipeline',
-           'plot_all_bounding_boxes', 'plot_box', 'print_args', 'prune',
+           'plot_all_bounding_boxes', 'plot_box', 'pose', 'predict',
+           'predict_by_camera', 'predict_viewpoints', 'print_args', 'prune',
            'reid', 'reid_dataloader', 'remove_link', 'resample_segments',
            'save_checkpoint', 'save_classifier', 'save_data', 'scale_coords',
            'scale_img', 'segment2box', 'segments2boxes', 'select_device',
