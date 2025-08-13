@@ -214,11 +214,7 @@ def validate_func(data_loader, model, device="cpu"):
     return loss_total, oa_total, precision, recall
 
 
-<<<<<<< HEAD
-def load_checkpoint(model_path, model, optimizer, scheduler, device):
-=======
 def load_model_checkpoint(model_path, model, optimizer, scheduler, device):
->>>>>>> dev
     '''
     Load checkpoint model weights to resume training.
 
@@ -316,18 +312,11 @@ def main(cfg):
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
 
     # Initialize data loaders for training and validation set
-<<<<<<< HEAD
-    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
-                                file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),cache_dir=cfg.get('cache_folder', None),crop_coord=cfg['crop_coord'])
-    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size',16), workers=cfg['num_workers'],
-                              file_col=file_col, label_col=label_col, crop=crop, augment=False,cache_dir=cfg.get('cache_folder', None), crop_coord=cfg['crop_coord'])
-=======
     dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], num_workers=cfg.get('num_workers', NUM_THREADS),
                                 file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),
                                 cache_dir=cfg.get('cache_folder', None))
     dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size', 16), num_workers=cfg.get('num_workers', NUM_THREADS),
                               file_col=file_col, label_col=label_col, crop=crop, augment=False, cache_dir=cfg.get('cache_folder', None))
->>>>>>> dev
 
     # set up model optimizer
     if cfg.get("optimizer", "AdamW") == 'AdamW':
@@ -343,20 +332,11 @@ def main(cfg):
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
     # Load checkpoint for model weights, optimizer state, scheduler state, and actual current_epoch
-<<<<<<< HEAD
-    current_epoch = load_checkpoint(cfg['experiment_folder'],
-                                    model,
-                                    optim,
-                                    scheduler,
-                                    device=device,
-                                    mixed_precision=mixed_precision)
-=======
     current_epoch = load_model_checkpoint(cfg['experiment_folder'],
                                           model,
                                           optim,
                                           scheduler,
                                           device=device)
->>>>>>> dev
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
@@ -409,15 +389,6 @@ def main(cfg):
 
         # <current_epoch>.pt checkpoint saving every *checkpoint_frequency* epochs
         checkpoint = cfg.get('checkpoint_frequency', 10)
-<<<<<<< HEAD
-
-        if comet_ml:
-            experiment.log_metrics(stats, step=current_epoch)
-
-        if current_epoch % checkpoint == 0:
-            save_model(cfg['experiment_folder'], current_epoch, model, stats,optim,scheduler)
-=======
->>>>>>> dev
 
         if comet_ml:
             experiment.log_metrics(stats, step=current_epoch)
