@@ -5,6 +5,7 @@ Tools for splitting the data for different workflows
 """
 import pandas as pd
 import numpy as np
+from sklearn.model_selection import GroupShuffleSplit
 from math import fsum
 from typing import Optional, Tuple
 
@@ -97,7 +98,8 @@ def train_val_test(manifest: pd.DataFrame,
                    label_col: str = "species",
                    file_col: str = 'FilePath',
                    percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
-                   seed: Optional[int] = None):
+                   seed: Optional[int] = None,
+                   repeat_column: Optional[str] = None):
     '''
     Splits the manifest into training. validation and test dataets for training
 

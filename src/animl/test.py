@@ -11,7 +11,7 @@ import pandas as pd
 import torch
 import numpy as np
 from typing import Union
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_score, recall_score
 from torch.utils.data import DataLoader
 
 from animl.generator import train_dataloader
@@ -58,7 +58,10 @@ def test_func(data_loader: DataLoader,
 
             progressBar.update(1)
 
-    return pred_labels, true_labels, filepaths
+    # calculate precision and recall
+    prec = precision_score(true_labels, pred_labels, average='weighted')
+    recall = recall_score(true_labels, pred_labels, average='weighted')
+    return pred_labels, true_labels, filepaths, prec, recall
 
 
 def main(cfg):
@@ -99,7 +102,7 @@ def main(cfg):
                                cache_dir=cfg.get('cache_folder', None))
 
     # get predictions
-    pred, true, paths = test_func(dl_test, model, device)
+    pred, true, paths, prec, recall = test_func(dl_test, model, device)
     pred = np.asarray(pred)
     true = np.asarray(true)
 
@@ -108,7 +111,10 @@ def main(cfg):
 
     results = pd.DataFrame({'FilePath': paths,
                             'Ground Truth': true,
-                            'Predicted': pred})
+                            'Predicted': pred,
+                            'Accuracy': oa,
+                            'Precision': prec,
+                            'Recall': recall})
     results.to_csv(cfg['experiment_folder'] + "/test_results.csv")
 
     cm = confusion_matrix(true, pred)

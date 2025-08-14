@@ -177,8 +177,9 @@ class TrainGenerator(Dataset):
         - file_col: column name containing full file paths
         - label_col: column name containing class labels
         - crop: if true, dynamically crop
+        - crop_coord: if relative, will calculate absolute values
         - resize: dynamically resize images to target (square)
-        - agument: add image augmentations at each batch
+        - augment: add image augmentations at each batch
     '''
     def __init__(self, x: pd.DataFrame,
                  classes: dict,
