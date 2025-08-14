@@ -8,7 +8,7 @@ import yaml
 import torch
 import pandas as pd
 
-from animl import (classification, detection, file_management, video_processing, split, link)
+from animl import (classification, detection, export, file_management, video_processing, split)
 from animl.utils import visualization
 from animl.utils.general import get_device, NUM_THREADS
 
@@ -82,7 +82,7 @@ def from_paths(image_dir: str,
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
-    class_list = pd.read_csv(classlist_file)
+    class_list = classification.load_class_list(classlist_file)
     classifier = classification.load_classifier(classifier_file, len(class_list), device=device)
     predictions_raw = classification.classify(classifier, animals,
                                               device=device,
@@ -108,7 +108,7 @@ def from_paths(image_dir: str,
     # create symlinks
     if sort:
         print("Sorting...")
-        manifest = link.sort_species(manifest, working_dir.linkdir)
+        manifest = export.sort_species(manifest, working_dir.linkdir)
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
@@ -186,7 +186,7 @@ def from_config(config: str):
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
-    class_list = pd.read_csv(cfg['class_list'])
+    class_list = classification.load_class_list(cfg['class_list'])
     classifier = classification.load_classifier(cfg['classifier_file'], len(class_list), device=device)
     predictions_raw = classification.classify(classifier, animals,
                                               device=device,
@@ -211,8 +211,10 @@ def from_config(config: str):
 
     # Create Symlinks
     if cfg.get('sort', False):
-        manifest = link.sort_species(manifest, cfg.get('link_dir', working_dir.linkdir),
-                                     copy=cfg.get('copy', False))
+        manifest = export.sort_species(manifest,
+                                       out_dir=cfg.get('link_dir', working_dir.linkdir),
+                                       out_file=working_dir.results,
+                                       copy=cfg.get('copy', False))
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))

@@ -25,7 +25,7 @@ import torch
 import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
-
+from torch.backends import cudnn
 
 try:
     import thop  # for FLOPs computation
@@ -208,6 +208,24 @@ def time_sync():
 # TRAINING
 # ==============================================================================
 
+def init_seed(seed):
+    '''
+    Initalize the seed for all random number generators.
+
+    This is important to be able to reproduce results and experiment with different
+    random setups of the same code and experiments.
+
+    Args:
+        seed (int): seed for RNG
+    '''
+    if seed is not None:
+        random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        cudnn.benchmark = True
+        cudnn.deterministic = True
+
+
 def is_parallel(model):
     # Returns True if model is of type DP or DDP
     return type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
@@ -228,7 +246,6 @@ def initialize_weights(model):
             m.momentum = 0.03
         elif t in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU]:
             m.inplace = True
-
 
 def find_modules(model, mclass=nn.Conv2d):
     # Finds layer indices matching module class 'mclass'
@@ -592,7 +609,7 @@ def clip_coords(boxes, shape):
 
 
 # ==============================================================================
-# 
+# MDV5
 # ==============================================================================
 
 def box_area(box):
