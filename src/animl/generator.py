@@ -272,8 +272,6 @@ class TrainGenerator(Dataset):
                 right = min(width, int(right) + self.buffer)
                 bottom = min(height, int(bottom) + self.buffer)
                 img = img.crop((left, top, right, bottom))
-                
-
 
             img_tensor = self.transform(img)
             if self.cache_dir is not None:

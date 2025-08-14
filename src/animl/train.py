@@ -279,9 +279,9 @@ def main(cfg):
     cfg = yaml.safe_load(open(cfg, 'r'))
 
     if comet_ml:
-        experiment = comet_ml.Experiment({"api_key": cfg.get('coment_api_key', None), 
-                                         "project_name": cfg.get('comet_project_name', None),
-                                         "workspace": cfg.get('comet_workspace', None)})
+        experiment = comet_ml.Experiment({"api_key": cfg.get('coment_api_key', None),
+                                          "project_name": cfg.get('comet_project_name', None),
+                                          "workspace": cfg.get('comet_workspace', None)})
 
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
