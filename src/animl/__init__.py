@@ -56,7 +56,7 @@ from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
 from animl.split import (get_animals, get_animals_custom, get_empty,
                          get_empty_custom, train_val_test,)
 from animl.test import (main, test_func,)
-from animl.train import (init_seed, load_model_checkpoint, main, train_func,
+from animl.train import (load_model_checkpoint, main, train_func,
                          validate_func,)
 from animl.utils import (FILE, NUM_THREADS, RANK, ROOT, absolute_to_relative,
                          autopad, box_area, box_iou, check_file,
@@ -67,17 +67,17 @@ from animl.utils import (FILE, NUM_THREADS, RANK, ROOT, absolute_to_relative,
                          draw_bounding_boxes, exif_transpose, file_age,
                          file_date, file_size, find_modules, fuse_conv_and_bn,
                          general, get_device, get_image_size, get_latest_run,
-                         increment_path, init_seeds, initialize_weights,
-                         intersect_dicts, is_parallel, labels_to_class_weights,
-                         labels_to_image_weights, letterbox, main,
-                         make_divisible, model_info, non_max_suppression,
-                         one_cycle, plot_all_bounding_boxes, plot_box,
-                         print_args, prune, resample_segments, scale_coords,
-                         scale_img, segment2box, segments2boxes, select_device,
-                         softmax, sparsity, tensor_to_onnx, time_sync,
-                         truncate_float, truncate_float_array, visualization,
-                         xyn2xy, xywh2xyxy, xywhn2xyxy, xyxy2xywh, xyxy2xywhn,
-                         yolo5,)
+                         increment_path, init_seed, init_seeds,
+                         initialize_weights, intersect_dicts, is_parallel,
+                         labels_to_class_weights, labels_to_image_weights,
+                         letterbox, main, make_divisible, model_info,
+                         non_max_suppression, one_cycle,
+                         plot_all_bounding_boxes, plot_box, print_args, prune,
+                         resample_segments, scale_coords, scale_img,
+                         segment2box, segments2boxes, select_device, softmax,
+                         sparsity, tensor_to_onnx, time_sync, truncate_float,
+                         truncate_float_array, visualization, xyn2xy,
+                         xywh2xyxy, xywhn2xyxy, xyxy2xywh, xyxy2xywhn, yolo5,)
 from animl.video_processing import (extract_frame_single, extract_frames,)
 
 __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
