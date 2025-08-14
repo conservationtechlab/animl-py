@@ -8,7 +8,7 @@ import yaml
 import torch
 import pandas as pd
 
-from animl import (classification, detection, file_management, video_processing, split, link)
+from animl import (classification, detection, export, file_management, video_processing, split)
 from animl.utils import visualization
 from animl.utils.general import get_device, NUM_THREADS
 
@@ -108,7 +108,7 @@ def from_paths(image_dir: str,
     # create symlinks
     if sort:
         print("Sorting...")
-        manifest = link.sort_species(manifest, working_dir.linkdir)
+        manifest = export.sort_species(manifest, working_dir.linkdir)
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
@@ -211,10 +211,10 @@ def from_config(config: str):
 
     # Create Symlinks
     if cfg.get('sort', False):
-        manifest = link.sort_species(manifest,
-                                     out_dir=cfg.get('link_dir', working_dir.linkdir),
-                                     out_file=working_dir.results,
-                                     copy=cfg.get('copy', False))
+        manifest = export.sort_species(manifest,
+                                       out_dir=cfg.get('link_dir', working_dir.linkdir),
+                                       out_file=working_dir.results,
+                                       copy=cfg.get('copy', False))
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))

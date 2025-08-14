@@ -183,6 +183,38 @@ def load_data(file: str) -> pd.DataFrame:
         raise AssertionError("Error. Expecting a .csv file.")
 
 
+def save_json(data: dict, out_file: str) -> None:
+    """
+    Save data to a JSON file.
+
+    Args:
+        data (dict): the dictionary to be saved
+        out_file (str): full path to save file to
+
+    Returns:
+        None
+    """
+    with open(out_file, 'w') as f:
+        json.dump(data, f, indent=4)
+
+
+def load_json(file: str) -> dict:
+    """
+    Load data from a JSON file.
+
+    Args:
+        file (str): the full path of the file to load
+
+    Returns:
+        data extracted from the file. dict form
+    """
+    if os.path.splitext(file)[1] == ".json":
+        with open(file, 'r') as f:
+            return json.load(f)
+    else:
+        raise AssertionError("Error. Expecting a .json file.")
+
+
 def check_file(file: str) -> bool:
     """
     Check for files existence and prompt user if they want to load.

@@ -6,7 +6,6 @@ parse_detections() converts json output into a dataframe
 
 @ Kyra Swanson 2023
 """
-import json
 import os
 import time
 import typing
@@ -133,9 +132,7 @@ def detect(detector,
 
     # load checkpoint
     if file_management.check_file(checkpoint_path):
-        with open(checkpoint_path, 'r') as f:
-            data = json.load(f)
-            results = data['images']
+        results = file_management.load_json(checkpoint_path)
     else:
         results = []
 
@@ -186,8 +183,7 @@ def detect(detector,
                 copyfile(checkpoint_path, checkpoint_tmp_path)
 
             # Write the new checkpoint
-            with open(checkpoint_path, 'w') as f:
-                json.dump({'images': results}, f, indent=1)
+            file_management.save_json({'images': results}, checkpoint_path)
 
             # Remove the backup checkpoint if it exists
             if checkpoint_tmp_path is not None:
