@@ -3,9 +3,9 @@ device: cuda:0  # set to local gpu device
 num_workers: 8  # number of cores
 
 #comet ml
-api_key: "your_api_key"
-project_name: "project"
-workspace: "your_workspace"
+comet_api_key: "your_api_key"
+comet_project_name: "project"
+comet_workspace: "your_workspace"
 
 # dataset parameters
 num_classes: 53 # adjust to the classes file
