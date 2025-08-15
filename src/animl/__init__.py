@@ -51,9 +51,10 @@ from animl.pose import (predict, predict_by_camera, predict_viewpoints,)
 from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         ArcMarginProduct, ArcMarginProduct_subcenter,
                         ElasticArcFace, GeM, IMAGE_HEIGHT, IMAGE_WIDTH,
-                        MiewIdNet, extract_embeddings, heads, l2_norm,
+                        MiewIdNet, extract_miew_embeddings, heads, l2_norm,
                         load_miew, miewid, weights_init_classifier,
-                        weights_init_kaiming,)
+                        weights_init_kaiming,euclidean_squared_distance,
+                        cosine_distance, compute_distance_matrix, compute_batched_distance_matrix,)
 from animl.split import (get_animals, get_empty, train_val_test,)
 from animl.test import (test_func, test_main,)
 from animl.train import (load_model_checkpoint, train_func, train_main,
@@ -98,13 +99,13 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'check_file', 'check_img_size', 'check_python',
            'check_requirements', 'check_suffix', 'check_version',
            'classification', 'classify', 'clean_str', 'clip_coords',
-           'collate_fn', 'common', 'convert_animl_to_md',
-           'convert_minxywh_to_absxyxy', 'convert_raw_detections',
-           'convert_yolo_detections', 'convert_yolo_to_xywh', 'copy_attr',
+           'collate_fn', 'common', 'compute_distance_matrix','compute_batched_distance_matrix',
+           'convert_animl_to_md', 'convert_minxywh_to_absxyxy', 'convert_raw_detections',
+           'convert_yolo_detections', 'convert_yolo_to_xywh', 'copy_attr','cosine_distance',
            'de_parallel', 'demo_boxes', 'detect', 'detection', 'device_count',
-           'download', 'download_model', 'draw_bounding_boxes',
+           'download', 'download_model', 'draw_bounding_boxes','euclidean_squared_distance',
            'exif_transpose', 'export', 'export_coco', 'export_megadetector',
-           'export_timelapse', 'extract_embeddings', 'extract_frame_single',
+           'export_timelapse', 'extract_miew_embeddings', 'extract_frame_single',
            'extract_frames', 'file_age', 'file_date', 'file_management',
            'file_size', 'find_modules', 'from_config', 'from_paths',
            'fuse_conv_and_bn', 'general', 'generator', 'get_animals',
@@ -134,3 +135,6 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'visualization', 'weights_init_classifier', 'weights_init_kaiming',
            'xyn2xy', 'xywh2xyxy', 'xywhn2xyxy', 'xyxy2xywh', 'xyxy2xywhn',
            'yolo', 'yolo5']
+
+  
+           

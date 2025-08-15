@@ -6,11 +6,16 @@ from animl.reid.heads import (ArcFaceLossAdaptiveMargin,
                               ArcMarginProduct_subcenter, ElasticArcFace,
                               l2_norm,)
 from animl.reid.miewid import (GeM, IMAGE_HEIGHT, IMAGE_WIDTH, MiewIdNet,
-                               extract_embeddings, load_miew,
+                               extract_miew_embeddings, load_miew,
                                weights_init_classifier, weights_init_kaiming,)
+from animl.reid.distance import (euclidean_squared_distance,
+                                 cosine_distance, compute_distance_matrix, compute_batched_distance_matrix,)
+
 
 __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'ArcMarginProduct', 'ArcMarginProduct_subcenter', 'ElasticArcFace',
            'GeM', 'IMAGE_HEIGHT', 'IMAGE_WIDTH', 'MiewIdNet',
-           'extract_embeddings', 'heads', 'l2_norm', 'load_miew', 'miewid',
-           'weights_init_classifier', 'weights_init_kaiming']
+           'extract_miew_embeddings', 'heads', 'l2_norm', 'load_miew', 'miewid',
+           'weights_init_classifier', 'weights_init_kaiming',
+           'euclidean_squared_distance', 'cosine_distance', 'compute_distance_matrix',
+           'compute_batched_distance_matrix']
