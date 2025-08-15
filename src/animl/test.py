@@ -62,13 +62,16 @@ def test_func(data_loader: DataLoader,
     return pred_labels, true_labels, filepaths
 
 
-def main(cfg):
+def test_main(cfg):
     '''
     Command line function
 
     Example usage:
     > python test.py --config configs/exp_resnet18.yaml
     '''
+    # load cfg file
+    cfg = yaml.safe_load(open(cfg, 'r'))
+
     crop = cfg.get('crop', False)
 
     # check if GPU is available
@@ -126,5 +129,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f'Using config "{args.config}"')
-    cfg = yaml.safe_load(open(args.config, 'r'))
-    main(cfg)
+    test_main(args.config)

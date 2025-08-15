@@ -19,7 +19,6 @@
 import time
 import argparse
 import os
-import wget
 
 from animl import pipeline
 import animl.models.download as models
@@ -64,7 +63,7 @@ else:
         prompt = "Class list not found, would you like to download Southwest_v3? y/n: "
         if input(prompt).lower() == "y":
             models.download_model(models.CLASS_LIST['SDZWA_Southwest_v3'], out_dir=home)
-    
+
     # Call the main function
     pipeline.from_paths(args.imagedir_config, args.detector, args.classifier, args.classlist)
 

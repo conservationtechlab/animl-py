@@ -52,50 +52,9 @@ def get_empty(manifest: pd.DataFrame):
     return otherdf
 
 
-# TODO: remove with custom_yolo function
-def get_animals_custom(manifest: pd.DataFrame, prediction_dict: dict):
-    """
-    Pulls MD animal custom detections for classification.
-
-    Args:
-        manifest (pd.DataFrame): DataFrame containing one row for every MD detection.
-        prediction_dict (dict, optional): Mapping for converting detection category numbers to labels.
-
-    Returns:
-        pd.DataFrame: Subset of manifest containing only animal detections.
-    """
-    # Convert 'category' to integer.
-    manifest['prediction'] = manifest['category'].astype(int)
-    mapping = {int(k): v for k, v in prediction_dict.items()}
-    manifest['prediction'] = manifest['prediction'].replace(mapping)
-    manifest['prediction'] = manifest['prediction'].astype(str)
-
-    manifest.loc[manifest['max_detection_conf'].isna(), 'prediction'] = "empty"
-    animal_manifest = manifest[manifest['prediction'] != "empty"].reset_index(drop=True)
-    return animal_manifest
-
-
-def get_empty_custom(manifest: pd.DataFrame):
-    """
-    Pulls MD non-animal detections.
-
-    Args:
-        manifest (pd.DataFrame): DataFrame containing one row for every MD detection.
-
-    Returns:
-        pd.DataFrame: Subset of manifest containing empty, vehicle, and human detections,
-                      with added 'prediction' and 'confidence' columns. If a detection has no
-                      confidence value, it is labeled as "empty".
-    """
-    # If the confidence value is missing (NaN), treat that detection as "empty".
-    manifest.loc[manifest['max_detection_conf'].isna(), 'prediction'] = "empty"
-
-    return manifest
-
-
 def train_val_test(manifest: pd.DataFrame,
                    out_dir: Optional[str] = None,
-                   label_col: str = "species",
+                   label_col: str = "Class",
                    file_col: str = 'FilePath',
                    percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
                    seed: Optional[int] = None,
@@ -179,8 +138,8 @@ def train_val_test(manifest: pd.DataFrame,
         statsdf.to_csv(out_dir + "/data_split.csv")
 
         # save to csv
-        train.to_csv(out_dir + "/train_data.csv")
-        validate.to_csv(out_dir + "/validate_data.csv")
-        test.to_csv(out_dir + "/test_data.csv")
+        train.to_csv(out_dir + "/train_data.csv", index=False)
+        validate.to_csv(out_dir + "/validate_data.csv", index=False)
+        test.to_csv(out_dir + "/test_data.csv", index=False)
 
     return train, validate, test, stats

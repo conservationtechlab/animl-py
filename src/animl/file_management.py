@@ -130,12 +130,12 @@ class WorkingDirectory():
         self.datadir = self.basedir / Path("Data/")
         self.vidfdir = self.basedir / Path("Frames/")
         self.linkdir = self.basedir / Path("Sorted/")
+        self.visdir = self.basedir / Path("Plots/")
 
         # Create directories if they do not already exist
         self.basedir.mkdir(exist_ok=True)
         self.datadir.mkdir(exist_ok=True)
         self.vidfdir.mkdir(exist_ok=True)
-        self.linkdir.mkdir(exist_ok=True)
 
         # Assign specific file paths
         self.filemanifest = self.datadir / Path("FileManifest.csv")
@@ -144,6 +144,12 @@ class WorkingDirectory():
         self.predictions = self.datadir / Path("Predictions.csv")
         self.detections = self.datadir / Path("Detections.csv")
         self.mdraw = self.datadir / Path("MD_Raw.json")
+
+    def activate_visdir(self):
+        self.visdir.mkdir(exist_ok=True)
+
+    def activate_linkdir(self):
+        self.linkdir.mkdir(exist_ok=True)
 
 
 def save_data(data: pd.DataFrame, out_file: str, prompt: bool = True) -> None:

@@ -17,7 +17,7 @@ import torch
 
 from torch.optim import SGD, AdamW
 from sklearn.metrics import precision_score, recall_score
-from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR  # , ReduceLROnPlateau
 from torch.amp import autocast, GradScaler
 
 from animl.generator import train_dataloader
@@ -250,7 +250,7 @@ def load_model_checkpoint(model_path, model, optimizer, scheduler, device):
         return 0
 
 
-def main(cfg):
+def train_main(cfg):
     '''
     Command line function
 
@@ -261,12 +261,11 @@ def main(cfg):
     cfg = yaml.safe_load(open(cfg, 'r'))
 
     if comet_ml:
-        api_key = cfg.get('coment_api_key',None)
+        api_key = cfg.get('coment_api_key', None)
         if api_key:
-          experiment = comet_ml.Experiment({"api_key": api_key,
-                                            "project_name": cfg.get('comet_project_name', None),
-                                            "workspace": cfg.get('comet_workspace', None)})
-
+            experiment = comet_ml.Experiment({"api_key": api_key,
+                                              "project_name": cfg.get('comet_project_name', None),
+                                              "workspace": cfg.get('comet_workspace', None)})
 
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
@@ -324,6 +323,8 @@ def main(cfg):
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
+    print(scheduler)
+
     # Load checkpoint for model weights, optimizer state, scheduler state, and actual current_epoch
     current_epoch = load_model_checkpoint(cfg['experiment_folder'],
                                           model,
@@ -359,7 +360,7 @@ def main(cfg):
             for param in model.parameters():
                 param.requires_grad = True
 
-        loss_train, oa_train = train_func(dl_train, model, optim, device, mixed_precision=mixed_precision)
+        loss_train, oa_train = train_func(dl_train, model, optim, scheduler, device, mixed_precision=mixed_precision)
         loss_val, oa_val, precision, recall = validate_func(dl_val, model, device)
 
         # combine stats and save
@@ -419,4 +420,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f'Using config "{args.config}"')
-    main(args.config)
+    train_main(args.config)
