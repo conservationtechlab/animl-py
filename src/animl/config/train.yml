@@ -1,13 +1,21 @@
-seed: 28  # random number generator seed (long integer value)
-device: cuda:0  # set to local gpu device 
-num_workers: 8  # number of cores
+# Configuration file for training Animl models
+
+# comet ml
+comet_api_key: "your_api_key"
+comet_project_name: "project"
+comet_workspace: "your_workspace"
 
 # dataset parameters
-num_classes: 53 # adjust to the classes file
 training_set: "/path/to/save/train_data.csv"
 validate_set: "/path/to/save/validate_data.csv"
 test_set: "/path/to/save/test_data.csv"
 class_file: "/home/usr/machinelearning/Models/Animl-Test/test_classes.txt" 
+num_classes: 53 # adjust to the classes file
+
+# torch parameters
+seed: 28  # random number generator seed (long integer value)
+device: cuda:0  # set to local gpu device 
+num_workers: 8  # number of cores
 
 # CSV Column Selection
 file_col: 'FilePath'
@@ -19,6 +27,7 @@ class_list_label: 'class'
 architecture: "efficientnet_v2_m" # or choose "convnext_base"
 image_size: [480, 480]
 crop: True # train on cropped images or not
+crop_coord: 'absolute' #relative or absolute bounding box coordinates
 batch_size: 12
 val_batch_size: 48
 num_epochs: 60
@@ -38,7 +47,7 @@ mixed_precision: True # True or False, if you have a GPU with Tensor Cores (NVID
 overwrite: False
 experiment_folder: '/home/usr/machinelearning/Models/Animl-Test/'
 log_file: '/home/usr/machinelearning/Models/Animl-Test/training_log.txt'
-cache_folder: '/path/to/cache/folder' #folder to cache cropeed images, preferablye local SSD
+cache_folder: '/path/to/cache/folder' #folder to cache cropped images, preferably local SSD
 
 # path to save the best model
 active_model: '/home/usr/machinelearning/Models/Animl-Test/best.pt' 
