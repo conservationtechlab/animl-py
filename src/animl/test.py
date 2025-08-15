@@ -1,5 +1,6 @@
 '''
-Test Script to Verify Model on Holdout Dataset
+Training script. Here, we load the training and validation datasets (and
+data loaders) and the model and train and validate the model accordingly.
 
 Original script from
 2022 Benjamin Kellenberger
@@ -11,7 +12,7 @@ import pandas as pd
 import torch
 import numpy as np
 from typing import Union
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_score, recall_score
 from torch.utils.data import DataLoader
 
 from animl.generator import train_dataloader
@@ -61,7 +62,7 @@ def test_func(data_loader: DataLoader,
     return pred_labels, true_labels, filepaths
 
 
-def main(cfg):
+def test_main(cfg):
     '''
     Command line function
 
@@ -70,6 +71,8 @@ def main(cfg):
     '''
     # load cfg file
     cfg = yaml.safe_load(open(cfg, 'r'))
+
+    crop = cfg.get('crop', False)
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -88,18 +91,19 @@ def main(cfg):
 
     # initialize data loaders for training and validation set
     test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
-    dl_test = train_dataloader(test_dataset,
-                               categories,
+    dl_test = train_dataloader(test_dataset, categories,
                                batch_size=cfg['batch_size'],
                                num_workers=cfg.get('num_workers', NUM_THREADS),
                                file_col=cfg.get('file_col', 'FilePath'),
                                label_col=cfg.get('label_col', 'species'),
-                               crop=cfg.get('crop', True),
-                               augment=False,
+                               crop=crop, augment=False,
                                cache_dir=cfg.get('cache_folder', None))
-
     # get predictions
     pred, true, paths = test_func(dl_test, model, device)
+    # calculate precision and recall
+    prec = precision_score(true, pred, average='weighted')
+    recall = recall_score(true, pred, average='weighted')
+
     pred = np.asarray(pred)
     true = np.asarray(true)
 
@@ -108,7 +112,10 @@ def main(cfg):
 
     results = pd.DataFrame({'FilePath': paths,
                             'Ground Truth': true,
-                            'Predicted': pred})
+                            'Predicted': pred,
+                            'Accuracy': oa,
+                            'Precision': prec,
+                            'Recall': recall})
     results.to_csv(cfg['experiment_folder'] + "/test_results.csv")
 
     cm = confusion_matrix(true, pred)
@@ -121,6 +128,5 @@ if __name__ == '__main__':
     parser.add_argument('--config', help='Path to config file')
     args = parser.parse_args()
 
-    # load config
     print(f'Using config "{args.config}"')
-    main(args.config)
+    test_main(args.config)

@@ -11,42 +11,24 @@ import yaml
 import os
 from tqdm import trange
 import pandas as pd
-import random
 
 import torch.nn as nn
 import torch
-from torch.backends import cudnn
+
 from torch.optim import SGD, AdamW
 from sklearn.metrics import precision_score, recall_score
-from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR  # , ReduceLROnPlateau
 from torch.amp import autocast, GradScaler
 
 from animl.generator import train_dataloader
 from animl.classification import save_classifier, load_classifier
-from animl.utils.general import NUM_THREADS
+from animl.utils.general import NUM_THREADS, init_seed
 
+# mlops
 try:
     import comet_ml
 except ImportError:
     comet_ml = None
-
-
-def init_seed(seed):
-    '''
-    Initalize the seed for all random number generators.
-
-    This is important to be able to reproduce results and experiment with different
-    random setups of the same code and experiments.
-
-    Args:
-        seed (int): seed for RNG
-    '''
-    if seed is not None:
-        random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-        cudnn.benchmark = True
-        cudnn.deterministic = True
 
 
 def train_func(data_loader, model, optimizer, scheduler, device='cpu', mixed_precision=False):
@@ -214,7 +196,7 @@ def validate_func(data_loader, model, device="cpu"):
     return loss_total, oa_total, precision, recall
 
 
-def load_checkpoint(model_path, model, optimizer, scheduler, device):
+def load_model_checkpoint(model_path, model, optimizer, scheduler, device):
     '''
     Load checkpoint model weights to resume training.
 
@@ -268,7 +250,7 @@ def load_checkpoint(model_path, model, optimizer, scheduler, device):
         return 0
 
 
-def main(cfg):
+def train_main(cfg):
     '''
     Command line function
 
@@ -278,9 +260,12 @@ def main(cfg):
     # load cfg file
     cfg = yaml.safe_load(open(cfg, 'r'))
 
-    # TODO
     if comet_ml:
-        experiment = comet_ml.Experiment()
+        api_key = cfg.get('coment_api_key', None)
+        if api_key:
+            experiment = comet_ml.Experiment({"api_key": api_key,
+                                              "project_name": cfg.get('comet_project_name', None),
+                                              "workspace": cfg.get('comet_workspace', None)})
 
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
@@ -312,11 +297,18 @@ def main(cfg):
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
 
     # Initialize data loaders for training and validation set
-    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], num_workers=cfg.get('num_workers', NUM_THREADS),
-                                file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),
+    dl_train = train_dataloader(train_dataset, categories,
+                                batch_size=cfg['batch_size'],
+                                num_workers=cfg.get('num_workers', NUM_THREADS),
+                                file_col=file_col, label_col=label_col,
+                                crop=crop, augment=cfg.get('augment', True),
                                 cache_dir=cfg.get('cache_folder', None))
-    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size', 16), num_workers=cfg.get('num_workers', NUM_THREADS),
-                              file_col=file_col, label_col=label_col, crop=crop, augment=False, cache_dir=cfg.get('cache_folder', None))
+    dl_val = train_dataloader(validate_dataset, categories,
+                              batch_size=cfg.get('val_batch_size', 16),
+                              num_workers=cfg.get('num_workers', NUM_THREADS),
+                              file_col=file_col, label_col=label_col,
+                              crop=crop, augment=False,
+                              cache_dir=cfg.get('cache_folder', None))
 
     # set up model optimizer
     if cfg.get("optimizer", "AdamW") == 'AdamW':
@@ -331,12 +323,14 @@ def main(cfg):
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
+    print(scheduler)
+
     # Load checkpoint for model weights, optimizer state, scheduler state, and actual current_epoch
-    current_epoch = load_checkpoint(cfg['experiment_folder'],
-                                    model,
-                                    optim,
-                                    scheduler,
-                                    device=device)
+    current_epoch = load_model_checkpoint(cfg['experiment_folder'],
+                                          model,
+                                          optim,
+                                          scheduler,
+                                          device=device)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
@@ -366,7 +360,7 @@ def main(cfg):
             for param in model.parameters():
                 param.requires_grad = True
 
-        loss_train, oa_train = train_func(dl_train, model, optim, device, mixed_precision=mixed_precision)
+        loss_train, oa_train = train_func(dl_train, model, optim, scheduler, device, mixed_precision=mixed_precision)
         loss_val, oa_val, precision, recall = validate_func(dl_val, model, device)
 
         # combine stats and save
@@ -426,4 +420,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f'Using config "{args.config}"')
-    main(args.config)
+    train_main(args.config)

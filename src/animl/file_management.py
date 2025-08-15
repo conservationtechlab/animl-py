@@ -6,6 +6,8 @@ This module provides functions and classes for managing files and directories.
 @ Kyra Swanson 2023
 """
 import os
+import json
+from shutil import copyfile
 from pathlib import Path, PosixPath
 from glob import glob
 from datetime import datetime, timedelta
@@ -18,6 +20,8 @@ VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
                     ".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
 IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff"}
+VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
+                    ".mpg", ".mpeg", ".asf", ".m4v"}
 
 
 def build_file_manifest(image_dir: str,
@@ -126,12 +130,12 @@ class WorkingDirectory():
         self.datadir = self.basedir / Path("Data/")
         self.vidfdir = self.basedir / Path("Frames/")
         self.linkdir = self.basedir / Path("Sorted/")
+        self.visdir = self.basedir / Path("Plots/")
 
         # Create directories if they do not already exist
         self.basedir.mkdir(exist_ok=True)
         self.datadir.mkdir(exist_ok=True)
         self.vidfdir.mkdir(exist_ok=True)
-        self.linkdir.mkdir(exist_ok=True)
 
         # Assign specific file paths
         self.filemanifest = self.datadir / Path("FileManifest.csv")
@@ -140,6 +144,12 @@ class WorkingDirectory():
         self.predictions = self.datadir / Path("Predictions.csv")
         self.detections = self.datadir / Path("Detections.csv")
         self.mdraw = self.datadir / Path("MD_Raw.json")
+
+    def activate_visdir(self):
+        self.visdir.mkdir(exist_ok=True)
+
+    def activate_linkdir(self):
+        self.linkdir.mkdir(exist_ok=True)
 
 
 def save_data(data: pd.DataFrame, out_file: str, prompt: bool = True) -> None:
@@ -179,6 +189,38 @@ def load_data(file: str) -> pd.DataFrame:
         raise AssertionError("Error. Expecting a .csv file.")
 
 
+def save_json(data: dict, out_file: str) -> None:
+    """
+    Save data to a JSON file.
+
+    Args:
+        data (dict): the dictionary to be saved
+        out_file (str): full path to save file to
+
+    Returns:
+        None
+    """
+    with open(out_file, 'w') as f:
+        json.dump(data, f, indent=4)
+
+
+def load_json(file: str) -> dict:
+    """
+    Load data from a JSON file.
+
+    Args:
+        file (str): the full path of the file to load
+
+    Returns:
+        data extracted from the file. dict form
+    """
+    if os.path.splitext(file)[1] == ".json":
+        with open(file, 'r') as f:
+            return json.load(f)
+    else:
+        raise AssertionError("Error. Expecting a .json file.")
+
+
 def check_file(file: str) -> bool:
     """
     Check for files existence and prompt user if they want to load.
@@ -196,6 +238,27 @@ def check_file(file: str) -> bool:
         if input(prompt).lower() == "y":
             return True
     return False
+
+
+def save_checkpoint(checkpoint_path, results):
+    """
+    Save a checkpoint of the detection results to a JSON file.
+    """
+    assert checkpoint_path is not None
+    # Back up any previous checkpoints, to protect against crashes while we're writing
+    # the checkpoint file.
+    checkpoint_tmp_path = None
+    if os.path.isfile(checkpoint_path):
+        checkpoint_tmp_path = str(checkpoint_path) + '_tmp'
+        copyfile(checkpoint_path, checkpoint_tmp_path)
+
+    # Write the new checkpoint
+    with open(checkpoint_path, 'w') as f:
+        json.dump({'images': results}, f, indent=1)
+
+    # Remove the backup checkpoint if it exists
+    if checkpoint_tmp_path is not None:
+        os.remove(checkpoint_tmp_path)
 
 
 def active_times(manifest_dir: str,

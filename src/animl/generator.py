@@ -117,10 +117,14 @@ class ImageGenerator(Dataset):
                  resize_height: int = 299,
                  resize_width: int = 299,
                  crop: bool = True,
+                 crop_coord: str = 'relative',
                  normalize: bool = True,) -> None:
         self.x = x.reset_index(drop=True)
         self.file_col = file_col
         self.crop = crop
+        self.crop_coord = crop_coord
+        if self.crop_coord not in ['relative', 'absolute']:
+            raise ValueError("crop_coord must be either 'relative' or 'absolute'")
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
         self.buffer = 0
@@ -149,16 +153,29 @@ class ImageGenerator(Dataset):
             bbox_w = self.x['bbox_w'].iloc[idx]
             bbox_h = self.x['bbox_h'].iloc[idx]
 
-            left = width * bbox_x
-            top = height * bbox_y
-            right = width * (bbox_x + bbox_w)
-            bottom = height * (bbox_y + bbox_h)
+            if self.crop_coord == 'relative':
+                left = width * bbox_x
+                top = height * bbox_y
+                right = width * (bbox_x + bbox_w)
+                bottom = height * (bbox_y + bbox_h)
 
-            left = max(0, int(left) - self.buffer)
-            top = max(0, int(top) - self.buffer)
-            right = min(width, int(right) + self.buffer)
-            bottom = min(height, int(bottom) + self.buffer)
-            img = img.crop((left, top, right, bottom))
+                left = max(0, int(left) - self.buffer)
+                top = max(0, int(top) - self.buffer)
+                right = min(width, int(right) + self.buffer)
+                bottom = min(height, int(bottom) + self.buffer)
+                img = img.crop((left, top, right, bottom))
+
+            elif self.crop_coord == 'absolute':
+                left = bbox_x
+                top = bbox_y
+                right = bbox_x + bbox_w
+                bottom = bbox_y + bbox_h
+
+                left = max(0, int(left) - self.buffer)
+                top = max(0, int(top) - self.buffer)
+                right = min(width, int(right) + self.buffer)
+                bottom = min(height, int(bottom) + self.buffer)
+                img = img.crop((left, top, right, bottom))
 
         img_tensor = self.transform(img)
         img.close()
@@ -177,6 +194,7 @@ class TrainGenerator(Dataset):
         - file_col: column name containing full file paths
         - label_col: column name containing class labels
         - crop: if true, dynamically crop
+        - crop_coord: if relative, will calculate absolute values
         - augment: add image augmentations at each batch
         - resize_height: size in pixels for input height
         - resize_width: size in pixels for input width
@@ -187,6 +205,7 @@ class TrainGenerator(Dataset):
                  file_col: str = 'FilePath',
                  label_col: str = 'species',
                  crop: bool = True,
+                 crop_coord: str = 'relative',
                  augment: bool = False,
                  resize_height: int = 299,
                  resize_width: int = 299,
@@ -198,6 +217,9 @@ class TrainGenerator(Dataset):
         self.label_col = label_col
         self.buffer = 0
         self.crop = crop
+        self.crop_coord = crop_coord
+        if self.crop_coord not in ['relative', 'absolute']:
+            raise ValueError("crop_coord must be either 'relative' or 'absolute'")
         self.augment = augment
         self.cache_dir = cache_dir
         if self.cache_dir is not None:
@@ -263,16 +285,28 @@ class TrainGenerator(Dataset):
                 bbox_w = self.x['bbox_w'].iloc[idx]
                 bbox_h = self.x['bbox_h'].iloc[idx]
 
-                left = width * bbox_x
-                top = height * bbox_y
-                right = width * (bbox_x + bbox_w)
-                bottom = height * (bbox_y + bbox_h)
+                if self.crop_coord == 'relative':
+                    left = width * bbox_x
+                    top = height * bbox_y
+                    right = width * (bbox_x + bbox_w)
+                    bottom = height * (bbox_y + bbox_h)
 
-                left = max(0, int(left) - self.buffer)
-                top = max(0, int(top) - self.buffer)
-                right = min(width, int(right) + self.buffer)
-                bottom = min(height, int(bottom) + self.buffer)
-                img = img.crop((left, top, right, bottom))
+                    left = max(0, int(left) - self.buffer)
+                    top = max(0, int(top) - self.buffer)
+                    right = min(width, int(right) + self.buffer)
+                    bottom = min(height, int(bottom) + self.buffer)
+                    img = img.crop((left, top, right, bottom))
+                elif self.crop_coord == 'absolute':
+                    left = bbox_x
+                    top = bbox_y
+                    right = bbox_x + bbox_w
+                    bottom = bbox_y + bbox_h
+
+                    left = max(0, int(left) - self.buffer)
+                    top = max(0, int(top) - self.buffer)
+                    right = min(width, int(right) + self.buffer)
+                    bottom = min(height, int(bottom) + self.buffer)
+                    img = img.crop((left, top, right, bottom))
 
             img_tensor = self.transform(img)
             if self.cache_dir is not None:
@@ -287,6 +321,7 @@ def train_dataloader(manifest: pd.DataFrame,
                      file_col: str = "FilePath",
                      label_col: str = "species",
                      crop: bool = False,
+                     crop_coord: str = 'relative',
                      augment: bool = False,
                      resize_height: int = 480,
                      resize_width: int = 480,
@@ -304,6 +339,7 @@ def train_dataloader(manifest: pd.DataFrame,
         file_col (str): column name containing full file paths
         label_col (str): column name containing class labels
         crop (bool): if true, dynamically crop images
+        crop_coord (str): if relative, will calculate absolute values based on image size
         augment (bool): flag to augment images within loader
         resize_height (int): size in pixels for input height
         resize_width (int): size in pixels for input width
@@ -314,7 +350,8 @@ def train_dataloader(manifest: pd.DataFrame,
     Returns:
         dataloader object
     '''
-    dataset_instance = TrainGenerator(manifest, classes, file_col, label_col=label_col, crop=crop,
+    dataset_instance = TrainGenerator(manifest, classes, file_col, label_col=label_col,
+                                      crop=crop, crop_coord=crop_coord,
                                       resize_height=resize_height, resize_width=resize_width,
                                       augment=augment, cache_dir=cache_dir)
 
@@ -329,6 +366,7 @@ def train_dataloader(manifest: pd.DataFrame,
 def manifest_dataloader(manifest: pd.DataFrame,
                         file_col: str = "file",
                         crop: bool = True,
+                        crop_coord: str = 'relative',
                         normalize: bool = True,
                         resize_height: int = 480,
                         resize_width: int = 480,
@@ -343,6 +381,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
         manifest (DataFrame): data to be fed into the model
         file_col: column name containing full file paths
         crop (bool): if true, dynamically crop images
+        crop_coord (str): if relative, will calculate absolute values based on image size
         normalize (bool): if true, normalize array to values [0,1]
         resize_height (int): size in pixels for input height
         resize_width (int): size in pixels for input width
@@ -357,8 +396,8 @@ def manifest_dataloader(manifest: pd.DataFrame,
         crop = False
 
     # default values file_col='file', resize=299
-    dataset_instance = ImageGenerator(manifest, file_col=file_col, crop=crop, normalize=normalize,
-                                      resize_width=resize_width, resize_height=resize_height)
+    dataset_instance = ImageGenerator(manifest, file_col=file_col, crop=crop, crop_coord=crop_coord,
+                                      normalize=normalize, resize_width=resize_width, resize_height=resize_height)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,

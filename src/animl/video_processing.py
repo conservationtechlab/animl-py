@@ -123,13 +123,12 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
         raise AssertionError("Either fps or frames need to be defined.")
 
     images = files[files[file_col].apply(
-        lambda x: os.path.splitext(x)[1].lower()).isin([".jpg", ".jpeg", ".png"])]
+        lambda x: os.path.splitext(x)[1].lower()).isin(file_management.IMAGE_EXTENSIONS)]
     images = images.assign(Frame=images[file_col])
     images = images.assign(FrameNumber=0)
 
     videos = files[files[file_col].apply(
-        lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",
-                                                        ".mpg", ".mpeg", ".asf", ".m4v"])]
+        lambda x: os.path.splitext(x)[1].lower()).isin(file_management.VIDEO_EXTENSIONS)]
 
     videos = videos.drop(columns="Frame", errors='ignore')
 
