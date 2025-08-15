@@ -1,29 +1,39 @@
+"""
+Automated Pipeline Functions
+
+@ Kyra Swanson 2023
+"""
 import os
 import yaml
 import torch
 import pandas as pd
-from animl import (file_management, video_processing, megadetector, detect,
-                   split, classification, link)
-from animl.utils.torch_utils import get_device
+
+from animl import (classification, detection, export, file_management, video_processing, split)
+from animl.utils import visualization
+from animl.utils.general import get_device, NUM_THREADS
 
 
 def from_paths(image_dir: str,
                detector_file: str,
                classifier_file: str,
                classlist_file: str,
-               class_label: str = "code",
+               class_label: str = "class",
                sort: bool = True,
-               simple=True) -> pd.DataFrame:
+               visualize: bool = False,
+               sequence: bool = False) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
 
     Args:
-        - image_dir (str): directory path containing the images or videos.
-        - model_file (str): file path of the MegaDetector model.
-        - class_model (str): file path of the classifier model.
-        - classlist_file (list): list of classes or species for classification.
-        - sort (bool): toggle option to create symlinks
+        image_dir (str): directory path containing the images or videos.
+        detector_file (str): file path of the MegaDetector model.
+        classifier_file (str): file path of the classifier model.
+        classlist_file (list): list of classes or species for classification.
+        class_label: column in the class list that contains the label wanted
+        sort (bool): toggle option to create symlinks
+        visualize (bool): if True, run visualization
+        sequence (bool): if True, run sequence_classification
 
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
@@ -41,40 +51,50 @@ def from_paths(image_dir: str,
 
     # Video-processing to extract individual frames as images in to directory
     print("Processing videos...")
-    all_frames = video_processing.extract_frames(files, out_dir=working_dir.vidfdir,
+    all_frames = video_processing.extract_frames(files,
+                                                 out_dir=working_dir.vidfdir,
                                                  out_file=working_dir.imageframes,
-                                                 parallel=True, frames=3)
+                                                 parallel=True,
+                                                 num_workers=NUM_THREADS,
+                                                 frames=3)
 
     # Run all images and video frames through MegaDetector
     print("Running images and video frames through MegaDetector...")
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
-        detector = megadetector.MegaDetector(detector_file, device=device)
-        md_results = detect.detect_MD_batch(detector, all_frames, file_col="Frame",
-                                            checkpoint_path=working_dir.mdraw,
-                                            checkpoint_frequency=5000, quiet=True)
+        detector = detection.load_detector(detector_file, "MDV5", device=device)
+        md_results = detection.detect(detector,
+                                      all_frames,
+                                      file_col="Frame",
+                                      batch_size=4,
+                                      num_workers=NUM_THREADS,
+                                      checkpoint_path=working_dir.mdraw,
+                                      checkpoint_frequency=5000)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
-        detections = detect.parse_MD(md_results, manifest=all_frames, out_file=working_dir.detections)
+        detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
     empty = split.get_empty(detections)
 
+    # Plot boxes
+    if visualize:
+        working_dir.activate_visdir()
+        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='Frame', prediction=False)
+
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
-    class_list = pd.read_csv(classlist_file)
-    print(len(class_list))
-    classifier = classification.load_model(classifier_file, len(class_list), device=device)
-    predictions_raw = classification.predict_species(animals, classifier, device=device,
-                                                     file_col="Frame", batch_size=4, out_file=working_dir.predictions)
-    if simple:
-        print("Classifying individual frames...")
-        animals = classification.single_classification(animals, predictions_raw, class_list[class_label])
-        manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
-        # TODO: single output per file
-    else:
+    class_list = classification.load_class_list(classlist_file)
+    classifier = classification.load_classifier(classifier_file, len(class_list), device=device)
+    predictions_raw = classification.classify(classifier, animals,
+                                              device=device,
+                                              file_col="Frame",
+                                              batch_size=4,
+                                              num_workers=NUM_THREADS,
+                                              out_file=working_dir.predictions)
+    if sequence:
         print("Classifying sequences...")
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
                                                           class_list[class_label],
@@ -83,10 +103,17 @@ def from_paths(image_dir: str,
                                                           sort_columns=None,
                                                           file_col="FilePath",
                                                           maxdiff=60)
+    else:
+        print("Classifying individual frames...")
+        animals = classification.individual_classification(animals, predictions_raw, class_list[class_label])
+        manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+        # TODO: single output per file
+
     # create symlinks
     if sort:
         print("Sorting...")
-        manifest = link.sort_species(manifest, working_dir.linkdir)
+        working_dir.activate_linkdir()
+        manifest = export.sort_species(manifest, working_dir.linkdir)
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
@@ -94,13 +121,13 @@ def from_paths(image_dir: str,
     return manifest
 
 
-def from_config(config):
+def from_config(config: str):
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
 
     Args:
-        - config (str): path containing config file for inference
+        config (str): path containing config file for inference
 
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
@@ -134,9 +161,11 @@ def from_config(config):
     fps = cfg.get('fps', None)
     if fps == "None":
         fps = None
-    all_frames = video_processing.extract_frames(files, out_dir=working_dir.vidfdir,
+    all_frames = video_processing.extract_frames(files,
+                                                 out_dir=working_dir.vidfdir,
                                                  out_file=working_dir.imageframes,
                                                  parallel=cfg.get('parallel', True),
+                                                 num_workers=cfg.get('num_workers', NUM_THREADS),
                                                  frames=cfg.get('frames', 1), fps=fps)
 
     # Run all images and video frames through MegaDetector
@@ -144,45 +173,59 @@ def from_config(config):
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
-        detector = megadetector.MegaDetector(cfg['detector_file'], device=device)
-        md_results = detect.detect_MD_batch(detector, all_frames, file_col=cfg.get('file_col_detection', 'Frame'),
-                                            checkpoint_path=working_dir.mdraw,
-                                            checkpoint_frequency=cfg.get('checkpoint_frequency', -1),
-                                            quiet=True)
+        detector = detection.load_detector(cfg['detector_file'], device=device)
+        md_results = detection.detect(detector,
+                                      all_frames,
+                                      file_col=cfg.get('file_col_detection', 'Frame'),
+                                      batch_size=cfg.get('batch_size', 4),
+                                      num_workers=cfg.get('num_workers', NUM_THREADS),
+                                      checkpoint_path=working_dir.mdraw,
+                                      checkpoint_frequency=cfg.get('checkpoint_frequency', -1))
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
-        detections = detect.parse_MD(md_results, manifest=all_frames, out_file=working_dir.detections)
+        detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
     empty = split.get_empty(detections)
 
+    # Plot boxes
+    if cfg.get('visualize', False):
+        working_dir.activate_visdir()
+        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='Frame', prediction=False)
+
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
-    class_list = pd.read_csv(cfg['class_list'])
-    classifier = classification.load_model(cfg['classifier_file'], len(class_list), device=device)
-    predictions_raw = classification.predict_species(animals, classifier, device=device,
-                                                     file_col=cfg.get('file_col_classification', 'Frame'),
-                                                     batch_size=cfg.get('batch_size', 4),
-                                                     out_file=working_dir.predictions)
+    class_list = classification.load_class_list(cfg['class_list'])
+    classifier = classification.load_classifier(cfg['classifier_file'], len(class_list), device=device)
+    predictions_raw = classification.classify(classifier, animals,
+                                              device=device,
+                                              file_col=cfg.get('file_col_classification', 'Frame'),
+                                              batch_size=cfg.get('batch_size', 4),
+                                              num_workers=cfg.get('num_workers', NUM_THREADS),
+                                              out_file=working_dir.predictions)
 
-    # merge animal and empty, create symlinks
+    # Convert predictions to labels
     if station_dir:
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
-                                                          class_list[cfg.get('class_label_col', 'Code')],
+                                                          class_list[cfg.get('class_label_col', 'class')],
                                                           station_col='Station',
                                                           empty_class="",
                                                           sort_columns=["Station", "DateTime", "FrameNumber"],
                                                           file_col=cfg.get('file_col_classification', 'Frame'),
                                                           maxdiff=60)
     else:
-        animals = classification.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'code')])
-        # merge animal and empty, create symlinks
+        animals = classification.individual_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'class')])
+        # merge animal and empty
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 
+    # Create Symlinks
     if cfg.get('sort', False):
-        manifest = link.sort_species(manifest, cfg.get('link_dir', working_dir.linkdir),
-                                     copy=cfg.get('copy', False))
+        working_dir.activate_linkdir()
+        manifest = export.sort_species(manifest,
+                                       out_dir=cfg.get('link_dir', working_dir.linkdir),
+                                       out_file=working_dir.results,
+                                       copy=cfg.get('copy', False))
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))

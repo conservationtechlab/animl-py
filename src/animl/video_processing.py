@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional, Union, List
 
 from animl import file_management
+from animl.utils.general import NUM_THREADS
 
 
 def extract_frame_single(file_path: Union[str, pd.DataFrame],
@@ -18,14 +19,14 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
     """
     Extract frames from video for classification
 
-    Args
-        - file_path: dataframe of videos
-        - out_dir: directory to save frames to
-        - fps: frames per second, otherwise determine mathematically
-        - frames: number of frames to sample
+    Args:
+        file_path: dataframe of videos
+        out_dir: directory to save frames to
+        fps: frames per second, otherwise determine mathematically
+        frames: number of frames to sample
 
     Return
-        - frames_saved: dataframe of still frames for each video
+        frames_saved: dataframe of still frames for each video
     """
     # Typechecking
     if frames is None and fps is None:
@@ -93,24 +94,24 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
                    frames: Optional[int] = None,
                    file_col: str = "FilePath",
                    parallel: bool = False,
-                   workers: int = mp.cpu_count(),
+                   num_workers: int = NUM_THREADS,
                    checkpoint: int = 1000):
     """
     Extract frames from video for classification
 
-    Args
-        - files: dataframe of videos
-        - out_dir: directory to save frames to
-        - out_file: file to which results will be saved
-        - fps: frames per second, otherwise determine mathematically
-        - frames: number of frames to sample
-        - file_col: column containing file paths
-        - parallel: Toggle for parallel processing, defaults to FALSE
-        - workers: number of processors to use if parallel, defaults to 1
-        - checkpoint: if not parallel, checkpoint ever n files, defaults to 1000
+    Args:
+        files: dataframe of videos
+        out_dir: directory to save frames to
+        out_file: file to which results will be saved
+        fps: frames per second, otherwise determine mathematically
+        frames: number of frames to sample
+        file_col: column containing file paths
+        parallel: Toggle for parallel processing, defaults to FALSE
+        num_workers: number of processors to use if parallel, defaults to NUM_THREADS
+        checkpoint: if not parallel, checkpoint ever n files, defaults to 1000
 
-    Return
-        - allframes: dataframe of still frames for each video
+    Returns:
+        allframes: dataframe of still frames for each video
     """
     if file_management.check_file(out_file):
         return file_management.load_data(out_file)
@@ -120,23 +121,21 @@ def extract_frames(files: Union[str, pd.DataFrame, List[str]],
         print("If both fps and frames are defined fps will be used.")
     if (fps is None) and (frames is None):
         raise AssertionError("Either fps or frames need to be defined.")
-    # if file_management.check_file(outfile):
-    #    temporary = fileManagement.load_data(outfile)
-    #    check against checkpoint
 
     images = files[files[file_col].apply(
-        lambda x: os.path.splitext(x)[1].lower()).isin([".jpg", ".jpeg", ".png"])]
+        lambda x: os.path.splitext(x)[1].lower()).isin(file_management.IMAGE_EXTENSIONS)]
     images = images.assign(Frame=images[file_col])
     images = images.assign(FrameNumber=0)
 
     videos = files[files[file_col].apply(
-        lambda x: os.path.splitext(x)[1].lower()).isin([".mp4", ".avi", ".mov", ".wmv",
-                                                        ".mpg", ".mpeg", ".asf", ".m4v"])]
+        lambda x: os.path.splitext(x)[1].lower()).isin(file_management.VIDEO_EXTENSIONS)]
+
+    videos = videos.drop(columns="Frame", errors='ignore')
+
     if not videos.empty:
-        # TODO add checkpoint to parallel
         video_frames = []
         if parallel:
-            pool = mp.Pool(workers)
+            pool = mp.Pool(num_workers)
             output = [pool.apply(extract_frame_single, args=(video, out_dir, fps, frames)) for video in tqdm(videos[file_col])]
             output = list(filter(None, output))
             video_frames = vstack(output)
