@@ -1,3 +1,19 @@
+# Configuration Files
+
+A number of animl's functions can be accessed via config file without the user having to
+write custom code.<br>
+The following config files are provided and can perform the functions below:
+
+animl.yml - To be run on an image directory, runs the full animl pipeline start to finish
+classification.yml  - Only runs species classification inference
+train.yml - Sets up a custom model training pipeline with pre-split data.
+
+
+## animl.yml
+
+
+
+```
 # directories and model files
 image_dir:  "/path/to/image_dir"
 working_dir: "/path/to/working_dir"
@@ -27,3 +43,9 @@ class_label_col: class
 # sort
 sort: False
 copy: False
+```
+
+## classification.yml
+
+## train.yml
+
