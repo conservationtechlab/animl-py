@@ -118,7 +118,8 @@ class ImageGenerator(Dataset):
                  resize_width: int = 299,
                  crop: bool = True,
                  crop_coord: str = 'relative',
-                 normalize: bool = True,) -> None:
+                 normalize: bool = True,
+                 transform: Compose = None) -> None:
         self.x = x.reset_index(drop=True)
         self.file_col = file_col
         self.crop = crop
@@ -129,9 +130,11 @@ class ImageGenerator(Dataset):
         self.resize_width = int(resize_width)
         self.buffer = 0
         self.normalize = normalize
+        self.transform = transform
         # torch.resize order is H,W
         self.transform = Compose([Resize((self.resize_height, self.resize_width)),
-                                  ToTensor(), ])
+                                  ToTensor(),transform,]) if transform is not None else Compose([Resize((self.resize_height, self.resize_width)),
+                                  ToTensor(),])
 
     def __len__(self) -> int:
         return len(self.x)
@@ -370,6 +373,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
                         normalize: bool = True,
                         resize_height: int = 480,
                         resize_width: int = 480,
+                        transform: Compose = None,
                         batch_size: int = 1,
                         num_workers: int = 1):
     '''
@@ -385,6 +389,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
         normalize (bool): if true, normalize array to values [0,1]
         resize_height (int): size in pixels for input height
         resize_width (int): size in pixels for input width
+        tranform (Compose): torchvision transforms to apply to images
         batch_size (int): size of each batch
         num_workers (int): number of processes to handle the data
         cache_dir (str): if not None, use given cache directory
@@ -397,7 +402,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
 
     # default values file_col='file', resize=299
     dataset_instance = ImageGenerator(manifest, file_col=file_col, crop=crop, crop_coord=crop_coord,
-                                      normalize=normalize, resize_width=resize_width, resize_height=resize_height)
+                                      normalize=normalize, resize_width=resize_width, resize_height=resize_height, transform=transform)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
