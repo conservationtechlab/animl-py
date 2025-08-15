@@ -5,8 +5,7 @@ import pandas as pd
 from animl.export import export_megadetector
 
 
-def main():
-
+def convert_animl_to_md():
     parser = argparse.ArgumentParser(
         description='Convert an Animl-formatted .csv results file to MD-formatted .json results file')
 
@@ -33,4 +32,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    convert_animl_to_md()

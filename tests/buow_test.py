@@ -1,3 +1,7 @@
+"""
+Test custom detector
+
+"""
 import time
 from pathlib import Path
 
@@ -25,5 +29,4 @@ detections = detection.parse_detections(md_results, manifest=files)
 
 print(detections)
 
-# Plot boxes
-visualization.plot_all_bounding_boxes(detections, 'test/', file_col='Frame', prediction=False)
+visualization.plot_all_bounding_boxes(detections, 'buow_boxes/', file_col='Frame', prediction=False)
