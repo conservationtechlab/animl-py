@@ -19,6 +19,7 @@ def from_paths(image_dir: str,
                classlist_file: str,
                class_label: str = "class",
                sort: bool = True,
+               visualize: bool = False,
                sequence: bool = False) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
@@ -31,6 +32,7 @@ def from_paths(image_dir: str,
         classlist_file (list): list of classes or species for classification.
         class_label: column in the class list that contains the label wanted
         sort (bool): toggle option to create symlinks
+        visualize (bool): if True, run visualization
         sequence (bool): if True, run sequence_classification
 
     Returns:
@@ -78,7 +80,9 @@ def from_paths(image_dir: str,
     empty = split.get_empty(detections)
 
     # Plot boxes
-    # visualization.plot_all_bounding_boxes(animals, 'test/', file_col='Frame', prediction=False)
+    if visualize:
+        working_dir.activate_visdir()
+        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='Frame', prediction=False)
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
@@ -108,6 +112,7 @@ def from_paths(image_dir: str,
     # create symlinks
     if sort:
         print("Sorting...")
+        working_dir.activate_linkdir()
         manifest = export.sort_species(manifest, working_dir.linkdir)
 
     file_management.save_data(manifest, working_dir.results)
@@ -184,6 +189,11 @@ def from_config(config: str):
     animals = split.get_animals(detections)
     empty = split.get_empty(detections)
 
+    # Plot boxes
+    if cfg.get('visualize', False):
+        working_dir.activate_visdir()
+        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='Frame', prediction=False)
+
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
     class_list = classification.load_class_list(cfg['class_list'])
@@ -211,6 +221,7 @@ def from_config(config: str):
 
     # Create Symlinks
     if cfg.get('sort', False):
+        working_dir.activate_linkdir()
         manifest = export.sort_species(manifest,
                                        out_dir=cfg.get('link_dir', working_dir.linkdir),
                                        out_file=working_dir.results,
