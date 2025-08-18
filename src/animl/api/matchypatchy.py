@@ -9,7 +9,7 @@ from torchvision.transforms import (Compose, Resize, ToTensor, Normalize)
 
 from animl.utils.general import get_device, NUM_THREADS
 
-from animl.reid import miewid
+from animl.reid import inference
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -68,8 +68,8 @@ def miew_embedding(model, batch, device=None):
 
 def reid_dataloader(rois,
                     image_path_dict: dict,
-                    resize_width: int = miewid.IMAGE_WIDTH,
-                    resize_height: int = miewid.IMAGE_HEIGHT,
+                    resize_width: int = inference.MIEW_WIDTH,
+                    resize_height: int = inference.MIEW_HEIGHT,
                     batch_size: int = 1,
                     num_workers: int = NUM_THREADS,
                     normalize: bool = True):

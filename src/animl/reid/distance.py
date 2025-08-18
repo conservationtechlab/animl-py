@@ -2,30 +2,32 @@
 Distance metrics and pairwise distance computation functions.
 
 This module provides functions to compute distance matrices between embidding vectors
-using different metrics such as Euclidean and Cosine distances. It also includes a 
+using different metrics such as Euclidean and Cosine distances. It also includes a
 batched computation function to handle large datasets efficiently.
 
-Original script from WidlMe
+Original script from WildMe
 
 """
-
 import numpy as np
 from scipy.spatial.distance import cdist
 
 import torch
 import torch.nn.functional as F
 
+
 def remove_diagonal(A):
     print("A.shape", A.shape)
     print(A.size(0), A.size(1))
     if A.size(0) != A.size(1):
         raise ValueError("Input must be a square matrix")
-    
+
     mask = ~torch.eye(A.size(0), dtype=torch.bool)
     return A[mask].reshape(A.size(0), -1)
 
+
 def euclidean_squared_distance(input1, input2):
-    """Computes euclidean squared distance./
+    """
+    Computes euclidean squared distance.
 
     Args:
         input1 (torch.Tensor): 2-D feature matrix.
@@ -43,7 +45,8 @@ def euclidean_squared_distance(input1, input2):
 
 
 def cosine_distance(input1, input2):
-    """Computes cosine distance.
+    """
+    Computes cosine distance.
 
     Args:
         input1 (torch.Tensor): 2-D feature matrix.
@@ -57,8 +60,10 @@ def cosine_distance(input1, input2):
     distmat = 1 - torch.mm(input1_normed, input2_normed.t())
     return distmat
 
+
 def compute_distance_matrix(input1, input2, metric='euclidean'):
-    """A wrapper function for computing distance matrix.
+    """
+    A wrapper function for computing distance matrix.
 
     Args:
         input1 (torch.Tensor): 2-D feature matrix.
@@ -91,16 +96,17 @@ def compute_distance_matrix(input1, input2, metric='euclidean'):
 
     return distmat
 
+
 def compute_batched_distance_matrix(input1, input2, metric='cosine', batch_size=10):
     """
     Computes the distance matrix in a batched manner to save memory.
-    
+
     Args:
         input1 (np.ndarray): 2-D array of query features.
         input2 (np.ndarray): 2-D array of database features.
         metric (str): The distance metric to use. Options include 'euclidean', 'cosine', etc.
         batch_size (int): The number of rows from input1 to process at a time.
-    
+
     Returns:
         np.ndarray: The computed distance matrix.
     """
