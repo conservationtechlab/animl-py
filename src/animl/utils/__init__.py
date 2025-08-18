@@ -24,12 +24,11 @@ from animl.utils.general import (NUM_THREADS, absolute_to_relative, box_area,
                                  xywhn2xyxy, xyxy2xywh, xyxy2xywhn,)
 from animl.utils.visualization import (demo_boxes, draw_bounding_boxes, main,
                                        plot_all_bounding_boxes, plot_box,)
-from animl.utils.yolo5 import (autopad, check_file,
-                               check_python, check_requirements, check_suffix,
+from animl.utils.yolo5 import (autopad, check_python, check_requirements, check_suffix,
                                check_version,)
 
 __all__ = ['NUM_THREADS', 'absolute_to_relative',
-           'autopad', 'box_area', 'box_iou', 'check_file', 'check_img_size',
+           'autopad', 'box_area', 'box_iou', 'check_img_size',
            'check_python', 'check_requirements', 'check_suffix',
            'check_version', 'clean_str', 'clip_coords',
            'convert_minxywh_to_absxyxy', 'convert_yolo_to_xywh', 'copy_attr',
