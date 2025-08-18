@@ -14,6 +14,7 @@ import timm
 from animl.reid.heads import ElasticArcFace, ArcFaceSubCenterDynamic
 from animl.utils.general import get_device
 from animl.generator import manifest_dataloader
+from torchvision.transforms import Compose, Normalize
 
 IMAGE_HEIGHT = 440
 IMAGE_WIDTH = 440
@@ -54,7 +55,7 @@ def load_miew(file_path, device=None):
     return miew
 
 
-def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, num_workers=1, device=None):
+def extract_miew_embeddings(miew_model, manifest, file_col="FilePath", batch_size=1, num_workers=1, device=None):
     """
     Wrapper for MiewID embedding extraction
     """
@@ -62,9 +63,11 @@ def extract_embeddings(manifest, miew_model, file_col="FilePath", batch_size=1, 
         device = get_device()
     output = []
     if isinstance(manifest, pd.DataFrame):
+        transform = Compose([Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),])
+
         dataloader = manifest_dataloader(manifest, batch_size=batch_size, num_workers=num_workers,
                                          file_col=file_col, crop=True, normalize=True,
-                                         resize_width=IMAGE_WIDTH, resize_height=IMAGE_HEIGHT)
+                                         resize_width=IMAGE_WIDTH, resize_height=IMAGE_HEIGHT, transform=transform)
         with torch.no_grad():
             for _, batch in tqdm(enumerate(dataloader),total=len(dataloader)):
                 img = batch[0]
