@@ -2,6 +2,7 @@
 API for MatchyPatchy
 
 """
+from typing import Optional
 from PIL import Image, ImageFile
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -14,7 +15,9 @@ from animl.reid import inference
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-def viewpoint_estimator(model, batch, device=None):
+def viewpoint_estimator(model,
+                        batch,
+                        device: Optional[str] = None):
     """
     Wrapper for viewpoint estimation within MatchyPatchy
 
@@ -41,7 +44,9 @@ def viewpoint_estimator(model, batch, device=None):
     return roi_id, value, prob
 
 
-def miew_embedding(model, batch, device=None):
+def miew_embedding(model,
+                   batch,
+                   device: Optional[str] = None):
     """
     Wrapper for MiewID embedding extraction within MatchyPatchy
 
