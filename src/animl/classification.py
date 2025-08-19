@@ -3,6 +3,7 @@ Tools for Saving, Loading, and Using Species Classifiers
 
 @ Kyra Swanson 2023
 '''
+from typing import Optional
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -17,14 +18,19 @@ from animl.model_architecture import EfficientNet, ConvNeXtBase
 from animl.utils.general import get_device, softmax, tensor_to_onnx, NUM_THREADS
 
 
-def save_classifier(out_dir, epoch, model, stats, optimizer=None, scheduler=None):
+def save_classifier(model,
+                    out_dir: str,
+                    epoch: int,
+                    stats: dict,
+                    optimizer=None,
+                    scheduler=None):
     '''
     Saves model state weights.
 
     Args:
+        model: pytorch model
         out_dir (str): directory to save model to
         epoch (int): current training epoch
-        model: pytorch model
         stats (dict): performance metrics of current epoch
         optimizer: pytorch optimizer (optional)
         scheduler: pytorch scheduler (optional)
@@ -48,19 +54,21 @@ def save_classifier(out_dir, epoch, model, stats, optimizer=None, scheduler=None
     torch.save(checkpoint, open(f'{out_dir}/{epoch}.pt', 'wb'))
 
 
-def load_classifier(model_path: str, len_classes: int, device=None, architecture="CTL"):
+def load_classifier(model_path: str,
+                    num_classes: int,
+                    device: Optional[str] = None,
+                    architecture: str = "CTL"):
     '''
     Creates a model instance and loads the latest model state weights.
 
     Args:
         model_path (str): file or directory path to model weights
-        class_file (int): path to associated class list
+        num_classes (int): path to associated class list
         device (str): specify to run on cpu or gpu
         architecture (str): expected model architecture
 
     Returns:
         model: model object of given architecture with loaded weights
-        classes: associated species class list
         start_epoch (int, optional): current epoch, 0 if not resuming training
     '''
     model_path = Path(model_path)
@@ -75,9 +83,9 @@ def load_classifier(model_path: str, len_classes: int, device=None, architecture
         model_path = str(model_path)
         start_epoch = 0
         if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-            model = EfficientNet(len_classes, device=device)
+            model = EfficientNet(num_classes, device=device)
         elif architecture == "convnext_base":
-            model = ConvNeXtBase(len_classes)
+            model = ConvNeXtBase(num_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
         return model, start_epoch
@@ -89,7 +97,7 @@ def load_classifier(model_path: str, len_classes: int, device=None, architecture
         # PyTorch dict
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
-                model = EfficientNet(len_classes, device=device, tune=False)
+                model = EfficientNet(num_classes, device=device, tune=False)
                 # TODO: torch 2.6 defaults to weights_only = True
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
@@ -97,7 +105,7 @@ def load_classifier(model_path: str, len_classes: int, device=None, architecture
                 model.eval()
                 model.framework = "EfficientNet"
             elif architecture == "convnext_base":
-                model = ConvNeXtBase(len_classes, tune=False)
+                model = ConvNeXtBase(num_classes, tune=False)
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
@@ -144,8 +152,8 @@ def load_class_list(classlist_file):
 # TODO: change default resize after training models
 def classify(model,
              detections,
-             device=None,
-             out_file=None,
+             device: Optional[str] = None,
+             out_file: Optional[str] = None,
              file_col: str = 'Frame',
              crop: bool = True,
              normalize: bool = True,
@@ -242,7 +250,6 @@ def individual_classification(animals: pd.DataFrame,
 
     Returns:
         animals dataframe with "prediction" label an "confidence" columns
-
     """
     class_list = pd.Series(class_list)
     animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
@@ -251,12 +258,12 @@ def individual_classification(animals: pd.DataFrame,
 
 
 def sequence_classification(animals: pd.DataFrame,
-                            empty,
+                            empty: Optional[pd.DataFrame],
                             predictions_raw: np.array,
                             class_list: pd.DataFrame,
                             station_col: str,
-                            empty_class="",
-                            sort_columns=None,
+                            empty_class: str = "",
+                            sort_columns: list[str] = None,
                             file_col: str = "FilePath",
                             maxdiff: int = 60):
     """
@@ -283,16 +290,11 @@ def sequence_classification(animals: pd.DataFrame,
         final_df (pd.DataFrame): Sequence classified data from both animals and empty
 
     Raises:
-        Exception: If 'animals' is not a pandas DataFrame
         Exception: If 'sort_columns' is not a list or is empty
         Exception: If 'station_col' is not a string or is empty
         Exception: If 'empty' is defined and is not a pandas DataFrame
         Exception: If maxdiff is defined and is not a positive number
     """
-    # Sanity check to verify that animals is a Pandas DataFrame
-    if not isinstance(animals, pd.DataFrame):
-        raise Exception("'animals' must be a DataFrame")
-
     if not isinstance(station_col, str) or station_col == '':
         raise Exception("'station_col' must be a non-empty string")
 
@@ -416,3 +418,95 @@ def sequence_classification(animals: pd.DataFrame,
     animals_sort['sequence'] = sequence_placeholder
 
     return animals_sort
+
+
+# TODO
+def multi_species_detection(animals: pd.DataFrame,
+                            threshold: float,
+                            file_col: str = "FilePath") -> pd.DataFrame:
+    """
+    This function applies image classifications at a image level. All images which have multiple
+    species present with confidence above threshold, will be returned as a DataFrame
+
+    @ Ayush Singh 2024
+
+    Args:
+        animals (Pandas DataFrame): Sub-selection of all images that contain animals
+        threshold (float): Minimum confidence for the image to be considered
+        file_col (str): The name of the filepath column
+
+    Raises:
+        - Exception: If threshold is not a float or threshold < 0 or threshold > 1
+
+    Returns:
+        result_df (Pandas DataFrame): Rows from images having more than one species
+    """
+    # Sanity check to verify that threshold is a float and is in range [0,1]
+    if (not isinstance(threshold, float)) or (threshold < 0) or (threshold > 1):
+        raise Exception("Threshold must be a value between 0 and 1, both inclusive")
+
+    # Sorting by file name to accumulate all rows belonging to the same image
+    animals[file_col] = animals[file_col].astype(str)
+    animals = animals.sort_values(by=file_col)
+
+    # Initializing data frame to store the result
+    result_df = pd.DataFrame()
+
+    # Making a new column for count
+    result_df['count'] = []
+
+    # List to store all the rows which have the same file name
+    curr_picture = []
+
+    # Iterating through all rows and gathering the ones which belong to the same image
+    for index, row in animals.iterrows():
+        # Initializing the list when it's empty
+        if len(curr_picture) == 0:
+            curr_picture.append(row)
+
+        # Check if row belongs to the same image
+        elif row[file_col] == curr_picture[0][file_col]:
+            curr_picture.append(row)
+
+        # All rows for the current image have been collected
+        else:
+            # Key is the specie, value is list [row, count]
+            dic = {}
+
+            # For all images above threshold, save the one with highest confidence for each class
+            for element in curr_picture:
+                if element['confidence'] > threshold:
+                    if element['prediction'] in dic:
+                        dic[element['prediction']][1] += 1
+                        if dic[element['prediction']][0]['confidence'] < element['confidence']:
+                            dic[element['prediction']][0] = element
+                    else:
+                        dic[element['prediction']] = [element, 1]
+
+            # Make current image a part of output only if it has more than 1 species
+            if len(dic) > 1:
+                for key in dic:
+                    dic[key][0]['count'] = dic[key][1]
+                    result_df = pd.concat([result_df, pd.DataFrame([dic[key][0]])])
+
+            # Reset list for next image
+            curr_picture = [row]
+
+    # Handeling the last batch
+    dic = {}
+    for element in curr_picture:
+        if element['confidence'] > threshold and element['prediction'] != 'empty':
+            if element['prediction'] in dic:
+                dic[element['prediction']][1] += 1
+                if dic[element['prediction']][0]['confidence'] < element['confidence']:
+                    dic[element['prediction']][0] = element
+            else:
+                dic[element['prediction']] = [element, 1]
+
+    # Make current image a part of output only if it has more than 1 species
+    if len(dic) > 1:
+        for key in dic:
+            dic[key][0]['count'] = dic[key][1]
+            result_df = pd.concat([result_df, pd.DataFrame([dic[key][0]])])
+
+    return result_df

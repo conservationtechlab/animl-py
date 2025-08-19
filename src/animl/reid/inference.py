@@ -4,6 +4,7 @@ Code to run Miew_ID and other re-identification models
 (https://github.com/WildMeOrg/wbia-plugin-miew-id)
 
 """
+from typing import Optional
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
@@ -18,7 +19,8 @@ MIEW_HEIGHT = 440
 MIEW_WIDTH = 440
 
 
-def load_miew(file_path: str, device=None):
+def load_miew(file_path: str,
+              device: Optional[str] = None):
     """
     Load MiewID from file path
 
@@ -41,11 +43,11 @@ def load_miew(file_path: str, device=None):
 
 
 def extract_miew_embeddings(miew_model,
-                            manifest,
+                            manifest: pd.DataFrame,
                             file_col: str = "FilePath",
                             batch_size: int = 1,
                             num_workers: int = 1,
-                            device=None):
+                            device: Optional[str] = None):
     """
     Wrapper for MiewID embedding extraction
 

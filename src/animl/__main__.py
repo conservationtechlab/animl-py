@@ -1,20 +1,20 @@
 '''
-    Main script.
+Main script.
 
-    Runs full animl workflow on a given directory.
-    User must provide MegaDetector, Classifier, and Class list files,
-    otherwise will pull MDv5 and the CTL Southwest v2 models by default.
+Runs full animl workflow on a given directory.
+User must provide MegaDetector, Classifier, and Class list files,
+otherwise will pull MDv5 and the CTL Southwest v2 models by default.
 
-    Usage example
-    > python -m animl /home/usr/animl-py/examples/Southwest/
+Usage example
+> python -m animl /home/usr/animl-py/examples/Southwest/
 
-    OR
+OR
 
-    > python -m animl /image/dir megadetector.pt classifier.h5 class_file.csv
+> python -m animl /image/dir megadetector.pt classifier.pt class_file.csv
 
-    Paths to model files must be edited to local machine.
+Paths to model files must be edited to local machine.
 
-    @ Kyra Swanson, 2023
+@ Kyra Swanson, 2023
 '''
 import time
 import argparse

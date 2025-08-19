@@ -2,6 +2,7 @@
 Predict viewpoints from a sequence of images using a viewpoint model
 
 """
+from typing import Optional
 from tqdm import tqdm
 import torch
 
@@ -9,7 +10,9 @@ from animl.utils.general import get_device
 from animl.generator import manifest_dataloader
 
 
-def predict_by_camera(model, dataloader, device=None):
+def predict_by_camera(model,
+                      dataloader,
+                      device: Optional[str] = None,):
     """
     Run model on a sequence from a single camera
 
@@ -38,7 +41,9 @@ def predict_by_camera(model, dataloader, device=None):
     return pred, paths, sums
 
 
-def predict_viewpoints(model, dataset, device=None):
+def predict_viewpoints(model,
+                       dataset,
+                       device: Optional[str] = None):
     '''
     Run viewpoint model on two-camera sequences to improve prediction accuracy
 
