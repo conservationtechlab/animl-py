@@ -203,7 +203,7 @@ def convert_yolo_detections(predictions, image_paths):
         image_paths (list): List of image file paths corresponding to predictions
 
     Returns:
-        df (pd.DataFrame): Formatted YOLO outputs, one row per detection
+        results (list): Formatted YOLO outputs, nested list of dictionaries
     """
     results = []
 
@@ -250,7 +250,7 @@ def convert_raw_detections(predictions, image_tensors, image_paths):
         image_paths (list): List of image file paths corresponding to predictions
 
     Returns:
-        results (pd.DataFrame): Formatted YOLO outputs, one row per detection
+        results (list): Formatted YOLO outputs, nested list of dictionaries
     """
     results = []
 
