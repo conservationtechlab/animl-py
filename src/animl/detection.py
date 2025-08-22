@@ -61,13 +61,15 @@ def load_detector(model_path, model_type, device=None):
 
 def detect(detector,
            image_file_names,
-           batch_size=1,
-           num_workers=1,
-           device=None,
+           resize_width: int,
+           resize_height: int,
+           batch_size: int = 1,
+           num_workers: int = 1,
+           device: typing.Optional[str] = None,
            checkpoint_path: typing.Optional[str] = None,
            checkpoint_frequency: int = -1,
            confidence_threshold: float = 0.1,
-           image_size: typing.Optional[int] = 1280,
+           letterbox: bool = True,
            file_col: str = 'Frame') -> typing.List[typing.Dict]:
     """
     Runs Detector model on a batches of image files.
@@ -103,7 +105,8 @@ def detect(detector,
     # Single Image
     if isinstance(image_file_names, str):
         # convert img path to tensor
-        image_tensor = image_to_tensor(image_file_names, resize_width=image_size, resize_height=image_size)
+        # TODO: NOT CURRENTLY LETTERBOXIN0G
+        image_tensor = image_to_tensor(image_file_names, resize_width=resize_width, resize_height=resize_height)
         # Run inference on the image
         if detector.model_type == "MDV5":
             prediction = detector(image_tensor.to(device))
@@ -147,9 +150,10 @@ def detect(detector,
     # create dataloader
     # TODO: letterbox if mdv5
     dataloader = manifest_dataloader(manifest, batch_size=batch_size,
-                                     num_workers=num_workers, crop=False, normalize=True,
-                                     resize_width=image_size,
-                                     resize_height=image_size)
+                                     num_workers=num_workers, crop=False, 
+                                     normalize=True, letterbox=letterbox,
+                                     resize_width=resize_width,
+                                     resize_height=resize_height)
 
     print("Starting batch processing...")
     start_time = time.time()
