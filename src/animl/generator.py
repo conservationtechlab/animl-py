@@ -71,7 +71,7 @@ class Letterbox(torch.nn.Module):
             return transform(image)
 
 
-def image_to_tensor(file_path, resize_width, resize_height):
+def image_to_tensor(file_path, letterbox, resize_width, resize_height):
     '''
     Convert an image to tensor for single detection or classification
 
@@ -90,9 +90,15 @@ def image_to_tensor(file_path, resize_width, resize_height):
         print('Image {} cannot be loaded. Exception: {}'.format(file_path, e))
         return None
 
-    tensor_transform = Compose([Letterbox(resize_height, resize_width),
-                                ToImage(),
-                                ToDtype(torch.float32, scale=True),])  # torch.resize order is H,W
+    if letterbox:
+        tensor_transform = Compose([Letterbox(resize_height, resize_width),
+                                    ToImage(),
+                                    ToDtype(torch.float32, scale=True),])  # torch.resize order is H,W
+    else:
+        tensor_transform = Compose([Resize((resize_height, resize_width)),
+                                    ToImage(),
+                                    ToDtype(torch.float32, scale=True),])
+        
     img_tensor = tensor_transform(img)
     img_tensor = torch.unsqueeze(img_tensor, 0)  # add batch dimension
     img.close()

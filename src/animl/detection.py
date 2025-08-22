@@ -105,8 +105,8 @@ def detect(detector,
     # Single Image
     if isinstance(image_file_names, str):
         # convert img path to tensor
-        # TODO: NOT CURRENTLY LETTERBOXIN0G
-        image_tensor = image_to_tensor(image_file_names, resize_width=resize_width, resize_height=resize_height)
+        image_tensor = image_to_tensor(image_file_names, letterbox=letterbox,
+                                       resize_width=resize_width, resize_height=resize_height)
         # Run inference on the image
         if detector.model_type == "MDV5":
             prediction = detector(image_tensor.to(device))
@@ -165,6 +165,7 @@ def detect(detector,
 
         # Run inference on the current batch of image_tensors
         if detector.model_type == "MDV5":
+            # letterboxing should be true
             prediction = detector(image_tensors.to(device))
             pred: list = prediction[0]
             pred = general.non_max_suppression(prediction=pred, conf_thres=0.1)
@@ -214,6 +215,7 @@ def convert_yolo_detections(predictions, image_paths):
     for i, pred in enumerate(predictions):
         file = image_paths[i]
 
+        # TODO IF LETTERBOXED, unpad
         boxes = pred.boxes.xyxyn.cpu().numpy()  # Bounding box coordinates
         conf = pred.boxes.conf.cpu().numpy()  # Confidence scores
         category = pred.boxes.cls.cpu().numpy()  # Class labels as integers
@@ -265,7 +267,7 @@ def convert_raw_detections(predictions, image_tensors, image_paths):
 
         if len(det):
             # Rescale boxes from img_size to im0 size
-            # det[:, :4] = general.scale_coords(image_tensors[i].shape[1:], det[:, :4], image_tensors[i].shape[1:]).round()
+            det[:, :4] = general.scale_coords(image_tensors[i].shape[1:], det[:, :4], image_tensors[i].shape[1:]).round()
 
             for *xyxy, conf, cls in reversed(det):
                 # normalized center-x, center-y, width and height
