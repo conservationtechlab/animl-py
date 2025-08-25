@@ -9,6 +9,7 @@ import platform
 import sys
 import torch
 import math
+import pkg_resources as pkg
 import torch.nn as nn
 from copy import deepcopy
 from pathlib import Path
@@ -20,7 +21,6 @@ from animl.models.common import (Bottleneck, BottleneckCSP, C3,
                                  GhostConv, SPP, SPPF)
 from animl.utils.general import (make_divisible, fuse_conv_and_bn, initialize_weights, 
                                  model_info, scale_img, time_sync)
-from animl.utils.yolo5 import check_version
 
 try:
     import thop  # for FLOPs computation
@@ -37,6 +37,16 @@ if platform.system() != 'Windows':
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 
+def check_version(current='0.0.0', minimum='0.0.0', name='version ', pinned=False, hard=False, verbose=False):
+    # Check version vs. required version
+    current, minimum = (pkg.parse_version(x) for x in (current, minimum))
+    result = (current == minimum) if pinned else (current >= minimum)  # bool
+    s = f'{name}{minimum} required by YOLOv5, but {name}{current} is currently installed'  # string
+    if hard:
+        assert result, s  # assert min requirements met
+    return result
+
+
 # FROM autoanchor.py
 def check_anchor_order(m):
     # Check anchor order against stride order for YOLOv5 Detect() module m, and correct if necessary
@@ -45,6 +55,7 @@ def check_anchor_order(m):
     ds = m.stride[-1] - m.stride[0]  # delta s
     if da and (da.sign() != ds.sign()):  # same order
         m.anchors[:] = m.anchors.flip(0)
+
 
 class Detect(nn.Module):
     """YOLOv5 Detect head for processing input tensors and generating detection outputs in object detection models."""
