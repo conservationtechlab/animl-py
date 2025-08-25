@@ -1,9 +1,8 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
 YOLO-specific modules
+Required for MDv5
 
-Usage:
-    $ python path/to/models/yolo.py --cfg yolov5s.yaml
 """
 import os
 import platform
@@ -13,13 +12,6 @@ import math
 import torch.nn as nn
 from copy import deepcopy
 from pathlib import Path
-
-FILE = Path(__file__).resolve()
-ROOT = FILE.parents[1]  # YOLOv5 root directory
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
-if platform.system() != 'Windows':
-    ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 from animl.models.common import (Bottleneck, BottleneckCSP, C3,
                                  C3Ghost, C3SPP, C3TR, C3x,
@@ -34,7 +26,16 @@ try:
     import thop  # for FLOPs computation
 except ImportError:
     thop = None
-    
+
+
+# add file to path 
+FILE = Path(__file__).resolve()
+ROOT = FILE.parents[1]  # YOLOv5 root directory
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # add ROOT to PATH
+if platform.system() != 'Windows':
+    ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
+
 
 # FROM autoanchor.py
 def check_anchor_order(m):

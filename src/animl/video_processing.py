@@ -6,7 +6,7 @@ import multiprocessing as mp
 import pandas as pd
 from numpy import vstack
 from pathlib import Path
-from typing import Optional, Union, List
+from typing import Optional, Union
 
 from animl import file_management
 from animl.utils.general import NUM_THREADS
@@ -87,7 +87,7 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
         return frames_saved
 
 
-def extract_frames(files: Union[str, pd.DataFrame, List[str]],
+def extract_frames(files: Union[str, pd.DataFrame, list[str]],
                    out_dir: str,
                    out_file: Optional[str] = None,
                    fps: Optional[float] = None,

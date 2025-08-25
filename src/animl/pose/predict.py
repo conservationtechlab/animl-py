@@ -1,12 +1,34 @@
-from tqdm import trange
-import pandas as pd
-import torch
-from typing import Union
+"""
+Predict viewpoints from a sequence of images using a viewpoint model
 
+"""
+from typing import Optional
+from tqdm import tqdm
+import torch
+
+from animl.utils.general import get_device
 from animl.generator import manifest_dataloader
 
 
-def predict_by_camera(dataloader, device, model):
+def predict_by_camera(model,
+                      dataloader,
+                      device: Optional[str] = None,):
+    """
+    Run model on a sequence from a single camera
+
+    Args:
+        model: viewpoint model object
+        dataloader: dataloader for the camera
+        device: the device to run the model on (default is determined by get_device)
+
+    Returns:
+        pred: the predicted viewpoint class
+        paths: the file paths of the images in the sequence
+        sums: the summed probabilities for each viewpoint class
+    """
+    if device is None:
+        device = get_device()
+
     # batch size is len of half, should have one batch per camera
     for batches in enumerate(dataloader):
         batch = batches[1]
@@ -19,21 +41,24 @@ def predict_by_camera(dataloader, device, model):
     return pred, paths, sums
 
 
-def predict_viewpoints(dataset: pd.DataFrame,
-                       model: torch.nn.Module,
-                       device: Union[str, torch.device] = 'cpu'):
+def predict_viewpoints(model,
+                       dataset,
+                       device: Optional[str] = None):
     '''
     Run viewpoint model on two-camera sequences to improve prediction accuracy
 
     Args:
-        data_loader: test set dataloader
-        model: trained model object
+        model: viewpoint model object
+        data_loader: pd.DataFrame with columns 'FilePath', 'camera', 'sequence'
         device: run model on gpu or cpu, defaults to cpu
 
     Return:
         pred_labels
         filepaths
     '''
+    if device is None:
+        device = get_device()
+
     model.to(device)
     model.eval()  # put the model into training mode
 
@@ -44,10 +69,8 @@ def predict_viewpoints(dataset: pd.DataFrame,
     dataset['sequence_group'] = dataset.sort_values("sequence")['sequence'].diff().gt(6).cumsum().add(1)
     sequences = dataset.groupby('sequence_group')
 
-    progressBar = trange(sequences.ngroups)
-
     with torch.no_grad():
-        for group in sequences:
+        for group in tqdm(sequences):
             df = group[1]
             # split by left/right camera
             half1 = df.loc[df.groupby(['camera']).ngroup() == 0].reset_index()
@@ -56,10 +79,10 @@ def predict_viewpoints(dataset: pd.DataFrame,
             # if there are 2 cameras
             if len(half2) > 0:
                 group1 = manifest_dataloader(half1, 'FilePath', normalize=True, batch_size=len(half1), num_workers=8)
-                g1_pred, g1_paths, g1_sums = predict_by_camera(group1, device, model)
+                g1_pred, g1_paths, g1_sums = predict_by_camera(model, group1, device)
 
                 group2 = manifest_dataloader(half2, 'FilePath', normalize=True, batch_size=len(half2), num_workers=8)
-                g2_pred, g2_paths, g2_sums = predict_by_camera(group2, device, model)
+                g2_pred, g2_paths, g2_sums = predict_by_camera(model, group2, device)
 
                 # if viewpoint predictions are the same, whichever group has the higher summed probability will get that viewpoint
                 if g1_pred == g2_pred:
@@ -84,6 +107,5 @@ def predict_viewpoints(dataset: pd.DataFrame,
                 pred, paths, sums = predict_by_camera(dl_group, device, model)
                 pred_labels.extend([pred] * len(df))
                 filepaths.extend(paths)
-            progressBar.update(1)
 
     return pred_labels, filepaths

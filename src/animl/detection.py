@@ -6,9 +6,9 @@ parse_detections() converts json output into a dataframe
 
 @ Kyra Swanson 2023
 """
+from typing import Optional
 import os
 import time
-import typing
 import torch
 import pandas as pd
 from tqdm import tqdm
@@ -22,7 +22,9 @@ from animl.utils import general
 from ultralytics import YOLO
 
 
-def load_detector(model_path, model_type, device=None):
+def load_detector(model_path: str,
+                  model_type: str,
+                  device: Optional[str] = None):
     """
     Load Detector model from filepath.
 
@@ -61,14 +63,14 @@ def load_detector(model_path, model_type, device=None):
 
 def detect(detector,
            image_file_names,
-           batch_size=1,
-           num_workers=1,
-           device=None,
-           checkpoint_path: typing.Optional[str] = None,
+           batch_size: int = 1,
+           num_workers: int = general.NUM_THREADS,
+           device: Optional[str] = None,
+           checkpoint_path: Optional[str] = None,
            checkpoint_frequency: int = -1,
            confidence_threshold: float = 0.1,
-           image_size: typing.Optional[int] = 1280,
-           file_col: str = 'Frame') -> typing.List[typing.Dict]:
+           image_size: Optional[int] = 1280,
+           file_col: str = 'Frame') -> list[dict]:
     """
     Runs Detector model on a batches of image files.
 
@@ -88,11 +90,7 @@ def detect(detector,
     Returns:
         list: list of dicts, each dict represents detections on one image
     """
-    if confidence_threshold is None:
-        confidence_threshold = 0.1
-    if checkpoint_frequency is None:
-        checkpoint_frequency = -1
-    elif checkpoint_frequency != -1:
+    if checkpoint_frequency != -1:
         checkpoint_frequency = round(checkpoint_frequency/batch_size, 0)
 
     # check to make sure GPU is available if chosen
@@ -194,7 +192,8 @@ def detect(detector,
     return results
 
 
-def convert_yolo_detections(predictions, image_paths):
+def convert_yolo_detections(predictions: list[dict],
+                            image_paths: list[str]) -> pd.DataFrame:
     """
     Converts YOLO output into a nested list.
 
@@ -240,7 +239,9 @@ def convert_yolo_detections(predictions, image_paths):
     return results
 
 
-def convert_raw_detections(predictions, image_tensors, image_paths):
+def convert_raw_detections(predictions: list,
+                           image_tensors: list,
+                           image_paths: list):
     """
     Converts MDv5 output into a nested list.
 
@@ -299,8 +300,12 @@ def convert_raw_detections(predictions, image_tensors, image_paths):
     return results
 
 
-def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
-                     threshold=0, file_col="Frame"):
+def parse_detections(results: list,
+                     manifest: Optional[pd.DataFrame] = None,
+                     out_file: Optional[str] = None,
+                     buffer: float = 0.02,
+                     threshold: float = 0,
+                     file_col: str = "Frame"):
     """
     Converts listed output from detector to DataFrame.
 

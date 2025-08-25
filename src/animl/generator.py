@@ -74,7 +74,7 @@ class ResizeWithPadding(torch.nn.Module):
         return f"{self.__class__.__name__}(size={self.size})"
 
 
-def image_to_tensor(file_path, resize_width, resize_height):
+def image_to_tensor(file_path: str, resize_width: int, resize_height: int):
     '''
     Convert an image to tensor for single detection or classification
 
@@ -107,9 +107,12 @@ class ImageGenerator(Dataset):
 
     Options:
         file_col: column name containing full file paths
-        resize: dynamically resize images to target
+        resize_height: size in pixels for input height
+        resize_width: size in pixels for input width
         crop: if true, dynamically crop
+        crop_coord: if relative, will calculate absolute values based on image size
         normalize: tensors are normalized by default, set to false to un-normalize
+        transform: torchvision transforms to apply to images
     '''
     # TODO: set defaults to 480 after retraining models
     def __init__(self, x: pd.DataFrame,
@@ -130,11 +133,14 @@ class ImageGenerator(Dataset):
         self.resize_width = int(resize_width)
         self.buffer = 0
         self.normalize = normalize
-        self.transform = transform
-        # torch.resize order is H,W
-        self.transform = Compose([Resize((self.resize_height, self.resize_width)),
-                                  ToTensor(),transform,]) if transform is not None else Compose([Resize((self.resize_height, self.resize_width)),
-                                  ToTensor(),])
+        if transform is None:
+            # torch.resize order is H,W
+            self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                      ToTensor(),])
+        else:
+            self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                      ToTensor(),
+                                      transform,])
 
     def __len__(self) -> int:
         return len(self.x)

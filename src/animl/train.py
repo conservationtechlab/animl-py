@@ -388,13 +388,13 @@ def train_main(cfg):
             experiment.log_metrics(stats, step=current_epoch)
 
         if current_epoch % checkpoint == 0:
-            save_classifier(cfg['experiment_folder'], current_epoch, model, stats, optim, scheduler)
+            save_classifier(model, cfg['experiment_folder'], current_epoch, stats, optim, scheduler)
 
         # best.pt saving
         if loss_val < best_val_loss:
             best_val_loss = loss_val
             epochs_no_improve = 0
-            save_classifier(cfg['experiment_folder'], 'best', model, stats)
+            save_classifier(model, cfg['experiment_folder'], 'best',  stats)
             print(f"Current best model saved at epoch {current_epoch} with ...")
             print(f"     val loss : {best_val_loss:.5f}")
             print(f"       val OA : {oa_val:.5f}")
@@ -404,7 +404,7 @@ def train_main(cfg):
             epochs_no_improve += 1
 
         # last.pt saving
-        save_classifier(cfg['experiment_folder'], 'last', model, stats)
+        save_classifier(model, cfg['experiment_folder'], 'last', stats)
 
         # if user specified early stopping
         if early_stopping:
