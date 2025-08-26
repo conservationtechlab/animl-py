@@ -22,7 +22,12 @@ from animl.utils import general
 from ultralytics import YOLO
 
 
-def load_detector(model_path, model_type, device=None):
+MEGADETECTORv5_SIZE = 1280
+MEGADETECTORv5_STRIDE = 64
+
+def load_detector(model_path: str,
+                  model_type: str,
+                  device: typing.Optional[str] = None):
     """
     Load Detector model from filepath.
 
