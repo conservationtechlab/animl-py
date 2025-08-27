@@ -264,6 +264,8 @@ def classify(model,
         raise AssertionError("Input must be a data frame of crops, single file path or vector of file paths.")
 
     # Predict
+    print("Starting batch processing...")
+    start_time = time()
     with torch.no_grad():
         for _, batch in tqdm(enumerate(dataset), total=len(dataset)):
             # pytorch
@@ -287,6 +289,9 @@ def classify(model,
 
     if out_file:
         file_management.save_data(pd.DataFrame(raw_output), out_file)
+
+
+    print(f"\nFinished batch processing. Total images processed: {len(raw_output)} at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
 
     return raw_output
 

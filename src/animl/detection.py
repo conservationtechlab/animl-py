@@ -20,9 +20,12 @@ from animl.utils import general
 from ultralytics import YOLO
 
 
+MEGADETECTORv5_SIZE = 1280
+MEGADETECTORv5_STRIDE = 64
+
 def load_detector(model_path: str,
                   model_type: str,
-                  device: Optional[str] = None):
+                  device: typing.Optional[str] = None):
     """
     Load Detector model from filepath.
 
@@ -62,14 +65,17 @@ def load_detector(model_path: str,
 # TODO - rethink kwarg ordering
 def detect(detector,
            image_file_names,
-           batch_size: int = 1,
-           num_workers: int = general.NUM_THREADS,
-           device: Optional[str] = None,
-           checkpoint_path: Optional[str] = None,
-           checkpoint_frequency: int = -1,
+           resize_width: int,
+           resize_height: int,
+           letterbox: bool = True,
            confidence_threshold: float = 0.1,
-           image_size: Optional[int] = 1280,
-           file_col: str = 'Frame') -> list[dict]:
+           file_col: str = 'Frame',
+           batch_size: int = 1,
+           num_workers: int = 1,
+           device: typing.Optional[str] = None,
+           checkpoint_path: typing.Optional[str] = None,
+           checkpoint_frequency: int = -1) -> typing.List[typing.Dict]:
+
     """
     Runs Detector model on a batches of image files.
 
@@ -100,7 +106,8 @@ def detect(detector,
     # Single Image
     if isinstance(image_file_names, str):
         # convert img path to tensor
-        image_tensor = image_to_tensor(image_file_names, resize_width=image_size, resize_height=image_size)
+        image_tensor = image_to_tensor(image_file_names, letterbox=letterbox,
+                                       resize_width=resize_width, resize_height=resize_height)
         # Run inference on the image
         if detector.model_type == "MDV5":
             prediction = detector(image_tensor.to(device))
@@ -144,9 +151,10 @@ def detect(detector,
     # create dataloader
     # TODO: letterbox if mdv5
     dataloader = manifest_dataloader(manifest, batch_size=batch_size,
-                                     num_workers=num_workers, crop=False, normalize=True,
-                                     resize_width=image_size,
-                                     resize_height=image_size)
+                                     num_workers=num_workers, crop=False, 
+                                     normalize=True, letterbox=letterbox,
+                                     resize_width=resize_width,
+                                     resize_height=resize_height)
 
     print("Starting batch processing...")
     start_time = time.time()
@@ -158,6 +166,7 @@ def detect(detector,
 
         # Run inference on the current batch of image_tensors
         if detector.model_type == "MDV5":
+            # letterboxing should be true
             prediction = detector(image_tensors.to(device))
             pred: list = prediction[0]
             pred = general.non_max_suppression(prediction=pred, conf_thres=0.1)
@@ -195,6 +204,7 @@ def convert_yolo_detections(predictions: list[dict],
     for i, pred in enumerate(predictions):
         file = image_paths[i]
 
+        # TODO IF LETTERBOXED, unpad
         boxes = pred.boxes.xyxyn.cpu().numpy()  # Bounding box coordinates
         conf = pred.boxes.conf.cpu().numpy()  # Confidence scores
         category = pred.boxes.cls.cpu().numpy()  # Class labels as integers
@@ -249,7 +259,7 @@ def convert_raw_detections(predictions: list,
 
         if len(det):
             # Rescale boxes from img_size to im0 size
-            # det[:, :4] = general.scale_coords(image_tensors[i].shape[1:], det[:, :4], image_tensors[i].shape[1:]).round()
+            det[:, :4] = general.scale_coords(image_tensors[i].shape[1:], det[:, :4], image_tensors[i].shape[1:]).round()
 
             for *xyxy, conf, cls in reversed(det):
                 # normalized center-x, center-y, width and height

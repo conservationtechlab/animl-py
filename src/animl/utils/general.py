@@ -341,20 +341,7 @@ def copy_attr(a, b, include=(), exclude=()):
             continue
         else:
             setattr(a, k, v)
-          
-  
-# From torchvision.transforms
-def _setup_size(size):
-    if isinstance(size, int):
-        return int(size), int(size)
 
-    if isinstance(size, Sequence) and len(size) == 1:
-        return size[0], size[0]
-
-    if len(size) != 2:
-        raise ValueError('Please provide up to two dimensions (h,w)')
-    return size
-      
 
 def print_args(args: Optional[dict] = None, show_file=True, show_fcn=False):
     # Print function arguments (optional args dict)
