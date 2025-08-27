@@ -16,10 +16,10 @@ import PIL
 from typing import Optional
 
 
-VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
+VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff", ".tif"
                     ".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
-IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff"}
+IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff", '.tif"'}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
 
@@ -243,7 +243,7 @@ def check_file(file: str) -> bool:
     return False
 
 
-def save_checkpoint(checkpoint_path: str, results: dict) -> None:
+def save_detection_checkpoint(checkpoint_path: str, results: dict) -> None:
     """
     Save a checkpoint of the detection results to a JSON file.
 

@@ -7,12 +7,10 @@ parse_detections() converts json output into a dataframe
 @ Kyra Swanson 2023
 """
 from typing import Optional
-import os
 import time
 import torch
 import pandas as pd
 from tqdm import tqdm
-from shutil import copyfile
 from torch import tensor
 
 from animl import file_management
@@ -171,21 +169,7 @@ def detect(detector,
         # Write a checkpoint if necessary
         if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
             print('Writing a new checkpoint after having processed {} images since last restart'.format(count*batch_size))
-
-            assert checkpoint_path is not None
-            # Back up any previous checkpoints, to protect against crashes while we're writing
-            # the checkpoint file.
-            checkpoint_tmp_path = None
-            if os.path.isfile(checkpoint_path):
-                checkpoint_tmp_path = str(checkpoint_path) + '_tmp'
-                copyfile(checkpoint_path, checkpoint_tmp_path)
-
-            # Write the new checkpoint
-            file_management.save_json({'images': results}, checkpoint_path)
-
-            # Remove the backup checkpoint if it exists
-            if checkpoint_tmp_path is not None:
-                os.remove(checkpoint_tmp_path)
+            file_management.save_detection_checkpoint(checkpoint_path, results)
 
     print(f"\nFinished batch processing. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
 

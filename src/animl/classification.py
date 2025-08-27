@@ -3,6 +3,7 @@ Tools for Saving, Loading, and Using Species Classifiers
 
 @ Kyra Swanson 2023
 '''
+import os
 from typing import Optional
 import pandas as pd
 import numpy as np
@@ -136,6 +137,60 @@ def load_classifier(model_path: str,
         raise ValueError("Model not found at given path")
 
 
+def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
+    '''
+    Load checkpoint model weights to resume training.
+
+    Args:
+        model_path: path to saved weights
+        model: loaded model object
+        optimizer: optimizer object
+        scheduler: learning rate scheduler
+        device (str): device to load model and data to
+
+    Returns:
+        starting epoch (int)
+    '''
+    model_states = []
+    for file in os.listdir(model_path):
+        if os.path.splitext(file)[1] == ".pt":
+            model_states.append(file)
+
+    if len(model_states):
+        # at least one save state found; get latest
+        model_epochs = [int(m.replace(model_path, '').replace('.pt', '')) for m in model_states]
+        start_epoch = max(model_epochs)
+
+        # load state dict and apply weights to model
+        print(f'Resuming from epoch {start_epoch}')
+        checkpoint = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'), map_location=device)
+        model.load_state_dict(checkpoint['model'])
+        # Model is assumed to be on the correct device already (moved in main before optimizer creation)
+
+        # load optimzier state if available
+        if 'optimizer' in checkpoint:
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            # Ensure optimizer's state tensors are on the correct device
+            for state in optimizer.state.values():
+                for k, v in state.items():
+                    if isinstance(v, torch.Tensor) and v.device != device:
+                        state[k] = v.to(device)
+
+        # load scheduler state if available
+        if 'scheduler' in checkpoint:
+            scheduler.load_state_dict(checkpoint['scheduler'])
+
+        # get last epoch from model if avialble
+        if 'epoch' in checkpoint:
+            return checkpoint['epoch']
+        else:
+            return start_epoch
+    else:
+        # no save state found; stasrt anew
+        print('No model state found, starting new model')
+        return 0
+
+
 def load_class_list(classlist_file):
     """
     Return classlist file as pd.DataFrame.
@@ -237,9 +292,9 @@ def classify(model,
     return raw_output
 
 
-def individual_classification(animals: pd.DataFrame,
-                              predictions_raw: np.array,
-                              class_list: pd.DataFrame):
+def single_classification(animals: pd.DataFrame,
+                          predictions_raw: np.array,
+                          class_list: pd.DataFrame):
     """
     Get maximum likelihood prediction from softmaxed logits.
 
