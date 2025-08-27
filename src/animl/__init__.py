@@ -18,10 +18,11 @@ from animl import video_processing
 from animl.api import (MiewGenerator, animl_to_md, convert_animl_to_md,
                        matchypatchy, miew_embedding, reid_dataloader,
                        viewpoint_estimator,)
-from animl.classification import (classify, individual_classification,
-                                  load_class_list, load_classifier,
+from animl.classification import (classify, load_class_list, load_classifier,
+                                  load_classifier_checkpoint,
                                   multi_species_detection, save_classifier,
-                                  sequence_classification,)
+                                  sequence_classification,
+                                  single_classification,)
 from animl.detection import (convert_raw_detections, convert_yolo_detections,
                              detect, load_detector, parse_detections,)
 from animl.export import (export_coco, export_megadetector, export_timelapse,
@@ -30,8 +31,8 @@ from animl.export import (export_coco, export_megadetector, export_timelapse,
 from animl.file_management import (IMAGE_EXTENSIONS, VALID_EXTENSIONS,
                                    VIDEO_EXTENSIONS, WorkingDirectory,
                                    active_times, build_file_manifest,
-                                   check_file, load_data, load_json,
-                                   save_checkpoint, save_data, save_json,)
+                                   check_file, load_data, load_json, save_data,
+                                   save_detection_checkpoint, save_json,)
 from animl.generator import (ImageGenerator, ResizeWithPadding, TrainGenerator,
                              collate_fn, image_to_tensor, manifest_dataloader,
                              train_dataloader,)
@@ -47,7 +48,7 @@ from animl.models import (AutoShape, BaseModel, Bottleneck, BottleneckCSP, C3,
                           check_suffix, check_version, common, download,
                           download_model, parse_model, yolo,)
 from animl.pipeline import (from_config, from_paths,)
-from animl.pose import (predict, predict_by_camera, predict_viewpoints,)
+from animl.pose import (predict_viewpoints, viewpoint,)
 from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         ArcMarginProduct, ArcMarginProduct_subcenter,
                         ElasticArcFace, GeM, MIEW_HEIGHT, MIEW_WIDTH,
@@ -58,8 +59,7 @@ from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
                         remove_diagonal,)
 from animl.split import (get_animals, get_empty, train_val_test,)
 from animl.test import (test_func, test_main,)
-from animl.train import (load_model_checkpoint, train_func, train_main,
-                         validate_func,)
+from animl.train import (train_func, train_main, validate_func,)
 from animl.utils import (NUM_THREADS, absolute_to_relative, box_area, box_iou,
                          check_img_size, clean_str, clip_coords,
                          convert_minxywh_to_absxyxy, convert_yolo_to_xywh,
@@ -111,27 +111,25 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'find_modules', 'from_config', 'from_paths', 'fuse_conv_and_bn',
            'general', 'generator', 'get_animals', 'get_device', 'get_empty',
            'get_image_size', 'get_latest_run', 'image_to_tensor',
-           'increment_path', 'individual_classification', 'inference',
-           'init_seed', 'init_seeds', 'initialize_weights', 'intersect_dicts',
-           'is_parallel', 'l2_norm', 'labels_to_class_weights',
-           'labels_to_image_weights', 'letterbox', 'load_class_list',
-           'load_classifier', 'load_data', 'load_detector', 'load_json',
-           'load_miew', 'load_model_checkpoint', 'main', 'make_divisible',
-           'manifest_dataloader', 'matchypatchy', 'miew_embedding', 'miewid',
-           'model_architecture', 'model_info', 'models',
-           'multi_species_detection', 'non_max_suppression', 'one_cycle',
-           'parse_detections', 'parse_model', 'pipeline',
-           'plot_all_bounding_boxes', 'plot_box', 'pose', 'predict',
-           'predict_by_camera', 'predict_viewpoints', 'print_args', 'prune',
-           'reid', 'reid_dataloader', 'remove_diagonal', 'remove_link',
-           'resample_segments', 'save_checkpoint', 'save_classifier',
-           'save_data', 'save_json', 'scale_coords', 'scale_img',
-           'segment2box', 'segments2boxes', 'select_device',
-           'sequence_classification', 'softmax', 'sort_MD', 'sort_species',
-           'sparsity', 'split', 'tensor_to_onnx', 'test', 'test_func',
-           'test_main', 'time_sync', 'train', 'train_dataloader', 'train_func',
-           'train_main', 'train_val_test', 'truncate_float',
-           'truncate_float_array', 'update_link_labels', 'utils',
-           'validate_func', 'video_processing', 'viewpoint_estimator',
-           'visualization', 'xyn2xy', 'xywh2xyxy', 'xywhn2xyxy', 'xyxy2xywh',
-           'xyxy2xywhn', 'yolo']
+           'increment_path', 'inference', 'init_seed', 'init_seeds',
+           'initialize_weights', 'intersect_dicts', 'is_parallel', 'l2_norm',
+           'labels_to_class_weights', 'labels_to_image_weights', 'letterbox',
+           'load_class_list', 'load_classifier', 'load_classifier_checkpoint',
+           'load_data', 'load_detector', 'load_json', 'load_miew', 'main',
+           'make_divisible', 'manifest_dataloader', 'matchypatchy',
+           'miew_embedding', 'miewid', 'model_architecture', 'model_info',
+           'models', 'multi_species_detection', 'non_max_suppression',
+           'one_cycle', 'parse_detections', 'parse_model', 'pipeline',
+           'plot_all_bounding_boxes', 'plot_box', 'pose', 'predict_viewpoints',
+           'print_args', 'prune', 'reid', 'reid_dataloader', 'remove_diagonal',
+           'remove_link', 'resample_segments', 'save_classifier', 'save_data',
+           'save_detection_checkpoint', 'save_json', 'scale_coords',
+           'scale_img', 'segment2box', 'segments2boxes', 'select_device',
+           'sequence_classification', 'single_classification', 'softmax',
+           'sort_MD', 'sort_species', 'sparsity', 'split', 'tensor_to_onnx',
+           'test', 'test_func', 'test_main', 'time_sync', 'train',
+           'train_dataloader', 'train_func', 'train_main', 'train_val_test',
+           'truncate_float', 'truncate_float_array', 'update_link_labels',
+           'utils', 'validate_func', 'video_processing', 'viewpoint',
+           'viewpoint_estimator', 'visualization', 'xyn2xy', 'xywh2xyxy',
+           'xywhn2xyxy', 'xyxy2xywh', 'xyxy2xywhn', 'yolo']

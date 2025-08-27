@@ -15,7 +15,7 @@ from typing import Union, Optional
 from animl.utils import general
 
 
-def plot_box(img, row, prediction=False):
+def plot_box(row, file_col="FilePath", prediction=False):
     """
     Plot a bounding box on a given (loaded) image
 
@@ -23,6 +23,7 @@ def plot_box(img, row, prediction=False):
         img (numpy.ndarray): Loaded image in which the bounding box will be plotted.
         row (pandas.Series): Row from the DataFrame containing bounding box coordinates and prediction.
             Expected columns:
+            - file_col
             - 'bbox_x': x-coordinate of the top-left corner of the bounding box.
             - 'bbox_y': y-coordinate of the top-left corner of the bounding box.
             - 'bbox_w': width of the bounding box.
@@ -33,6 +34,7 @@ def plot_box(img, row, prediction=False):
     Returns:
         None
     """
+    img = cv2.imread(row[file_col])
     height, width, _ = img.shape
     bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
     xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
@@ -61,7 +63,7 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             min_conf: Union[int, float] = 0,
                             prediction: bool = False):
     """
-    This function takes the data frame output from MegaDetector, makes a copy of each image,
+    This function takes the parsed dataframe output from MegaDetector, makes a copy of each image,
     plots the boxes in the new image, and saves it the specified directory.
 
     Args:
@@ -229,7 +231,7 @@ def demo_boxes(manifest: pd.DataFrame, file_col: str, min_conf: float = 0.9, pre
 
 def main(csv_file: str, output_dir: str):
     """
-    Read a CSV file values and perform box plotting on the images.
+    Read a CSV manifest file and perform box plotting on the images.
 
     Args:
         csv_file (str): Path to the CSV file.

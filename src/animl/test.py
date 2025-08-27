@@ -1,6 +1,5 @@
 '''
-Training script. Here, we load the training and validation datasets (and
-data loaders) and the model and train and validate the model accordingly.
+Test script for evaluating trained model on holdout test set.
 
 Original script from
 2022 Benjamin Kellenberger
