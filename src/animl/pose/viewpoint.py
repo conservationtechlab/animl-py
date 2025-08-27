@@ -10,39 +10,8 @@ from animl.utils.general import get_device
 from animl.generator import manifest_dataloader
 
 
-def predict_by_camera(model,
-                      dataloader,
-                      device: Optional[str] = None,):
-    """
-    Run model on a sequence from a single camera
-
-    Args:
-        model: viewpoint model object
-        dataloader: dataloader for the camera
-        device: the device to run the model on (default is determined by get_device)
-
-    Returns:
-        pred: the predicted viewpoint class
-        paths: the file paths of the images in the sequence
-        sums: the summed probabilities for each viewpoint class
-    """
-    if device is None:
-        device = get_device()
-
-    # batch size is len of half, should have one batch per camera
-    for batches in enumerate(dataloader):
-        batch = batches[1]
-        data = batch[0]
-        data = data.to(device)
-        prediction = model(data)  # list of predictions
-        sums = torch.sum(prediction, dim=0)  # sum predictions for each viewpoint
-        pred = torch.argmax(sums).item()  # return column with the max sum for viewpoint prediction
-        paths = batch[1]
-    return pred, paths, sums
-
-
 def predict_viewpoints(model,
-                       dataset,
+                       manifest,
                        device: Optional[str] = None):
     '''
     Run viewpoint model on two-camera sequences to improve prediction accuracy
@@ -66,8 +35,23 @@ def predict_viewpoints(model,
     filepaths = []
 
     # sort dataset by sequence, then group by sequence
-    dataset['sequence_group'] = dataset.sort_values("sequence")['sequence'].diff().gt(6).cumsum().add(1)
-    sequences = dataset.groupby('sequence_group')
+    manifest['sequence_group'] = manifest.sort_values("sequence")['sequence'].diff().gt(6).cumsum().add(1)
+    sequences = manifest.groupby('sequence_group')
+
+    def viewpoint_by_camera(model, dataloader, device: Optional[str] = None,):
+        if device is None:
+            device = get_device()
+
+        # batch size is len of half, should have one batch per camera
+        for batches in enumerate(dataloader):
+            batch = batches[1]
+            data = batch[0]
+            data = data.to(device)
+            prediction = model(data)  # list of predictions
+            sums = torch.sum(prediction, dim=0)  # sum predictions for each viewpoint
+            pred = torch.argmax(sums).item()  # return column with the max sum for viewpoint prediction
+            paths = batch[1]
+        return pred, paths, sums
 
     with torch.no_grad():
         for group in tqdm(sequences):
@@ -79,10 +63,10 @@ def predict_viewpoints(model,
             # if there are 2 cameras
             if len(half2) > 0:
                 group1 = manifest_dataloader(half1, 'FilePath', normalize=True, batch_size=len(half1), num_workers=8)
-                g1_pred, g1_paths, g1_sums = predict_by_camera(model, group1, device)
+                g1_pred, g1_paths, g1_sums = viewpoint_by_camera(model, group1, device)
 
                 group2 = manifest_dataloader(half2, 'FilePath', normalize=True, batch_size=len(half2), num_workers=8)
-                g2_pred, g2_paths, g2_sums = predict_by_camera(model, group2, device)
+                g2_pred, g2_paths, g2_sums = viewpoint_by_camera(model, group2, device)
 
                 # if viewpoint predictions are the same, whichever group has the higher summed probability will get that viewpoint
                 if g1_pred == g2_pred:
@@ -104,7 +88,7 @@ def predict_viewpoints(model,
             # entire group is from the same camera
             else:
                 dl_group = manifest_dataloader(df, 'FilePath', normalize=False, batch_size=len(df), num_workers=8)
-                pred, paths, sums = predict_by_camera(dl_group, device, model)
+                pred, paths, sums = viewpoint_by_camera(dl_group, device, model)
                 pred_labels.extend([pred] * len(df))
                 filepaths.extend(paths)
 
