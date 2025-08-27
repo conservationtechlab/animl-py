@@ -16,12 +16,10 @@ import PIL
 from typing import Optional
 
 
-VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff", ".tif"
-                    ".mp4", ".avi", ".mov", ".wmv",
-                    ".mpg", ".mpeg", ".asf", ".m4v"}
 IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff", '.tif"'}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
+VALID_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 
 
 def build_file_manifest(image_dir: str,

@@ -38,7 +38,7 @@ def load_detector(model_path: str,
         device = general.get_device()
     print('Device set to', device)
 
-    if model_type == "MDV5":
+    if model_type in {"MDv5", "MDV5", "YOLOv5", "YOLOV5"}:
         checkpoint = torch.load(model_path, map_location=device, weights_only=False)
         # Compatibility fix that allows older YOLOv5 models with
         # newer versions of YOLOv5/PT
@@ -49,6 +49,7 @@ def load_detector(model_path: str,
                     m.recompute_scale_factor = None
         model = checkpoint['model'].float().fuse().eval()  # FP32 model
         model.model_type = "MDV5"
+    # TODO specify available model versions
     elif model_type == "YOLO" or model_type == "MDV6":
         model = YOLO(model_path, task='detect')
         model.model_type = "YOLO"
@@ -58,7 +59,7 @@ def load_detector(model_path: str,
     model.to(device)
     return model
 
-
+# TODO - rethink kwarg ordering
 def detect(detector,
            image_file_names,
            batch_size: int = 1,
@@ -175,7 +176,8 @@ def detect(detector,
 
     return results
 
-
+# TODO Reevaluate in letterbox branch
+# Use same function for both MDv5 and YOLO?
 def convert_yolo_detections(predictions: list[dict],
                             image_paths: list[str]) -> pd.DataFrame:
     """
@@ -205,6 +207,7 @@ def convert_yolo_detections(predictions: list[dict],
             results.append(data)
 
         else:
+            # TODO: USE coord conversion helper function
             detections = []
             for i in range(len(conf)):
                 data = {'category': int(category[i]+1),
@@ -258,7 +261,7 @@ def convert_raw_detections(predictions: list,
                 conf = general.truncate_float(conf.tolist(), precision=3)
 
                 cls = int(cls.tolist()) + 1
-                if cls not in (1, 2, 3):
+                if cls not in (1, 2, 3): # TODO: do we need this? 
                     raise KeyError(f'{cls} is not a valid class.')
 
                 detections.append({

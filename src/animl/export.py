@@ -16,7 +16,7 @@ from tqdm import tqdm
 from animl import file_management
 
 
-def sort_species(manifest: pd.DataFrame,
+def export_to_folders(manifest: pd.DataFrame,
                  out_dir: str,
                  out_file: Optional[str] = None,
                  file_col: str = "FilePath",
@@ -80,8 +80,8 @@ def sort_species(manifest: pd.DataFrame,
 
     return manifest
 
-
-def sort_MD(manifest: pd.DataFrame,
+# MERGE with above
+def export_to_folders_MD(manifest: pd.DataFrame,
             out_dir: str,
             out_file: Optional[str] = None,
             file_col: str = "file",
@@ -166,15 +166,15 @@ def remove_link(manifest: pd.DataFrame,
     return manifest
 
 
-def update_link_labels(manifest: pd.DataFrame,
-                       out_dir: str,
-                       unique_name: str = 'UniqueName') -> pd.DataFrame:
+def update_labels_from_folders(manifest: pd.DataFrame,
+                               export_dir: str,
+                               unique_name: str = 'UniqueName') -> pd.DataFrame:
     """
     Update manifest after human review of symlink directories.
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
-        out_dir (str): root directory for species folders
+        export_dir (str): root directory for species folders
         unique_name (str): column to merge sorted labels onto manifest
 
     Returns:
@@ -184,7 +184,7 @@ def update_link_labels(manifest: pd.DataFrame,
         raise AssertionError("Manifest does not have unique names, cannot match to sorted directories.")
 
     print("Searching directory...")
-    ground_truth = file_management.build_file_manifest(out_dir, exif=False)
+    ground_truth = file_management.build_file_manifest(export_dir, exif=False)
 
     if len(ground_truth) != len(manifest):
         print(f"Warning, found {len(ground_truth)} files in link dir but {len(manifest)} files in manifest.")
@@ -366,7 +366,7 @@ def export_megadetector(manifest: pd.DataFrame,
     # ...for each row
 
     info = {}
-    info['format_version'] = '1.3'
+    info['format_version'] = '3.0'
     info['detector'] = 'Animl'
     info['classifier'] = 'Animl'
 

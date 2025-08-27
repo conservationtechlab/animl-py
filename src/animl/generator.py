@@ -24,6 +24,7 @@ from animl.utils.general import _setup_size
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
+# TODO: reevaluate kwarg order 
 # TODO: letterboxing for MD
 class ResizeWithPadding(torch.nn.Module):
     """
@@ -114,11 +115,10 @@ class ImageGenerator(Dataset):
         normalize: tensors are normalized by default, set to false to un-normalize
         transform: torchvision transforms to apply to images
     '''
-    # TODO: set defaults to 480 after retraining models
     def __init__(self, x: pd.DataFrame,
                  file_col: str = "file",
-                 resize_height: int = 299,
-                 resize_width: int = 299,
+                 resize_height: int = 480,
+                 resize_width: int = 480,
                  crop: bool = True,
                  crop_coord: str = 'relative',
                  normalize: bool = True,

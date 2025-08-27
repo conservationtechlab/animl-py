@@ -204,7 +204,6 @@ def load_class_list(classlist_file):
     return pd.read_csv(classlist_file)
 
 
-# TODO: change default resize after training models
 def classify(model,
              detections,
              device: Optional[str] = None,
@@ -212,8 +211,8 @@ def classify(model,
              file_col: str = 'Frame',
              crop: bool = True,
              normalize: bool = True,
-             resize_width: int = 299,
-             resize_height: int = 299,
+             resize_width: int = 480,
+             resize_height: int = 480,
              batch_size: int = 1,
              num_workers: int = NUM_THREADS):
     """
@@ -475,15 +474,13 @@ def sequence_classification(animals: pd.DataFrame,
     return animals_sort
 
 
-# TODO
-def multi_species_detection(animals: pd.DataFrame,
-                            threshold: float,
-                            file_col: str = "FilePath") -> pd.DataFrame:
+# TODO test
+def multispecies_classification(animals: pd.DataFrame,
+                                threshold: float,
+                                 file_col: str = "FilePath") -> pd.DataFrame:
     """
     This function applies image classifications at a image level. All images which have multiple
     species present with confidence above threshold, will be returned as a DataFrame
-
-    @ Ayush Singh 2024
 
     Args:
         animals (Pandas DataFrame): Sub-selection of all images that contain animals
