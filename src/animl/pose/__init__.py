@@ -1,5 +1,5 @@
-from animl.pose import predict
+from animl.pose import viewpoint
 
-from animl.pose.predict import (predict_by_camera, predict_viewpoints,)
+from animl.pose.viewpoint import (predict_viewpoints,)
 
-__all__ = ['predict', 'predict_by_camera', 'predict_viewpoints']
+__all__ = ['predict_viewpoints', 'viewpoint']

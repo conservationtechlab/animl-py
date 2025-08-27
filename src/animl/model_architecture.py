@@ -15,7 +15,7 @@ MIEWID_SIZE = 440
 class EfficientNet(nn.Module):
     def __init__(self, num_classes, device=None, tune=False):
         '''
-            Construct the EfficientNet model architecture.
+        Construct the EfficientNet model architecture.
         '''
         super(EfficientNet, self).__init__()
         self.device = device
@@ -35,7 +35,7 @@ class EfficientNet(nn.Module):
 
     def forward(self, x):
         '''
-            Forward pass (prediction)
+        Forward pass (prediction)
         '''
         # x.size(): [B x 3 x W x H]
         x = self.model.features(x)

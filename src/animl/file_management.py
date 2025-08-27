@@ -16,12 +16,10 @@ import PIL
 from typing import Optional
 
 
-VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
-                    ".mp4", ".avi", ".mov", ".wmv",
-                    ".mpg", ".mpeg", ".asf", ".m4v"}
-IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff"}
+IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff", '.tif"'}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
+VALID_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 
 
 def build_file_manifest(image_dir: str,
@@ -152,7 +150,9 @@ class WorkingDirectory():
         self.linkdir.mkdir(exist_ok=True)
 
 
-def save_data(data: pd.DataFrame, out_file: str, prompt: bool = True) -> None:
+def save_data(data: pd.DataFrame,
+              out_file: str,
+              prompt: bool = True) -> None:
     """
     Save data to given file.
 
@@ -189,7 +189,8 @@ def load_data(file: str) -> pd.DataFrame:
         raise AssertionError("Error. Expecting a .csv file.")
 
 
-def save_json(data: dict, out_file: str) -> None:
+def save_json(data: dict,
+              out_file: str) -> None:
     """
     Save data to a JSON file.
 
@@ -240,9 +241,13 @@ def check_file(file: str) -> bool:
     return False
 
 
-def save_checkpoint(checkpoint_path, results):
+def save_detection_checkpoint(checkpoint_path: str, results: dict) -> None:
     """
     Save a checkpoint of the detection results to a JSON file.
+
+    Args:
+        checkpoint_path (str): the path to the checkpoint file
+        results (list): a list of detection results to save
     """
     assert checkpoint_path is not None
     # Back up any previous checkpoints, to protect against crashes while we're writing

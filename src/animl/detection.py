@@ -6,13 +6,11 @@ parse_detections() converts json output into a dataframe
 
 @ Kyra Swanson 2023
 """
-import os
+from typing import Optional
 import time
-import typing
 import torch
 import pandas as pd
 from tqdm import tqdm
-from shutil import copyfile
 from torch import tensor
 
 from animl import file_management
@@ -43,7 +41,7 @@ def load_detector(model_path: str,
         device = general.get_device()
     print('Device set to', device)
 
-    if model_type == "MDV5":
+    if model_type in {"MDv5", "MDV5", "YOLOv5", "YOLOV5"}:
         checkpoint = torch.load(model_path, map_location=device, weights_only=False)
         # Compatibility fix that allows older YOLOv5 models with
         # newer versions of YOLOv5/PT
@@ -54,6 +52,7 @@ def load_detector(model_path: str,
                     m.recompute_scale_factor = None
         model = checkpoint['model'].float().fuse().eval()  # FP32 model
         model.model_type = "MDV5"
+    # TODO specify available model versions
     elif model_type == "YOLO" or model_type == "MDV6":
         model = YOLO(model_path, task='detect')
         model.model_type = "YOLO"
@@ -63,19 +62,20 @@ def load_detector(model_path: str,
     model.to(device)
     return model
 
-
+# TODO - rethink kwarg ordering
 def detect(detector,
            image_file_names,
            resize_width: int,
            resize_height: int,
+           letterbox: bool = True,
+           confidence_threshold: float = 0.1,
+           file_col: str = 'Frame',
            batch_size: int = 1,
            num_workers: int = 1,
            device: typing.Optional[str] = None,
            checkpoint_path: typing.Optional[str] = None,
-           checkpoint_frequency: int = -1,
-           confidence_threshold: float = 0.1,
-           letterbox: bool = True,
-           file_col: str = 'Frame') -> typing.List[typing.Dict]:
+           checkpoint_frequency: int = -1) -> typing.List[typing.Dict]:
+
     """
     Runs Detector model on a batches of image files.
 
@@ -95,11 +95,7 @@ def detect(detector,
     Returns:
         list: list of dicts, each dict represents detections on one image
     """
-    if confidence_threshold is None:
-        confidence_threshold = 0.1
-    if checkpoint_frequency is None:
-        checkpoint_frequency = -1
-    elif checkpoint_frequency != -1:
+    if checkpoint_frequency != -1:
         checkpoint_frequency = round(checkpoint_frequency/batch_size, 0)
 
     # check to make sure GPU is available if chosen
@@ -183,28 +179,16 @@ def detect(detector,
         # Write a checkpoint if necessary
         if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
             print('Writing a new checkpoint after having processed {} images since last restart'.format(count*batch_size))
-
-            assert checkpoint_path is not None
-            # Back up any previous checkpoints, to protect against crashes while we're writing
-            # the checkpoint file.
-            checkpoint_tmp_path = None
-            if os.path.isfile(checkpoint_path):
-                checkpoint_tmp_path = str(checkpoint_path) + '_tmp'
-                copyfile(checkpoint_path, checkpoint_tmp_path)
-
-            # Write the new checkpoint
-            file_management.save_json({'images': results}, checkpoint_path)
-
-            # Remove the backup checkpoint if it exists
-            if checkpoint_tmp_path is not None:
-                os.remove(checkpoint_tmp_path)
+            file_management.save_detection_checkpoint(checkpoint_path, results)
 
     print(f"\nFinished batch processing. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
 
     return results
 
-
-def convert_yolo_detections(predictions, image_paths):
+# TODO Reevaluate in letterbox branch
+# Use same function for both MDv5 and YOLO?
+def convert_yolo_detections(predictions: list[dict],
+                            image_paths: list[str]) -> pd.DataFrame:
     """
     Converts YOLO output into a nested list.
 
@@ -233,6 +217,7 @@ def convert_yolo_detections(predictions, image_paths):
             results.append(data)
 
         else:
+            # TODO: USE coord conversion helper function
             detections = []
             for i in range(len(conf)):
                 data = {'category': int(category[i]+1),
@@ -251,7 +236,9 @@ def convert_yolo_detections(predictions, image_paths):
     return results
 
 
-def convert_raw_detections(predictions, image_tensors, image_paths):
+def convert_raw_detections(predictions: list,
+                           image_tensors: list,
+                           image_paths: list):
     """
     Converts MDv5 output into a nested list.
 
@@ -284,7 +271,7 @@ def convert_raw_detections(predictions, image_tensors, image_paths):
                 conf = general.truncate_float(conf.tolist(), precision=3)
 
                 cls = int(cls.tolist()) + 1
-                if cls not in (1, 2, 3):
+                if cls not in (1, 2, 3): # TODO: do we need this? 
                     raise KeyError(f'{cls} is not a valid class.')
 
                 detections.append({
@@ -310,8 +297,12 @@ def convert_raw_detections(predictions, image_tensors, image_paths):
     return results
 
 
-def parse_detections(results, manifest=None, out_file=None, buffer=0.02,
-                     threshold=0, file_col="Frame"):
+def parse_detections(results: list,
+                     manifest: Optional[pd.DataFrame] = None,
+                     out_file: Optional[str] = None,
+                     buffer: float = 0.02,
+                     threshold: float = 0,
+                     file_col: str = "Frame"):
     """
     Converts listed output from detector to DataFrame.
 

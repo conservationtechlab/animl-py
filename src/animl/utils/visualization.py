@@ -15,7 +15,26 @@ from typing import Union, Optional
 from animl.utils import general
 
 
-def plot_box(img, row, prediction=False):
+def plot_box(row, file_col="FilePath", prediction=False):
+    """
+    Plot a bounding box on a given (loaded) image
+
+    Args:
+        img (numpy.ndarray): Loaded image in which the bounding box will be plotted.
+        row (pandas.Series): Row from the DataFrame containing bounding box coordinates and prediction.
+            Expected columns:
+            - file_col
+            - 'bbox_x': x-coordinate of the top-left corner of the bounding box.
+            - 'bbox_y': y-coordinate of the top-left corner of the bounding box.
+            - 'bbox_w': width of the bounding box.
+            - 'bbox_h': height of the bounding box.
+            - 'prediction': Prediction label to be displayed alongside the bounding box (optional).
+        prediction (bool): If True, display the prediction label alongside the bounding box.
+
+    Returns:
+        None
+    """
+    img = cv2.imread(row[file_col])
     height, width, _ = img.shape
     bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
     xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
@@ -44,7 +63,7 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             min_conf: Union[int, float] = 0,
                             prediction: bool = False):
     """
-    This function takes the data frame output from MegaDetector, makes a copy of each image,
+    This function takes the parsed dataframe output from MegaDetector, makes a copy of each image,
     plots the boxes in the new image, and saves it the specified directory.
 
     Args:
@@ -54,10 +73,8 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         min_conf (Optional) (Int or Float): Confidence threshold to plot the box
         prediction (Optional) (Boolean): Should the prediction be printed alongside bounding box
 
-    Raises:
-    - Exception: If 'data_frame' is not a pandas DataFrame
-    - Exception: If 'min_conf' is not a number between [0,1]
-    - Exception: If 'prediction' is not a boolean
+    Returns:
+        None
     """
     # If the specified output directory does not exist, make it
     if not os.path.exists(out_dir) or not os.path.isdir(out_dir):
@@ -116,6 +133,7 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
 
         cv2.destroyAllWindows()
 
+
 def draw_bounding_boxes(row: pd.Series,
                         out_file: Optional[str] = None,
                         prediction: bool = False):
@@ -134,6 +152,9 @@ def draw_bounding_boxes(row: pd.Series,
         box_number (int): Number used for generating the output image filename.
         image_output_path (str): Output directory to saved images.
         prediction (bool): if true, add prediction label
+
+    Returns:
+        None
     """
     img = cv2.imread(row["Frame"])
     
@@ -161,6 +182,9 @@ def demo_boxes(manifest: pd.DataFrame, file_col: str, min_conf: float = 0.9, pre
         file_col (str): column containing file paths
         min_conf (float): minimum confidence threshold to plot box
         prediction (bool): if true, add prediction label
+
+    Returns:
+        None
     """
     images = manifest[file_col].unique()
 
@@ -207,7 +231,7 @@ def demo_boxes(manifest: pd.DataFrame, file_col: str, min_conf: float = 0.9, pre
 
 def main(csv_file: str, output_dir: str):
     """
-    Read a CSV file values and perform box plotting on the images.
+    Read a CSV manifest file and perform box plotting on the images.
 
     Args:
         csv_file (str): Path to the CSV file.

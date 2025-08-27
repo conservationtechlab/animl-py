@@ -1,103 +1,169 @@
 """
-Code to run Miew_ID
+From MiewID
 
-(source)
-
+Class definitions for MiewID model and head layers
 """
-from tqdm import tqdm
-import pandas as pd
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import math
 import timm
-from animl.reid.heads import ElasticArcFace, ArcFaceSubCenterDynamic
-from animl.utils.general import get_device
-from animl.generator import manifest_dataloader
-from torchvision.transforms import Compose, Normalize
-
-IMAGE_HEIGHT = 440
-IMAGE_WIDTH = 440
+import torch.nn.functional as F
+from torch.nn.parameter import Parameter
 
 
-def filter(rois: pd.DataFrame) -> pd.DataFrame:
-    """
-    Return only rois that have not yet had embedding extracted
-
-    Args:
-        - rois (dataframe): list of rois
-
-    Returns:
-        - subset of rois with no extracted embedding
-    """
-    return rois[rois['emb_id'] == 0].reset_index(drop=True)
-
-
-def load_miew(file_path, device=None):
-    """
-    Load MiewID from file path
-
-    Args:
-        - file_path (str): file path to model file
-        - device (str): device to load model to
-
-    Returns:
-        loaded miewid model object
-    """
-    if device is None:
-        device = get_device()
-    print('Sending model to %s' % device)
-    weights = torch.load(file_path, weights_only=True)
-    miew = MiewIdNet(device=device)
-    miew.to(device)
-    miew.load_state_dict(weights, strict=False)
-    miew.eval()
-    return miew
-
-
-def extract_miew_embeddings(miew_model, manifest, file_col="FilePath", batch_size=1, num_workers=1, device=None):
-    """
-    Wrapper for MiewID embedding extraction
-    """
-    if device is None:
-        device = get_device()
-    output = []
-    if isinstance(manifest, pd.DataFrame):
-        transform = Compose([Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),])
-
-        dataloader = manifest_dataloader(manifest, batch_size=batch_size, num_workers=num_workers,
-                                         file_col=file_col, crop=True, normalize=True,
-                                         resize_width=IMAGE_WIDTH, resize_height=IMAGE_HEIGHT, transform=transform)
-        with torch.no_grad():
-            for _, batch in tqdm(enumerate(dataloader),total=len(dataloader)):
-                img = batch[0]
-                emb = miew_model.extract_feat(img.to(device))
-                output.extend(emb.detach().cpu().numpy())
-        output = np.vstack(output)
+def l2_norm(input: torch.Tensor, axis: int = 1) -> torch.Tensor:
+    norm = torch.norm(input, 2, axis, True)
+    output = torch.div(input, norm)
     return output
 
 
-def weights_init_kaiming(m):
-    classname = m.__class__.__name__
-    if classname.find('Linear') != -1:
-        nn.init.kaiming_normal_(m.weight, a=0, mode='fan_out')
-        nn.init.constant_(m.bias, 0.0)
-    elif classname.find('Conv') != -1:
-        nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in')
-        if m.bias is not None:
-            nn.init.constant_(m.bias, 0.0)
-    elif classname.find('BatchNorm') != -1:
-        if m.affine:
-            nn.init.constant_(m.weight, 1.0)
-            nn.init.constant_(m.bias, 0.0)
+class ArcMarginProduct(nn.Module):
+    r"""Implement of large margin arc distance: :
+        Args:
+            in_features: size of each input sample
+            out_features: size of each output sample
+            s: norm of input feature
+            m: margin
+            cos(theta + m)wandb: ERROR Abnormal program exit
+
+        """
+
+    def __init__(self, in_features, out_features, s=30.0, m=0.50, easy_margin=False, ls_eps=0.0):
+        super(ArcMarginProduct, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.s = s
+        self.m = m
+        self.ls_eps = ls_eps  # label smoothing
+        self.weight = Parameter(torch.FloatTensor(out_features, in_features))
+        nn.init.xavier_uniform_(self.weight)
+
+        self.easy_margin = easy_margin
+        self.cos_m = math.cos(m)
+        self.sin_m = math.sin(m)
+        self.th = math.cos(math.pi - m)
+        self.mm = math.sin(math.pi - m) * m
+
+    def forward(self, input: torch.Tensor, label: torch.Tensor) -> torch.Tensor:
+        # --------------------------- cos(theta) & phi(theta) ---------------------------
+        cosine = F.linear(F.normalize(input), F.normalize(self.weight))
+        sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
+        phi = cosine * self.cos_m - sine * self.sin_m
+        if self.easy_margin:
+            phi = torch.where(cosine > 0, phi, cosine)
+        else:
+            phi = torch.where(cosine > self.th, phi, cosine - self.mm)
+        # --------------------------- convert label to one-hot ---------------------------
+        # one_hot = torch.zeros(cosine.size(), requires_grad=True, device='cuda')
+        one_hot = torch.zeros(cosine.size(), device='cuda')
+        one_hot.scatter_(1, label.view(-1, 1).long(), 1)
+        if self.ls_eps > 0:
+            one_hot = (1 - self.ls_eps) * one_hot + self.ls_eps / self.out_features
+        # -------------torch.where(out_i = {x_i if condition_i else y_i) -------------
+        output = (one_hot * phi) + ((1.0 - one_hot) * cosine)
+        output *= self.s
+
+        return output
 
 
-def weights_init_classifier(m: nn.Module) -> None:
-    classname = m.__class__.__name__
-    if classname.find('Linear') != -1:
-        nn.init.normal_(m.weight, std=0.001)
-        if m.bias:
-            nn.init.constant_(m.bias, 0.0)
+class ElasticArcFace(nn.Module):
+    def __init__(self, in_features, out_features, s=64.0, m=0.50, std=0.0125, plus=False, k=None):
+        super(ElasticArcFace, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.s = s
+        self.m = m
+        self.kernel = nn.Parameter(torch.FloatTensor(in_features, out_features))
+        nn.init.normal_(self.kernel, std=0.01)
+        self.std = std
+        self.plus = plus
+
+    def forward(self, embeddings, label):
+        embeddings = l2_norm(embeddings, axis=1)
+        kernel_norm = l2_norm(self.kernel, axis=0)
+        cos_theta = torch.mm(embeddings, kernel_norm)
+        cos_theta = cos_theta.clamp(-1, 1)  # for numerical stability
+        index = torch.where(label != -1)[0]
+        m_hot = torch.zeros(index.size()[0], cos_theta.size()[1], device=cos_theta.device)
+        margin = torch.normal(mean=self.m, std=self.std, size=label[index, None].size(), device=cos_theta.device)  # Fast converge .clamp(self.m-self.std, self.m+self.std)
+        if self.plus:
+            with torch.no_grad():
+                distmat = cos_theta[index, label.view(-1)].detach().clone()
+                _, idicate_cosie = torch.sort(distmat, dim=0, descending=True)
+                margin, _ = torch.sort(margin, dim=0)
+            m_hot.scatter_(1, label[index, None], margin[idicate_cosie])
+        else:
+            m_hot.scatter_(1, label[index, None], margin)
+        cos_theta.acos_()
+        cos_theta[index] += m_hot
+        cos_theta.cos_().mul_(self.s)
+        return cos_theta
+
+
+# Subcenter Arcface with dynamic margin
+
+class ArcMarginProduct_subcenter(nn.Module):
+    def __init__(self, in_features: int, out_features: int, k: int = 3) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.FloatTensor(out_features*k, in_features))
+        self.reset_parameters()
+        self.k = k
+        self.out_features = out_features
+
+    def reset_parameters(self):
+        stdv = 1. / math.sqrt(self.weight.size(1))
+        self.weight.data.uniform_(-stdv, stdv)
+
+    def forward(self, features: torch.Tensor):
+        cosine_all = F.linear(F.normalize(features), F.normalize(self.weight))
+        cosine_all = cosine_all.view(-1, self.out_features, self.k)
+        cosine, _ = torch.max(cosine_all, dim=2)
+        return cosine
+
+
+class ArcFaceLossAdaptiveMargin(nn.modules.Module):
+    def __init__(self, margins: torch.Tensor, out_dim: int, s: float) -> None:
+        super().__init__()
+#       self.crit = nn.CrossEntropyLoss()
+        self.s = s
+        self.register_buffer('margins', torch.tensor(margins))
+        self.out_dim = out_dim
+
+    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        # ms = []
+        # ms = self.margins[labels.cpu().numpy()]
+        ms = self.margins[labels]
+        cos_m = torch.cos(ms)  # torch.from_numpy(np.cos(ms)).float().cuda()
+        sin_m = torch.sin(ms)  # torch.from_numpy(np.sin(ms)).float().cuda()
+        th = torch.cos(math.pi - ms)  # torch.from_numpy(np.cos(math.pi - ms)).float().cuda()
+        mm = torch.sin(math.pi - ms) * ms  # torch.from_numpy(np.sin(math.pi - ms) * ms).float().cuda()
+        labels = F.one_hot(labels, self.out_dim).float()
+        cosine = logits
+        sine = torch.sqrt(1.0 - cosine * cosine)
+        phi = cosine * cos_m.view(-1, 1) - sine * sin_m.view(-1, 1)
+        phi = torch.where(cosine > th.view(-1, 1), phi, cosine - mm.view(-1, 1))
+        output = (labels * phi) + ((1.0 - labels) * cosine)
+        output *= self.s
+        return output
+
+
+class ArcFaceSubCenterDynamic(nn.Module):
+    def __init__(self, embedding_dim, output_classes, margins, s, k=2):
+        super().__init__()
+        self.embedding_dim = embedding_dim
+        self.output_classes = output_classes
+        self.margins = margins
+        self.s = s
+        self.wmetric_classify = ArcMarginProduct_subcenter(self.embedding_dim, self.output_classes, k=k)
+
+        self.warcface_margin = ArcFaceLossAdaptiveMargin(margins=self.margins,
+                                                         out_dim=self.output_classes,
+                                                         s=self.s)
+
+    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        logits = self.wmetric_classify(features.float())
+        logits = self.warcface_margin(logits, labels)
+        return logits
 
 
 class GeM(nn.Module):
@@ -158,8 +224,8 @@ class MiewIdNet(nn.Module):
             self.bn = nn.BatchNorm1d(fc_dim)
             self.bn.bias.requires_grad_(False)
             self.fc = nn.Linear(final_in_features, n_classes, bias=False)
-            self.bn.apply(weights_init_kaiming)
-            self.fc.apply(weights_init_classifier)
+            self.bn.apply(self.weights_init_kaiming)
+            self.fc.apply(self.weights_init_classifier)
             final_in_features = fc_dim
 
         self.loss_module = loss_module
@@ -223,3 +289,24 @@ class MiewIdNet(nn.Module):
             logits = self.final(feature)
 
         return logits
+
+    def weights_init_kaiming(m):
+        classname = m.__class__.__name__
+        if classname.find('Linear') != -1:
+            nn.init.kaiming_normal_(m.weight, a=0, mode='fan_out')
+            nn.init.constant_(m.bias, 0.0)
+        elif classname.find('Conv') != -1:
+            nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in')
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0.0)
+        elif classname.find('BatchNorm') != -1:
+            if m.affine:
+                nn.init.constant_(m.weight, 1.0)
+                nn.init.constant_(m.bias, 0.0)
+
+    def weights_init_classifier(m: nn.Module) -> None:
+        classname = m.__class__.__name__
+        if classname.find('Linear') != -1:
+            nn.init.normal_(m.weight, std=0.001)
+            if m.bias:
+                nn.init.constant_(m.bias, 0.0)

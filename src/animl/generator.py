@@ -22,6 +22,8 @@ from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, R
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
+# TODO: reevaluate kwarg order 
+# TODO: letterboxing for MD
 class Letterbox(torch.nn.Module):
     """
     Pads a crop to given size
@@ -112,15 +114,17 @@ class ImageGenerator(Dataset):
 
     Options:
         file_col: column name containing full file paths
-        resize: dynamically resize images to target
+        resize_height: size in pixels for input height
+        resize_width: size in pixels for input width
         crop: if true, dynamically crop
+        crop_coord: if relative, will calculate absolute values based on image size
         normalize: tensors are normalized by default, set to false to un-normalize
+        transform: torchvision transforms to apply to images
     '''
-    # TODO: set defaults to 480 after retraining models
     def __init__(self, x: pd.DataFrame,
                  file_col: str = "file",
-                 resize_height: Optional[int] = None,
-                 resize_width: Optional[int] = None,
+                 resize_height: int = 480,
+                 resize_width: int = 480,
                  crop: bool = True,
                  crop_coord: str = 'relative',
                  normalize: bool = True,

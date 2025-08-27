@@ -11,18 +11,17 @@ from typing import Optional
 from shutil import copy2
 from random import randrange
 from pathlib import Path
-from pandas import DataFrame
 from tqdm import tqdm
 
 from animl import file_management
 
 
-def sort_species(manifest: DataFrame,
+def export_to_folders(manifest: pd.DataFrame,
                  out_dir: str,
                  out_file: Optional[str] = None,
                  file_col: str = "FilePath",
                  unique_name: str = 'UniqueName',
-                 copy: bool = False) -> DataFrame:
+                 copy: bool = False) -> pd.DataFrame:
     """
     Creates symbolic links of images into species folders.
 
@@ -81,13 +80,13 @@ def sort_species(manifest: DataFrame,
 
     return manifest
 
-
-def sort_MD(manifest: DataFrame,
+# MERGE with above
+def export_to_folders_MD(manifest: pd.DataFrame,
             out_dir: str,
             out_file: Optional[str] = None,
             file_col: str = "file",
             unique_name: str = 'UniqueName',
-            copy: bool = False) -> DataFrame:
+            copy: bool = False) -> pd.DataFrame:
     """
     Creates symbolic links of images into MegaDetector class folders
 
@@ -147,8 +146,8 @@ def sort_MD(manifest: DataFrame,
     return manifest
 
 
-def remove_link(manifest: DataFrame,
-                link_col: str = 'Link') -> DataFrame:
+def remove_link(manifest: pd.DataFrame,
+                link_col: str = 'Link') -> pd.DataFrame:
     """
     Deletes symbolic links of images.
 
@@ -167,15 +166,15 @@ def remove_link(manifest: DataFrame,
     return manifest
 
 
-def update_link_labels(manifest: DataFrame,
-                       out_dir: str,
-                       unique_name: str = 'UniqueName') -> DataFrame:
+def update_labels_from_folders(manifest: pd.DataFrame,
+                               export_dir: str,
+                               unique_name: str = 'UniqueName') -> pd.DataFrame:
     """
     Update manifest after human review of symlink directories.
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
-        out_dir (str): root directory for species folders
+        export_dir (str): root directory for species folders
         unique_name (str): column to merge sorted labels onto manifest
 
     Returns:
@@ -185,7 +184,7 @@ def update_link_labels(manifest: DataFrame,
         raise AssertionError("Manifest does not have unique names, cannot match to sorted directories.")
 
     print("Searching directory...")
-    ground_truth = file_management.build_file_manifest(out_dir, exif=False)
+    ground_truth = file_management.build_file_manifest(export_dir, exif=False)
 
     if len(ground_truth) != len(manifest):
         print(f"Warning, found {len(ground_truth)} files in link dir but {len(manifest)} files in manifest.")
@@ -197,7 +196,7 @@ def update_link_labels(manifest: DataFrame,
     return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
 
 
-def export_coco(manifest: DataFrame,
+def export_coco(manifest: pd.DataFrame,
                 out_file: str):
     """
     Export a manifest to COCO format.
@@ -213,7 +212,10 @@ def export_coco(manifest: DataFrame,
     return None
 
 
-def export_timelapse(animals, empty, imagedir, only_animl=True):
+def export_timelapse(animals: pd.DataFrame,
+                     empty: pd.DataFrame,
+                     imagedir: str,
+                     only_animl: bool = True):
     '''
     Converts the Pandas DataFrame created by running the animl classsifier to a csv file that contains columns needed for TimeLapse conversion in later step
 
@@ -287,7 +289,8 @@ def export_timelapse(animals, empty, imagedir, only_animl=True):
     return csv_loc
 
 
-def export_megadetector(manifest, output_file=None):
+def export_megadetector(manifest: pd.DataFrame,
+                        output_file: Optional[str] = None):
     """
     Converts the .csv file [input_file] to the MD-formatted .json file [output_file].
 
@@ -295,6 +298,13 @@ def export_megadetector(manifest, output_file=None):
 
     # Credit goes to Dan Morris https://github.com/agentmorris/MegaDetector/tree/main
     # Adding a modified script to animl-py repo
+
+    Args:
+        manifest (pd.DataFrame): dataframe containing images and associated detections
+        output_file (Optional[str]): path to save the MD formatted file
+
+    Returns:
+        None, saves a json file in MD format
     """
 
     detection_category_id_to_name = {'0': 'empty', '1': 'animal', '2': 'person', '3': 'vehicle'}
@@ -356,7 +366,7 @@ def export_megadetector(manifest, output_file=None):
     # ...for each row
 
     info = {}
-    info['format_version'] = '1.3'
+    info['format_version'] = '3.0'
     info['detector'] = 'Animl'
     info['classifier'] = 'Animl'
 

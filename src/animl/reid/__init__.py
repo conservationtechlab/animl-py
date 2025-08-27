@@ -1,21 +1,21 @@
-from animl.reid import heads
+from animl.reid import distance
+from animl.reid import inference
 from animl.reid import miewid
 
-from animl.reid.heads import (ArcFaceLossAdaptiveMargin,
-                              ArcFaceSubCenterDynamic, ArcMarginProduct,
-                              ArcMarginProduct_subcenter, ElasticArcFace,
-                              l2_norm,)
-from animl.reid.miewid import (GeM, IMAGE_HEIGHT, IMAGE_WIDTH, MiewIdNet,
-                               extract_miew_embeddings, load_miew,
-                               weights_init_classifier, weights_init_kaiming,)
-from animl.reid.distance import (euclidean_squared_distance,
-                                 cosine_distance, compute_distance_matrix, compute_batched_distance_matrix,)
-
+from animl.reid.distance import (compute_batched_distance_matrix,
+                                 compute_distance_matrix, cosine_distance,
+                                 euclidean_squared_distance, remove_diagonal,)
+from animl.reid.inference import (MIEW_HEIGHT, MIEW_WIDTH,
+                                  extract_miew_embeddings, load_miew,)
+from animl.reid.miewid import (ArcFaceLossAdaptiveMargin,
+                               ArcFaceSubCenterDynamic, ArcMarginProduct,
+                               ArcMarginProduct_subcenter, ElasticArcFace, GeM,
+                               MiewIdNet, l2_norm,)
 
 __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'ArcMarginProduct', 'ArcMarginProduct_subcenter', 'ElasticArcFace',
-           'GeM', 'IMAGE_HEIGHT', 'IMAGE_WIDTH', 'MiewIdNet',
-           'extract_miew_embeddings', 'heads', 'l2_norm', 'load_miew', 'miewid',
-           'weights_init_classifier', 'weights_init_kaiming',
-           'euclidean_squared_distance', 'cosine_distance', 'compute_distance_matrix',
-           'compute_batched_distance_matrix']
+           'GeM', 'MIEW_HEIGHT', 'MIEW_WIDTH', 'MiewIdNet',
+           'compute_batched_distance_matrix', 'compute_distance_matrix',
+           'cosine_distance', 'distance', 'euclidean_squared_distance',
+           'extract_miew_embeddings', 'inference', 'l2_norm', 'load_miew',
+           'miewid', 'remove_diagonal']

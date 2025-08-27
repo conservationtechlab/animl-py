@@ -1,6 +1,5 @@
 from animl.utils import general
 from animl.utils import visualization
-from animl.utils import yolo5
 
 from animl.utils.general import (NUM_THREADS, absolute_to_relative, box_area,
                                  box_iou, check_img_size, clean_str,
@@ -24,14 +23,9 @@ from animl.utils.general import (NUM_THREADS, absolute_to_relative, box_area,
                                  xywhn2xyxy, xyxy2xywh, xyxy2xywhn,)
 from animl.utils.visualization import (demo_boxes, draw_bounding_boxes, main,
                                        plot_all_bounding_boxes, plot_box,)
-from animl.utils.yolo5 import (FILE, RANK, ROOT, autopad, check_file,
-                               check_python, check_requirements, check_suffix,
-                               check_version,)
 
-__all__ = ['FILE', 'NUM_THREADS', 'RANK', 'ROOT', 'absolute_to_relative',
-           'autopad', 'box_area', 'box_iou', 'check_file', 'check_img_size',
-           'check_python', 'check_requirements', 'check_suffix',
-           'check_version', 'clean_str', 'clip_coords',
+__all__ = ['NUM_THREADS', 'absolute_to_relative', 'box_area', 'box_iou',
+           'check_img_size', 'clean_str', 'clip_coords',
            'convert_minxywh_to_absxyxy', 'convert_yolo_to_xywh', 'copy_attr',
            'de_parallel', 'demo_boxes', 'device_count', 'draw_bounding_boxes',
            'exif_transpose', 'file_age', 'file_date', 'file_size',
@@ -46,4 +40,4 @@ __all__ = ['FILE', 'NUM_THREADS', 'RANK', 'ROOT', 'absolute_to_relative',
            'select_device', 'softmax', 'sparsity', 'tensor_to_onnx',
            'time_sync', 'truncate_float', 'truncate_float_array',
            'visualization', 'xyn2xy', 'xywh2xyxy', 'xywhn2xyxy', 'xyxy2xywh',
-           'xyxy2xywhn', 'yolo5']
+           'xyxy2xywhn']

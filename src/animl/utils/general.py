@@ -1,6 +1,8 @@
 """
 General utils
 
+TODO: clean up junk drawer
+
 """
 import cv2
 import glob

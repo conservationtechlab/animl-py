@@ -24,11 +24,12 @@ CLASS_LIST = {
     'SDZWA_Southwest_v3': 'https://sandiegozoo.box.com/shared/static/lplo7ifz1xwdie1jw4400r377kweahsu.csv',
 }
 
-def download_model(model, out_dir='models'):
+def download_model(model_url: str,
+                   out_dir: str = 'models'):
     """Download specified model to the given directory.
 
     Args:
-        model (str): url of the model to download, obtained via the constants above
+        model_url (str): url of the model to download, obtained via the constants above
         home (str): Directory to save the model.
 
     Returns:
@@ -37,4 +38,4 @@ def download_model(model, out_dir='models'):
     if not os.path.isdir(out_dir):
         os.mkdir(out_dir)
     print('Saving to', out_dir)
-    wget.download(model, out=out_dir)
+    wget.download(model_url, out=out_dir)
