@@ -105,7 +105,7 @@ def from_paths(image_dir: str,
                                                           maxdiff=60)
     else:
         print("Classifying individual frames...")
-        animals = classification.individual_classification(animals, predictions_raw, class_list[class_label])
+        animals = classification.single_classification(animals, predictions_raw, class_list[class_label])
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
         # TODO: single output per file
 
@@ -215,7 +215,7 @@ def from_config(config: str):
                                                           file_col=cfg.get('file_col_classification', 'Frame'),
                                                           maxdiff=60)
     else:
-        animals = classification.individual_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'class')])
+        animals = classification.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'class')])
         # merge animal and empty
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 

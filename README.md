@@ -121,7 +121,7 @@ raw_predictions = animl.classify(classifier, animals, file_col="Frame",
 
 7. Apply labels from class list with or without utilizing timestamp-based sequences.
 ```python
-animals = animl.individual_classification(animals, raw_predictions, class_list['class'])
+animals = animl.single_classification(animals, raw_predictions, class_list['class'])
 manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 ```
 or 
