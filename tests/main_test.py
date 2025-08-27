@@ -108,7 +108,7 @@ def main_test():
                                                  maxdiff=60)
     else:
         print("Classifying individual frames...")
-        animals = animl.individual_classification(animals, predictions_raw, class_list['class'])
+        animals = animl.single_classification(animals, predictions_raw, class_list['class'])
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
         # TODO: single output per file
 
