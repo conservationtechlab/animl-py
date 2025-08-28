@@ -9,7 +9,6 @@ import platform
 import sys
 import torch
 import math
-import packaging
 import torch.nn as nn
 from copy import deepcopy
 from pathlib import Path
@@ -35,16 +34,6 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 if platform.system() != 'Windows':
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
-
-
-def check_version(current='0.0.0', minimum='0.0.0', name='version ', pinned=False, hard=False, verbose=False):
-    # Check version vs. required version
-    current, minimum = (packaging.version.parse(x) for x in (current, minimum))
-    result = (current == minimum) if pinned else (current >= minimum)  # bool
-    s = f'{name}{minimum} required by YOLOv5, but {name}{current} is currently installed'  # string
-    if hard:
-        assert result, s  # assert min requirements met
-    return result
 
 
 # FROM autoanchor.py
@@ -103,7 +92,7 @@ class Detect(nn.Module):
 
         return x if self.training else (torch.cat(z, 1),) if self.export else (torch.cat(z, 1), x)
 
-    def _make_grid(self, nx=20, ny=20, i=0, torch_1_10=check_version(torch.__version__, "1.10.0")):
+    def _make_grid(self, nx=20, ny=20, i=0, torch_1_10=True):
         """Generates a mesh grid for anchor boxes with optional compatibility for torch versions < 1.10."""
         d = self.anchors[i].device
         t = self.anchors[i].dtype

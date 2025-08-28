@@ -44,7 +44,7 @@ from animl.models import (AutoShape, BaseModel, Bottleneck, BottleneckCSP, C3,
                           GhostBottleneck, GhostConv, MEGADETECTOR, Model,
                           ROOT, SPP, SPPF, Segment, TransformerBlock,
                           TransformerLayer, autopad, check_anchor_order,
-                          check_suffix, check_version, common, download,
+                          check_suffix, common, download,
                           download_model, parse_model, yolo,)
 from animl.pipeline import (from_config, from_paths,)
 from animl.pose import (predict_viewpoints, viewpoint,)
@@ -94,7 +94,7 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'VALID_EXTENSIONS', 'VIDEO_EXTENSIONS', 'WorkingDirectory',
            'absolute_to_relative', 'active_times', 'autopad', 'box_area',
            'box_iou', 'build_file_manifest', 'check_anchor_order',
-           'check_file', 'check_img_size', 'check_suffix', 'check_version',
+           'check_file', 'check_img_size', 'check_suffix',
            'classification', 'classify', 'clean_str', 'clip_coords',
            'collate_fn', 'common', 'compute_batched_distance_matrix',
            'compute_distance_matrix', 'convert_minxywh_to_absxyxy',

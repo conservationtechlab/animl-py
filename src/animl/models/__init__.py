@@ -12,8 +12,7 @@ from animl.models.common import (AutoShape, Bottleneck, BottleneckCSP, C3,
 from animl.models.download import (CLASSIFIER, CLASS_LIST, MEGADETECTOR,
                                    download_model,)
 from animl.models.yolo import (BaseModel, Detect, DetectionModel, FILE, Model,
-                               ROOT, Segment, check_anchor_order,
-                               check_version, parse_model,)
+                               ROOT, Segment, check_anchor_order, parse_model,)
 
 __all__ = ['AutoShape', 'BaseModel', 'Bottleneck', 'BottleneckCSP', 'C3',
            'C3Ghost', 'C3SPP', 'C3TR', 'C3x', 'CLASSIFIER', 'CLASS_LIST',
@@ -22,5 +21,5 @@ __all__ = ['AutoShape', 'BaseModel', 'Bottleneck', 'BottleneckCSP', 'C3',
            'DetectionModel', 'Detections', 'Expand', 'FILE', 'Focus',
            'GhostBottleneck', 'GhostConv', 'MEGADETECTOR', 'Model', 'ROOT',
            'SPP', 'SPPF', 'Segment', 'TransformerBlock', 'TransformerLayer',
-           'autopad', 'check_anchor_order', 'check_suffix', 'check_version',
+           'autopad', 'check_anchor_order', 'check_suffix',
            'common', 'download', 'download_model', 'parse_model', 'yolo']
