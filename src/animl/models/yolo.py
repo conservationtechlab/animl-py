@@ -9,7 +9,7 @@ import platform
 import sys
 import torch
 import math
-import pkg_resources as pkg
+import packaging
 import torch.nn as nn
 from copy import deepcopy
 from pathlib import Path
@@ -39,7 +39,7 @@ if platform.system() != 'Windows':
 
 def check_version(current='0.0.0', minimum='0.0.0', name='version ', pinned=False, hard=False, verbose=False):
     # Check version vs. required version
-    current, minimum = (pkg.parse_version(x) for x in (current, minimum))
+    current, minimum = (packaging.version.parse(x) for x in (current, minimum))
     result = (current == minimum) if pinned else (current >= minimum)  # bool
     s = f'{name}{minimum} required by YOLOv5, but {name}{current} is currently installed'  # string
     if hard:

@@ -22,6 +22,9 @@ def buow_test():
 
     md_results = detection.detect(detector,
                                   files,
+                                  resize_height=detection.MEGADETECTORv5_SIZE,
+                                  resize_width=detection.MEGADETECTORv5_SIZE,
+                                  letterbox=False,
                                   file_col="Frame",
                                   batch_size=4,
                                   num_workers=4,
@@ -30,7 +33,7 @@ def buow_test():
 
     print(detections)
 
-    visualization.plot_all_bounding_boxes(detections, 'buow_boxes/', file_col='Frame', prediction=False)
+    visualization.plot_all_bounding_boxes(detections, 'buow_boxes/', file_col='Frame', min_conf=0.1, prediction=False)
     print(f"Test completed in {time.time() - start_time:.2f} seconds")
 
 

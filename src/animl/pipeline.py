@@ -66,6 +66,8 @@ def from_paths(image_dir: str,
         detector = detection.load_detector(detector_file, "MDV5", device=device)
         md_results = detection.detect(detector,
                                       all_frames,
+                                      resize_height=detection.MEGADETECTORv5_SIZE,
+                                      resize_width=detection.MEGADETECTORv5_SIZE,
                                       file_col="Frame",
                                       batch_size=4,
                                       num_workers=NUM_THREADS,
@@ -113,7 +115,7 @@ def from_paths(image_dir: str,
     if sort:
         print("Sorting...")
         working_dir.activate_linkdir()
-        manifest = export.sort_species(manifest, working_dir.linkdir)
+        manifest = export.export_to_folders(manifest, working_dir.linkdir)
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
@@ -176,6 +178,8 @@ def from_config(config: str):
         detector = detection.load_detector(cfg['detector_file'], device=device)
         md_results = detection.detect(detector,
                                       all_frames,
+                                      resize_height=detection.MEGADETECTORv5_SIZE,
+                                      resize_width=detection.MEGADETECTORv5_SIZE,
                                       file_col=cfg.get('file_col_detection', 'Frame'),
                                       batch_size=cfg.get('batch_size', 4),
                                       num_workers=cfg.get('num_workers', NUM_THREADS),
@@ -222,7 +226,7 @@ def from_config(config: str):
     # Create Symlinks
     if cfg.get('sort', False):
         working_dir.activate_linkdir()
-        manifest = export.sort_species(manifest,
+        manifest = export.export_to_folders(manifest,
                                        out_dir=cfg.get('link_dir', working_dir.linkdir),
                                        out_file=working_dir.results,
                                        copy=cfg.get('copy', False))

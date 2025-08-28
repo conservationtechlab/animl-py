@@ -23,9 +23,10 @@ from ultralytics import YOLO
 MEGADETECTORv5_SIZE = 1280
 MEGADETECTORv5_STRIDE = 64
 
+
 def load_detector(model_path: str,
                   model_type: str,
-                  device: typing.Optional[str] = None):
+                  device: Optional[str] = None):
     """
     Load Detector model from filepath.
 
@@ -72,9 +73,9 @@ def detect(detector,
            file_col: str = 'Frame',
            batch_size: int = 1,
            num_workers: int = 1,
-           device: typing.Optional[str] = None,
-           checkpoint_path: typing.Optional[str] = None,
-           checkpoint_frequency: int = -1) -> typing.List[typing.Dict]:
+           device: Optional[str] = None,
+           checkpoint_path: Optional[str] = None,
+           checkpoint_frequency: int = -1) -> list[dict]:
 
     """
     Runs Detector model on a batches of image files.

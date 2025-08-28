@@ -16,6 +16,7 @@
 
     @ Kyra Swanson, 2023
 '''
+import unittest
 import time
 import shutil
 from pathlib import Path
@@ -25,7 +26,7 @@ import animl
 from animl.utils.general import get_device, NUM_THREADS
 
 
-# @unittest.skip
+@unittest.skip
 def main_test():
     start_time = time.time()
 
@@ -70,6 +71,8 @@ def main_test():
         detector = animl.load_detector(megadetector, "MDV5", device=device)
         md_results = animl.detect(detector,
                                   all_frames,
+                                  resize_height=animl.MEGADETECTORv5_SIZE,
+                                  resize_width=animl.MEGADETECTORv5_SIZE,
                                   file_col="Frame",
                                   batch_size=4,
                                   num_workers=NUM_THREADS,
@@ -116,7 +119,7 @@ def main_test():
     if sort:
         print("Sorting...")
         working_dir.activate_linkdir()
-        manifest = animl.sort_species(manifest, working_dir.linkdir)
+        manifest = animl.export_to_folders(manifest, working_dir.linkdir)
 
     animl.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))

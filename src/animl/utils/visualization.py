@@ -15,7 +15,7 @@ from typing import Union, Optional
 from animl.utils import general
 
 
-def plot_box(row, file_col="FilePath", prediction=False):
+def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, prediction=False):
     """
     Plot a bounding box on a given (loaded) image
 
@@ -34,27 +34,38 @@ def plot_box(row, file_col="FilePath", prediction=False):
     Returns:
         None
     """
-    img = cv2.imread(row[file_col])
+    img = cv2.imread(rows.iloc[0][file_col])
     height, width, _ = img.shape
-    bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
-    xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
 
-    thick = int((height + width) // 900)
-    cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (90, 255, 0), thick)
+    for _, row in rows.iterrows():
+        # Skipping the box if the confidence threshold is not met
+        if (row['max_detection_conf']) < min_conf:
+            continue
 
-    # Printing prediction if enabled
-    if prediction:
-        label = row['prediction']
-        text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
-        text_size_width, text_size_height = text_size
+        # If any of the box isn't defined, jump to next one
+        if np.isnan(row['bbox_x']):
+            continue
+        bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
+        xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
 
-        box_right = (xyxy[2] if (xyxy[2] - xyxy[0]) < (text_size_width * 3)
-                    else xyxy[0] + (text_size_width * 3))
-        cv2.rectangle(img, (xyxy[0], xyxy[1]), (box_right, xyxy[1] - (text_size_height * 2)),
-                    (90, 255, 0), -1)
+        thick = int((height + width) // 900)
+        cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (90, 255, 0), thick)
 
-        cv2.putText(img, label, (xyxy[0], xyxy[1] - 12), 0, 1e-3 * height,
-                    (0, 0, 0), thick // 3)
+        # Printing prediction if enabled
+        if prediction:
+            label = row['prediction']
+            text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
+            text_size_width, text_size_height = text_size
+
+            box_right = (xyxy[2] if (xyxy[2] - xyxy[0]) < (text_size_width * 3)
+                        else xyxy[0] + (text_size_width * 3))
+            cv2.rectangle(img, (xyxy[0], xyxy[1]), (box_right, xyxy[1] - (text_size_height * 2)),
+                        (90, 255, 0), -1)
+
+            cv2.putText(img, label, (xyxy[0], xyxy[1] - 12), 0, 1e-3 * height,
+                        (0, 0, 0), thick // 3)
+            
+    return img
 
 
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
@@ -90,18 +101,9 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         if file_ext.lower() not in ['.jpg', '.jpeg', '.png']:
              # Plotting individual boxes in an image
             for i, row in detections.iterrows():
-                print(row)
-                img = cv2.imread(row['Frame'])
-                # Skipping the box if the confidence threshold is not met
-                if (row['max_detection_conf']) < min_conf:
-                    continue
-
-                # If any of the box isn't defined, jump to next one
-                if np.isnan(row['bbox_x']):
-                    continue
 
                 # Calculations required for plotting
-                plot_box(img, row, prediction=prediction)
+                img = plot_box(row, file_col="Frame", min_conf=min_conf, prediction=prediction)
 
                 # Saving the image
                 new_file_name = f"{file_name_no_ext}_box_{i}.jpg"
@@ -110,60 +112,16 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
 
             cv2.destroyAllWindows()
             
+        # plot all boxes in the image at once
         else:
-            img = cv2.imread(filepath)
-
-            # Plotting individual boxes in an image
-            for i, row in detections.iterrows():
-
-                # Skipping the box if the confidence threshold is not met
-                if (row['max_detection_conf']) < min_conf:
-                    continue
-
-                # If any of the box isn't defined, jump to next one
-                if np.isnan(row['bbox_x']):
-                    continue
-
-                plot_box(img, row, prediction=prediction)
+            img = plot_box(detections, file_col="Frame", min_conf=min_conf, prediction=prediction)
 
             # Saving the image
-            new_file_name = f"{file_name_no_ext}_box_{i}{file_ext}"
+            new_file_name = f"{file_name_no_ext}_box.jpg"
             new_file_path = os.path.join(out_dir, new_file_name)
             cv2.imwrite(new_file_path, img)
 
         cv2.destroyAllWindows()
-
-
-def draw_bounding_boxes(row: pd.Series,
-                        out_file: Optional[str] = None,
-                        prediction: bool = False):
-    """
-    Draws bounding boxes and labels on image DataFrame.
-
-    Args:
-        row : DataFrame containing image data - coordinates and predictions.
-            The DataFrame should have the following columns:
-            - 'Frame': Filename or path to the image file.
-            - 'bbox_x': Normalized x-coordinate of the top-left corner.
-            - 'bbox_y': Normalized y-coordinate of the top-left corner.
-            - 'bbox_w': Normalized width of the bounding box (range: 0-1).
-            - 'bbox_h': Normalized height of the bounding box (range: 0-1).
-            - 'prediction': Object prediction label for the bounding box.
-        box_number (int): Number used for generating the output image filename.
-        image_output_path (str): Output directory to saved images.
-        prediction (bool): if true, add prediction label
-
-    Returns:
-        None
-    """
-    img = cv2.imread(row["Frame"])
-    
-    plot_box(img, row, prediction=prediction)
-
-    if out_file is not None:
-        cv2.imwrite(out_file, img)
-
-    cv2.destroyAllWindows()
 
 
 def demo_boxes(manifest: pd.DataFrame, file_col: str, min_conf: float = 0.9, prediction: bool = True):
@@ -245,7 +203,12 @@ def main(csv_file: str, output_dir: str):
 
     # Perform box plotting for each image in the CSV file
     for i, row in data.iterrows():
-        draw_bounding_boxes(row, 60 + i, output_dir + '/')
+        img = plot_box(row)
+        # Save the image with boxes
+        file_name_no_ext, file_ext = os.path.splitext(os.path.split(row['FilePath'])[1])
+        new_file_name = f"{file_name_no_ext}_{i}_{file_ext}"
+        new_file_path = os.path.join(output_dir, new_file_name)
+        cv2.imwrite(new_file_path, img)
 
 
 if __name__ == '__main__':
