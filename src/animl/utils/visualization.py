@@ -37,6 +37,7 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
     img = cv2.imread(rows.iloc[0][file_col])
     height, width, _ = img.shape
 
+
     for _, row in rows.iterrows():
         # Skipping the box if the confidence threshold is not met
         if (row['max_detection_conf']) < min_conf:
@@ -64,14 +65,14 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
 
             cv2.putText(img, label, (xyxy[0], xyxy[1] - 12), 0, 1e-3 * height,
                         (0, 0, 0), thick // 3)
-            
+
     return img
 
-
+# TODO FIX FOR VIDEOS
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             out_dir: str,
-                            file_col: str,
-                            min_conf: Union[int, float] = 0,
+                            file_col: str = 'frame',
+                            min_conf: Union[int, float] = 0.1,
                             prediction: bool = False):
     """
     This function takes the parsed dataframe output from MegaDetector, makes a copy of each image,
@@ -98,7 +99,11 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         file_name_no_ext, file_ext = os.path.splitext(os.path.split(filepath)[1])
 
         # If the file is not an image, do each frame separately
-        if file_ext.lower() not in ['.jpg', '.jpeg', '.png']:
+        if file_ext.lower() in ['.jpg', '.jpeg', '.png']:
+
+            img = cv2.imread(filepath)
+            height, width, _ = img.shape
+            
              # Plotting individual boxes in an image
             for i, row in detections.iterrows():
 
@@ -106,9 +111,9 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
                 img = plot_box(row, file_col="Frame", min_conf=min_conf, prediction=prediction)
 
                 # Saving the image
-                new_file_name = f"{file_name_no_ext}_box_{i}.jpg"
-                new_file_path = os.path.join(out_dir, new_file_name)
-                cv2.imwrite(new_file_path, img)
+            new_file_name = f"{file_name_no_ext}_box.jpg"
+            new_file_path = os.path.join(out_dir, new_file_name)
+            cv2.imwrite(new_file_path, img)
 
             cv2.destroyAllWindows()
             

@@ -240,7 +240,7 @@ class TrainGenerator(Dataset):
     '''
     def __init__(self, x: pd.DataFrame,
                  classes: dict,
-                 file_col: str = 'FilePath',
+                 file_col: str = 'filepath',
                  label_col: str = 'species',
                  resize_height: int = 480,
                  resize_width: int = 480,
@@ -358,7 +358,7 @@ class TrainGenerator(Dataset):
 
 def train_dataloader(manifest: pd.DataFrame,
                      classes: dict,
-                     file_col: str = "FilePath",
+                     file_col: str = "filepath",
                      label_col: str = "species",
                      resize_height: int = 480,
                      resize_width: int = 480,

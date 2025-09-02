@@ -1,6 +1,6 @@
 # input
 manifest: "/path/to/manifest.csv"
-file_col: 'Frame'
+file_col: 'frame'
 split_animals: True  # only run inference on MD category=1 (animals)
 
 # model

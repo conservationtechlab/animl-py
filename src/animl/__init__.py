@@ -23,8 +23,7 @@ from animl.detection import (MEGADETECTORv5_SIZE, MEGADETECTORv5_STRIDE,
                              convert_yolo_detections, detect, load_detector,
                              parse_detections,)
 from animl.export import (export_coco, export_megadetector, export_timelapse,
-                          export_to_folders, export_to_folders_MD, remove_link,
-                          update_labels_from_folders,)
+                          export_folders, remove_link, update_labels_from_folders,)
 from animl.file_management import (IMAGE_EXTENSIONS, VALID_EXTENSIONS,
                                    VIDEO_EXTENSIONS, WorkingDirectory,
                                    active_times, build_file_manifest,
@@ -99,7 +98,7 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'demo_boxes', 'detect', 'detection', 'device_count', 'distance',
            'download', 'download_model', 'euclidean_squared_distance',
            'exif_transpose', 'export', 'export_coco', 'export_megadetector',
-           'export_timelapse', 'export_to_folders', 'export_to_folders_MD',
+           'export_timelapse', 'export_folders',
            'extract_frame_single', 'extract_frames', 'extract_miew_embeddings',
            'file_age', 'file_date', 'file_management', 'file_size',
            'from_config', 'from_paths', 'fuse_conv_and_bn', 'general',

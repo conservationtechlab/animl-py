@@ -215,7 +215,7 @@ def train_main(cfg):
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
     crop = cfg.get('crop', True)
-    file_col = cfg.get('file_col', 'FilePath')
+    file_col = cfg.get('file_col', 'filepath')
     label_col = cfg.get('label_col', 'species')
 
     # check if GPU is available

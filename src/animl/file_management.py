@@ -55,10 +55,10 @@ def build_file_manifest(image_dir: str,
     if not files:
         return pd.DataFrame()
 
-    files = pd.DataFrame(files, columns=["FilePath"])
-    files["Frame"] = files["FilePath"]
-    files["FileName"] = files["FilePath"].apply(lambda x: os.path.split(x)[1])
-    files["Extension"] = files["FilePath"].apply(lambda x: os.path.splitext(os.path.basename(x))[1].lower())
+    files = pd.DataFrame(files, columns=["filepath"])
+    files["frame"] = files["filepath"]
+    files["filename"] = files["filepath"].apply(lambda x: os.path.split(x)[1])
+    files["extension"] = files["filepath"].apply(lambda x: os.path.splitext(os.path.basename(x))[1].lower())
 
     invalid = []
 
@@ -83,25 +83,25 @@ def build_file_manifest(image_dir: str,
 
     if exif:
         for i, row in files.iterrows():
-            if row["Extension"] in IMAGE_EXTENSIONS:
+            if row["extension"] in IMAGE_EXTENSIONS:
                 try:
-                    img = PIL.Image.open(row['FilePath'])
-                    files.loc[i, "Width"] = img.size[0]
-                    files.loc[i, "Height"] = img.size[1]
-                    files.loc[i, "CreateDate"] = img.getexif().get(0x0132)
+                    img = PIL.Image.open(row['filepath'])
+                    files.loc[i, "width"] = img.size[0]
+                    files.loc[i, "height"] = img.size[1]
+                    files.loc[i, "createdate"] = img.getexif().get(0x0132)
                 except PIL.UnidentifiedImageError:
                     invalid.append(i)
 
         # get filemodifydate as backup (videos, etc)
-        files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
-        files["FileModifyDate"] = pd.to_datetime(files["FileModifyDate"]) + timedelta(hours=offset)
+        files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
+        files["filemodifydate"] = pd.to_datetime(files["filemodifydate"]) + timedelta(hours=offset)
         try:
             # select createdate if exists, else choose filemodify date
-            files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
-            files["CreateDate"] = files['CreateDate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
-            files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
+            files['createdate'] = files['createdate'].replace(r'^\s*$', None, regex=True)
+            files["createdate"] = files['createdate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
+            files["datetime"] = files['createdate'].combine_first(files['filemodifydate'])
         except KeyError:
-            files["DateTime"] = files["FileModifyDate"]
+            files["datetime"] = files["filemodifydate"]
 
     files = files.drop(index=invalid).reset_index(drop=True)
 
@@ -289,9 +289,9 @@ def active_times(manifest_dir: str,
     # from manifest dataframe
     elif isinstance(manifest_dir, pd.DataFrame):
         # get time stamps if dne
-        if "FileModifyDate" not in manifest_dir.columns:
+        if "filemodifydate" not in manifest_dir.columns:
             files = manifest_dir
-            files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
+            files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
 
     # from scratch
     elif os.path.isdir(manifest_dir):
@@ -300,8 +300,8 @@ def active_times(manifest_dir: str,
     else:
         raise FileNotFoundError("Requires a file manifest or image directory.")
 
-    files["Camera"] = files["FilePath"].apply(lambda x: x.split(os.sep)[depth])
+    files["camera"] = files["filepath"].apply(lambda x: x.split(os.sep)[depth])
 
-    times = files.groupby("Camera").agg({'FileModifyDate': ['min', 'max']})
+    times = files.groupby("camera").agg({'filemodifydate': ['min', 'max']})
 
     return times

@@ -101,7 +101,7 @@ allframes = animl.extract_frames(files, out_dir=workingdir.vidfdir, out_file=wor
 
 ```python
 detector = animl.load_detector('/path/to/mdmodel.pt', model_type="MDV5", device='cuda:0')
-mdresults = animl.detect(detector, allframes, file_col="Frame", checkpoint_path=working_dir.mdraw, quiet=True)
+mdresults = animl.detect(detector, allframes, file_col="frame", checkpoint_path=working_dir.mdraw, quiet=True)
 detections = animl.parse_detections(mdresults, manifest=all_frames, out_file=workingdir.detections)
 ```
 
@@ -115,7 +115,7 @@ empty = animl.get_empty(detections)
 ```python
 class_list = animl.load_class_list('/path/to/classlist.txt')
 classifier = animl.load_classifier('/path/to/model', len(class_list), device='cuda:0')
-raw_predictions = animl.classify(classifier, animals, file_col="Frame",
+raw_predictions = animl.classify(classifier, animals, file_col="frame",
                          batch_size=4, out_file=working_dir.predictions)
 ```
 
@@ -129,10 +129,10 @@ or
 manifest = animl.sequence_classification(animals, empty, 
                                          raw_predictions,
                                          class_list['class'],
-                                         station_col='Station',
+                                         station_col='station',
                                          empty_class="",
                                          sort_columns=None,
-                                         file_col="FilePath",
+                                         file_col="filepath",
                                          maxdiff=60)
 ```
 
@@ -144,7 +144,7 @@ animl.animl_results_to_md_results(csv_loc, imagedir + "final_result.json")
 
 9. (OPTIONAL) Create symlinks within a given directory for file browser access.
 ```python
-manifest = animl.sort_species(manifest, out_dir=working_dir.linkdir, out_file=working_dir.results)
+manifest = animl.export_folders(manifest, out_dir=working_dir.linkdir, out_file=working_dir.results)
 ```
 
 ---

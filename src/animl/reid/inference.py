@@ -44,7 +44,7 @@ def load_miew(file_path: str,
 
 def extract_miew_embeddings(miew_model,
                             manifest: pd.DataFrame,
-                            file_col: str = "FilePath",
+                            file_col: str = "filepath",
                             batch_size: int = 1,
                             num_workers: int = 1,
                             device: Optional[str] = None):
@@ -53,7 +53,7 @@ def extract_miew_embeddings(miew_model,
 
     Args:
         miew_model: MiewID model object
-        manifest (pd.DataFrame): dataframe with columns 'FilePath', 'emb_id'
+        manifest (pd.DataFrame): dataframe with columns 'filepath', 'emb_id'
         file_col (str): column name for file paths in manifest
         batch_size (int): batch size for dataloader
         num_workers (int): number of workers for dataloader

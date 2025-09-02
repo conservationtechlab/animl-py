@@ -74,7 +74,7 @@ def main_test():
                                   animl.MEGADETECTORv5_SIZE,
                                   animl.MEGADETECTORv5_SIZE,
                                   letterbox=True,
-                                  file_col="Frame",
+                                  file_col="frame",
                                   batch_size=4,
                                   num_workers=NUM_THREADS,
                                   checkpoint_path=working_dir.mdraw,
@@ -94,7 +94,7 @@ def main_test():
     predictions_raw = animl.classify(classifier,
                                      animals,
                                      device=device,
-                                     file_col="Frame",
+                                     file_col="frame",
                                      batch_size=4,
                                      num_workers=NUM_THREADS,
                                      out_file=working_dir.predictions)
@@ -105,10 +105,10 @@ def main_test():
                                                  empty,
                                                  predictions_raw,
                                                  class_list['class'],
-                                                 station_col='Station',
+                                                 station_col='station',
                                                  empty_class="",
                                                  sort_columns=None,
-                                                 file_col="FilePath",
+                                                 file_col="filepath",
                                                  maxdiff=60)
     else:
         print("Classifying individual frames...")
@@ -120,7 +120,7 @@ def main_test():
     if sort:
         print("Sorting...")
         working_dir.activate_linkdir()
-        manifest = animl.export_to_folders(manifest, working_dir.linkdir)
+        manifest = animl.export_folders(manifest, working_dir.linkdir, label_col='prediction')
 
     animl.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
@@ -135,9 +135,9 @@ def main_test():
         gt_manifest = pd.read_csv(gt_path)
 
         try:
-            test_manifest['FilePath'].equals(gt_manifest['FilePath'])
+            test_manifest['filepath'].equals(gt_manifest['filepath'])
         except ValueError:
-            print("FilePath columns do not match. Test Failure :(")
+            print("filepath columns do not match. Test Failure :(")
             print(test_manifest.compare(gt_manifest))
             exit(1)
 
