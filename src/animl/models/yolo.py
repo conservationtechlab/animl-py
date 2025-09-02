@@ -19,7 +19,7 @@ from animl.models.common import (Bottleneck, BottleneckCSP, C3,
                                  DWConvTranspose2d, Expand, Focus, GhostBottleneck,
                                  GhostConv, SPP, SPPF)
 from animl.utils.general import (make_divisible, fuse_conv_and_bn, initialize_weights, 
-                                 model_info, scale_img, time_sync)
+                                 scale_img, time_sync)
 
 try:
     import thop  # for FLOPs computation
@@ -164,12 +164,8 @@ class BaseModel(nn.Module):
                 m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
                 delattr(m, "bn")  # remove batchnorm
                 m.forward = m.forward_fuse  # update forward
-        self.info()
         return self
 
-    def info(self, verbose=False, img_size=640):
-        """Prints model information given verbosity and image size, e.g., `info(verbose=True, img_size=640)`."""
-        model_info(self, verbose, img_size)
 
     def _apply(self, fn):
         """Applies transformations like to(), cpu(), cuda(), half() to model tensors excluding parameters or registered
@@ -228,7 +224,6 @@ class DetectionModel(BaseModel):
 
         # Init weights, biases
         initialize_weights(self)
-        self.info()
 
     def forward(self, x, augment=False, profile=False, visualize=False):
         """Performs single-scale or augmented inference and may include profiling or visualization."""

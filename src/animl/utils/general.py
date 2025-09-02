@@ -29,10 +29,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.backends import cudnn
 
-try:
-    import thop  # for FLOPs computation
-except ImportError:
-    thop = None
 
 # Suppress PyTorch warnings
 warnings.filterwarnings('ignore', message='User provided device_type of \'cuda\', but CUDA is not available. Disabling')
@@ -64,43 +60,6 @@ def tensor_to_onnx(tensor, channel_last=True):
     tensor = tensor.numpy()
 
     return tensor
-
-
-def truncate_float(x, precision=3):
-    """
-    Truncates a floating-point value to a specific number of significant digits.
-    For example: truncate_float(0.0003214884) --> 0.000321
-    This function is primarily used to achieve a certain float representation
-    before exporting to JSON.
-
-    Args:
-        - x (float): Scalar to truncate
-        - precision (int): The number of significant digits to preserve, should be
-                      greater or equal 1
-    """
-    assert precision > 0
-
-    if np.isclose(x, 0):
-        return 0
-    else:
-        # Determine the factor, which shifts the decimal point of x
-        # just behind the last significant digit.
-        factor = math.pow(10, precision - 1 - math.floor(math.log10(abs(x))))
-        # Shift decimal point by multiplicatipon with factor, flooring, and
-        # division by factor.
-        return math.floor(x * factor)/factor
-
-
-def truncate_float_array(xs, precision=3):
-    """
-    Vectorized version of truncate_float(...)
-
-    Args:
-        - xs (list of float): List of floats to truncate
-        - precision (int): The number of significant digits to preserve,
-                           should be greater or equal 1
-    """
-    return [truncate_float(x, precision=precision) for x in xs]
 
 
 def clean_str(s):
@@ -135,7 +94,8 @@ def file_size(path):
         return sum(f.stat().st_size for f in path.glob('**/*') if f.is_file()) / mb
     else:
         return 0.0
-    
+
+
 def get_image_size(image_path):
     """
     Returns the size of an image.
@@ -159,14 +119,22 @@ def get_device():
     return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-def init_seeds(seed=0):
-    # Initialize random number generator (RNG) seeds https://pytorch.org/docs/stable/notes/randomness.html
-    # cudnn seed 0 settings are slower and more reproducible, else faster and less reproducible
-    import torch.backends.cudnn as cudnn
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    cudnn.benchmark, cudnn.deterministic = (False, True) if seed == 0 else (True, False)
+def init_seed(seed):
+    '''
+    Initalize the seed for all random number generators.
+
+    This is important to be able to reproduce results and experiment with different
+    random setups of the same code and experiments.
+
+    Args:
+        seed (int): seed for RNG
+    '''
+    if seed is not None:
+        random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        cudnn.benchmark = True
+        cudnn.deterministic = True
 
 
 def device_count():
@@ -210,34 +178,6 @@ def time_sync():
 # TRAINING
 # ==============================================================================
 
-def init_seed(seed):
-    '''
-    Initalize the seed for all random number generators.
-
-    This is important to be able to reproduce results and experiment with different
-    random setups of the same code and experiments.
-
-    Args:
-        seed (int): seed for RNG
-    '''
-    if seed is not None:
-        random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-        cudnn.benchmark = True
-        cudnn.deterministic = True
-
-
-def is_parallel(model):
-    # Returns True if model is of type DP or DDP
-    return type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
-
-
-def de_parallel(model):
-    # De-parallelize a model: returns single-GPU model if model is of type DP or DDP
-    return model.module if is_parallel(model) else model
-
-
 def initialize_weights(model):
     for m in model.modules():
         t = type(m)
@@ -248,30 +188,6 @@ def initialize_weights(model):
             m.momentum = 0.03
         elif t in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU]:
             m.inplace = True
-
-def find_modules(model, mclass=nn.Conv2d):
-    # Finds layer indices matching module class 'mclass'
-    return [i for i, m in enumerate(model.module_list) if isinstance(m, mclass)]
-
-
-def sparsity(model):
-    # Return global model sparsity
-    a, b = 0, 0
-    for p in model.parameters():
-        a += p.numel()
-        b += (p == 0).sum()
-    return b / a
-
-
-def prune(model, amount=0.3):
-    # Prune model to requested global sparsity
-    import torch.nn.utils.prune as prune
-    print('Pruning model... ', end='')
-    for name, m in model.named_modules():
-        if isinstance(m, nn.Conv2d):
-            prune.l1_unstructured(m, name='weight', amount=amount)  # prune
-            prune.remove(m, 'weight')  # make permanent
-    print(' %.3g global sparsity' % sparsity(model))
 
 
 def fuse_conv_and_bn(conv, bn):
@@ -297,31 +213,6 @@ def fuse_conv_and_bn(conv, bn):
     return fusedconv
 
 
-def model_info(model, verbose=False, img_size=640):
-    # Model information. img_size may be int or list, i.e. img_size=640 or img_size=[640, 320]
-    n_p = sum(x.numel() for x in model.parameters())  # number parameters
-    n_g = sum(x.numel() for x in model.parameters() if x.requires_grad)  # number gradients
-    if verbose:
-        print(f"{'layer':>5} {'name':>40} {'gradient':>9} {'parameters':>12} {'shape':>20} {'mu':>10} {'sigma':>10}")
-        for i, (name, p) in enumerate(model.named_parameters()):
-            name = name.replace('module_list.', '')
-            print('%5g %40s %9s %12g %20s %10.3g %10.3g' %
-                  (i, name, p.requires_grad, p.numel(), list(p.shape), p.mean(), p.std()))
-
-    try:  # FLOPs
-        from thop import profile
-        stride = max(int(model.stride.max()), 32) if hasattr(model, 'stride') else 32
-        img = torch.zeros((1, model.yaml.get('ch', 3), stride, stride), device=next(model.parameters()).device)  # input
-        flops = profile(deepcopy(model), inputs=(img,), verbose=False)[0] / 1E9 * 2  # stride GFLOPs
-        img_size = img_size if isinstance(img_size, list) else [img_size, img_size]  # expand if int/float
-        fs = ', %.1f GFLOPs' % (flops * img_size[0] / stride * img_size[1] / stride)  # 640x640 GFLOPs
-    except Exception:
-        fs = ''
-
-    name = Path(model.yaml_file).stem.replace('yolov5', 'YOLOv5') if hasattr(model, 'yaml_file') else 'Model'
-    print(f"{name} summary: {len(list(model.modules()))} layers, {n_p} parameters, {n_g} gradients{fs}")
-
-
 def scale_img(img, ratio=1.0, same_shape=False, gs=32):  # img(16,3,256,416)
     # Scales img(bs,3,y,x) by ratio constrained to gs-multiple
     if ratio == 1.0:
@@ -341,17 +232,6 @@ def copy_attr(a, b, include=(), exclude=()):
             continue
         else:
             setattr(a, k, v)
-
-
-def print_args(args: Optional[dict] = None, show_file=True, show_fcn=False):
-    # Print function arguments (optional args dict)
-    x = inspect.currentframe().f_back  # previous frame
-    file, _, fcn, _, _ = inspect.getframeinfo(x)
-    if args is None:  # get args automatically
-        args, _, _, frm = inspect.getargvalues(x)
-        args = {k: v for k, v in frm.items() if k in args}
-    s = (f'{Path(file).stem}: ' if show_file else '') + (f'{fcn}: ' if show_fcn else '')
-    print(s + ', '.join(f'{k}={v}' for k, v in args.items()))
 
 
 def get_latest_run(search_dir='.'):
@@ -379,37 +259,6 @@ def make_divisible(x, divisor):
     return math.ceil(x / divisor) * divisor
 
 
-def one_cycle(y1=0.0, y2=1.0, steps=100):
-    # lambda function for sinusoidal ramp from y1 to y2 https://arxiv.org/pdf/1812.01187.pdf
-    return lambda x: ((1 - math.cos(x * math.pi / steps)) / 2) * (y2 - y1) + y1
-
-
-def labels_to_class_weights(labels, nc=80):
-    # Get class weights (inverse frequency) from training labels
-    if labels[0] is None:  # no labels loaded
-        return torch.Tensor()
-
-    labels = np.concatenate(labels, 0)  # labels.shape = (866643, 5) for COCO
-    classes = labels[:, 0].astype(np.int)  # labels = [class xywh]
-    weights = np.bincount(classes, minlength=nc)  # occurrences per class
-
-    # Prepend gridpoint count (for uCE training)
-    # gpi = ((320 / 32 * np.array([1, 2, 4])) ** 2 * 3).sum()  # gridpoints per image
-    # weights = np.hstack([gpi * len(labels)  - weights.sum() * 9, weights * 9]) ** 0.5  # prepend gridpoints to start
-
-    weights[weights == 0] = 1  # replace empty bins with 1
-    weights = 1 / weights  # number of targets per class
-    weights /= weights.sum()  # normalize
-    return torch.from_numpy(weights)
-
-
-def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
-    # Produces image weights based on class_weights and image contents
-    # Usage: index = random.choices(range(n), weights=image_weights, k=1)  # weighted image sample
-    class_counts = np.array([np.bincount(x[:, 0].astype(np.int), minlength=nc) for x in labels])
-    return (class_weights.reshape(1, nc) * class_counts).sum(1)
-
-
 def increment_path(path, exist_ok=False, sep='', mkdir=False):
     # Increment file or directory path, i.e. runs/exp --> runs/exp{sep}2, runs/exp{sep}3, ... etc.
     path = Path(path)  # os-agnostic
@@ -431,7 +280,6 @@ def increment_path(path, exist_ok=False, sep='', mkdir=False):
 # ==============================================================================
 # COORDINATE CONVERSION
 # ==============================================================================
-
 def xyxyc2xywh(x):
     # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
@@ -482,31 +330,37 @@ def xyn2xy(x, w=640, h=640, padw=0, padh=0):
     return y
 
 
-def segment2box(segment, width=640, height=640):
-    # Convert 1 segment label to 1 box label, applying inside-image constraint, i.e. (xy1, xy2, ...) to (xyxy)
-    x, y = segment.T  # segment xy
-    inside = (x >= 0) & (y >= 0) & (x <= width) & (y <= height)
-    x, y, = x[inside], y[inside]
-    return np.array([x.min(), y.min(), x.max(), y.max()]) if any(x) else np.zeros((1, 4))  # xyxy
+def xywh2xyxy(bbox):
+    """
+    Converts bounding boxes from xywh to xyxy format.
+
+    Args:
+        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
+
+    Returns:
+        list: Normalized bounding box coordinates in the format [x_min, y_min, width, height].
+    """
+    y = bbox.clone() if isinstance(bbox, torch.Tensor) else np.copy(bbox)
+    y[2] = y[0] + y[2]  # bottom right x
+    y[3] = y[1] + y[3]  # bottom right y
+    return y
 
 
-def segments2boxes(segments):
-    # Convert segment labels to box labels, i.e. (cls, xy1, xy2, ...) to (cls, xywh)
-    boxes = []
-    for s in segments:
-        x, y = s.T  # segment xy
-        boxes.append([x.min(), y.min(), x.max(), y.max()])  # cls, xyxy
-    return xyxyc2xywh(np.array(boxes))  # cls, xywh
+def xyxy2xywh(bbox):
+    """
+    Converts bounding boxes from xywh to xyxy format.
 
+    Args:
+        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
+                     x_min,y_min are the top left corner.
 
-def resample_segments(segments, n=1000):
-    # Up-sample an (n,2) segment
-    for i, s in enumerate(segments):
-        s = np.concatenate((s, s[0:1, :]), axis=0)
-        x = np.linspace(0, len(s) - 1, n)
-        xp = np.arange(len(s))
-        segments[i] = np.concatenate([np.interp(x, xp, s[:, i]) for i in range(2)]).reshape(2, -1).T  # segment xy
-    return segments
+    Returns:
+        list: Normalized bounding box coordinates in the format [x_min, y_min, width, height].
+    """
+    y = bbox.clone() if isinstance(bbox, torch.Tensor) else np.copy(bbox)
+    y[2] = y[2] - y[0]  # width
+    y[3] = y[3] - y[1]  # height
+    return y
 
 
 def absolute_to_relative(bbox, img_size):
@@ -596,6 +450,23 @@ def clip_coords(boxes, shape):
         boxes[:, [0, 2]] = boxes[:, [0, 2]].clip(0, shape[1])  # x1, x2
         boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, shape[0])  # y1, y2
 
+
+def normalize_boxes(bbox, image_sizes):
+    """
+    Converts absolute bounding box coordinates to relative coordinates.
+
+    Args:
+        bbox (list): Absolute bounding box coordinates.
+        img_size (tuple): Image size in the format (width, height).
+
+    Returns:
+        list: Normalized bounding box coordinates.
+    """
+    img_height, img_width  = image_sizes
+    y = bbox.clone() if isinstance(bbox, torch.Tensor) else np.copy(bbox)   
+    y[[0,2]] = np.clip(y[[0,2]] / img_width, 0, 1)
+    y[[1,3]] = np.clip(y[[1,3]] / img_height, 0, 1)
+    return y
 
 # ==============================================================================
 # MDV5
@@ -766,87 +637,6 @@ def letterbox(im: np.ndarray, new_shape = (640, 640),
     return im, ratio, (dw, dh)
 
 
-def exif_transpose(image):
-    """
-    Transpose a PIL image accordingly if it has an EXIF Orientation tag.
-    Inplace version of https://github.com/python-pillow/Pillow/blob/master/src/PIL/ImageOps.py exif_transpose()
-
-    :param image: The image to transpose.
-    :return: An image.
-    """
-    exif = image.getexif()
-    orientation = exif.get(0x0112, 1)  # default 1
-    if orientation > 1:
-        method = {
-            2: Image.FLIP_LEFT_RIGHT,
-            3: Image.ROTATE_180,
-            4: Image.FLIP_TOP_BOTTOM,
-            5: Image.TRANSPOSE,
-            6: Image.ROTATE_270,
-            7: Image.TRANSVERSE,
-            8: Image.ROTATE_90, }.get(orientation)
-        if method is not None:
-            image = image.transpose(method)
-            del exif[0x0112]
-            image.info["exif"] = exif.tobytes()
-    return image
-
-
-# ==============================================================================
-# Functions for new YOLO pipeline
-# ==============================================================================
-
-def normalize_boxes(bbox, image_sizes):
-    """
-    Converts absolute bounding box coordinates to relative coordinates.
-
-    Args:
-        bbox (list): Absolute bounding box coordinates.
-        img_size (tuple): Image size in the format (width, height).
-
-    Returns:
-        list: Normalized bounding box coordinates.
-    """
-    img_height, img_width  = image_sizes
-    y = bbox.clone() if isinstance(bbox, torch.Tensor) else np.copy(bbox)   
-    y[[0,2]] = np.clip(y[[0,2]] / img_width, 0, 1)
-    y[[1,3]] = np.clip(y[[1,3]] / img_height, 0, 1)
-    return y
-
-
-def xywh2xyxy(bbox):
-    """
-    Converts bounding boxes from xywh to xyxy format.
-
-    Args:
-        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
-
-    Returns:
-        list: Normalized bounding box coordinates in the format [x_min, y_min, width, height].
-    """
-    y = bbox.clone() if isinstance(bbox, torch.Tensor) else np.copy(bbox)
-    y[2] = y[0] + y[2]  # bottom right x
-    y[3] = y[1] + y[3]  # bottom right y
-    return y
-
-
-def xyxy2xywh(bbox):
-    """
-    Converts bounding boxes from xywh to xyxy format.
-
-    Args:
-        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
-                     x_min,y_min are the top left corner.
-
-    Returns:
-        list: Normalized bounding box coordinates in the format [x_min, y_min, width, height].
-    """
-    y = bbox.clone() if isinstance(bbox, torch.Tensor) else np.copy(bbox)
-    y[2] = y[2] - y[0]  # width
-    y[3] = y[3] - y[1]  # height
-    return y
-
-
 def scale_letterbox(bbox, resized_shape, original_shape):
     """
     Converts bounding box coordinates from a resized, letterboxed image space
@@ -903,3 +693,30 @@ def scale_letterbox(bbox, resized_shape, original_shape):
     xywh_coords = xyxy2xywh(xyxy_coords)
 
     return xywh_coords
+
+def exif_transpose(image):
+    """
+    Transpose a PIL image accordingly if it has an EXIF Orientation tag.
+    Inplace version of https://github.com/python-pillow/Pillow/blob/master/src/PIL/ImageOps.py exif_transpose()
+
+    :param image: The image to transpose.
+    :return: An image.
+    """
+    exif = image.getexif()
+    orientation = exif.get(0x0112, 1)  # default 1
+    if orientation > 1:
+        method = {
+            2: Image.FLIP_LEFT_RIGHT,
+            3: Image.ROTATE_180,
+            4: Image.FLIP_TOP_BOTTOM,
+            5: Image.TRANSPOSE,
+            6: Image.ROTATE_270,
+            7: Image.TRANSVERSE,
+            8: Image.ROTATE_90, }.get(orientation)
+        if method is not None:
+            image = image.transpose(method)
+            del exif[0x0112]
+            image.info["exif"] = exif.tobytes()
+    return image
+
+

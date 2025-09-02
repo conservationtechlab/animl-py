@@ -22,13 +22,13 @@ def buow_test():
 
     md_results = detection.detect(detector,
                                   files,
-                                  resize_height=detection.MEGADETECTORv5_SIZE,
-                                  resize_width=detection.MEGADETECTORv5_SIZE,
+                                  detection.MEGADETECTORv5_SIZE,
+                                  detection.MEGADETECTORv5_SIZE,
                                   letterbox=False,
                                   file_col="Frame",
                                   batch_size=4,
                                   num_workers=4,
-                                  confidence_threshold=0.5)
+                                  confidence_threshold=0.1)
     detections = detection.parse_detections(md_results, manifest=files)
 
     print(detections)

@@ -71,8 +71,9 @@ def main_test():
         detector = animl.load_detector(megadetector, "MDV5", device=device)
         md_results = animl.detect(detector,
                                   all_frames,
-                                  resize_height=animl.MEGADETECTORv5_SIZE,
-                                  resize_width=animl.MEGADETECTORv5_SIZE,
+                                  animl.MEGADETECTORv5_SIZE,
+                                  animl.MEGADETECTORv5_SIZE,
+                                  letterbox=True,
                                   file_col="Frame",
                                   batch_size=4,
                                   num_workers=NUM_THREADS,
@@ -123,6 +124,9 @@ def main_test():
 
     animl.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
+
+    box_path = Path(image_dir) / 'Animl-Directory' / 'Boxes'
+    animl.plot_all_bounding_boxes(manifest, box_path, file_col='Frame', min_conf=0.1, prediction=False)
 
     results_path = Path(image_dir) / 'Animl-Directory' / 'Data' / 'Results.csv'
     gt_path = Path.cwd() / 'tests' / 'GroundTruth' / 'Data' / 'Results.csv'
