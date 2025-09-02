@@ -41,7 +41,7 @@ def export_folders(manifest: pd.DataFrame,
 
     if label_col not in manifest.columns:
         raise AssertionError(f"Label column {label_col} not found in manifest.")
-    
+
     if label_col == 'prediction':
         # Create species folders
         for species in manifest['prediction'].unique():
@@ -49,7 +49,7 @@ def export_folders(manifest: pd.DataFrame,
             path.mkdir(exist_ok=True)
 
     elif label_col == 'category':
-        classes = {"0":"empty", "1":"animal", "2":"human", "3":"vehicle"}
+        classes = {"0": "empty", "1": "animal", "2": "human", "3": "vehicle"}
         for i in classes.values():
             path = out_dir / Path(i)
             path.mkdir(exist_ok=True)
