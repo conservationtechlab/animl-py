@@ -10,9 +10,10 @@ import argparse
 import pandas as pd
 import os
 import numpy as np
-from typing import Union, Optional
+from typing import Union
 
 from animl.utils import general
+from animl.file_management import IMAGE_EXTENSIONS
 
 
 def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, prediction=False):
@@ -34,9 +35,12 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
     Returns:
         None
     """
+    # If a single row is passed, convert it to a DataFrame for consistency
+    if isinstance(rows, pd.Series):
+        rows = pd.DataFrame([rows])
+
     img = cv2.imread(rows.iloc[0][file_col])
     height, width, _ = img.shape
-
 
     for _, row in rows.iterrows():
         # Skipping the box if the confidence threshold is not met
@@ -46,6 +50,7 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
         # If any of the box isn't defined, jump to next one
         if np.isnan(row['bbox_x']):
             continue
+
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
 
@@ -68,7 +73,8 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
 
     return img
 
-# TODO FIX FOR VIDEOS
+
+
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             out_dir: str,
                             file_col: str = 'frame',
@@ -98,17 +104,10 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         # ouput name
         file_name_no_ext, file_ext = os.path.splitext(os.path.split(filepath)[1])
 
-        # If the file is not an image, do each frame separately
-        if file_ext.lower() in ['.jpg', '.jpeg', '.png']:
+        # file is an image
+        if file_ext.lower() in IMAGE_EXTENSIONS:
 
-            img = cv2.imread(filepath)
-            height, width, _ = img.shape
-            
-             # Plotting individual boxes in an image
-            for i, row in detections.iterrows():
-
-                # Calculations required for plotting
-                img = plot_box(row, file_col="Frame", min_conf=min_conf, prediction=prediction)
+            img = plot_box(detections, file_col=file_col, min_conf=min_conf, prediction=prediction)
 
                 # Saving the image
             new_file_name = f"{file_name_no_ext}_box.jpg"
@@ -117,14 +116,17 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
 
             cv2.destroyAllWindows()
             
-        # plot all boxes in the image at once
+        # file is a video, break up by frames
         else:
-            img = plot_box(detections, file_col="Frame", min_conf=min_conf, prediction=prediction)
+            frames = detections.groupby('frame')
+            for f, frame_detections in frames:
 
-            # Saving the image
-            new_file_name = f"{file_name_no_ext}_box.jpg"
-            new_file_path = os.path.join(out_dir, new_file_name)
-            cv2.imwrite(new_file_path, img)
+                img = plot_box(frame_detections, file_col="frame", min_conf=min_conf, prediction=prediction)
+
+                # Saving the image
+                new_file_name = f"{file_name_no_ext}_box.jpg"
+                new_file_path = os.path.join(out_dir, new_file_name)
+                cv2.imwrite(new_file_path, img)
 
         cv2.destroyAllWindows()
 
