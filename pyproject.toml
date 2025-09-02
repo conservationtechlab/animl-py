@@ -11,6 +11,7 @@ authors = [{name = "Kyra Swanson", email = "tswanson@sdzwa.org" }]
 
 requires-python = ">=3.9"
 dependencies = [
+    "dill>=0.4.0",
     "numpy==2.0.2", 
     "onnxruntime-gpu==1.19.2", 
     "pandas>=2.2.2", 

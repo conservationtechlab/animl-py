@@ -9,6 +9,7 @@ from pathlib import Path
 
 from animl import train, test
 
+
 @unittest.skip
 def model_training_test():
     print(Path.cwd())

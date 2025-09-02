@@ -12,6 +12,7 @@ MEGADETECTOR_SIZE = 1280
 SDZWA_CLASSIFIER_SIZE = 480
 MIEWID_SIZE = 440
 
+
 class EfficientNet(nn.Module):
     def __init__(self, num_classes, device=None, tune=False):
         '''

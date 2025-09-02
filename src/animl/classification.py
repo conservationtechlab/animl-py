@@ -290,7 +290,6 @@ def classify(model,
     if out_file:
         file_management.save_data(pd.DataFrame(raw_output), out_file)
 
-
     print(f"\nFinished batch processing. Total images processed: {len(raw_output)} at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
 
     return raw_output
@@ -482,7 +481,7 @@ def sequence_classification(animals: pd.DataFrame,
 # TODO test
 def multispecies_classification(animals: pd.DataFrame,
                                 threshold: float,
-                                 file_col: str = "filepath") -> pd.DataFrame:
+                                file_col: str = "filepath") -> pd.DataFrame:
     """
     This function applies image classifications at a image level. All images which have multiple
     species present with confidence above threshold, will be returned as a DataFrame
