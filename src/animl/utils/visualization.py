@@ -15,7 +15,7 @@ from typing import Union, Optional
 from animl.utils import general
 
 
-def plot_box(row, file_col="FilePath", prediction=False):
+def plot_box(row, file_col="filepath", prediction=False):
     """
     Plot a bounding box on a given (loaded) image
 
@@ -91,7 +91,7 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
              # Plotting individual boxes in an image
             for i, row in detections.iterrows():
                 print(row)
-                img = cv2.imread(row['Frame'])
+                img = cv2.imread(row['frame'])
                 # Skipping the box if the confidence threshold is not met
                 if (row['max_detection_conf']) < min_conf:
                     continue
@@ -143,7 +143,7 @@ def draw_bounding_boxes(row: pd.Series,
     Args:
         row : DataFrame containing image data - coordinates and predictions.
             The DataFrame should have the following columns:
-            - 'Frame': Filename or path to the image file.
+            - 'frame': Filename or path to the image file.
             - 'bbox_x': Normalized x-coordinate of the top-left corner.
             - 'bbox_y': Normalized y-coordinate of the top-left corner.
             - 'bbox_w': Normalized width of the bounding box (range: 0-1).
@@ -156,7 +156,7 @@ def draw_bounding_boxes(row: pd.Series,
     Returns:
         None
     """
-    img = cv2.imread(row["Frame"])
+    img = cv2.imread(row["frame"])
     
     plot_box(img, row, prediction=prediction)
 

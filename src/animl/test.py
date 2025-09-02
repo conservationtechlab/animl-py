@@ -93,7 +93,7 @@ def test_main(cfg):
     dl_test = train_dataloader(test_dataset, categories,
                                batch_size=cfg['batch_size'],
                                num_workers=cfg.get('num_workers', NUM_THREADS),
-                               file_col=cfg.get('file_col', 'FilePath'),
+                               file_col=cfg.get('file_col', 'filepath'),
                                label_col=cfg.get('label_col', 'species'),
                                crop=crop, augment=False,
                                cache_dir=cfg.get('cache_folder', None))

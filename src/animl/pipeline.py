@@ -46,7 +46,7 @@ def from_paths(image_dir: str,
     files = file_management.build_file_manifest(image_dir,
                                                 out_file=working_dir.filemanifest,
                                                 exif=True)
-    # files["Station"] = files["FilePath"].apply(lambda x: x.split(os.sep)[-2])
+    # files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[-2])
     print("Found %d files." % len(files))
 
     # Video-processing to extract individual frames as images in to directory
@@ -66,7 +66,7 @@ def from_paths(image_dir: str,
         detector = detection.load_detector(detector_file, "MDV5", device=device)
         md_results = detection.detect(detector,
                                       all_frames,
-                                      file_col="Frame",
+                                      file_col="frame",
                                       batch_size=4,
                                       num_workers=NUM_THREADS,
                                       checkpoint_path=working_dir.mdraw,
@@ -82,7 +82,7 @@ def from_paths(image_dir: str,
     # Plot boxes
     if visualize:
         working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='Frame', prediction=False)
+        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='frame', prediction=False)
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
@@ -90,7 +90,7 @@ def from_paths(image_dir: str,
     classifier = classification.load_classifier(classifier_file, len(class_list), device=device)
     predictions_raw = classification.classify(classifier, animals,
                                               device=device,
-                                              file_col="Frame",
+                                              file_col="frame",
                                               batch_size=4,
                                               num_workers=NUM_THREADS,
                                               out_file=working_dir.predictions)
@@ -98,10 +98,10 @@ def from_paths(image_dir: str,
         print("Classifying sequences...")
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
                                                           class_list[class_label],
-                                                          station_col='Station',
+                                                          station_col='station',
                                                           empty_class="",
                                                           sort_columns=None,
-                                                          file_col="FilePath",
+                                                          file_col="filepath",
                                                           maxdiff=60)
     else:
         print("Classifying individual frames...")
@@ -154,7 +154,7 @@ def from_config(config: str):
     # Station Col
     station_dir = cfg.get('station_dir', None)
     if station_dir:
-        files["Station"] = files["FilePath"].apply(lambda x: x.split(os.sep)[station_dir])
+        files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[station_dir])
 
     # Video-processing to extract individual frames as images in to directory
     print("Processing videos...")
@@ -176,7 +176,7 @@ def from_config(config: str):
         detector = detection.load_detector(cfg['detector_file'], device=device)
         md_results = detection.detect(detector,
                                       all_frames,
-                                      file_col=cfg.get('file_col_detection', 'Frame'),
+                                      file_col=cfg.get('file_col_detection', 'frame'),
                                       batch_size=cfg.get('batch_size', 4),
                                       num_workers=cfg.get('num_workers', NUM_THREADS),
                                       checkpoint_path=working_dir.mdraw,
@@ -192,7 +192,7 @@ def from_config(config: str):
     # Plot boxes
     if cfg.get('visualize', False):
         working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='Frame', prediction=False)
+        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='frame', prediction=False)
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
@@ -200,7 +200,7 @@ def from_config(config: str):
     classifier = classification.load_classifier(cfg['classifier_file'], len(class_list), device=device)
     predictions_raw = classification.classify(classifier, animals,
                                               device=device,
-                                              file_col=cfg.get('file_col_classification', 'Frame'),
+                                              file_col=cfg.get('file_col_classification', 'frame'),
                                               batch_size=cfg.get('batch_size', 4),
                                               num_workers=cfg.get('num_workers', NUM_THREADS),
                                               out_file=working_dir.predictions)
@@ -209,10 +209,10 @@ def from_config(config: str):
     if station_dir:
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
                                                           class_list[cfg.get('class_label_col', 'class')],
-                                                          station_col='Station',
+                                                          station_col='station',
                                                           empty_class="",
-                                                          sort_columns=["Station", "DateTime", "FrameNumber"],
-                                                          file_col=cfg.get('file_col_classification', 'Frame'),
+                                                          sort_columns=["station", "datetime", "framenumber"],
+                                                          file_col=cfg.get('file_col_classification', 'frame'),
                                                           maxdiff=60)
     else:
         animals = classification.single_classification(animals, predictions_raw, class_list[cfg.get('class_label_col', 'class')])

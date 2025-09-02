@@ -211,7 +211,7 @@ class TrainGenerator(Dataset):
     '''
     def __init__(self, x: pd.DataFrame,
                  classes: dict,
-                 file_col: str = 'FilePath',
+                 file_col: str = 'filepath',
                  label_col: str = 'species',
                  crop: bool = True,
                  crop_coord: str = 'relative',
@@ -327,7 +327,7 @@ class TrainGenerator(Dataset):
 
 def train_dataloader(manifest: pd.DataFrame,
                      classes: dict,
-                     file_col: str = "FilePath",
+                     file_col: str = "filepath",
                      label_col: str = "species",
                      crop: bool = False,
                      crop_coord: str = 'relative',

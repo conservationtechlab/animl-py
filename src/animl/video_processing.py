@@ -92,7 +92,7 @@ def extract_frames(files: Union[str, pd.DataFrame, list[str]],
                    out_file: Optional[str] = None,
                    fps: Optional[float] = None,
                    frames: Optional[int] = None,
-                   file_col: str = "FilePath",
+                   file_col: str = "filepath",
                    parallel: bool = False,
                    num_workers: int = NUM_THREADS,
                    checkpoint: int = 1000):
@@ -124,13 +124,13 @@ def extract_frames(files: Union[str, pd.DataFrame, list[str]],
 
     images = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin(file_management.IMAGE_EXTENSIONS)]
-    images = images.assign(Frame=images[file_col])
-    images = images.assign(FrameNumber=0)
+    images = images.assign(frame=images[file_col])
+    images = images.assign(framenumber=0)
 
     videos = files[files[file_col].apply(
         lambda x: os.path.splitext(x)[1].lower()).isin(file_management.VIDEO_EXTENSIONS)]
 
-    videos = videos.drop(columns="Frame", errors='ignore')
+    videos = videos.drop(columns="frame", errors='ignore')
 
     if not videos.empty:
         video_frames = []
@@ -139,8 +139,8 @@ def extract_frames(files: Union[str, pd.DataFrame, list[str]],
             output = [pool.apply(extract_frame_single, args=(video, out_dir, fps, frames)) for video in tqdm(videos[file_col])]
             output = list(filter(None, output))
             video_frames = vstack(output)
-            video_frames = pd.DataFrame(video_frames, columns=["Frame", file_col, "FrameNumber"])
-            video_frames['FrameNumber'] = video_frames['FrameNumber'].astype(int)
+            video_frames = pd.DataFrame(video_frames, columns=["frame", file_col, "framenumber"])
+            video_frames['framenumber'] = video_frames['framenumber'].astype(int)
             pool.close()
 
         else:
@@ -153,7 +153,7 @@ def extract_frames(files: Union[str, pd.DataFrame, list[str]],
                 if (i % checkpoint == 0) and (out_file is not None):
                     file_management.save_data(images, out_file)
 
-            video_frames = pd.DataFrame(video_frames, columns=["Frame", file_col, "FrameNumber"])
+            video_frames = pd.DataFrame(video_frames, columns=["frame", file_col, "framenumber"])
         videos = videos.merge(video_frames, on=file_col)
 
     allframes = pd.concat([images, videos]).reset_index(drop=True)
