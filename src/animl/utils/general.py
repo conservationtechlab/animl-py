@@ -1,24 +1,17 @@
 """
 General utils
 
-TODO: clean up junk drawer
-
 """
 import cv2
 import glob
-import inspect
 import math
 import os
 import platform
-import re
 import random
 import subprocess
 import time
 import warnings
-from copy import deepcopy
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -61,52 +54,6 @@ def tensor_to_onnx(tensor, channel_last=True):
 
     return tensor
 
-
-def clean_str(s):
-    # Cleans a string by replacing special characters with underscore _
-    return re.sub(pattern="[|@#!¡·$€%&()=?¿^*;:,¨´><+]", repl="_", string=s)
-
-
-def intersect_dicts(da, db, exclude=()):
-    # Dictionary intersection of matching keys and shapes, omitting 'exclude' keys, using da values
-    return {k: v for k, v in da.items() if k in db and not any(x in k for x in exclude) and v.shape == db[k].shape}
-
-
-def file_age(path=__file__):
-    # Return days since last file update
-    dt = (datetime.now() - datetime.fromtimestamp(Path(path).stat().st_mtime))  # delta
-    return dt.days  # + dt.seconds / 86400  # fractional days
-
-
-def file_date(path=__file__):
-    # Return human-readable file modification date, i.e. '2021-3-26'
-    t = datetime.fromtimestamp(Path(path).stat().st_mtime)
-    return f'{t.year}-{t.month}-{t.day}'
-
-
-def file_size(path):
-    # Return file/dir size (MB)
-    mb = 1 << 20  # bytes to MiB (1024 ** 2)
-    path = Path(path)
-    if path.is_file():
-        return path.stat().st_size / mb
-    elif path.is_dir():
-        return sum(f.stat().st_size for f in path.glob('**/*') if f.is_file()) / mb
-    else:
-        return 0.0
-
-
-def get_image_size(image_path):
-    """
-    Returns the size of an image.
-
-    Args:
-        image_path (str): Path to the image file.
-    Returns:
-        tuple: Image size in the format (width, height).
-    """
-    with Image.open(image_path) as img:
-        return img.size
 
 # ==============================================================================
 # CUDA
@@ -718,5 +665,3 @@ def exif_transpose(image):
             del exif[0x0112]
             image.info["exif"] = exif.tobytes()
     return image
-
-
