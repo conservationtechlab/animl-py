@@ -9,7 +9,7 @@ from pathlib import Path
 from animl import file_management, detection, visualization
 
 
-@unittest.skip
+# @unittest.skip
 def buow_test():
     start_time = time.time()
     # get files
@@ -24,7 +24,7 @@ def buow_test():
                                   files,
                                   resize_height=1280,
                                   resize_width=1280,
-                                  file_col="Frame",
+                                  file_col="frame",
                                   batch_size=4,
                                   num_workers=4,
                                   confidence_threshold=0.5)
@@ -32,7 +32,7 @@ def buow_test():
 
     print(detections)
 
-    visualization.plot_all_bounding_boxes(detections, 'buow_boxes/', file_col='Frame', prediction=False)
+    visualization.plot_all_bounding_boxes(detections, 'buow_boxes/', file_col='frame', prediction=False)
     print(f"Test completed in {time.time() - start_time:.2f} seconds")
 
 

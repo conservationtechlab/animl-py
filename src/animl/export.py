@@ -20,8 +20,8 @@ def export_folders(manifest: pd.DataFrame,
                    out_dir: str,
                    out_file: Optional[str] = None,
                    label_col: str = 'prediction',
-                   file_col: str = "FilePath",
-                   unique_name: str = 'UniqueName',
+                   file_col: str = "filepath",
+                   unique_name: str = 'uniquename',
                    copy: bool = False) -> pd.DataFrame:
     """
     Creates symbolic links of images into species folders.

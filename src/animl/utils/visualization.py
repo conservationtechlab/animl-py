@@ -58,11 +58,11 @@ def plot_box(row, file_col="filepath", prediction=False):
         
     return img
 
-
+# TODO FIX FOR VIDEOS
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             out_dir: str,
-                            file_col: str = 'Frame',
-                            min_conf: Union[int, float] = 0,
+                            file_col: str = 'frame',
+                            min_conf: Union[int, float] = 0.1,
                             prediction: bool = False):
     """
     This function takes the parsed dataframe output from MegaDetector, makes a copy of each image,
@@ -89,27 +89,23 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         file_name_no_ext, file_ext = os.path.splitext(os.path.split(filepath)[1])
 
         # If the file is not an image, do each frame separately
-        if file_ext.lower() not in ['.jpg', '.jpeg', '.png']:
+        if file_ext.lower() in ['.jpg', '.jpeg', '.png']:
+
+            img = cv2.imread(filepath)
+            height, width, _ = img.shape
             
              # Plotting individual boxes in an image
             for i, row in detections.iterrows():
 
-                img = cv2.imread(row['frame'])
-
                 # Skipping the box if the confidence threshold is not met
                 if (row['max_detection_conf']) < min_conf:
                     continue
-
                 # If any of the box isn't defined, jump to next one
                 if np.isnan(row['bbox_x']):
                     continue
-
-                img = cv2.imread(row[file_col])
-
-                height, width, _ = img.shape
+                
                 bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
                 xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
-
                 thick = int((height + width) // 900)
                 cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (90, 255, 0), thick)
 
@@ -123,21 +119,20 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
                                 else xyxy[0] + (text_size_width * 3))
                     cv2.rectangle(img, (xyxy[0], xyxy[1]), (box_right, xyxy[1] - (text_size_height * 2)),
                                 (90, 255, 0), -1)
-
                     cv2.putText(img, label, (xyxy[0], xyxy[1] - 12), 0, 1e-3 * height,
                                 (0, 0, 0), thick // 3)
+        
 
                 # Saving the image
-                new_file_name = f"{file_name_no_ext}_box_{i}.jpg"
-                new_file_path = os.path.join(out_dir, new_file_name)
-                cv2.imwrite(new_file_path, img)
+            new_file_name = f"{file_name_no_ext}_box.jpg"
+            new_file_path = os.path.join(out_dir, new_file_name)
+            cv2.imwrite(new_file_path, img)
 
             cv2.destroyAllWindows()
             
-        else:
-            img = cv2.imread(filepath)
 
-            # Plotting individual boxes in an image
+        # Plotting individual boxes in each frame
+        else: 
             for i, row in detections.iterrows():
 
                 # Skipping the box if the confidence threshold is not met
@@ -148,28 +143,7 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
                 if np.isnan(row['bbox_x']):
                     continue
 
-                img = cv2.imread(row[file_col])
-
-                height, width, _ = img.shape
-                bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
-                xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
-
-                thick = int((height + width) // 900)
-                cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (90, 255, 0), thick)
-
-                # Printing prediction if enabled
-                if prediction:
-                    label = row['prediction']
-                    text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
-                    text_size_width, text_size_height = text_size
-
-                    box_right = (xyxy[2] if (xyxy[2] - xyxy[0]) < (text_size_width * 3)
-                                else xyxy[0] + (text_size_width * 3))
-                    cv2.rectangle(img, (xyxy[0], xyxy[1]), (box_right, xyxy[1] - (text_size_height * 2)),
-                                (90, 255, 0), -1)
-
-                    cv2.putText(img, label, (xyxy[0], xyxy[1] - 12), 0, 1e-3 * height,
-                                (0, 0, 0), thick // 3)
+                img = plot_box(row, file_col='frame', prediction=prediction)
 
             # Saving the image
             new_file_name = f"{file_name_no_ext}_box_{i}{file_ext}"
@@ -201,9 +175,8 @@ def draw_bounding_boxes(row: pd.Series,
     Returns:
         None
     """
-    img = cv2.imread(row["frame"])
     
-    plot_box(img, row, prediction=prediction)
+    img = plot_box(row, prediction=prediction)
 
     if out_file is not None:
         cv2.imwrite(out_file, img)
