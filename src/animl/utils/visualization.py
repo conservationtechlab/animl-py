@@ -55,11 +55,13 @@ def plot_box(row, file_col="FilePath", prediction=False):
 
         cv2.putText(img, label, (xyxy[0], xyxy[1] - 12), 0, 1e-3 * height,
                     (0, 0, 0), thick // 3)
+        
+    return img
 
 
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             out_dir: str,
-                            file_col: str,
+                            file_col: str = 'Frame',
                             min_conf: Union[int, float] = 0,
                             prediction: bool = False):
     """
@@ -88,10 +90,9 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
 
         # If the file is not an image, do each frame separately
         if file_ext.lower() not in ['.jpg', '.jpeg', '.png']:
+            
              # Plotting individual boxes in an image
             for i, row in detections.iterrows():
-                print(row)
-                img = cv2.imread(row['Frame'])
                 # Skipping the box if the confidence threshold is not met
                 if (row['max_detection_conf']) < min_conf:
                     continue
@@ -100,8 +101,28 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
                 if np.isnan(row['bbox_x']):
                     continue
 
-                # Calculations required for plotting
-                plot_box(img, row, prediction=prediction)
+                img = cv2.imread(row[file_col])
+
+                height, width, _ = img.shape
+                bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
+                xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
+
+                thick = int((height + width) // 900)
+                cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (90, 255, 0), thick)
+
+                # Printing prediction if enabled
+                if prediction:
+                    label = row['prediction']
+                    text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
+                    text_size_width, text_size_height = text_size
+
+                    box_right = (xyxy[2] if (xyxy[2] - xyxy[0]) < (text_size_width * 3)
+                                else xyxy[0] + (text_size_width * 3))
+                    cv2.rectangle(img, (xyxy[0], xyxy[1]), (box_right, xyxy[1] - (text_size_height * 2)),
+                                (90, 255, 0), -1)
+
+                    cv2.putText(img, label, (xyxy[0], xyxy[1] - 12), 0, 1e-3 * height,
+                                (0, 0, 0), thick // 3)
 
                 # Saving the image
                 new_file_name = f"{file_name_no_ext}_box_{i}.jpg"
@@ -124,7 +145,28 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
                 if np.isnan(row['bbox_x']):
                     continue
 
-                plot_box(img, row, prediction=prediction)
+                img = cv2.imread(row[file_col])
+
+                height, width, _ = img.shape
+                bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
+                xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
+
+                thick = int((height + width) // 900)
+                cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (90, 255, 0), thick)
+
+                # Printing prediction if enabled
+                if prediction:
+                    label = row['prediction']
+                    text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
+                    text_size_width, text_size_height = text_size
+
+                    box_right = (xyxy[2] if (xyxy[2] - xyxy[0]) < (text_size_width * 3)
+                                else xyxy[0] + (text_size_width * 3))
+                    cv2.rectangle(img, (xyxy[0], xyxy[1]), (box_right, xyxy[1] - (text_size_height * 2)),
+                                (90, 255, 0), -1)
+
+                    cv2.putText(img, label, (xyxy[0], xyxy[1] - 12), 0, 1e-3 * height,
+                                (0, 0, 0), thick // 3)
 
             # Saving the image
             new_file_name = f"{file_name_no_ext}_box_{i}{file_ext}"

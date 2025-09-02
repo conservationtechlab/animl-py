@@ -9,7 +9,7 @@ from pathlib import Path
 from animl import file_management, detection, visualization
 
 
-# @unittest.skip
+@unittest.skip
 def buow_test():
     start_time = time.time()
     # get files
@@ -22,6 +22,8 @@ def buow_test():
 
     md_results = detection.detect(detector,
                                   files,
+                                  resize_height=1280,
+                                  resize_width=1280,
                                   file_col="Frame",
                                   batch_size=4,
                                   num_workers=4,
