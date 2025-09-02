@@ -20,7 +20,7 @@ from animl.classification import (classify, load_class_list, load_classifier,
                                   sequence_classification,
                                   single_classification,)
 from animl.detection import (MEGADETECTORv5_SIZE, MEGADETECTORv5_STRIDE,
-                             convert_raw_detections, convert_yolo_detections,
+                             convert_yolo_detections,
                              detect, load_detector, parse_detections,)
 from animl.export import (export_coco, export_megadetector, export_timelapse,
                           export_to_folders, export_to_folders_MD, remove_link,
@@ -75,7 +75,7 @@ from animl.utils import (NUM_THREADS, absolute_to_relative, box_area, box_iou,
                          scale_img, segment2box, segments2boxes, select_device,
                          softmax, sparsity, tensor_to_onnx, time_sync,
                          truncate_float, truncate_float_array, visualization,
-                         xyn2xy, xywh2xyxy, xywhn2xyxy, xyxy2xywh, xyxy2xywhn,)
+                         xyn2xy, xywh2xyxy, xywhn2xyxy, xyxy2xywh, xyxy2xywh,)
 from animl.video_processing import (extract_frame_single, extract_frames,)
 
 __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
@@ -98,7 +98,7 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'classification', 'classify', 'clean_str', 'clip_coords',
            'collate_fn', 'common', 'compute_batched_distance_matrix',
            'compute_distance_matrix', 'convert_minxywh_to_absxyxy',
-           'convert_raw_detections', 'convert_yolo_detections',
+           'convert_yolo_detections',
            'convert_yolo_to_xywh', 'copy_attr', 'cosine_distance',
            'de_parallel', 'demo_boxes', 'detect', 'detection', 'device_count',
            'distance', 'download', 'download_model',

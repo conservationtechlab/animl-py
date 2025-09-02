@@ -1,27 +1,29 @@
 """
 Object Detection Module
 
-Functions for loading MegaDetector v5 and v6, as well as custom YOLO models
+Functions for loading MegaDetector, as well as custom YOLO models
 parse_detections() converts json output into a dataframe
 
-@ Kyra Swanson 2023
 """
 from typing import Optional
 import time
 import torch
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from torch import tensor
 
 from animl import file_management
 from animl.generator import manifest_dataloader, image_to_tensor
-from animl.utils import general
+from animl.utils.general import normalize_boxes, xyxy2xywh, scale_letterbox, non_max_suppression,get_device
+
 
 from ultralytics import YOLO
 
 
 MEGADETECTORv5_SIZE = 1280
 MEGADETECTORv5_STRIDE = 64
+
 
 
 def load_detector(model_path: str,
@@ -39,7 +41,7 @@ def load_detector(model_path: str,
         object: loaded model object
     """
     if device is None:
-        device = general.get_device()
+        device = get_device()
     print('Device set to', device)
 
     if model_type in {"MDv5", "MDV5", "YOLOv5", "YOLOV5"}:
@@ -59,11 +61,12 @@ def load_detector(model_path: str,
         model.model_type = "YOLO"
     else:
         print(f"Please chose a supported model. Version {model_type} is not supported.")
+        return None
 
     model.to(device)
     return model
 
-# TODO - rethink kwarg ordering
+
 def detect(detector,
            image_file_names,
            resize_width: int,
@@ -101,23 +104,27 @@ def detect(detector,
 
     # check to make sure GPU is available if chosen
     if device is None:
-        device = general.get_device()
+        device = get_device()
     print('Device set to', device)
 
     # Single Image
     if isinstance(image_file_names, str):
         # convert img path to tensor
-        image_tensor = image_to_tensor(image_file_names, letterbox=letterbox,
+        batch_from_dataloader = image_to_tensor(image_file_names, letterbox=letterbox,
                                        resize_width=resize_width, resize_height=resize_height)
-        # Run inference on the image
+        image_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
+        current_image_paths = batch_from_dataloader[1]  # List of image names for the current batch
+        image_sizes = batch_from_dataloader[2]  # List of original image sizes for the current batch
+        # Run inference on the current batch of image_tensors
         if detector.model_type == "MDV5":
-            prediction = detector(image_tensor.to(device))
+            # letterboxing should be true
+            prediction = detector(image_tensors.to(device))
             pred: list = prediction[0]
-            pred = general.non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
-            results = convert_raw_detections(pred, image_tensor, [image_file_names])
+            pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
+            results = convert_yolo_detections(pred, image_tensors, current_image_paths,image_sizes, letterbox, detector.model_type)
         else:
-            prediction = detector.predict(source=image_tensor.to(device), conf=confidence_threshold, verbose=False)
-            results = convert_yolo_detections(prediction, [image_file_names])
+            prediction = detector.predict(source=image_tensors.to(device), conf=confidence_threshold, verbose=False)
+            results = convert_yolo_detections(prediction, image_tensors, current_image_paths,image_sizes, letterbox, detector.model_type)
         return results
 
     # Full manifest, select file_col
@@ -150,7 +157,6 @@ def detect(detector,
     # create a data frame from image_file_names
     manifest = pd.DataFrame(image_file_names, columns=['file'])
     # create dataloader
-    # TODO: letterbox if mdv5
     dataloader = manifest_dataloader(manifest, batch_size=batch_size,
                                      num_workers=num_workers, crop=False, 
                                      normalize=True, letterbox=letterbox,
@@ -164,19 +170,19 @@ def detect(detector,
 
         image_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
         current_image_paths = batch_from_dataloader[1]  # List of image names for the current batch
+        image_sizes = batch_from_dataloader[2]  # List of original image sizes for the current batch
 
         # Run inference on the current batch of image_tensors
         if detector.model_type == "MDV5":
             # letterboxing should be true
             prediction = detector(image_tensors.to(device))
             pred: list = prediction[0]
-            pred = general.non_max_suppression(prediction=pred, conf_thres=0.1)
-            results.extend(convert_raw_detections(pred, image_tensors, current_image_paths))
-
+            pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
+            results.extend(convert_yolo_detections(pred, image_tensors, current_image_paths,image_sizes, letterbox, detector.model_type))
         else:
-            prediction = detector.predict(source=image_tensors.to(device), conf=0.1, verbose=False)
-            results.extend(convert_yolo_detections(prediction, current_image_paths))
-
+            prediction = detector.predict(source=image_tensors.to(device), conf=confidence_threshold, verbose=False)
+            results.extend(convert_yolo_detections(prediction, image_tensors, current_image_paths,image_sizes, letterbox, detector.model_type))
+ 
         # Write a checkpoint if necessary
         if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
             print('Writing a new checkpoint after having processed {} images since last restart'.format(count*batch_size))
@@ -186,31 +192,55 @@ def detect(detector,
 
     return results
 
-# TODO Reevaluate in letterbox branch
-# Use same function for both MDv5 and YOLO?
-def convert_yolo_detections(predictions: list[dict],
-                            image_paths: list[str]) -> pd.DataFrame:
+
+def convert_yolo_detections(predictions: list,
+                            image_tensors: list,
+                            image_paths: list,
+                            image_sizes: list,
+                            letterbox: bool,
+                            model_type: str,) -> pd.DataFrame:
     """
     Converts YOLO output into a nested list.
 
     Args:
         predictions (list): YOLO detection output (list of dictionaries with detections for each file)
+        image_tensors (list): array of image tensors from mdv6 output
         image_paths (list): List of image file paths corresponding to predictions
+        image_sizes (list): List of original image sizes corresponding to predictions
+        letterbox (bool): whether letterboxing was used during preprocessing
+        model_type (str): type of model expected ["MDV5", "MDV6", "YOLO"]
 
     Returns:
         results (list): Formatted YOLO outputs, nested list of dictionaries
     """
+    # convert to numpy if needed
+    if isinstance(image_sizes, torch.Tensor):
+        image_sizes = image_sizes.cpu().numpy()
+    if isinstance(image_tensors, torch.Tensor):
+        image_tensors = image_tensors.cpu().numpy()
+    
     results = []
 
+    # loop over all predictions
     for i, pred in enumerate(predictions):
         file = image_paths[i]
-
-        # TODO IF LETTERBOXED, unpad
-        boxes = pred.boxes.xyxyn.cpu().numpy()  # Bounding box coordinates
-        conf = pred.boxes.conf.cpu().numpy()  # Confidence scores
-        category = pred.boxes.cls.cpu().numpy()  # Class labels as integers
-        max_detection_conf = conf.max() if len(conf) > 0 else 0
-
+        
+        if model_type in {"MDv5", "MDV5", "YOLOv5", "YOLOV5"}:
+            if isinstance(pred, torch.Tensor):
+                pred = pred.cpu().numpy()
+            boxes = pred[:, :4] # Bounding box coordinates
+            conf = pred[:, 4] # Confidence scores
+            category = pred[:, 5] # Class labels as integers
+            max_detection_conf = conf.max() if len(conf) > 0 else 0
+        elif model_type == "YOLO" or model_type == "MDV6":
+            boxes = pred.boxes.xyxyn.cpu().numpy()  # Bounding box coordinates
+            conf = pred.boxes.conf.cpu().numpy()  # Confidence scores
+            category = pred.boxes.cls.cpu().numpy()  # Class labels as integers
+            max_detection_conf = conf.max() if len(conf) > 0 else 0
+        else:
+            print(f"Please chose a supported model. Version {model_type} is not supported.")
+            return None
+        
         if len(conf) == 0:
             data = {'file': file,
                     'max_detection_conf': float(round(max_detection_conf, 4)),
@@ -218,15 +248,25 @@ def convert_yolo_detections(predictions: list[dict],
             results.append(data)
 
         else:
-            # TODO: USE coord conversion helper function
             detections = []
-            for i in range(len(conf)):
-                data = {'category': int(category[i]+1),
-                        'conf': float(round(conf[i], 4)),
-                        'bbox_x': float(round(boxes[i][0], 4)),
-                        'bbox_y': float(round(boxes[i][1], 4)),
-                        'bbox_w': float(round(boxes[i][2]-boxes[i][0], 4)),
-                        'bbox_h': float(round(boxes[i][3]-boxes[i][1], 4))}
+            for j in range(len(conf)):
+                if model_type in {"MDv5", "MDV5", "YOLOv5", "YOLOV5"}:  # xyxy absolute
+                    bbox = normalize_boxes(boxes[j],image_tensors[i].shape[1:])
+                    bbox = xyxy2xywh(bbox)
+                elif model_type == "YOLO" or model_type == "MDV6": # xyxy relative
+                    bbox = xyxy2xywh(boxes[j])
+                else:
+                    print(f"Please chose a supported model. Version {model_type} is not supported.")
+                    return None                
+                if letterbox:
+                    bbox = scale_letterbox(bbox,image_tensors[i].shape[1:] ,image_sizes[i,:])
+
+                data = {'category': int(category[j]+1),
+                        'conf': float(round(conf[j], 4)),
+                        'bbox_x': float(round(bbox[0], 4)),
+                        'bbox_y': float(round(bbox[1], 4)),
+                        'bbox_w': float(round(bbox[2], 4)),
+                        'bbox_h': float(round(bbox[3], 4))}
                 detections.append(data)
 
             data = {'file': file,
@@ -237,71 +277,10 @@ def convert_yolo_detections(predictions: list[dict],
     return results
 
 
-def convert_raw_detections(predictions: list,
-                           image_tensors: list,
-                           image_paths: list):
-    """
-    Converts MDv5 output into a nested list.
-
-    Args:
-        predictions (list): YOLO detection output (list of dictionaries with detections for each file)
-        image_tensors (list): array of image tensors from mdv6 output
-        image_paths (list): List of image file paths corresponding to predictions
-
-    Returns:
-        results (list): Formatted YOLO outputs, nested list of dictionaries
-    """
-    results = []
-
-    # This is a loop over detection batches, which will always be length 1
-    for i, det in enumerate(predictions):
-        detections = []
-        max_conf = 0.0
-
-        if len(det):
-            # Rescale boxes from img_size to im0 size
-            det[:, :4] = general.scale_coords(image_tensors[i].shape[1:], det[:, :4], image_tensors[i].shape[1:]).round()
-
-            for *xyxy, conf, cls in reversed(det):
-                # normalized center-x, center-y, width and height
-                xywh = (general.xyxy2xywh(tensor(xyxy).view(1, 4)) / tensor(image_tensors[i].shape[1:])[[1, 0, 1, 0]]).view(-1).tolist()
-
-                api_box = general.convert_yolo_to_xywh(xywh)
-                api_box = general.truncate_float_array(api_box, precision=3)
-
-                conf = general.truncate_float(conf.tolist(), precision=3)
-
-                cls = int(cls.tolist()) + 1
-                if cls not in (1, 2, 3): # TODO: do we need this? 
-                    raise KeyError(f'{cls} is not a valid class.')
-
-                detections.append({
-                    'category': str(cls),
-                    'conf': conf,
-                    'bbox_x': api_box[0],
-                    'bbox_y': api_box[1],
-                    'bbox_w': api_box[2],
-                    'bbox_h': api_box[3],
-                })
-                max_conf = max(max_conf, conf)
-
-            data = {'file': image_paths[i],
-                    'max_detection_conf': float(round(max_conf, 4)),
-                    'detections': detections}
-            results.append(data)
-        else:
-            data = {'file': image_paths[i],
-                    'max_detection_conf': float(round(max_conf, 4)),
-                    'detections': []}
-            results.append(data)
-
-    return results
-
 
 def parse_detections(results: list,
                      manifest: Optional[pd.DataFrame] = None,
                      out_file: Optional[str] = None,
-                     buffer: float = 0.02,
                      threshold: float = 0,
                      file_col: str = "Frame"):
     """
@@ -311,7 +290,6 @@ def parse_detections(results: list,
         results (list): md output dicts
         manifest (pd.DataFrame): full file manifest, if not None, merge md predictions automatically
         out_file (str): path to save dataframe
-        buffer (float): adjust bbox by percentage of img size to avoid clipping out of bounds
         threshold (float): parse only detections above given confidence threshold
         file_col (str): if manifest, merge results onto file_col
 
@@ -360,10 +338,10 @@ def parse_detections(results: list,
                     data = {'file': frame['file'],
                             'max_detection_conf': frame['max_detection_conf'],
                             'category': detection['category'], 'conf': detection['conf'],
-                            'bbox_x': min(max(detection['bbox_x'], buffer), 1 - buffer),
-                            'bbox_y': min(max(detection['bbox_y'], buffer), 1 - buffer),
-                            'bbox_w': min(max(detection['bbox_w'], buffer), 1 - buffer),
-                            'bbox_h': min(max(detection['bbox_h'], buffer), 1 - buffer)}
+                            'bbox_x': np.clip(detection['bbox_x'], 0, 1),
+                            'bbox_y': np.clip(detection['bbox_y'], 0, 1),
+                            'bbox_w': np.clip(detection['bbox_w'], 0, 1),
+                            'bbox_h': np.clip(detection['bbox_h'], 0, 1)}
                     lst.append(data)
 
     df = pd.DataFrame(lst)
@@ -375,3 +353,4 @@ def parse_detections(results: list,
         file_management.save_data(df, out_file)
 
     return df
+

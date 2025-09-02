@@ -3,7 +3,6 @@ Generators and Dataloaders
 
 Custom generators for training and inference
 
-@ Kyra Swanson 2023
 """
 import hashlib
 import os
@@ -91,6 +90,8 @@ def image_to_tensor(file_path, letterbox, resize_width, resize_height):
     except Exception as e:
         print('Image {} cannot be loaded. Exception: {}'.format(file_path, e))
         return None
+    
+    width, height = img.size
 
     if letterbox:
         tensor_transform = Compose([Letterbox(resize_height, resize_width),
@@ -104,7 +105,7 @@ def image_to_tensor(file_path, letterbox, resize_width, resize_height):
     img_tensor = tensor_transform(img)
     img_tensor = torch.unsqueeze(img_tensor, 0)  # add batch dimension
     img.close()
-    return img_tensor
+    return img_tensor, [file_path], torch.tensor([(height,width)])
 
 
 class ImageGenerator(Dataset):
@@ -223,7 +224,7 @@ class ImageGenerator(Dataset):
         if not self.normalize:  # un-normalize
             img_tensor = img_tensor * 255
 
-        return img_tensor, image_name
+        return img_tensor, image_name, torch.tensor((height,width))
 
 
 class TrainGenerator(Dataset):
@@ -244,11 +245,11 @@ class TrainGenerator(Dataset):
                  classes: dict,
                  file_col: str = 'FilePath',
                  label_col: str = 'species',
+                 resize_height: int = 480,
+                 resize_width: int = 480,
                  crop: bool = True,
                  crop_coord: str = 'relative',
                  augment: bool = False,
-                 resize_height: int = 299,
-                 resize_width: int = 299,
                  cache_dir: str = None):
         self.x = x
         self.resize_height = int(resize_height)
@@ -362,11 +363,11 @@ def train_dataloader(manifest: pd.DataFrame,
                      classes: dict,
                      file_col: str = "FilePath",
                      label_col: str = "species",
+                     resize_height: int = 480,
+                     resize_width: int = 480,
                      crop: bool = False,
                      crop_coord: str = 'relative',
                      augment: bool = False,
-                     resize_height: int = 480,
-                     resize_width: int = 480,
                      batch_size: int = 1,
                      num_workers: int = 1,
                      cache_dir: str = None):

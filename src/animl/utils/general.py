@@ -432,7 +432,7 @@ def increment_path(path, exist_ok=False, sep='', mkdir=False):
 # COORDINATE CONVERSION
 # ==============================================================================
 
-def xyxy2xywh(x):
+def xyxyc2xywh(x):
     # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
     y[:, 0] = (x[:, 0] + x[:, 2]) / 2  # x center
@@ -442,7 +442,7 @@ def xyxy2xywh(x):
     return y
 
 
-def xywh2xyxy(x):
+def xywhc2xyxy(x):
     # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
     y[:, 0] = x[:, 0] - x[:, 2] / 2  # top left x
@@ -462,7 +462,7 @@ def xywhn2xyxy(x, w=640, h=640, padw=0, padh=0):
     return y
 
 
-def xyxy2xywhn(x, w=640, h=640, clip=False, eps=0.0):
+def xyxyc2xywhn(x, w=640, h=640, clip=False, eps=0.0):
     # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] normalized where xy1=top-left, xy2=bottom-right
     if clip:
         clip_coords(x, (h - eps, w - eps))  # warning: inplace clip
@@ -496,7 +496,7 @@ def segments2boxes(segments):
     for s in segments:
         x, y = s.T  # segment xy
         boxes.append([x.min(), y.min(), x.max(), y.max()])  # cls, xyxy
-    return xyxy2xywh(np.array(boxes))  # cls, xywh
+    return xyxyc2xywh(np.array(boxes))  # cls, xywh
 
 
 def resample_segments(segments, n=1000):
@@ -681,7 +681,7 @@ def non_max_suppression(prediction,
         x[:, 5:] *= x[:, 4:5]  # conf = obj_conf * cls_conf
 
         # Box (center x, center y, width, height) to (x1, y1, x2, y2)
-        box = xywh2xyxy(x[:, :4])
+        box = xywhc2xyxy(x[:, :4])
 
         # Detections matrix nx6 (xyxy, conf, cls)
         if multi_label:
@@ -790,3 +790,116 @@ def exif_transpose(image):
             del exif[0x0112]
             image.info["exif"] = exif.tobytes()
     return image
+
+
+# ==============================================================================
+# Functions for new YOLO pipeline
+# ==============================================================================
+
+def normalize_boxes(bbox, image_sizes):
+    """
+    Converts absolute bounding box coordinates to relative coordinates.
+
+    Args:
+        bbox (list): Absolute bounding box coordinates.
+        img_size (tuple): Image size in the format (width, height).
+
+    Returns:
+        list: Normalized bounding box coordinates.
+    """
+    img_height, img_width  = image_sizes
+    y = bbox.clone() if isinstance(bbox, torch.Tensor) else np.copy(bbox)   
+    y[[0,2]] = np.clip(y[[0,2]] / img_width, 0, 1)
+    y[[1,3]] = np.clip(y[[1,3]] / img_height, 0, 1)
+    return y
+
+
+def xywh2xyxy(bbox):
+    """
+    Converts bounding boxes from xywh to xyxy format.
+
+    Args:
+        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
+
+    Returns:
+        list: Normalized bounding box coordinates in the format [x_min, y_min, width, height].
+    """
+    y = bbox.clone() if isinstance(bbox, torch.Tensor) else np.copy(bbox)
+    y[2] = y[0] + y[2]  # bottom right x
+    y[3] = y[1] + y[3]  # bottom right y
+    return y
+
+
+def xyxy2xywh(bbox):
+    """
+    Converts bounding boxes from xywh to xyxy format.
+
+    Args:
+        bbox (list): Bounding box coordinates in the format [x_min, y_min, width, height].
+                     x_min,y_min are the top left corner.
+
+    Returns:
+        list: Normalized bounding box coordinates in the format [x_min, y_min, width, height].
+    """
+    y = bbox.clone() if isinstance(bbox, torch.Tensor) else np.copy(bbox)
+    y[2] = y[2] - y[0]  # width
+    y[3] = y[3] - y[1]  # height
+    return y
+
+
+def scale_letterbox(bbox, resized_shape, original_shape):
+    """
+    Converts bounding box coordinates from a resized, letterboxed image space
+    back to the original image's coordinate space. Assumes input coordinates
+    are in normalized [x_corner, y_corner, width, height] format.
+
+    Args:
+        bbox (np.ndarray or torch.Tensor): A numpy array or tensor of bounding
+                                             boxes, shape (n, 4), in
+                                             (x_corner, y_corner, width, height) format.
+                                             Coordinates are in pixels relative
+                                             to the resized/padded image.
+        resized_shape (tuple): The (height, width) of the resized and
+                               letterboxed image.
+        original_shape (tuple): The (height, width) of the original image.
+
+    Returns:
+        np.ndarray: A numpy array of bounding boxes, shape (n, 4), with
+                    coordinates in normalized (x_corner, y_corner, width, height)
+                    format.
+    """
+    # Convert to numpy array if it's a tensor
+    if isinstance(bbox, torch.Tensor):
+        bbox = bbox.cpu().numpy()
+    
+    if isinstance(resized_shape, torch.Tensor):
+        resized_shape = resized_shape.cpu().numpy()
+
+    if isinstance(original_shape, torch.Tensor):
+        original_shape = original_shape.cpu().numpy()
+
+    # Convert input xywh (top-left corner) to xyxy
+    xyxy_coords = xywh2xyxy(bbox)
+
+    # Calculate the scaling ratio and padding
+    ratio = min(resized_shape[0] / original_shape[0], resized_shape[1] / original_shape[1])
+    new_unpad_shape = (int(round(original_shape[0] * ratio)), int(round(original_shape[1] * ratio)))
+    dw = (resized_shape[1] - new_unpad_shape[1]) / 2  # x-padding
+    dh = (resized_shape[0] - new_unpad_shape[0]) / 2  # y-padding
+
+    # Remove padding from coordinates
+    xyxy_coords[[0, 2]] -= (dw / resized_shape[1])
+    xyxy_coords[[1, 3]] -= (dh /resized_shape[0])
+
+    # Scale to original image size
+    xyxy_coords[[0, 2]] = xyxy_coords[[0, 2]] *  resized_shape[1]/new_unpad_shape[1]
+    xyxy_coords[[1, 3]] = xyxy_coords[[1, 3]] *  resized_shape[0]/new_unpad_shape[0]
+
+    # Clip coordinates to be within the original image dimensions
+    xyxy_coords[[0, 2]] = np.clip(xyxy_coords[[0, 2]], 0, 1)  
+    xyxy_coords[[1, 3]] = np.clip(xyxy_coords[[1, 3]], 0, 1) 
+
+    # Convert final xyxy to xywh (top-left corner)
+    xywh_coords = xyxy2xywh(xyxy_coords)
+
+    return xywh_coords
