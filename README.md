@@ -144,7 +144,7 @@ animl.animl_results_to_md_results(csv_loc, imagedir + "final_result.json")
 
 9. (OPTIONAL) Create symlinks within a given directory for file browser access.
 ```python
-manifest = animl.sort_species(manifest, out_dir=working_dir.linkdir, out_file=working_dir.results)
+manifest = animl.export_folders(manifest, out_dir=working_dir.linkdir, out_file=working_dir.results)
 ```
 
 ---

@@ -19,8 +19,9 @@ from animl import file_management
 def export_folders(manifest: pd.DataFrame,
                    out_dir: str,
                    out_file: Optional[str] = None,
-                   file_col: str = "filepath",
-                   unique_name: str = 'uniquename',
+                   label_col: str = 'prediction',
+                   file_col: str = "FilePath",
+                   unique_name: str = 'UniqueName',
                    copy: bool = False) -> pd.DataFrame:
     """
     Creates symbolic links of images into species folders.
@@ -37,10 +38,24 @@ def export_folders(manifest: pd.DataFrame,
         copy of manifest with link path column
     """
     out_dir = Path(out_dir)
-    # Create species folders
-    for species in manifest['prediction'].unique():
-        path = out_dir / Path(str(species))
-        path.mkdir(exist_ok=True)
+
+    if label_col not in manifest.columns:
+        raise AssertionError(f"Label column {label_col} not found in manifest.")
+    
+    if label_col == 'prediction':
+        # Create species folders
+        for species in manifest['prediction'].unique():
+            path = out_dir / Path(str(species))
+            path.mkdir(exist_ok=True)
+
+    elif label_col == 'category':
+        classes = {"0":"empty", "1":"animal", "2":"human", "3":"vehicle"}
+        for i in classes.values():
+            path = out_dir / Path(i)
+            path.mkdir(exist_ok=True)
+
+    else:
+        raise AssertionError(f"Label column {label_col} not recognized, must be 'prediction' or 'category'.")
 
     # create new column
     manifest['link'] = out_dir
@@ -66,7 +81,12 @@ def export_folders(manifest: pd.DataFrame,
 
             manifest.loc[i, unique_name] = name
 
-        link = out_dir / Path(row['prediction']) / Path(name)
+        if label_col == 'prediction':
+            link = out_dir / Path(row['prediction']) / Path(name)
+
+        elif label_col == 'category':
+            link = out_dir / Path(classes[str(row['category'])]) / Path(name)
+
         manifest.loc[i, 'link'] = str(link)
 
         if not link.is_file():
@@ -74,70 +94,6 @@ def export_folders(manifest: pd.DataFrame,
                 copy2(row[file_col], link)
             else:  # make a hard
                 os.link(row[file_col], link,)
-
-    if out_file:
-        manifest.to_csv(out_file, index=False)
-
-    return manifest
-
-# MERGE with above
-def export_folders_MD(manifest: pd.DataFrame,
-                      out_dir: str,
-                      out_file: Optional[str] = None,
-                      file_col: str = "file",
-                      unique_name: str = 'uniquename',copy: bool = False) -> pd.DataFrame:
-    """
-    Creates symbolic links of images into MegaDetector class folders
-
-    Args:
-        manifest (DataFrame): dataframe containing images and associated predictions
-        out_dir (str): root directory for species folders
-        out_file (Optional[str]): if provided, save the manifest to this file
-        file_col (str): column containing source paths
-        unique_name (str): column containing unique file name
-        copy (bool): if true, hard copy
-
-    Returns:
-        copy of manifest with link path column
-    """
-    out_dir = Path(out_dir)
-    # Create class subfolders
-    classes = ["empty", "animal", "human", "vehicle"]
-    for i in range(classes):
-        path = out_dir / Path(classes)
-        path.mkdir(exist_ok=True)
-
-    # create new column
-    manifest['link'] = out_dir
-    for i, row in tqdm(manifest.iterrows()):
-        try:
-            name = row[unique_name]
-        except KeyError:
-            filename = os.path.basename(str(row[file_col]))
-            filename, extension = os.path.splitext(filename)
-
-            # get datetime
-            if "datetime" in manifest.columns:
-                reformat_date = pd.to_datetime(row['datetime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
-            else:
-                reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
-            # get station
-            if "station" in manifest.columns:
-                station = row['station']
-                name = "_".join([station, reformat_date, filename]) + extension
-            else:
-                name = "_".join([reformat_date, filename]) + extension
-
-            manifest.loc[i, unique_name] = name
-
-        link = out_dir / Path(row['category']) / Path(name)
-        manifest.loc[i, 'link'] = str(link)
-
-        if not link.is_file():
-            if copy:  # make a hard copy
-                copy2(row[file_col], link)
-            else:  # make a hard link
-                os.link(row[file_col], link)
 
     if out_file:
         manifest.to_csv(out_file, index=False)
