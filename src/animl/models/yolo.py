@@ -9,7 +9,6 @@ import platform
 import sys
 import torch
 import math
-import pkg_resources as pkg
 import torch.nn as nn
 from copy import deepcopy
 from pathlib import Path
@@ -20,7 +19,7 @@ from animl.models.common import (Bottleneck, BottleneckCSP, C3,
                                  DWConvTranspose2d, Expand, Focus, GhostBottleneck,
                                  GhostConv, SPP, SPPF)
 from animl.utils.general import (make_divisible, fuse_conv_and_bn, initialize_weights, 
-                                 model_info, scale_img, time_sync)
+                                 scale_img, time_sync)
 
 try:
     import thop  # for FLOPs computation
@@ -35,16 +34,6 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 if platform.system() != 'Windows':
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
-
-
-def check_version(current='0.0.0', minimum='0.0.0', name='version ', pinned=False, hard=False, verbose=False):
-    # Check version vs. required version
-    current, minimum = (pkg.parse_version(x) for x in (current, minimum))
-    result = (current == minimum) if pinned else (current >= minimum)  # bool
-    s = f'{name}{minimum} required by YOLOv5, but {name}{current} is currently installed'  # string
-    if hard:
-        assert result, s  # assert min requirements met
-    return result
 
 
 # FROM autoanchor.py
@@ -103,7 +92,7 @@ class Detect(nn.Module):
 
         return x if self.training else (torch.cat(z, 1),) if self.export else (torch.cat(z, 1), x)
 
-    def _make_grid(self, nx=20, ny=20, i=0, torch_1_10=check_version(torch.__version__, "1.10.0")):
+    def _make_grid(self, nx=20, ny=20, i=0, torch_1_10=True):
         """Generates a mesh grid for anchor boxes with optional compatibility for torch versions < 1.10."""
         d = self.anchors[i].device
         t = self.anchors[i].dtype
@@ -175,12 +164,8 @@ class BaseModel(nn.Module):
                 m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
                 delattr(m, "bn")  # remove batchnorm
                 m.forward = m.forward_fuse  # update forward
-        self.info()
         return self
 
-    def info(self, verbose=False, img_size=640):
-        """Prints model information given verbosity and image size, e.g., `info(verbose=True, img_size=640)`."""
-        model_info(self, verbose, img_size)
 
     def _apply(self, fn):
         """Applies transformations like to(), cpu(), cuda(), half() to model tensors excluding parameters or registered
@@ -239,7 +224,6 @@ class DetectionModel(BaseModel):
 
         # Init weights, biases
         initialize_weights(self)
-        self.info()
 
     def forward(self, x, augment=False, profile=False, visualize=False):
         """Performs single-scale or augmented inference and may include profiling or visualization."""

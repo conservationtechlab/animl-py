@@ -3,11 +3,10 @@ Generators and Dataloaders
 
 Custom generators for training and inference
 
-@ Kyra Swanson 2023
 """
 import hashlib
 import os
-from typing import Tuple, Optional
+from typing import Tuple
 import pandas as pd
 from PIL import Image, ImageFile
 
@@ -22,8 +21,6 @@ from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, R
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-# TODO: reevaluate kwarg order 
-# TODO: letterboxing for MD
 class Letterbox(torch.nn.Module):
     """
     Pads a crop to given size
@@ -59,13 +56,13 @@ class Letterbox(torch.nn.Module):
             if hp > 0 and wp < 0:
                 hp = hp // 2
                 transform = Compose([Pad((0, hp, 0, hp), 0, "constant"),
-                             Resize([self.resize_height, self.resize_width])])
+                                     Resize([self.resize_height, self.resize_width])])
                 return transform(image)
 
             elif hp < 0 and wp > 0:
                 wp = wp // 2
                 transform = Compose([Pad((wp, 0, wp, 0), 0, "constant"),
-                            Resize([self.resize_height, self.resize_width])])
+                                     Resize([self.resize_height, self.resize_width])])
                 return transform(image)
 
         else:
@@ -92,6 +89,8 @@ def image_to_tensor(file_path, letterbox, resize_width, resize_height):
         print('Image {} cannot be loaded. Exception: {}'.format(file_path, e))
         return None
 
+    width, height = img.size
+
     if letterbox:
         tensor_transform = Compose([Letterbox(resize_height, resize_width),
                                     ToImage(),
@@ -100,11 +99,11 @@ def image_to_tensor(file_path, letterbox, resize_width, resize_height):
         tensor_transform = Compose([Resize((resize_height, resize_width)),
                                     ToImage(),
                                     ToDtype(torch.float32, scale=True),])
-        
+
     img_tensor = tensor_transform(img)
     img_tensor = torch.unsqueeze(img_tensor, 0)  # add batch dimension
     img.close()
-    return img_tensor
+    return img_tensor, [file_path], torch.tensor([(height, width)])
 
 
 class ImageGenerator(Dataset):
@@ -136,13 +135,12 @@ class ImageGenerator(Dataset):
         self.crop_coord = crop_coord
         if self.crop_coord not in ['relative', 'absolute']:
             raise ValueError("crop_coord must be either 'relative' or 'absolute'")
-        
+
         self.resize_height = resize_height
         self.resize_width = resize_width
         self.buffer = 0
         self.normalize = normalize
         self.letterbox = letterbox
-        self.transform = transform
 
         # letterbox and resize
         if self.letterbox:
@@ -152,18 +150,18 @@ class ImageGenerator(Dataset):
                                          ToDtype(torch.float32, scale=True),])
             else:
                 self.transform = Compose([Letterbox(self.resize_height, self.resize_width),
-                                          ToImage(), 
+                                          ToImage(),
                                           ToDtype(torch.float32, scale=True),
                                           transform])
         # simply resize - torch.resize order is H,W
         else:
             if transform is None:
                 self.transform = Compose([Resize((self.resize_height, self.resize_width)),
-                                          ToImage(), 
+                                          ToImage(),
                                           ToDtype(torch.float32, scale=True),])
             else:
                 self.transform = Compose([Resize((self.resize_height, self.resize_width)),
-                                          ToImage(), 
+                                          ToImage(),
                                           ToDtype(torch.float32, scale=True),
                                           transform,])
 
@@ -182,10 +180,10 @@ class ImageGenerator(Dataset):
         width, height = img.size
 
         # maintain aspect ratio if one dimension is zero
-        if self.resize_width > 0 and self.resize_height <=0:
-              self.height = int(width/height*self.resize_width)
+        if self.resize_width > 0 and self.resize_height <= 0:
+            self.height = int(width / height * self.resize_width)
         elif self.resize_width <= 0 and self.resize_height > 0:
-              self.width = int(height/width*self.height)
+            self.width = int(height / width * self.height)
 
         if self.crop:
             bbox_x = self.x['bbox_x'].iloc[idx]
@@ -223,7 +221,7 @@ class ImageGenerator(Dataset):
         if not self.normalize:  # un-normalize
             img_tensor = img_tensor * 255
 
-        return img_tensor, image_name
+        return img_tensor, image_name, torch.tensor((height, width))
 
 
 class TrainGenerator(Dataset):
@@ -244,11 +242,11 @@ class TrainGenerator(Dataset):
                  classes: dict,
                  file_col: str = 'filepath',
                  label_col: str = 'species',
+                 resize_height: int = 480,
+                 resize_width: int = 480,
                  crop: bool = True,
                  crop_coord: str = 'relative',
                  augment: bool = False,
-                 resize_height: int = 299,
-                 resize_width: int = 299,
                  cache_dir: str = None):
         self.x = x
         self.resize_height = int(resize_height)
@@ -362,11 +360,11 @@ def train_dataloader(manifest: pd.DataFrame,
                      classes: dict,
                      file_col: str = "filepath",
                      label_col: str = "species",
+                     resize_height: int = 480,
+                     resize_width: int = 480,
                      crop: bool = False,
                      crop_coord: str = 'relative',
                      augment: bool = False,
-                     resize_height: int = 480,
-                     resize_width: int = 480,
                      batch_size: int = 1,
                      num_workers: int = 1,
                      cache_dir: str = None):

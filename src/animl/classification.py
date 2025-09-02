@@ -99,7 +99,7 @@ def load_classifier(model_path: str,
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
                 model = EfficientNet(num_classes, device=device, tune=False)
-                # TODO: torch 2.6 defaults to weights_only = True
+                # torch 2.6 defaults to weights_only = True
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
