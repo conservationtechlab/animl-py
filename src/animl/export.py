@@ -17,12 +17,12 @@ from animl import file_management
 
 
 def export_folders(manifest: pd.DataFrame,
-                 out_dir: str,
-                 out_file: Optional[str] = None,
-                 label_col: str = 'prediction',
-                 file_col: str = "FilePath",
-                 unique_name: str = 'UniqueName',
-                 copy: bool = False) -> pd.DataFrame:
+                   out_dir: str,
+                   out_file: Optional[str] = None,
+                   label_col: str = 'prediction',
+                   file_col: str = "FilePath",
+                   unique_name: str = 'UniqueName',
+                   copy: bool = False) -> pd.DataFrame:
     """
     Creates symbolic links of images into species folders.
 
@@ -58,7 +58,7 @@ def export_folders(manifest: pd.DataFrame,
         raise AssertionError(f"Label column {label_col} not recognized, must be 'prediction' or 'category'.")
 
     # create new column
-    manifest['Link'] = out_dir
+    manifest['link'] = out_dir
 
     for i, row in tqdm(manifest.iterrows()):
         try:
@@ -68,13 +68,13 @@ def export_folders(manifest: pd.DataFrame,
             filename, extension = os.path.splitext(filename)
 
             # get datetime
-            if "DateTime" in manifest.columns:
-                reformat_date = pd.to_datetime(row['DateTime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+            if "datetime" in manifest.columns:
+                reformat_date = pd.to_datetime(row['datetime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
             else:
                 reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
             # get station
-            if "Station" in manifest.columns:
-                station = row['Station']
+            if "station" in manifest.columns:
+                station = row['station']
                 name = "_".join([station, reformat_date, filename]) + extension
             else:
                 name = "_".join([reformat_date, filename]) + extension
@@ -87,7 +87,7 @@ def export_folders(manifest: pd.DataFrame,
         elif label_col == 'category':
             link = out_dir / Path(classes[str(row['category'])]) / Path(name)
 
-        manifest.loc[i, 'Link'] = str(link)
+        manifest.loc[i, 'link'] = str(link)
 
         if not link.is_file():
             if copy:  # make a hard copy
@@ -102,7 +102,7 @@ def export_folders(manifest: pd.DataFrame,
 
 
 def remove_link(manifest: pd.DataFrame,
-                link_col: str = 'Link') -> pd.DataFrame:
+                link_col: str = 'link') -> pd.DataFrame:
     """
     Deletes symbolic links of images.
 
@@ -123,7 +123,7 @@ def remove_link(manifest: pd.DataFrame,
 
 def update_labels_from_folders(manifest: pd.DataFrame,
                                export_dir: str,
-                               unique_name: str = 'UniqueName') -> pd.DataFrame:
+                               unique_name: str = 'uniquename') -> pd.DataFrame:
     """
     Update manifest after human review of symlink directories.
 
@@ -145,8 +145,8 @@ def update_labels_from_folders(manifest: pd.DataFrame,
         print(f"Warning, found {len(ground_truth)} files in link dir but {len(manifest)} files in manifest.")
 
     # last level should be label level
-    ground_truth = ground_truth.rename(columns={'FileName': unique_name})
-    ground_truth['label'] = ground_truth["FilePath"].apply(lambda x: os.path.split(os.path.split(x)[0])[1])
+    ground_truth = ground_truth.rename(columns={'filename': unique_name})
+    ground_truth['label'] = ground_truth["filepath"].apply(lambda x: os.path.split(os.path.split(x)[0])[1])
 
     return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
 
@@ -194,7 +194,7 @@ def export_timelapse(animals: pd.DataFrame,
     ICdir = os.path.join(imagedir, "Animl-Directory", "IC")
     os.makedirs(ICdir, exist_ok=True)
 
-    expected_columns = ('FilePath', 'FileName', 'FileModifyDate', 'Frame', 'file',
+    expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame', 'file',
                         'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
                         'bbox_h', 'prediction', 'confidence')
 
@@ -202,7 +202,7 @@ def export_timelapse(animals: pd.DataFrame,
         assert s in animals.columns, 'Expected column {} not found in animals DataFrame'.format(s)
 
     # Dropping unnecessary columns (Refer to columns numbers above for expected columns - 0 indexed).
-    animals.drop(['FilePath', 'FileName', 'FileModifyDate', 'Frame', 'max_detection_conf'], axis=1, inplace=True)
+    animals.drop(['filepath', 'filename', 'filemodifydate', 'frame', 'max_detection_conf'], axis=1, inplace=True)
 
     # Keep relative path only
     animals['file'] = animals['file'].apply(lambda x: x[len(imagedir):])
@@ -225,7 +225,7 @@ def export_timelapse(animals: pd.DataFrame,
             assert s in empty.columns, 'Expected column {} not found in empty (non-animals) DataFrame'.format(s)
 
         # Doing the same process for non-animal results
-        empty.drop(['FilePath', 'FileName', 'FileModifyDate', 'Frame', 'max_detection_conf'], axis=1, inplace=True)
+        empty.drop(['filepath', 'filename', 'filemodifydate', 'frame', 'max_detection_conf'], axis=1, inplace=True)
         empty['file'] = empty['file'].apply(lambda x: x[len(imagedir):])
         empty.rename(columns={'conf': 'detection_conf', 'prediction': 'class'}, inplace=True)
 

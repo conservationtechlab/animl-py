@@ -208,7 +208,7 @@ def classify(model,
              detections,
              device: Optional[str] = None,
              out_file: Optional[str] = None,
-             file_col: str = 'Frame',
+             file_col: str = 'frame',
              crop: bool = True,
              normalize: bool = True,
              resize_width: int = 480,
@@ -323,7 +323,7 @@ def sequence_classification(animals: pd.DataFrame,
                             station_col: str,
                             empty_class: str = "",
                             sort_columns: list[str] = None,
-                            file_col: str = "FilePath",
+                            file_col: str = "filepath",
                             maxdiff: int = 60):
     """
     Applies class labels to images based on sequential information.
@@ -403,9 +403,9 @@ def sequence_classification(animals: pd.DataFrame,
         predictions = np.vstack((predictions, np.array(predempty)))
 
     if sort_columns is None:
-        sort_columns = [station_col, "DateTime"]
+        sort_columns = [station_col, "datetime"]
 
-    animals_merged['FileModifyDate'] = pd.to_datetime(animals_merged['FileModifyDate'], format="%Y-%m-%d %H:%M:%S")
+    animals_merged['filemodifydate'] = pd.to_datetime(animals_merged['filemodifydate'], format="%Y-%m-%d %H:%M:%S")
 
     sort = animals_merged.sort_values(by=sort_columns).index
     animals_sort = animals_merged.loc[sort].reset_index(drop=True)
@@ -421,10 +421,10 @@ def sequence_classification(animals: pd.DataFrame,
         rows = [i]
         last_index = i+1
 
-        while (last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, "DateTime"]) and
-               not pd.isna(animals_sort.loc[last_index, "DateTime"]) and
+        while (last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, "datetime"]) and
+               not pd.isna(animals_sort.loc[last_index, "datetime"]) and
                animals_sort.loc[last_index, station_col] == animals_sort.loc[i, station_col] and
-               (animals_sort.loc[last_index, "FileModifyDate"] - animals_sort.loc[i, "FileModifyDate"]).total_seconds() <= maxdiff):
+               (animals_sort.loc[last_index, "filemodifydate"] - animals_sort.loc[i, "filemodifydate"]).total_seconds() <= maxdiff):
             rows.append(last_index)
             last_index += 1
 
@@ -482,7 +482,7 @@ def sequence_classification(animals: pd.DataFrame,
 # TODO test
 def multispecies_classification(animals: pd.DataFrame,
                                 threshold: float,
-                                 file_col: str = "FilePath") -> pd.DataFrame:
+                                 file_col: str = "filepath") -> pd.DataFrame:
     """
     This function applies image classifications at a image level. All images which have multiple
     species present with confidence above threshold, will be returned as a DataFrame

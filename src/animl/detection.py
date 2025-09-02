@@ -75,7 +75,6 @@ def detect(detector,
            device: Optional[str] = None,
            checkpoint_path: Optional[str] = None,
            checkpoint_frequency: int = -1) -> list[dict]:
-
     """
     Runs Detector model on a batches of image files.
 
@@ -83,14 +82,16 @@ def detect(detector,
         detector (object): preloaded detector model
         image_file_names (mult): list of image filenames, a single image filename, or manifest
                                     containing a list of images.
+        resize_width (int): width to resize images to
+        resize_height (int): height to resize images to
+        letterbox (bool): if True, resize and pad image to keep aspect ratio, else resize without padding
+        confidence_threshold (float): only detections above this threshold are returned
+        file_col (str): column name containing file paths
         batch_size (int): size of each batch
         num_workers (int): number of processes to handle the data
         device (str): specify to run on cpu or gpu
         checkpoint_path (str): path to checkpoint file
         checkpoint_frequency (int): write results to checkpoint file every N images
-        confidence_threshold (float): only detections above this threshold are returned
-        image_size (int): overrides default image size, 1280
-        file_col (str): column name containing file paths
 
     Returns:
         list: list of dicts, each dict represents detections on one image
@@ -302,7 +303,7 @@ def parse_detections(results: list,
                      out_file: Optional[str] = None,
                      buffer: float = 0.02,
                      threshold: float = 0,
-                     file_col: str = "Frame"):
+                     file_col: str = "frame"):
     """
     Converts listed output from detector to DataFrame.
 

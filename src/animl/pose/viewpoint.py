@@ -18,7 +18,7 @@ def predict_viewpoints(model,
 
     Args:
         model: viewpoint model object
-        data_loader: pd.DataFrame with columns 'FilePath', 'camera', 'sequence'
+        data_loader: pd.DataFrame with columns 'filepath', 'camera', 'sequence'
         device: run model on gpu or cpu, defaults to cpu
 
     Return:
@@ -62,10 +62,10 @@ def predict_viewpoints(model,
 
             # if there are 2 cameras
             if len(half2) > 0:
-                group1 = manifest_dataloader(half1, 'FilePath', normalize=True, batch_size=len(half1), num_workers=8)
+                group1 = manifest_dataloader(half1, 'filepath', normalize=True, batch_size=len(half1), num_workers=8)
                 g1_pred, g1_paths, g1_sums = viewpoint_by_camera(model, group1, device)
 
-                group2 = manifest_dataloader(half2, 'FilePath', normalize=True, batch_size=len(half2), num_workers=8)
+                group2 = manifest_dataloader(half2, 'filepath', normalize=True, batch_size=len(half2), num_workers=8)
                 g2_pred, g2_paths, g2_sums = viewpoint_by_camera(model, group2, device)
 
                 # if viewpoint predictions are the same, whichever group has the higher summed probability will get that viewpoint
@@ -87,7 +87,7 @@ def predict_viewpoints(model,
 
             # entire group is from the same camera
             else:
-                dl_group = manifest_dataloader(df, 'FilePath', normalize=False, batch_size=len(df), num_workers=8)
+                dl_group = manifest_dataloader(df, 'filepath', normalize=False, batch_size=len(df), num_workers=8)
                 pred, paths, sums = viewpoint_by_camera(dl_group, device, model)
                 pred_labels.extend([pred] * len(df))
                 filepaths.extend(paths)
