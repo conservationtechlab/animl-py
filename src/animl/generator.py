@@ -7,18 +7,16 @@ Custom generators for training and inference
 """
 import hashlib
 import os
-from typing import Tuple
+from typing import Tuple, Optional
 import pandas as pd
-from PIL import Image, ImageOps, ImageFile
+from PIL import Image, ImageFile
 
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import (Compose, Resize, ToTensor, RandomHorizontalFlip,
-                                    RandomAffine, RandomGrayscale, RandomApply,
-                                    ColorJitter, GaussianBlur)
-
-from animl.utils.general import _setup_size
+from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, RandomHorizontalFlip,
+                                       RandomAffine, RandomGrayscale, RandomApply,
+                                       ColorJitter, GaussianBlur)
 
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -26,7 +24,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # TODO: reevaluate kwarg order 
 # TODO: letterboxing for MD
-class ResizeWithPadding(torch.nn.Module):
+class Letterbox(torch.nn.Module):
     """
     Pads a crop to given size
 
@@ -41,41 +39,41 @@ class ResizeWithPadding(torch.nn.Module):
             made. If provided a sequence of length 1, it will be interpreted as
             (size[0], size[0]).
     """
-    def __init__(self, expected_size: Tuple[int, int]) -> None:
+    def __init__(self, resize_height, resize_width):
         super().__init__()
-        self.expected_size = _setup_size(expected_size)
+        self.resize_height = resize_height
+        self.resize_width = resize_width
 
-    def forward(self, img: Image.Image) -> Image.Image:
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be cropped.
+    def forward(self, image):
 
-        Returns:
-            PIL Image or Tensor: Cropped image.
-        """
-        if img.size[0] == 0 or img.size[1] == 0:
-            return img
-        if img.size[0] > img.size[1]:
-            new_size = (self.expected_size[0],
-                        int(self.expected_size[1] * img.size[1] / img.size[0]))
+        width, height = image.size  # PIL image size (width, height)
+        ratio_f = self.resize_width / self.resize_height
+        ratio_1 = width / height
+
+        # check if the original and final aspect ratios are the same within a margin
+        if round(ratio_1, 2) != round(ratio_f, 2):
+
+            # padding to preserve aspect ratio
+            hp = int(width/ratio_f - height)
+            wp = int(ratio_f * height - width)
+            if hp > 0 and wp < 0:
+                hp = hp // 2
+                transform = Compose([Pad((0, hp, 0, hp), 0, "constant"),
+                             Resize([self.resize_height, self.resize_width])])
+                return transform(image)
+
+            elif hp < 0 and wp > 0:
+                wp = wp // 2
+                transform = Compose([Pad((wp, 0, wp, 0), 0, "constant"),
+                            Resize([self.resize_height, self.resize_width])])
+                return transform(image)
+
         else:
-            new_size = (int(self.expected_size[0] * img.size[0] / img.size[1]),
-                        self.expected_size[1])
-        img = img.resize(new_size, Image.BILINEAR)  # NEAREST BILINEAR
-        delta_width = self.expected_size[0] - img.size[0]
-        delta_height = self.expected_size[1] - img.size[1]
-        pad_width = delta_width // 2
-        pad_height = delta_height // 2
-        padding = (pad_width, pad_height,
-                   delta_width - pad_width,
-                   delta_height - pad_height)
-        return ImageOps.expand(img, padding)
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(size={self.size})"
+            transform = Resize([self.resize_height, self.resize_width])
+            return transform(image)
 
 
-def image_to_tensor(file_path: str, resize_width: int, resize_height: int):
+def image_to_tensor(file_path, letterbox, resize_width, resize_height):
     '''
     Convert an image to tensor for single detection or classification
 
@@ -94,7 +92,15 @@ def image_to_tensor(file_path: str, resize_width: int, resize_height: int):
         print('Image {} cannot be loaded. Exception: {}'.format(file_path, e))
         return None
 
-    tensor_transform = Compose([Resize((resize_height, resize_width)), ToTensor(), ])  # torch.resize order is H,W
+    if letterbox:
+        tensor_transform = Compose([Letterbox(resize_height, resize_width),
+                                    ToImage(),
+                                    ToDtype(torch.float32, scale=True),])  # torch.resize order is H,W
+    else:
+        tensor_transform = Compose([Resize((resize_height, resize_width)),
+                                    ToImage(),
+                                    ToDtype(torch.float32, scale=True),])
+        
     img_tensor = tensor_transform(img)
     img_tensor = torch.unsqueeze(img_tensor, 0)  # add batch dimension
     img.close()
@@ -122,6 +128,7 @@ class ImageGenerator(Dataset):
                  crop: bool = True,
                  crop_coord: str = 'relative',
                  normalize: bool = True,
+                 letterbox: bool = False,
                  transform: Compose = None) -> None:
         self.x = x.reset_index(drop=True)
         self.file_col = file_col
@@ -129,18 +136,36 @@ class ImageGenerator(Dataset):
         self.crop_coord = crop_coord
         if self.crop_coord not in ['relative', 'absolute']:
             raise ValueError("crop_coord must be either 'relative' or 'absolute'")
-        self.resize_height = int(resize_height)
-        self.resize_width = int(resize_width)
+        
+        self.resize_height = resize_height
+        self.resize_width = resize_width
         self.buffer = 0
         self.normalize = normalize
-        if transform is None:
-            # torch.resize order is H,W
-            self.transform = Compose([Resize((self.resize_height, self.resize_width)),
-                                      ToTensor(),])
+        self.letterbox = letterbox
+        self.transform = transform
+
+        # letterbox and resize
+        if self.letterbox:
+            if transform is None:
+                self.transform = Compose([Letterbox(self.resize_height, self.resize_width),
+                                         ToImage(),
+                                         ToDtype(torch.float32, scale=True),])
+            else:
+                self.transform = Compose([Letterbox(self.resize_height, self.resize_width),
+                                          ToImage(), 
+                                          ToDtype(torch.float32, scale=True),
+                                          transform])
+        # simply resize - torch.resize order is H,W
         else:
-            self.transform = Compose([Resize((self.resize_height, self.resize_width)),
-                                      ToTensor(),
-                                      transform,])
+            if transform is None:
+                self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                          ToImage(), 
+                                          ToDtype(torch.float32, scale=True),])
+            else:
+                self.transform = Compose([Resize((self.resize_height, self.resize_width)),
+                                          ToImage(), 
+                                          ToDtype(torch.float32, scale=True),
+                                          transform,])
 
     def __len__(self) -> int:
         return len(self.x)
@@ -155,6 +180,12 @@ class ImageGenerator(Dataset):
             return None
 
         width, height = img.size
+
+        # maintain aspect ratio if one dimension is zero
+        if self.resize_width > 0 and self.resize_height <=0:
+              self.height = int(width/height*self.resize_width)
+        elif self.resize_width <= 0 and self.resize_height > 0:
+              self.width = int(height/width*self.height)
 
         if self.crop:
             bbox_x = self.x['bbox_x'].iloc[idx]
@@ -250,10 +281,12 @@ class TrainGenerator(Dataset):
             print("Applying augmentations")
             self.transform = Compose([augmentations,  # augmentations
                                       Resize((self.resize_height, self.resize_width)),
-                                      ToTensor(), ])
+                                      ToImage(),
+                                      ToDtype(torch.float32, scale=True),])
         else:
             self.transform = Compose([Resize((self.resize_height, self.resize_width)),
-                                      ToTensor(), ])
+                                      ToImage(),
+                                      ToDtype(torch.float32, scale=True),])
         self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
 
     def __len__(self):
@@ -377,6 +410,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
                         crop: bool = True,
                         crop_coord: str = 'relative',
                         normalize: bool = True,
+                        letterbox: bool = False,
                         resize_height: int = 480,
                         resize_width: int = 480,
                         transform: Compose = None,
@@ -408,7 +442,8 @@ def manifest_dataloader(manifest: pd.DataFrame,
 
     # default values file_col='file', resize=299
     dataset_instance = ImageGenerator(manifest, file_col=file_col, crop=crop, crop_coord=crop_coord,
-                                      normalize=normalize, resize_width=resize_width, resize_height=resize_height, transform=transform)
+                                      normalize=normalize, letterbox=letterbox,
+                                      resize_width=resize_width, resize_height=resize_height, transform=transform)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
