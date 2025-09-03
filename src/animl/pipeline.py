@@ -109,7 +109,6 @@ def from_paths(image_dir: str,
         print("Classifying individual frames...")
         animals = classification.single_classification(animals, predictions_raw, class_list[class_label])
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
-        # TODO: single output per file
 
     # create symlinks
     if sort:

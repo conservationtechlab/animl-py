@@ -18,8 +18,8 @@ device: cuda:0  # set to local gpu device
 num_workers: 8  # number of cores
 
 # CSV Column Selection
-file_col: 'FilePath'
-label_col: 'Species'
+file_col: 'filepath'
+label_col: 'species'
 class_list_index: 'id'
 class_list_label: 'class'
 

@@ -114,7 +114,6 @@ def main_test():
         print("Classifying individual frames...")
         animals = animl.single_classification(animals, predictions_raw, class_list['class'])
         manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
-        # TODO: single output per file
 
     # create symlinks
     if sort:

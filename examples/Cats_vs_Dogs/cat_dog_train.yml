@@ -1,6 +1,3 @@
-# TODO: file paths are relative to the root of the animl-py repository, must fix
-
-
 seed: 28  # random number generator seed (long integer value)
 device: cuda:0  # set to local gpu device 
 num_workers: 8  # number of cores
@@ -18,8 +15,8 @@ test_set: "/examples/Cats_vs_Dogs/test_data.csv"
 class_file: "/examples/Cats_vs_Dogs/cat_dog_labels.csv" 
 
 # CSV Column Selection
-file_col: 'FilePath'
-label_col: 'Class'
+file_col: 'filepath'
+label_col: 'class'
 class_list_index: 'id'
 class_list_label: 'class'
 
