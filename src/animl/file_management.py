@@ -5,11 +5,9 @@ This module provides functions and classes for managing files and directories.
 
 @ Kyra Swanson 2023
 """
-import os
 import json
 from shutil import copyfile
 from pathlib import Path, PosixPath
-from glob import glob
 from datetime import datetime, timedelta
 import pandas as pd
 import PIL
@@ -286,7 +284,7 @@ def active_times(manifest_dir,
         times (pd.DataFrame): list of files with or without file modify dates
     """
     # from manifest file
-    if isinstance(manifest_dir,str):
+    if isinstance(manifest_dir, str):
         if check_file(manifest_dir):
             files = load_data(manifest_dir)  # load_data(outfile) load file manifest
 

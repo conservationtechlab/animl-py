@@ -18,7 +18,7 @@ Paths to model files must be edited to local machine.
 '''
 import time
 import argparse
-import os
+from pathlib import Path
 
 from animl import pipeline
 import animl.models.download as models
@@ -28,38 +28,38 @@ start_time = time.time()
 
 # IF RUN FROM COMMAND LINE
 parser = argparse.ArgumentParser(description='Folder locations for the main script')
-home = os.path.join(os.getcwd(), 'models')
+home =  Path.cwd() / 'models'
 # Create and parse arguements
 parser.add_argument('imagedir_config', type=str,
                     help='Path to Image Directory or Config File')
 parser.add_argument('--detector', type=str, nargs='?',
                     help='Path to MD model',
-                    default=os.path.join(home, 'md_v5a.0.0.pt'))
+                    default=Path(home / 'md_v5a.0.0.pt'))
 parser.add_argument('--classifier', type=str, nargs='?',
                     help='Path to Class model',
-                    default=os.path.join(home, 'sdzwa_southwest_v3.pt'))
+                    default=Path(home / 'sdzwa_southwest_v3.pt'))
 parser.add_argument('--classlist', type=str, nargs='?',
                     help='Path to class list',
-                    default=os.path.join(home, 'sdzwa_southwest_v3_classes.csv'))
+                    default=Path(home / 'sdzwa_southwest_v3_classes.csv'))
 args = parser.parse_args()
 
 # first argument is config file
-if os.path.isfile(args.imagedir_config):
+if Path(args.imagedir_config).is_file():
     pipeline.from_config(args.imagedir_config)
 
 # first argument is a directory
 else:
-    if not os.path.isfile(args.detector):
+    if not Path(args.detector).is_file():
         prompt = "MegaDetector not found, would you like to download? y/n: "
         if input(prompt).lower() == "y":
             models.download_model(models.MEGADETECTOR['MDV5a'], out_dir=home)
 
-    if not os.path.isfile(args.classifier):
+    if not Path(args.classifier).is_file():
         prompt = "Classifier not found, would you like to download Southwest_v3? y/n: "
         if input(prompt).lower() == "y":
             models.download_model(models.CLASSIFIER['SDZWA_Southwest_v3'], out_dir=home)
 
-    if not os.path.isfile(args.classlist):
+    if not Path(args.classlist).is_file():
         prompt = "Class list not found, would you like to download Southwest_v3? y/n: "
         if input(prompt).lower() == "y":
             models.download_model(models.CLASS_LIST['SDZWA_Southwest_v3'], out_dir=home)
