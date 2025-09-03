@@ -53,7 +53,7 @@ def load_detector(model_path: str,
         model = checkpoint['model'].float().fuse().eval()  # FP32 model
         model.model_type = "MDV5"
     # TODO specify available model versions
-    elif model_type == "YOLO" or model_type == "MDV6":
+    elif model_type in {"YOLO", "MDV6"}:
         model = YOLO(model_path, task='detect')
         model.model_type = "YOLO"
     else:

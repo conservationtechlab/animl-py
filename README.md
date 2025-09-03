@@ -101,7 +101,8 @@ allframes = animl.extract_frames(files, out_dir=workingdir.vidfdir, out_file=wor
 
 ```python
 detector = animl.load_detector('/path/to/mdmodel.pt', model_type="MDV5", device='cuda:0')
-mdresults = animl.detect(detector, allframes, file_col="frame", checkpoint_path=working_dir.mdraw, quiet=True)
+mdresults = animl.detect(detector, allframes, resize_width=animl.MEGADETECTOR_SIZE, resize_height=animl.MEGADETECTOR_SIZE, 
+                         letterbox=True, file_col="frame", checkpoint_path=working_dir.mdraw, quiet=True)
 detections = animl.parse_detections(mdresults, manifest=all_frames, out_file=workingdir.detections)
 ```
 
@@ -115,8 +116,8 @@ empty = animl.get_empty(detections)
 ```python
 class_list = animl.load_class_list('/path/to/classlist.txt')
 classifier = animl.load_classifier('/path/to/model', len(class_list), device='cuda:0')
-raw_predictions = animl.classify(classifier, animals, file_col="frame",
-                         batch_size=4, out_file=working_dir.predictions)
+raw_predictions = animl.classify(classifier, animals, resize_width=480, resize_height=480, 
+                                 file_col="frame", batch_size=4, out_file=working_dir.predictions)
 ```
 
 7. Apply labels from class list with or without utilizing timestamp-based sequences.
