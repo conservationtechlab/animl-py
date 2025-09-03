@@ -10,7 +10,7 @@ from pathlib import Path
 from animl import train, test
 
 
-@unittest.skip
+# @unittest.skip
 def model_training_test():
     print(Path.cwd())
     config = Path.cwd() / 'examples/Cats_vs_Dogs' / 'cat_dog_train.yml'

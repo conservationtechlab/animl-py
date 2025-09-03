@@ -43,8 +43,7 @@ def predict_viewpoints(model,
             device = get_device()
 
         # batch size is len of half, should have one batch per camera
-        for batches in enumerate(dataloader):
-            batch = batches[1]
+        for _, batch in enumerate(dataloader):
             data = batch[0]
             data = data.to(device)
             prediction = model(data)  # list of predictions

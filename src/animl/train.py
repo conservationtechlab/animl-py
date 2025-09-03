@@ -30,7 +30,8 @@ except ImportError:
     comet_ml = None
 
 
-def train_func(data_loader, model, optimizer, scheduler, device='cpu', mixed_precision=False):
+def train_func(data_loader, model, optimizer, scheduler, device='cpu',
+               mixed_precision=False, progress=True):
     '''
     Main training loop.
 
@@ -41,6 +42,7 @@ def train_func(data_loader, model, optimizer, scheduler, device='cpu', mixed_pre
         scheduler: learning rate scheduler
         device (str): device to load model and data to
         mixed_precision (bool): flag to enable mixed precision for GPU
+        progress (bool): flag to enable/disable progress bar
 
     Returns:
         loss_total: loss for epoch
@@ -55,7 +57,8 @@ def train_func(data_loader, model, optimizer, scheduler, device='cpu', mixed_pre
     # log the loss and overall accuracy (OA)
     loss_total, oa_total = 0.0, 0.0
 
-    progressBar = trange(len(data_loader))
+    if progress:
+        progressBar = trange(len(data_loader))
 
     if mixed_precision and device != 'cpu' and torch.cuda.is_available():
         # Creates a GradScaler once at the beginning of training.
@@ -100,24 +103,26 @@ def train_func(data_loader, model, optimizer, scheduler, device='cpu', mixed_pre
         oa = torch.mean((pred_label == labels).float())
         oa_total += oa.item()
 
-        progressBar.set_description(
-            '[Train] Loss: {:.2f}; OA: {:.2f}%'.format(
-                loss_total/(idx+1),
-                100*oa_total/(idx+1)
+        if progress:
+            progressBar.set_description(
+                '[Train] Loss: {:.2f}; OA: {:.2f}%'.format(
+                    loss_total/(idx+1),
+                    100*oa_total/(idx+1)
+                )
             )
-        )
-        progressBar.update(1)
+            progressBar.update(1)
 
     # end of epoch
     scheduler.step()
-    progressBar.close()
+    if progress:
+        progressBar.close()
     loss_total /= len(data_loader)
     oa_total /= len(data_loader)
 
     return loss_total, oa_total
 
 
-def validate_func(data_loader, model, device="cpu"):
+def validate_func(data_loader, model, device="cpu", progress=True):
     '''
     Model validation function for each epoch.
 
@@ -128,6 +133,7 @@ def validate_func(data_loader, model, device="cpu"):
         data_loader: dataloader object
         model: loaded model object
         device (str): device to load model and data to
+        progress (bool): flag to enable/disable progress bar
 
     Returns:
         loss_total: loss for validation set
@@ -147,7 +153,8 @@ def validate_func(data_loader, model, device="cpu"):
     true_labels = []
     pred_labels = []
 
-    progressBar = trange(len(data_loader))
+    if progress:
+        progressBar = trange(len(data_loader))
     with torch.no_grad():  # gradients not necessary for validation
         for idx, batch in enumerate(data_loader):
             data = batch[0]
@@ -175,16 +182,18 @@ def validate_func(data_loader, model, device="cpu"):
             pred_label_np = pred_label.cpu().detach().numpy()
             pred_labels.extend(pred_label_np)
 
-            progressBar.set_description(
-                '[Val  ] Loss: {:.2f}; OA: {:.2f}%'.format(
-                    loss_total/(idx+1),
-                    100*oa_total/(idx+1)
+            if progress:
+                progressBar.set_description(
+                    '[Val  ] Loss: {:.2f}; OA: {:.2f}%'.format(
+                        loss_total/(idx+1),
+                        100*oa_total/(idx+1)
+                    )
                 )
-            )
-            progressBar.update(1)
+                progressBar.update(1)
 
     # end of epoch; finalize
-    progressBar.close()
+    if progress:
+        progressBar.close()
     loss_total /= len(data_loader)
     oa_total /= len(data_loader)
 
@@ -211,7 +220,7 @@ def train_main(cfg):
             experiment = comet_ml.Experiment({"api_key": api_key,
                                               "project_name": cfg.get('comet_project_name', None),
                                               "workspace": cfg.get('comet_workspace', None)})
-
+    progress = cfg.get('progress', True)
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
     crop = cfg.get('crop', True)
@@ -301,8 +310,8 @@ def train_main(cfg):
             for param in model.parameters():
                 param.requires_grad = True
 
-        loss_train, oa_train = train_func(dl_train, model, optim, scheduler, device, mixed_precision=mixed_precision)
-        loss_val, oa_val, precision, recall = validate_func(dl_val, model, device)
+        loss_train, oa_train = train_func(dl_train, model, optim, scheduler, device, mixed_precision=mixed_precision, progress=progress)
+        loss_val, oa_val, precision, recall = validate_func(dl_val, model, device, progress=progress)
 
         # combine stats and save
         stats = {

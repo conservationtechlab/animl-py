@@ -1,7 +1,7 @@
 """
 Static links to download the MegaDetector and Classifier models.
 """
-import os
+from pathlib import Path
 import wget
 
 
@@ -35,7 +35,6 @@ def download_model(model_url: str,
     Returns:
         None
     """
-    if not os.path.isdir(out_dir):
-        os.mkdir(out_dir)
+    Path(out_dir).mkdir(exist_ok=True)
     print('Saving to', out_dir)
     wget.download(model_url, out=out_dir)
