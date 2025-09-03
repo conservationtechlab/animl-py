@@ -19,10 +19,6 @@ from animl.generator import manifest_dataloader, image_to_tensor
 from animl.utils.general import normalize_boxes, xyxy2xywh, scale_letterbox, non_max_suppression, get_device
 
 
-MEGADETECTORv5_SIZE = 1280
-MEGADETECTORv5_STRIDE = 64
-
-
 def load_detector(model_path: str,
                   model_type: str,
                   device: Optional[str] = None):
