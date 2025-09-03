@@ -1,5 +1,6 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
+YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+
 Common modules
 Required for MDv5
 
@@ -20,7 +21,7 @@ from torch.cuda import amp
 
 
 from animl.utils.general import (increment_path, make_divisible, non_max_suppression, 
-                                 scale_coords, xywh2xyxy, xyxy2xywh, exif_transpose, letterbox,
+                                 scale_coords, xywhc2xyxy, xyxyc2xywh, exif_transpose, letterbox,
                                  copy_attr, time_sync)
 
 
@@ -375,7 +376,7 @@ class DetectMultiBackend(nn.Module):
             # im = im.resize((192, 320), Image.ANTIALIAS)
             y = self.model.predict({'image': im})  # coordinates are xywh normalized
             if 'confidence' in y:
-                box = xywh2xyxy(y['coordinates'] * [[w, h, w, h]])  # xyxy pixels
+                box = xywhc2xyxy(y['coordinates'] * [[w, h, w, h]])  # xyxy pixels
                 conf, cls = y['confidence'].max(1), y['confidence'].argmax(1).astype(np.float)
                 y = np.concatenate((box, conf.reshape(-1, 1), cls.reshape(-1, 1)), 1)
             else:
@@ -538,7 +539,7 @@ class Detections:
         self.files = files  # image filenames
         self.times = times  # profiling times
         self.xyxy = pred  # xyxy pixels
-        self.xywh = [xyxy2xywh(x) for x in pred]  # xywh pixels
+        self.xywh = [xyxyc2xywh(x) for x in pred]  # xywh pixels
         self.xyxyn = [x / g for x, g in zip(self.xyxy, gn)]  # xyxy normalized
         self.xywhn = [x / g for x, g in zip(self.xywh, gn)]  # xywh normalized
         self.n = len(self.pred)  # number of images (batch size)
