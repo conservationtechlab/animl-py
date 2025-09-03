@@ -51,9 +51,10 @@ def get_empty(manifest: pd.DataFrame):
     return otherdf
 
 
+# TODO: IMPROVE
 def train_val_test(manifest: pd.DataFrame,
                    out_dir: Optional[str] = None,
-                   label_col: str = "Class",
+                   label_col: str = "class",
                    file_col: str = 'filepath',
                    percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
                    seed: Optional[int] = None):

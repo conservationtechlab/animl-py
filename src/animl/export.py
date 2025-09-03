@@ -5,7 +5,6 @@ Provides functions for creating, removing, and updating sorted symlinks.
 
 @ Kyra Swanson 2023
 """
-import os
 import pandas as pd
 from typing import Optional
 from shutil import copy2
@@ -64,8 +63,8 @@ def export_folders(manifest: pd.DataFrame,
         try:
             name = row[unique_name]
         except KeyError:
-            filename = os.path.basename(str(row[file_col]))
-            filename, extension = os.path.splitext(filename)
+            filename = Path(row[file_col]).stem
+            extension = Path(row[file_col]).suffix
 
             # get datetime
             if "datetime" in manifest.columns:
@@ -93,7 +92,7 @@ def export_folders(manifest: pd.DataFrame,
             if copy:  # make a hard copy
                 copy2(row[file_col], link)
             else:  # make a hard
-                os.link(row[file_col], link,)
+                Path(link).symlink_to(row[file_col])
 
     if out_file:
         manifest.to_csv(out_file, index=False)
@@ -115,7 +114,7 @@ def remove_link(manifest: pd.DataFrame,
     """
     # delete files
     for _, row in manifest.iterrows():
-        os.remove(row[link_col])
+        Path(row[link_col]).unlink(missing_ok=True)
     # remove column
     manifest.drop(columns=[link_col])
     return manifest
@@ -146,7 +145,7 @@ def update_labels_from_folders(manifest: pd.DataFrame,
 
     # last level should be label level
     ground_truth = ground_truth.rename(columns={'filename': unique_name})
-    ground_truth['label'] = ground_truth["filepath"].apply(lambda x: os.path.split(os.path.split(x)[0])[1])
+    ground_truth['label'] = ground_truth["filepath"].apply(lambda x: Path(x).parent.name)
 
     return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
 
@@ -187,12 +186,9 @@ def export_timelapse(animals: pd.DataFrame,
         non-anim.csv - A csv file containing detections of all non-animals made to be similar to animals.csv in columns \
         csv_loc - Location of the stored animals csv file
     '''
-    if not imagedir.endswith("/"):
-        imagedir += "/"
-
     # Create directory
-    ICdir = os.path.join(imagedir, "Animl-Directory", "IC")
-    os.makedirs(ICdir, exist_ok=True)
+    ICdir = Path(imagedir) / "Animl-Directory" / "IC"
+    Path(ICdir).mkdir(exist_ok=True)
 
     expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame', 'file',
                         'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
@@ -213,11 +209,9 @@ def export_timelapse(animals: pd.DataFrame,
 
     if only_animl:
         # Saving animal results to csv file for conversion to timelapse compatible json
-        csv_loc = os.path.join(ICdir, "animals.csv")
-        animals.to_csv(csv_loc, index=False)
-
+        animals.to_csv(Path(ICdir / "animals.csv"), index=False)
         # Saving non-animal csv entries for manual perusal
-        empty.to_csv(os.path.join(ICdir, "non-anim.csv"), index=False)
+        empty.to_csv(Path(ICdir / "non-anim.csv"), index=False)
 
     else:
         # Checking if the columns match the expected DataFrame
@@ -236,7 +230,7 @@ def export_timelapse(animals: pd.DataFrame,
         empty['classification_conf'] = empty.loc[:, 'detection_conf']
 
         # Combining DataFrames and saving it to csv file for further use
-        csv_loc = os.path.join(ICdir, "manifest.csv")
+        csv_loc = Path(ICdir / "manifest.csv")
         manifest = pd.concat([animals, empty])
         manifest.to_csv(csv_loc, index=False)
 

@@ -3,7 +3,6 @@ Tools for Saving, Loading, and Using Species Classifiers
 
 @ Kyra Swanson 2023
 '''
-import os
 from typing import Optional
 import pandas as pd
 import numpy as np
