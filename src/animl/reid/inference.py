@@ -9,14 +9,11 @@ from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import torch
-from animl.reid.miewid import MiewIdNet
+
+from animl.reid.miewid import MiewIdNet, MIEWID_SIZE
 from animl.utils.general import get_device
 from animl.generator import manifest_dataloader
 from torchvision.transforms import Compose, Normalize
-
-# MIEW input dimensions
-MIEW_HEIGHT = 440
-MIEW_WIDTH = 440
 
 
 def load_miew(file_path: str,
@@ -71,7 +68,9 @@ def extract_miew_embeddings(miew_model,
 
         dataloader = manifest_dataloader(manifest, batch_size=batch_size, num_workers=num_workers,
                                          file_col=file_col, crop=True, normalize=True,
-                                         resize_width=MIEW_WIDTH, resize_height=MIEW_HEIGHT, transform=transform)
+                                         resize_width=MIEWID_SIZE,
+                                         resize_height=MIEWID_SIZE,
+                                         transform=transform)
         with torch.no_grad():
             for _, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
                 img = batch[0]

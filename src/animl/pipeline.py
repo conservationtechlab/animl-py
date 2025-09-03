@@ -8,7 +8,8 @@ import yaml
 import torch
 import pandas as pd
 
-from animl import (classification, detection, export, file_management, video_processing, split)
+from animl import (classification, detection, export, file_management,
+                   video_processing, split, model_architecture)
 from animl.utils import visualization
 from animl.utils.general import get_device, NUM_THREADS
 
@@ -63,11 +64,11 @@ def from_paths(image_dir: str,
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
-        detector = detection.load_detector(detector_file, "MDV5", device=device)
+        detector = detection.load_detector(detector_file, "mdv5", device=device)
         md_results = detection.detect(detector,
                                       all_frames,
-                                      resize_height=detection.MEGADETECTORv5_SIZE,
-                                      resize_width=detection.MEGADETECTORv5_SIZE,
+                                      resize_height=model_architecture.MEGADETECTORv5_SIZE,
+                                      resize_width=model_architecture.MEGADETECTORv5_SIZE,
                                       file_col="frame",
                                       batch_size=4,
                                       num_workers=NUM_THREADS,
@@ -92,6 +93,8 @@ def from_paths(image_dir: str,
     classifier = classification.load_classifier(classifier_file, len(class_list), device=device)
     predictions_raw = classification.classify(classifier, animals,
                                               device=device,
+                                              resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
+                                              resize_width=model_architecture.SDZWA_CLASSIFIER_SIZE,
                                               file_col="frame",
                                               batch_size=4,
                                               num_workers=NUM_THREADS,
@@ -174,11 +177,11 @@ def from_config(config: str):
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
-        detector = detection.load_detector(cfg['detector_file'], model_type="MDv5", device=device)
+        detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'MDv5'), device=device)
         md_results = detection.detect(detector,
                                       all_frames,
-                                      resize_height=detection.MEGADETECTORv5_SIZE,
-                                      resize_width=detection.MEGADETECTORv5_SIZE,
+                                      resize_height=model_architecture.MEGADETECTORv5_SIZE,
+                                      resize_width=model_architecture.MEGADETECTORv5_SIZE,
                                       file_col=cfg.get('file_col_detection', 'frame'),
                                       batch_size=cfg.get('batch_size', 4),
                                       num_workers=cfg.get('num_workers', NUM_THREADS),
@@ -203,6 +206,8 @@ def from_config(config: str):
     classifier = classification.load_classifier(cfg['classifier_file'], len(class_list), device=device)
     predictions_raw = classification.classify(classifier, animals,
                                               device=device,
+                                              resize_height=cfg.get('resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
+                                              resize_width=cfg.get('resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
                                               file_col=cfg.get('file_col_classification', 'frame'),
                                               batch_size=cfg.get('batch_size', 4),
                                               num_workers=cfg.get('num_workers', NUM_THREADS),
