@@ -9,6 +9,7 @@ import cv2
 import argparse
 import pandas as pd
 import os
+import math
 import numpy as np
 from typing import Union
 
@@ -16,7 +17,16 @@ from animl.utils import general
 from animl.file_management import IMAGE_EXTENSIONS
 
 
-def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, prediction=False):
+MD_COLORS = {"1": (0, 255, 0), "2": (0, 0, 255),  "3": (255, 0, 0)}
+MD_LABELS = {"1": "animal", "2": "human",  "3": "vehicle"}
+
+def plot_box(rows,
+             file_col="FilePath",
+             min_conf: Union[int, float] = 0,
+             label_col=None,
+             show_confidence=False,
+             colors = MD_COLORS,
+             detector_labels = MD_LABELS):
     """
     Plot a bounding box on a given (loaded) image
 
@@ -42,6 +52,9 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
     img = cv2.imread(rows.iloc[0][file_col])
     height, width, _ = img.shape
 
+    font_scale = min(width, height) * 1e-3
+    thickness = math.ceil(min(width, height) *  1e-3)
+
     for _, row in rows.iterrows():
         # Skipping the box if the confidence threshold is not met
         if (row['max_detection_conf']) < min_conf:
@@ -54,32 +67,48 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
 
+        color = colors[str(row['category'])]
         thick = int((height + width) // 900)
-        cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (90, 255, 0), thick)
+        cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), color, thick)
 
         # Printing prediction if enabled
-        if prediction:
-            label = row['prediction']
-            text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
-            text_size_width, text_size_height = text_size
+        if label_col:
+            if label_col == "category":
+                label = detector_labels[str(int(row['category']))]
+            else:
+                label = row[label_col]
 
-            box_right = (xyxy[2] if (xyxy[2] - xyxy[0]) < (text_size_width * 3)
-                        else xyxy[0] + (text_size_width * 3))
-            cv2.rectangle(img, (xyxy[0], xyxy[1]), (box_right, xyxy[1] - (text_size_height * 2)),
-                        (90, 255, 0), -1)
+            if show_confidence:
+                if 'confidence' in row and not np.isnan(row['confidence']):
+                    label += f" {row['confidence']:.2f}"
+                elif 'conf' in row and not np.isnan(row['conf']):
+                    label += f" {row['conf']:.2f}"
 
-            cv2.putText(img, label, (xyxy[0], xyxy[1] - 12), 0, 1e-3 * height,
-                        (0, 0, 0), thick // 3)
+            (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, font_scale, thickness)
+            # move label if it is out of the image
+            label_top = max(0, xyxy[1] - text_height - baseline)
+            label_bottom = xyxy[1] if label_top > 0 else xyxy[1] + text_height + baseline
+
+            label_right = min(width, xyxy[0] + text_width)
+            label_left = xyxy[0] if label_right < width else xyxy[0] - text_width
+
+            img = cv2.rectangle(img, (label_left, label_top), (label_right, label_bottom), color, -1)
+
+            # adjust text if label is at top of image
+            text_y_pos = label_bottom - 5 if label_top > 0 else label_bottom
+            cv2.putText(img, label, (label_left, text_y_pos), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0,0,0), thickness)
 
     return img
-
 
 
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             out_dir: str,
                             file_col: str = 'frame',
                             min_conf: Union[int, float] = 0.1,
-                            prediction: bool = False):
+                            label_col = False,
+                            show_confidence: bool = False,
+                            colors = MD_COLORS,
+                            detector_labels = MD_LABELS):
     """
     This function takes the parsed dataframe output from MegaDetector, makes a copy of each image,
     plots the boxes in the new image, and saves it the specified directory.
@@ -89,7 +118,8 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         output_dir (str): Name of the output directory
         file_col (str): Column name containing file paths
         min_conf (Optional) (Int or Float): Confidence threshold to plot the box
-        prediction (Optional) (Boolean): Should the prediction be printed alongside bounding box
+        label_col (Optional) (str): Column name containing label to print on box
+        show_confidence (Optional) (bool): If true, show confidence score on box
 
     Returns:
         None
@@ -107,7 +137,9 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         # file is an image
         if file_ext.lower() in IMAGE_EXTENSIONS:
 
-            img = plot_box(detections, file_col=file_col, min_conf=min_conf, prediction=prediction)
+            img = plot_box(detections, file_col=file_col, min_conf=min_conf, 
+                           label_col=label_col, show_confidence=show_confidence,
+                           colors=colors, detector_labels=detector_labels)
 
                 # Saving the image
             new_file_name = f"{file_name_no_ext}_box.jpg"
@@ -121,7 +153,9 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
             frames = detections.groupby('frame')
             for f, frame_detections in frames:
 
-                img = plot_box(frame_detections, file_col="frame", min_conf=min_conf, prediction=prediction)
+                img = plot_box(frame_detections, file_col="frame", min_conf=min_conf,
+                               label_col=label_col, show_confidence=show_confidence,
+                               colors=colors, detector_labels=detector_labels)
 
                 # Saving the image
                 new_file_name = f"{file_name_no_ext}_box.jpg"

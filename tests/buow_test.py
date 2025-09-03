@@ -33,7 +33,9 @@ def buow_test():
 
     print(detections)
 
-    visualization.plot_all_bounding_boxes(detections, 'buow_boxes/', file_col='frame', min_conf=0.1, prediction=False)
+    visualization.plot_all_bounding_boxes(detections, 'buow_boxes/', file_col='frame', min_conf=0.1,
+                                          label_col='category', show_confidence=True, 
+                                          detector_labels={'1': 'adult', '2': 'juvenile'})
 
     print(f"Test completed in {time.time() - start_time:.2f} seconds")
 

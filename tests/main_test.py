@@ -126,7 +126,7 @@ def main_test():
     print("Final Results in " + str(working_dir.results))
 
     box_path = Path(image_dir) / 'Animl-Directory' / 'Boxes'
-    animl.plot_all_bounding_boxes(manifest, box_path, file_col='frame', min_conf=0.1, prediction=False)
+    animl.plot_all_bounding_boxes(manifest, box_path, file_col='frame', min_conf=0.1, label_col='prediction', show_confidence=True)
 
     results_path = Path(image_dir) / 'Animl-Directory' / 'Data' / 'Results.csv'
     gt_path = Path.cwd() / 'tests' / 'GroundTruth' / 'Data' / 'Results.csv'

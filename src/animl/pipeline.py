@@ -84,7 +84,7 @@ def from_paths(image_dir: str,
     # Plot boxes
     if visualize:
         working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='frame', prediction=False)
+        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='frame', label_col='prediction')
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
@@ -196,7 +196,7 @@ def from_config(config: str):
     # Plot boxes
     if cfg.get('visualize', False):
         working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='frame', prediction=False)
+        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='frame', label_col='prediction')
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
