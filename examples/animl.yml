@@ -4,8 +4,9 @@ detector_file: "/home/kyra/animl-py/models/md_v5a.0.0.pt"
 classifier_file: "/home/kyra/animl-py/models/sdzwa_southwest_v3.pt"
 class_list: "/home/kyra/animl-py/models/sdzwa_southwest_v3_classes.csv"
 
-exif: False
-device: cuda
+# file metadata
+exif: True
+station_dir: -1 
 
 # video processing
 parallel: True
@@ -13,10 +14,14 @@ frames: 1
 fps: None
 
 # inference
+device: cuda:0
 checkpoint_frequency: 1000
 batch_size: 4
-file_col_detection: Frame
-file_col_classification: Frame
+num_workers: 4
+file_col_detection: frame
+file_col_classification: frame
+class_label_col: class
 
 # sort
 sort: False
+copy: False

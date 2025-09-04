@@ -70,7 +70,7 @@ def detect(detector,
            resize_height: int,
            letterbox: bool = True,
            confidence_threshold: float = 0.1,
-           file_col: str = 'Frame',
+           file_col: str = 'frame',
            batch_size: int = 1,
            num_workers: int = 1,
            device: Optional[str] = None,
@@ -105,7 +105,7 @@ def detect(detector,
         device = get_device()
     print('Device set to', device)
 
-    # Single Image
+    # Single image filepath
     if isinstance(image_file_names, str):
         # convert img path to tensor
         batch_from_dataloader = image_to_tensor(image_file_names, letterbox=letterbox,
@@ -113,7 +113,7 @@ def detect(detector,
         image_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
         current_image_paths = batch_from_dataloader[1]  # List of image names for the current batch
         image_sizes = batch_from_dataloader[2]  # List of original image sizes for the current batch
-        if detector.model_type == "MDV5":
+        if detector.model_type == "yolov5":
             # letterboxing should be true
             prediction = detector(image_tensors.to(device))
             pred: list = prediction[0]
@@ -122,20 +122,19 @@ def detect(detector,
             pred = detector.predict(source=image_tensors.to(device), conf=confidence_threshold, verbose=False)
         results = convert_yolo_detections(pred, image_tensors, current_image_paths, image_sizes, letterbox, detector.model_type)
         return results
-
     # Full manifest, select file_col
     elif isinstance(image_file_names, pd.DataFrame):
         if file_col not in image_file_names.columns:
             raise ValueError(f"file_col {file_col} not found in manifest columns")
         image_file_names = image_file_names[file_col]
-
+    # single row pd.Series, select file_col
     elif isinstance(image_file_names, pd.Series):
-        pass
+        if file_col not in image_file_names.index:
+            raise ValueError(f"file_col {file_col} not found in Series index")
+        image_file_names = [image_file_names[file_col]]
     # column from pd.DataFrame, expected input
     elif isinstance(image_file_names, list):
         pass
-    elif isinstance(image_file_names, str):
-        image_file_names = [image_file_names]
     else:
         raise ValueError('image_file_names is not a recognized object')
 
@@ -348,10 +347,11 @@ def parse_detections(results: list,
 
     df = pd.DataFrame(lst)
 
-    if isinstance(manifest, pd.DataFrame) and (file_col in manifest.columns):
-        df = manifest.merge(df, left_on=file_col, right_on="file")
-    else:
-        raise ValueError("Please provide a manifest with a valid file_col to merge results onto.")
+    if manifest is not None:
+        if file_col in manifest.columns:
+            df = manifest.merge(df, left_on=file_col, right_on="file")
+        else:
+            raise ValueError("Please provide a manifest with a valid file_col to merge results onto.")
 
     if out_file:
         file_management.save_data(df, out_file)

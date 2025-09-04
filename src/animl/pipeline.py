@@ -177,7 +177,7 @@ def from_config(config: str):
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
-        detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'MDv5'), device=device)
+        detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'mdv5'), device=device)
         md_results = detection.detect(detector,
                                       all_frames,
                                       resize_height=model_architecture.MEGADETECTORv5_SIZE,
