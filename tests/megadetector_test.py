@@ -5,7 +5,7 @@ from pathlib import Path
 
 import animl
 
-# @unittest.skip
+@unittest.skip
 def md_test():
     start_time = time.time()
 
@@ -13,9 +13,12 @@ def md_test():
 
     manifest = animl.build_file_manifest(image_dir, exif=False)
 
-    mdv5 = Path.cwd() / 'models/md_v5a.0.0.pt'
+    animl.list_models()
 
-    detector = animl.load_detector(mdv5, 'mdv5')
+    md_version = 'MDV6-yolov10-e'
+
+    #animl.download_model(animl.MEGADETECTOR[md_version], out_dir='models')
+    detector = animl.load_detector('models/' + animl.MD_FILENAMES[md_version], 'yolo')
 
     string = animl.detect(detector,
                           manifest.iloc[2]['filepath'],
@@ -23,12 +26,11 @@ def md_test():
                           resize_width=animl.MEGADETECTORv5_SIZE)
     string_parsed = animl.parse_detections(string)
 
-    
 
     series = animl.detect(detector,
-                                manifest.iloc[2],
-                                resize_height=animl.MEGADETECTORv5_SIZE,
-                                resize_width=animl.MEGADETECTORv5_SIZE)
+                          manifest.iloc[2],
+                          resize_height=animl.MEGADETECTORv5_SIZE,
+                          resize_width=animl.MEGADETECTORv5_SIZE)
     series_parsed = animl.parse_detections(series)
     
     print("Series match:", string_parsed.equals(series_parsed))
@@ -53,14 +55,19 @@ def md_test():
     gt_path = Path.cwd() / 'tests' / 'GroundTruth' / 'md' / 'md_gt.json'
     md_gt = animl.load_json(gt_path)
 
-    # animl.export_megadetector()
+    slist_parsed['prediction'] = 'test'
+    slist_parsed['confidence'] = 1
+
+    animl.export_megadetector(slist_parsed, "md_export_test.json")
+    
+    print(slist_parsed)
 
     if (string == md_gt['images']):
         print("MD Test Successful!")
+    else:
+        print("MD Test Failed :(")
     
     print(f"Test completed in {time.time() - start_time:.2f} seconds")
-
-
 
 
 md_test()

@@ -3,12 +3,9 @@ General utils
 
 """
 import cv2
-import glob
 import math
 import os
-import platform
 import random
-import subprocess
 import time
 import warnings
 from pathlib import Path

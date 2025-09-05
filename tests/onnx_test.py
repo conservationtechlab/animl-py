@@ -13,9 +13,13 @@ def onnx_test():
     # test sequence classification
     start_time = time.time()
 
+    workingdir = Path.cwd() / 'examples' / 'Southwest' / 'Animl-Directory'
+    shutil.rmtree(workingdir, ignore_errors=True)
+
     config = Path.cwd() / 'examples' / 'animl.yml'
 
-    animl.from_config(config)
+    results = animl.from_config(config)
+    print(results)
 
     #export_coco, 
     #export_timelapse, 
@@ -23,3 +27,6 @@ def onnx_test():
 
     #export.remove_link
     #export.update_labels_from_folders
+    print(f"Test completed in {time.time() - start_time:.2f} seconds")
+
+onnx_test()

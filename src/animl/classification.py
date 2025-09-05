@@ -98,7 +98,7 @@ def load_classifier(model_path: str,
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
                 model = EfficientNet(num_classes, device=device, tune=False)
-                # torch 2.6 defaults to weights_only = True
+                # TODO: torch 2.6 defaults to weights_only = True, revert on retrain
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
@@ -106,12 +106,12 @@ def load_classifier(model_path: str,
                 model.framework = "EfficientNet"
             elif architecture == "convnext_base":
                 model = ConvNeXtBase(num_classes, tune=False)
-                checkpoint = torch.load(model_path, map_location=device, weights_only=False)
+                checkpoint = torch.load(model_path, map_location=device)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()
                 model.framework = "ConvNeXt-Base"
-        # PyTorch full model
+        # PyTorch full modelspeak
         elif model_path.suffix == '.pth':
             model = torch.load(model_path, map_location=device)
             model.to(device)
@@ -151,7 +151,7 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
         starting epoch (int)
     '''
     model_states = []
-    for file in Path.iterdir(model_path):
+    for file in Path.iterdir(Path(model_path)):
         if Path(file).suffix.lower() == ".pt":
             model_states.append(file)
 
@@ -207,30 +207,30 @@ def load_class_list(classlist_file):
 
 def classify(model,
              detections,
-             device: Optional[str] = None,
-             out_file: Optional[str] = None,
+             resize_width: int = 480,
+             resize_height: int = 480,
              file_col: str = 'frame',
              crop: bool = True,
              normalize: bool = True,
-             resize_width: int = 480,
-             resize_height: int = 480,
              batch_size: int = 1,
-             num_workers: int = NUM_THREADS):
+             num_workers: int = NUM_THREADS,
+             device: Optional[str] = None,
+             out_file: Optional[str] = None):
     """
     Predict species using classifier model.
 
     Args:
         model: preloaded classifier model
         detections (mult): dataframe of (animal) detections, list of filepaths or filepath str
-        device (str): specify to run model on cpu or gpu, default to cpu
-        out_file (str): path to save prediction results to
+        resize_width (int): image width input size
+        resize_height (int): image height input size
         file_col (str): column name containing file paths
         crop (bool): use bbox to crop images before feeding into model
         normalize (bool): normalize the tensor before inference
-        resize_width (int): image width input size
-        resize_height (int): image height input size
         batch_size (int): data generator batch size
         num_workers (int): number of cores
+        device (str): specify to run model on cpu or gpu, default to cpu
+        out_file (str): path to save prediction results to
 
     Returns:
         detections (pd.DataFrame): MD detections with classifier prediction and confidence
@@ -243,6 +243,9 @@ def classify(model,
 
     # initialize lists
     raw_output = []
+
+    if not {file_col}.issubset(detections.columns):
+        raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
     # Manifest
     if isinstance(detections, pd.DataFrame):
@@ -337,7 +340,7 @@ def sequence_classification(animals: pd.DataFrame,
     Args:
         animals (pd.DataFrame): Sub-selection of all images that contain animals
         empty (Optional) (pd.DataFrame): Sub-selection of all images that do not contain animals
-        predictions (Numpy Array of Numpy Arrays): Logits of all entries in "animals"
+        predictions_raw (Numpy Array of Numpy Arrays): Logits of all entries in "animals"
         class_list (pd.DataFrame): class list associated with classifier model
         station_col (str): The name of the station column
         empty_class (str) (Optional): the name of class_list 'empty' label
@@ -365,6 +368,9 @@ def sequence_classification(animals: pd.DataFrame,
     if not isinstance(maxdiff, (int, float)) or maxdiff < 0:
         raise Exception("'maxdiff' must be a number >= 0")
 
+    if not {file_col}.issubset(animals.columns):
+        raise ValueError(f"DataFrame must contain '{file_col}' column.")
+
     if "conf" not in animals.columns:
         animals["conf"] = 1
 
@@ -381,9 +387,9 @@ def sequence_classification(animals: pd.DataFrame,
         predempty = pd.concat([pd.DataFrame(np.zeros((empty.shape[0], len(class_list)))), predempty], axis=1)
 
         if empty_class > "":
-            # replace md empty with empty col
-            predempty[empty_col] = predempty["empty"]
-            predempty = predempty.drop("empty", axis=1)
+            if 'empty' in predempty.columns:
+                predempty[empty_col] = predempty["empty"]
+                predempty = predempty.drop("empty", axis=1)
             class_list = pd.concat([class_list,
                                     pd.Series([x for x in empty["prediction"].unique() if x != "empty"])], ignore_index=True)
 

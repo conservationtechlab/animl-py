@@ -62,6 +62,9 @@ def extract_miew_embeddings(miew_model,
     if device is None:
         device = get_device()
 
+    if not {file_col}.issubset(manifest.columns):
+        raise ValueError(f"DataFrame must contain '{file_col}' column.")
+
     output = []
     if isinstance(manifest, pd.DataFrame):
         transform = Compose([Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),])

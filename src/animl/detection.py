@@ -7,12 +7,12 @@ parse_detections() converts json output into a dataframe
 """
 from typing import Optional
 import time
-import torch
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
 
+import torch
 from ultralytics import YOLO
 
 from animl import file_management
@@ -52,7 +52,6 @@ def load_detector(model_path: str,
                     m.recompute_scale_factor = None
         model = checkpoint['model'].float().fuse().eval()  # FP32 model
         model.model_type = "yolov5"
-    # TODO specify available model versions
     elif model_type.lower() in {"yolo", "mdv6", "mdv1000"}:
         model = YOLO(model_path, task='detect')
         model.model_type = "yolo"
