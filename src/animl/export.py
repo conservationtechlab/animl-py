@@ -166,6 +166,7 @@ def export_coco(manifest: pd.DataFrame,
     return None
 
 
+# TODO: TEST
 def export_timelapse(animals: pd.DataFrame,
                      empty: pd.DataFrame,
                      imagedir: str,
@@ -239,7 +240,8 @@ def export_timelapse(animals: pd.DataFrame,
 
 
 def export_megadetector(manifest: pd.DataFrame,
-                        output_file: Optional[str] = None):
+                        output_file: Optional[str] = None,
+                        detector: str = 'MegaDetector v5a'):
     """
     Converts the .csv file [input_file] to the MD-formatted .json file [output_file].
 
@@ -261,13 +263,9 @@ def export_megadetector(manifest: pd.DataFrame,
     if output_file is None:
         output_file = 'detections.json'
 
-    expected_columns = ('file', 'category', 'detection_conf',
-                        'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h',
-                        'class', 'classification_conf')
-
-    for s in expected_columns:
-        assert s in manifest.columns, \
-            'Expected column {} not found'.format(s)
+    if not {'file', 'category', 'conf', 'bbox_x', 'bbox_y',
+            'bbox_w', 'bbox_h', 'prediction', 'confidence'}.issubset(manifest.columns):
+        raise ValueError("DataFrame must contain bounding boxes and confidence.")
 
     classification_category_name_to_id = {}
     filename_to_results = {}
@@ -293,10 +291,10 @@ def export_megadetector(manifest: pd.DataFrame,
 
         detection = {}
         detection['category'] = detection_category_id
-        detection['conf'] = row['detection_conf']
+        detection['conf'] = row['conf']
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         detection['bbox'] = bbox
-        classification_category_name = row['class']
+        classification_category_name = row['prediction']
 
         # Have we seen this classification category before?
         if classification_category_name in classification_category_name_to_id:
@@ -307,7 +305,7 @@ def export_megadetector(manifest: pd.DataFrame,
             classification_category_name_to_id[classification_category_name] = \
                 classification_category_id
 
-        classifications = [[classification_category_id, row['classification_conf']]]
+        classifications = [[classification_category_id, row['confidence']]]
         detection['classifications'] = classifications
 
         im['detections'].append(detection)
@@ -316,7 +314,7 @@ def export_megadetector(manifest: pd.DataFrame,
 
     info = {}
     info['format_version'] = '3.0'
-    info['detector'] = 'Animl'
+    info['detector'] = detector
     info['classifier'] = 'Animl'
 
     results = {}

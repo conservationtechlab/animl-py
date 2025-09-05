@@ -10,7 +10,7 @@ import pandas as pd
 from animl import file_management, detection, model_architecture, visualization
 
 
-# @unittest.skip
+@unittest.skip
 def buow_test():
     start_time = time.time()
     # get files

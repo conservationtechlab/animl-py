@@ -142,8 +142,8 @@ def from_config(config: str):
 
     # get image dir and cuda defaults
     image_dir = cfg['image_dir']
-    device = cfg.get('device', get_device())
 
+    device = cfg.get('device', get_device())
     if device != 'cpu' and not torch.cuda.is_available():
         device = 'cpu'
 
@@ -177,7 +177,7 @@ def from_config(config: str):
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
-        detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'MDv5'), device=device)
+        detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'mdv5'), device=device)
         md_results = detection.detect(detector,
                                       all_frames,
                                       resize_height=model_architecture.MEGADETECTORv5_SIZE,
@@ -205,12 +205,12 @@ def from_config(config: str):
     class_list = classification.load_class_list(cfg['class_list'])
     classifier = classification.load_classifier(cfg['classifier_file'], len(class_list), device=device)
     predictions_raw = classification.classify(classifier, animals,
-                                              device=device,
-                                              resize_height=cfg.get('resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
-                                              resize_width=cfg.get('resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
+                                              resize_height=cfg.get('classifier_resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
+                                              resize_width=cfg.get('classifier_resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
                                               file_col=cfg.get('file_col_classification', 'frame'),
                                               batch_size=cfg.get('batch_size', 4),
                                               num_workers=cfg.get('num_workers', NUM_THREADS),
+                                              device=device,
                                               out_file=working_dir.predictions)
 
     # Convert predictions to labels
@@ -218,7 +218,7 @@ def from_config(config: str):
         manifest = classification.sequence_classification(animals, empty, predictions_raw,
                                                           class_list[cfg.get('class_label_col', 'class')],
                                                           station_col='station',
-                                                          empty_class="",
+                                                          empty_class=cfg['empty_class'],
                                                           sort_columns=["station", "datetime", "framenumber"],
                                                           file_col=cfg.get('file_col_classification', 'frame'),
                                                           maxdiff=60)

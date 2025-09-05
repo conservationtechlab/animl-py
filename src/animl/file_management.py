@@ -195,6 +195,7 @@ def save_json(data: dict,
     Args:
         data (dict): the dictionary to be saved
         out_file (str): full path to save file to
+        prompt (bool): prompt user to confirm overwrite
 
     Returns:
         None

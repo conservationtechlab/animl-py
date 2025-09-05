@@ -18,7 +18,7 @@ def predict_viewpoints(model,
 
     Args:
         model: viewpoint model object
-        data_loader: pd.DataFrame with columns 'filepath', 'camera', 'sequence'
+        manifest: pd.DataFrame with columns 'filepath', 'camera', 'sequence'
         device: run model on gpu or cpu, defaults to cpu
 
     Return:
