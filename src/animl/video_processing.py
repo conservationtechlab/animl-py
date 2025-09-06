@@ -62,7 +62,7 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
             if not ret:
                 break
             frame_name = filename + "-" + uniqueid + "-" + str(frame_capture) + '.jpg'
-            out_path = Path(str(out_dir)) / frame_name
+            out_path = out_dir + '/' + frame_name
             cv2.imwrite(out_path, frame)
             frames_saved.append([out_path, file_path, frame_capture])
             frame_capture += increment
@@ -75,7 +75,7 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
             if not ret:
                 break
             frame_name = filename + "-" + uniqueid + "-" + str(frame_capture) + '.jpg'
-            out_path = Path(str(out_dir)) / frame_name
+            out_path = out_dir + '/' + frame_name
             cv2.imwrite(out_path, frame)
             frames_saved.append([out_path, file_path, frame_capture])
             frame_capture += fps
@@ -122,7 +122,7 @@ def extract_frames(files: Union[str, pd.DataFrame, list[str]],
     if (fps is None) and (frames is None):
         raise AssertionError("Either fps or frames need to be defined.")
 
-    Path.mkdir(out_dir, exist_ok=True)
+    Path(out_dir).mkdir(exist_ok=True)
     images = files[files[file_col].apply(
         lambda x: Path(x).suffix.lower()).isin(file_management.IMAGE_EXTENSIONS)]
     images = images.assign(frame=images[file_col])

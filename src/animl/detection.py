@@ -5,6 +5,7 @@ Functions for loading MegaDetector, as well as custom YOLO models
 parse_detections() converts json output into a dataframe
 
 """
+import argparse
 from typing import Optional
 import time
 import numpy as np
@@ -16,6 +17,7 @@ import torch
 from ultralytics import YOLO
 
 from animl import file_management
+from animl.model_architecture import MEGADETECTORv5_SIZE
 from animl.generator import manifest_dataloader, image_to_tensor
 from animl.utils.general import normalize_boxes, xyxy2xywh, scale_letterbox, non_max_suppression, get_device
 
@@ -356,3 +358,31 @@ def parse_detections(results: list,
         file_management.save_data(df, out_file)
 
     return df
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Train deep learning model.')
+
+    parser.add_argument('detector', help='Path to detector file')
+    parser.add_argument('manifest', help='Path to manifest file')
+    parser.add_argument('output_path', help='Path to output file')
+
+    parser.add_argument('--model_type', nargs='?', help='Path to detector file', default='MDv5')
+    parser.add_argument('--resize_width', nargs='?', help='Path to config file', default=MEGADETECTORv5_SIZE)
+    parser.add_argument('--resize_height', nargs='?', help='Path to config file', default=MEGADETECTORv5_SIZE)
+    parser.add_argument('--letterbox', nargs='?', help='Path to config file', default=True)
+    parser.add_argument('--confidence_threshold', nargs='?', help='Path to config file', default=0.1)
+    parser.add_argument('--file_col', nargs='?', help='Path to config file', default='frame')
+    parser.add_argument('--batch_size', nargs='?', help='Path to config file', default=4)
+    parser.add_argument('--num_workers', nargs='?', help='Path to config file', default=4)
+    parser.add_argument('--device', nargs='?', help='Path to config file', default=get_device())
+
+    args = parser.parse_args()
+
+    detector = load_detector(args.detector, args.model_type)
+    manifest = file_management.load_data(args.manifest)
+
+    mdresults = detect(detector, manifest, args.resize_width, args.resize_height, args.letterbox,
+           confidence_threshold=args.confidence_threshold, file_col=args.file_col,
+           batch_size=args.batch_size, num_workers=args.num_workers, device=args.device)
+    results = parse_detections(mdresults, manifest=manifest, out_file=args.output_path)

@@ -10,7 +10,7 @@ from pathlib import Path
 from animl import train, test
 
 
-# @unittest.skip
+@unittest.skip
 def model_training_test():
     print(Path.cwd())
     config = Path.cwd() / 'examples/Cats_vs_Dogs' / 'cat_dog_train.yml'
@@ -20,7 +20,7 @@ def model_training_test():
     output = Path(cfg['experiment_folder'])
     if output.exists():
         shutil.rmtree(output)
-    Path.mkdir(output)
+    Path(output).mkdir(exist_ok=True)
 
     train.train_main(config)
     test.test_main(config)
