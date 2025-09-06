@@ -62,9 +62,9 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
             if not ret:
                 break
             frame_name = filename + "-" + uniqueid + "-" + str(frame_capture) + '.jpg'
-            out_path = out_dir + '/' + frame_name
+            out_path = str(out_dir) + '/' + frame_name
             cv2.imwrite(out_path, frame)
-            frames_saved.append([out_path, file_path, frame_capture])
+            frames_saved.append([out_path, str(file_path), frame_capture])
             frame_capture += increment
 
     else:  # select by fps
@@ -75,9 +75,9 @@ def extract_frame_single(file_path: Union[str, pd.DataFrame],
             if not ret:
                 break
             frame_name = filename + "-" + uniqueid + "-" + str(frame_capture) + '.jpg'
-            out_path = out_dir + '/' + frame_name
+            out_path = str(out_dir) + '/' + frame_name
             cv2.imwrite(out_path, frame)
-            frames_saved.append([out_path, file_path, frame_capture])
+            frames_saved.append([out_path, str(file_path), frame_capture])
             frame_capture += fps
 
     cap.release()
