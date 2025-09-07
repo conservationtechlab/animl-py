@@ -27,27 +27,28 @@ pip install animl
 
 ### Dependencies
 We recommend running AniML on GPU-enabled hardware. **If using an NVIDIA GPU, ensure driviers, cuda-toolkit and cudnn are installed.
-PyTorch will install these automatically if using a conda environment. 
-The /models/ and /utils/ modules are from the YOLOv5 repository.  https://github.com/ultralytics/yolov5
 
-**Python** <= 3.9
+**Python** >= 3.9
 
 **PyTorch** <br>
-Animl currently depends on torch <= 2.5.0.
+Animl currently depends on torch >= 2.6.0.
 To enable GPU, install the [CUDA-enabled version](https://pytorch.org/get-started/previous-versions/)
 
 Python Package Dependencies
-* numpy >= 1.26.4
-* onnxruntime-gpu == 1.18.0
-* pandas >= 2.2.2
-* panoptes_client >= 1.6.2
-* pillow > 10.3.0
-* opencv-python >= 4.10.0.82
-* scikit-learn >= 1.5.0
-* timm >= 1.0,
-* tqdm >= 4.66.4
-* wget >= 3.2
-
+* dill>=0.4.0
+* numpy>=2.0.2
+* onnxruntime-gpu>=1.19.2 
+* pandas>=2.2.2 
+* pillow>=11.0.0
+* opencv-python>=4.12.0.88 
+* scikit-learn>=1.5.2
+* timm>=1.0.9
+* torch>=2.6.0
+* torchaudio>=2.6.0
+* torchvision>=0.21.0
+* tqdm>=4.66.5
+* ultralytics>=8.3.95
+* wget>=3.2
 
 
 ### Verify Install 
@@ -101,7 +102,7 @@ allframes = animl.extract_frames(files, out_dir=workingdir.vidfdir, out_file=wor
 
 ```python
 detector = animl.load_detector('/path/to/mdmodel.pt', model_type="MDV5", device='cuda:0')
-mdresults = animl.detect(detector, allframes, resize_width=animl.MEGADETECTOR_SIZE, resize_height=animl.MEGADETECTOR_SIZE, 
+mdresults = animl.detect(detector, allframes, resize_width=animl.MEGADETECTORv5_SIZE, resize_height=animl.MEGADETECTORv5_SIZE, 
                          letterbox=True, file_col="frame", checkpoint_path=working_dir.mdraw, quiet=True)
 detections = animl.parse_detections(mdresults, manifest=all_frames, out_file=workingdir.detections)
 ```
@@ -139,8 +140,8 @@ manifest = animl.sequence_classification(animals, empty,
 
 8. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
 ```python
-csv_loc = animl.csv_converter(animals, empty, imagedir, only_animl = True)
-animl.animl_results_to_md_results(csv_loc, imagedir + "final_result.json")
+csv_loc = animl.export_timelapse(animals, empty, imagedir, only_animl = True)
+animl.export_megadetector(csv_loc, imagedir + "final_result.json")
 ```
 
 9. (OPTIONAL) Create symlinks within a given directory for file browser access.
@@ -157,7 +158,7 @@ Training workflows are still under development. Please submit Issues as you come
    This function splits each label proportionally by the given percentages, by default 0.7 training, 0.2 validation, 0.1 Test.
 ```python
 train, val, test, stats = animl.train_val_test(manifest, out_dir='path/to/save/data/', label_col="species",
-                   percentage=(0.7, 0.2, 0.1), seed=None)
+                                               percentage=(0.7, 0.2, 0.1), seed=None)
 ```
 
 2. Set up training configuration file. Specify the paths to the data splits from the previous step. See [config README]()
@@ -180,6 +181,10 @@ python -m animl.test --config /path/to/config.yaml
 # Models
 
 The Conservation Technology Lab has several models available for use. 
+You can use the download function within animl or access them here:
+```python
+animl.download_model(animl.CLASSIFIER['SDZWA_Andes_v1'],  out_dir: str = 'models/')
+```
 
 * Southwest United States [v3](https://sandiegozoo.box.com/s/0mait8k3san3jvet8251mpz8svqyjnc3)
 * [Amazon](https://sandiegozoo.box.com/s/dfc3ozdslku1ekahvz635kjloaaeopfl)
