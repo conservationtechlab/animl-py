@@ -173,7 +173,7 @@ def export_coco(manifest: pd.DataFrame,
 def export_timelapse(animals: pd.DataFrame,
                      empty: pd.DataFrame,
                      imagedir: str,
-                     only_animl: bool = True):
+                     only_animal: bool = True):
     '''
     Converts the Pandas DataFrame created by running the animl classsifier to a csv file that contains columns needed for TimeLapse conversion in later step
 
@@ -211,7 +211,7 @@ def export_timelapse(animals: pd.DataFrame,
     # Rename column names for clarity
     animals.rename(columns={'conf': 'detection_conf', 'prediction': 'class', 'confidence': 'classification_conf'}, inplace=True)
 
-    if only_animl:
+    if only_animal:
         # Saving animal results to csv file for conversion to timelapse compatible json
         animals.to_csv(Path(ICdir / "animals.csv"), index=False)
         # Saving non-animal csv entries for manual perusal

@@ -300,6 +300,7 @@ def classify(model,
 
 
 def single_classification(animals: pd.DataFrame,
+                          empty: Optional[pd.DataFrame],
                           predictions_raw: np.array,
                           class_list: pd.DataFrame):
     """
@@ -316,7 +317,8 @@ def single_classification(animals: pd.DataFrame,
     class_list = pd.Series(class_list)
     animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
     animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
-    return animals
+    manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+    return manifest
 
 
 def sequence_classification(animals: pd.DataFrame,

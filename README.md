@@ -123,8 +123,8 @@ raw_predictions = animl.classify(classifier, animals, resize_width=480, resize_h
 
 7. Apply labels from class list with or without utilizing timestamp-based sequences.
 ```python
-animals = animl.single_classification(animals, raw_predictions, class_list['class'])
-manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+manifest = animl.single_classification(animals, empty, raw_predictions, class_list['class'])
+
 ```
 or 
 ```python
@@ -140,7 +140,7 @@ manifest = animl.sequence_classification(animals, empty,
 
 8. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
 ```python
-csv_loc = animl.export_timelapse(animals, empty, imagedir, only_animl = True)
+csv_loc = animl.export_timelapse(animals, empty, imagedir, only_animal = True)
 animl.export_megadetector(csv_loc, imagedir + "final_result.json")
 ```
 
