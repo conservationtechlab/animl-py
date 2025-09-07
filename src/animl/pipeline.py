@@ -40,6 +40,7 @@ def from_paths(image_dir: str,
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
     device = get_device()
+    batch_size = 4
 
     print("Searching directory...")
     # Create a working directory, build the file manifest from img_dir
@@ -70,8 +71,9 @@ def from_paths(image_dir: str,
                                       resize_height=model_architecture.MEGADETECTORv5_SIZE,
                                       resize_width=model_architecture.MEGADETECTORv5_SIZE,
                                       file_col="frame",
-                                      batch_size=4,
+                                      batch_size=batch_size,
                                       num_workers=NUM_THREADS,
+                                      device=device,
                                       checkpoint_path=working_dir.mdraw,
                                       checkpoint_frequency=5000)
         # Convert MD JSON to pandas dataframe, merge with manifest
@@ -96,7 +98,7 @@ def from_paths(image_dir: str,
                                               resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
                                               resize_width=model_architecture.SDZWA_CLASSIFIER_SIZE,
                                               file_col="frame",
-                                              batch_size=4,
+                                              batch_size=batch_size,
                                               num_workers=NUM_THREADS,
                                               out_file=working_dir.predictions)
     if sequence:
@@ -185,6 +187,7 @@ def from_config(config: str):
                                       file_col=cfg.get('file_col_detection', 'frame'),
                                       batch_size=cfg.get('batch_size', 4),
                                       num_workers=cfg.get('num_workers', NUM_THREADS),
+                                      device=device,
                                       checkpoint_path=working_dir.mdraw,
                                       checkpoint_frequency=cfg.get('checkpoint_frequency', -1))
         # Convert MD JSON to pandas dataframe, merge with manifest

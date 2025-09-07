@@ -5,6 +5,7 @@ Provides functions for creating, removing, and updating sorted symlinks.
 
 @ Kyra Swanson 2023
 """
+import os
 import pandas as pd
 from typing import Optional
 from shutil import copy2
@@ -92,7 +93,9 @@ def export_folders(manifest: pd.DataFrame,
             if copy:  # make a hard copy
                 copy2(row[file_col], link)
             else:  # make a hard
-                Path(link).symlink_to(row[file_col])
+                os.link(row[file_col], link)
+                
+                #Path(link).symlink_to(row[file_col])
 
     if out_file:
         manifest.to_csv(out_file, index=False)

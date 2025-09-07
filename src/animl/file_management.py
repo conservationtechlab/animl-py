@@ -118,7 +118,7 @@ class WorkingDirectory():
     # pylint: disable=too-many-instance-attributes
     def __init__(self, working_dir):
         if not isinstance(working_dir, PosixPath):
-            working_dir = Path(r"" + working_dir)  # OS-agnostic path
+            working_dir = Path(working_dir)  # OS-agnostic path
         if not working_dir.is_dir():
             raise FileNotFoundError(f"The given directory: {working_dir}, does not exist.")
 
@@ -167,7 +167,10 @@ def save_data(data: pd.DataFrame,
         if input(prompt).lower() != "y":
             return
     else:
-        data.to_csv(out_file, index=False)
+        if Path(out_file).parent.exists():
+            data.to_csv(out_file, index=False)
+        else:
+            raise AssertionError('Cannot save, directory does not exis.')
 
 
 def load_data(file: str) -> pd.DataFrame:
