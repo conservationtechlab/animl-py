@@ -27,27 +27,28 @@ pip install animl
 
 ### Dependencies
 We recommend running AniML on GPU-enabled hardware. **If using an NVIDIA GPU, ensure driviers, cuda-toolkit and cudnn are installed.
-PyTorch will install these automatically if using a conda environment. 
-The /models/ and /utils/ modules are from the YOLOv5 repository.  https://github.com/ultralytics/yolov5
 
-**Python** <= 3.9
+**Python** >= 3.9
 
 **PyTorch** <br>
-Animl currently depends on torch <= 2.5.0.
+Animl currently depends on torch >= 2.6.0.
 To enable GPU, install the [CUDA-enabled version](https://pytorch.org/get-started/previous-versions/)
 
 Python Package Dependencies
-* numpy >= 1.26.4
-* onnxruntime-gpu == 1.18.0
-* pandas >= 2.2.2
-* panoptes_client >= 1.6.2
-* pillow > 10.3.0
-* opencv-python >= 4.10.0.82
-* scikit-learn >= 1.5.0
-* timm >= 1.0,
-* tqdm >= 4.66.4
-* wget >= 3.2
-
+* dill>=0.4.0
+* numpy>=2.0.2
+* onnxruntime-gpu>=1.19.2 
+* pandas>=2.2.2 
+* pillow>=11.0.0
+* opencv-python>=4.12.0.88 
+* scikit-learn>=1.5.2
+* timm>=1.0.9
+* torch>=2.6.0
+* torchaudio>=2.6.0
+* torchvision>=0.21.0
+* tqdm>=4.66.5
+* ultralytics>=8.3.95
+* wget>=3.2
 
 
 ### Verify Install 
@@ -79,62 +80,73 @@ The sandbox.ipynb notebook has all of these steps available for further explorat
 
 1. It is recommended that you use the animl working directory for storing intermediate steps.
 ```python
-from animl import file_management
-workingdir = file_management.WorkingDirectory('/path/to/save/data')
+import animl
+workingdir = animl.WorkingDirectory('/path/to/save/data')
 ```
 
 2. Build the file manifest of your given directory. This will find both images and videos.
 ```python
-files = file_management.build_file_manifest('/path/to/images',  out_file=workingdir.filemanifest, exif=True)
+files = animl.build_file_manifest('/path/to/images', out_file=workingdir.filemanifest, exif=True)
 ```
 
 3. If there are videos, extract individual frames for processing.
    Select either the number of frames or fps using the argumments.
    The other option can be set to None or removed.
 ```python
-from animl import video_processing
-allframes = video_processing.extract_frames(files, out_dir=workingdir.vidfdir, out_file=workingdir.imageframes,
-                                            parallel=True, frames=3, fps=None)
+allframes = animl.extract_frames(files, out_dir=workingdir.vidfdir, out_file=workingdir.imageframes,
+                                 parallel=True, frames=3, fps=None)
 ```
 
 4. Pass all images into MegaDetector. We recommend [MDv5a](https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt).
    The function parse_MD will convert the json to a pandas DataFrame and merge detections with the original file manifest, if provided.
 
 ```python
-from animl import detect, megadetector
-detector = megadetector.MegaDetector('/path/to/mdmodel.pt', device='cuda:0')
-mdresults = detect.detect_MD_batch(detector, allframes, file_col="Frame",  checkpoint_path=working_dir.mdraw, quiet=True)
-detections = detect.parse_MD(mdresults, manifest=all_frames, out_file=workingdir.detections)
+detector = animl.load_detector('/path/to/mdmodel.pt', model_type="MDV5", device='cuda:0')
+mdresults = animl.detect(detector, allframes, resize_width=animl.MEGADETECTORv5_SIZE, resize_height=animl.MEGADETECTORv5_SIZE, 
+                         letterbox=True, file_col="frame", checkpoint_path=working_dir.mdraw, quiet=True)
+detections = animl.parse_detections(mdresults, manifest=all_frames, out_file=workingdir.detections)
 ```
 
 5. For speed and efficiency, extract the empty/human/vehicle detections before classification.
 ```python
-from animl import split
-animals = split.get_animals(detections)
-empty = split.get_empty(detections)
+animals = animl.get_animals(detections)
+empty = animl.get_empty(detections)
 ```
 6. Classify using the appropriate species model. Merge the output with the rest of the detections
    if desired.
 ```python
-from animl import classifiers, inference
-classifier, class_list = classifiers.load_model('/path/to/model', '/path/to/classlist.txt', device='cuda:0')
-animals = inference.predict_species(animals, classifier, class_list, file_col="Frame",
-                                    batch_size=4, out_file=working_dir.predictions)
-manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+class_list = animl.load_class_list('/path/to/classlist.txt')
+classifier = animl.load_classifier('/path/to/model', len(class_list), device='cuda:0')
+raw_predictions = animl.classify(classifier, animals, resize_width=480, resize_height=480, 
+                                 file_col="frame", batch_size=4, out_file=working_dir.predictions)
 ```
 
-7. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
-
+7. Apply labels from class list with or without utilizing timestamp-based sequences.
 ```python
-from animl import timelapse, animl_results_to_md_results
-csv_loc = timelapse.csv_converter(animals, empty, imagedir, only_animl = True)
-animl_results_to_md_results.animl_results_to_md_results(csv_loc, imagedir + "final_result.json")
+manifest = animl.single_classification(animals, empty, raw_predictions, class_list['class'])
+
+```
+or 
+```python
+manifest = animl.sequence_classification(animals, empty, 
+                                         raw_predictions,
+                                         class_list['class'],
+                                         station_col='station',
+                                         empty_class="",
+                                         sort_columns=None,
+                                         file_col="filepath",
+                                         maxdiff=60)
 ```
 
-8. (OPTIONAL) Create symlinks within a given directory for file browser access.
+8. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
 ```python
-manifest = link.sort_species(manifest, working_dir.linkdir)
-file_management.save_data(manifest, working_dir.results)
+csv_loc = animl.export_timelapse(animals, empty, imagedir, only_animal = True)
+animl.export_megadetector(csv_loc, imagedir + "final_result.json")
+```
+
+9. (OPTIONAL) Create symlinks within a given directory for file browser access.
+```python
+manifest = animl.export_folders(manifest, out_dir=working_dir.linkdir, out_file=working_dir.results)
 ```
 
 ---
@@ -145,49 +157,11 @@ Training workflows are still under development. Please submit Issues as you come
 1. Assuming a file manifest of training data with species labels, first split the data into training, validation and test splits.
    This function splits each label proportionally by the given percentages, by default 0.7 training, 0.2 validation, 0.1 Test.
 ```python
-from animl import split
-train, val, test, stats = split.train_val_test(manifest, out_dir='path/to/save/data/', label_col="species",
-                   percentage=(0.7, 0.2, 0.1), seed=None)
+train, val, test, stats = animl.train_val_test(manifest, out_dir='path/to/save/data/', label_col="species",
+                                               percentage=(0.7, 0.2, 0.1), seed=None)
 ```
 
-2. Set up training configuration file. Specify the paths to the data splits from the previous step. Example .yaml file:
-```
-seed: 28  # random number generator seed (long integer value)
-device: cuda:0  # set to local gpu device 
-num_workers: 8  # number of cores
-
-# dataset parameters
-num_classes: 53 # might need to be adjusted based on the classes file
-training_set: "/path/to/save/train_data.csv"
-validate_set: "/path/to/save/validate_data.csv"
-test_set: "/path/to/save/test_data.csv"
-class_file: "/home/usr/machinelearning/Models/Animl-Test/test_classes.txt" 
-
-# training hyperparameters
-architecture: "efficientnet_v2_m" # or choose "convnext_base"
-image_size: [299, 299]
-batch_size: 16
-num_epochs: 100
-checkpoint_frequency: 10
-patience: 10 # remove from config file to disable
-learning_rate: 0.003
-weight_decay: 0.001
-
-# overwrite .pt files
-overwrite: False
-experiment_folder: '/home/usr/machinelearning/Models/Animl-Test/'
-
-# model to test
-active_model: '/home/usr/machinelearning/Models/Animl-Test/best.pt' 
-```
-
-class_file refers to a flle that contains index,label pairs. For example:<br>
-test_class.txt
-```
-id,class,Species,Common
-1,cat, Felis catus, domestic cat
-2,dog, Canis familiaris, domestic dog
-```
+2. Set up training configuration file. Specify the paths to the data splits from the previous step. See [config README]()
 
 3. (Optional) Update train.py to include MLOPS connection. 
 
@@ -207,6 +181,10 @@ python -m animl.test --config /path/to/config.yaml
 # Models
 
 The Conservation Technology Lab has several models available for use. 
+You can use the download function within animl or access them here:
+```python
+animl.download_model(animl.CLASSIFIER['SDZWA_Andes_v1'],  out_dir: str = 'models/')
+```
 
 * Southwest United States [v3](https://sandiegozoo.box.com/s/0mait8k3san3jvet8251mpz8svqyjnc3)
 * [Amazon](https://sandiegozoo.box.com/s/dfc3ozdslku1ekahvz635kjloaaeopfl)

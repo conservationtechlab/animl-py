@@ -1,6 +1,6 @@
 [project]
 name = "animl"  
-version = "2.0.0"
+version = "3.0.0"
 description = "Tools for classifying camera trap images"  
 
 readme = "README.md" 
@@ -9,17 +9,21 @@ keywords = ["camera trap", "ecology", "conservation", "zoo", "SDZWA", "conservat
 
 authors = [{name = "Kyra Swanson", email = "tswanson@sdzwa.org" }]
 
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
-    "numpy==1.26.4", 
-    "onnxruntime-gpu==1.19.2", 
-    "pandas==2.2.2", 
-    "pillow==10.4.0", 
-    "opencv-python==4.10.0.84", 
-    "scikit-learn==1.5.2", 
-    "timm==1.0.9",
+    "dill>=0.4.0",
+    "numpy>=2.0.2", 
+    "onnxruntime-gpu>=1.19.2", 
+    "pandas>=2.2.2", 
+    "pillow>=11.0.0", 
+    "opencv-python>=4.12.0.88", 
+    "scikit-learn>=1.5.2", 
+    "timm>=1.0.9",
+    "torch>=2.6.0",
+    "torchaudio>=2.6.0",
+    "torchvision>=0.21.0",
     "tqdm>=4.66.5",
-    "ultralytics==8.3.95",
+    "ultralytics>=8.3.95",
     "wget>=3.2"
 ]
 

@@ -1,10 +1,14 @@
 """
 Tools for splitting the data for different workflows
+
+@ Kyra Swanson 2023
 """
 import pandas as pd
 import numpy as np
 from math import fsum
 from typing import Optional, Tuple
+
+from animl.file_management import save_data
 
 
 def get_animals(manifest: pd.DataFrame):
@@ -12,76 +16,25 @@ def get_animals(manifest: pd.DataFrame):
     Pulls MD animal detections for classification
 
     Args:
-        - manifest: DataFrame containing one row for ever MD detection
+        manifest (pd.DataFrame): DataFrame containing one row for every MD detection
 
     Returns:
         subset of manifest containing only animal detections
     """
-    if not isinstance(manifest, pd.DataFrame):
-        raise AssertionError("'manifest' must be DataFrame.")
     return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
 
 
-def get_animals_custom(manifest, prediction_dict):
-    """
-    Pulls MD animal custom detections for classification.
-
-    Args:
-        manifest (pd.DataFrame): DataFrame containing one row for every MD detection.
-        prediction_dict (dict, optional): Mapping for converting detection category numbers to labels.
-
-    Returns:
-        pd.DataFrame: Subset of manifest containing only animal detections.
-    """
-    if not isinstance(manifest, pd.DataFrame):
-        raise AssertionError("'manifest' must be DataFrame.")
-
-    # Convert 'category' to integer.
-    manifest['prediction'] = manifest['category'].astype(int)
-    mapping = {int(k): v for k, v in prediction_dict.items()}
-    manifest['prediction'] = manifest['prediction'].replace(mapping)
-    manifest['prediction'] = manifest['prediction'].astype(str)
-
-    manifest.loc[manifest['max_detection_conf'].isna(), 'prediction'] = "empty"
-    animal_manifest = manifest[manifest['prediction'] != "empty"].reset_index(drop=True)
-    return animal_manifest
-
-
-def get_empty_custom(manifest):
-    """
-    Pulls MD non-animal detections.
-
-    Args:
-        manifest (pd.DataFrame): DataFrame containing one row for every MD detection.
-
-    Returns:
-        pd.DataFrame: Subset of manifest containing empty, vehicle, and human detections,
-                      with added 'prediction' and 'confidence' columns. If a detection has no
-                      confidence value, it is labeled as "empty".
-    """
-    if not isinstance(manifest, pd.DataFrame):
-        raise AssertionError("'manifest' must be DataFrame.")
-
-    # If the confidence value is missing (NaN), treat that detection as "empty".
-    manifest.loc[manifest['max_detection_conf'].isna(), 'prediction'] = "empty"
-
-    return manifest
-
-
-def get_empty(manifest):
+def get_empty(manifest: pd.DataFrame):
     """
     Pulls MD non-animal detections
 
     Args:
-        - manifest: DataFrame containing one row for ever MD detection
+        manifest (pd.DataFrame): DataFrame containing one row for every MD detection
 
     Returns:
-        subset of manifest containing empty, vehicle and human detections
+        otherdf: subset of manifest containing empty, vehicle and human detections
         with added prediction and confidence columns
     """
-    if not isinstance(manifest, pd.DataFrame):
-        raise AssertionError("'manifest' must be DataFrame.")
-
     # Removes all images that MegaDetector gave no detection for
     otherdf = manifest[manifest['category'].astype(int) != 1].reset_index(drop=True)
     otherdf['prediction'] = otherdf['category'].astype(int)
@@ -100,29 +53,31 @@ def get_empty(manifest):
     return otherdf
 
 
+# TODO: IMPROVE
 def train_val_test(manifest: pd.DataFrame,
                    out_dir: Optional[str] = None,
-                   label_col: str = "species",
-                   file_col: str = 'FilePath',
+                   label_col: str = "class",
+                   file_col: str = 'filepath',
                    percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
                    seed: Optional[int] = None):
     '''
-    Splits the manifest into training. validation and test dataets for training
+    Splits the manifest into Training, Validation, and Test Datasets for training
 
     Credit: Unduwap Kandage-Don
 
     Args:
-        - manifest (DataFrame): list of files to split for training
-        - out_dir (str): location to save split lists to
-        - label_col (str): column name containing class labels
-        - percentage (tuple): fraction of data dedicated to train-val-test
-        - seed (int): RNG seed, if none will pick one at random within [0,100]
+        manifest (DataFrame): list of files to split for training
+        out_dir (str): location to save split lists to
+        label_col (str): column name containing class labels
+        file_col (str): column containing file paths
+        percentage (tuple): fraction of data dedicated to train-val-test
+        seed (int): RNG seed, if none will pick one at random within [0,100]
 
     Returns:
-        - train
-        - validate
-        - test
-        - stats
+        train manifest
+        validate manifest
+        test manifest
+        stats file
     '''
     if seed is None:
         seed = np.random.randint(0, 100)
@@ -180,12 +135,11 @@ def train_val_test(manifest: pd.DataFrame,
              "train": trainCtArr, "test": testCtArr, "validation": valCtArr}
 
     if out_dir is not None:
-        statsdf = pd.DataFrame(stats)
-        statsdf.to_csv(out_dir + "/data_split.csv")
+        save_data(pd.DataFrame(stats), out_dir + "/data_split.csv")
 
         # save to csv
-        train.to_csv(out_dir + "/train_data.csv")
-        validate.to_csv(out_dir + "/validate_data.csv")
-        test.to_csv(out_dir + "/test_data.csv")
+        save_data(train, out_dir + "/train_data.csv")
+        save_data(validate, out_dir + "/validate_data.csv")
+        save_data(test, out_dir + "/test_data.csv")
 
     return train, validate, test, stats

@@ -1,77 +1,70 @@
 '''
-    Main script.
+Main script.
 
-    Runs full animl workflow on a given directory.
-    User must provide MegaDetector, Classifier, and Class list files,
-    otherwise will pull MDv5 and the CTL Southwest v2 models by default.
+Runs full animl workflow on a given directory.
+User must provide MegaDetector, Classifier, and Class list files,
+otherwise will pull MDv5 and the CTL Southwest v2 models by default.
 
-    Usage example
-    > python -m animl /home/usr/animl-py/examples/Southwest/
+Usage example
+> python -m animl /home/usr/animl-py/examples/Southwest/
 
-    OR
+OR
 
-    > python -m animl /image/dir megadetector.pt classifier.h5 class_file.csv
+> python -m animl /image/dir megadetector.pt classifier.pt class_file.csv
 
-    Paths to model files must be edited to local machine.
+Paths to model files must be edited to local machine.
 
-    @ Kyra Swanson, 2023
+@ Kyra Swanson, 2023
 '''
+import time
 import argparse
-import os
-import wget
+from pathlib import Path
+
 from animl import pipeline
+import animl.models.download as models
+
+# Start timer
+start_time = time.time()
 
 # IF RUN FROM COMMAND LINE
 parser = argparse.ArgumentParser(description='Folder locations for the main script')
-home = os.path.join(os.getcwd(), 'models')
+home =  Path.cwd() / 'models'
 # Create and parse arguements
 parser.add_argument('imagedir_config', type=str,
                     help='Path to Image Directory or Config File')
 parser.add_argument('--detector', type=str, nargs='?',
                     help='Path to MD model',
-                    default=os.path.join(home, 'md_v5a.0.0.pt'))
+                    default=Path(home / 'md_v5a.0.0.pt'))
 parser.add_argument('--classifier', type=str, nargs='?',
                     help='Path to Class model',
-                    default=os.path.join(home, 'sdzwa_southwest_v3.pt'))
+                    default=Path(home / 'sdzwa_southwest_v3.pt'))
 parser.add_argument('--classlist', type=str, nargs='?',
                     help='Path to class list',
-                    default=os.path.join(home, 'sdzwa_southwest_v3_classes.csv'))
+                    default=Path(home / 'sdzwa_southwest_v3_classes.csv'))
 args = parser.parse_args()
 
 # first argument is config file
-if os.path.isfile(args.imagedir_config):
-    pipeline.main_config(args.imagedir_config)
+if Path(args.imagedir_config).is_file():
+    pipeline.from_config(args.imagedir_config)
 
 # first argument is a directory
 else:
-    prompt = "megadetector or custom yolo? m/c: "
-    if input(prompt).lower() == "m":
-        if not os.path.isfile(args.detector):
-            prompt = "MegaDetector not found, would you like to download? y/n: "
-            if input(prompt).lower() == "y":
-                if not os.path.isdir(home):
-                    os.mkdir(home)
-                print('Saving to', home)
-                wget.download('https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt', out=home)
-    elif input(prompt).lower() == "c":
-        args.detector = "C"
+    if not Path(args.detector).is_file():
+        prompt = "MegaDetector not found, would you like to download? y/n: "
+        if input(prompt).lower() == "y":
+            models.download_model(models.MEGADETECTOR['MDV5a'], out_dir=home)
 
-    if not os.path.isfile(args.classifier):
+    if not Path(args.classifier).is_file():
         prompt = "Classifier not found, would you like to download Southwest_v3? y/n: "
         if input(prompt).lower() == "y":
-            if not os.path.isdir(home):
-                os.mkdir(home)
-            print('Saving to', home)
-            wget.download('https://sandiegozoo.box.com/shared/static/ucbk8kc2h3qu15g4xbg0nvbghvo1cl97.pt',
-                          out=home)
+            models.download_model(models.CLASSIFIER['SDZWA_Southwest_v3'], out_dir=home)
 
-    if not os.path.isfile(args.classlist):
+    if not Path(args.classlist).is_file():
         prompt = "Class list not found, would you like to download Southwest_v3? y/n: "
         if input(prompt).lower() == "y":
-            if not os.path.isdir(home):
-                os.mkdir(home)
-            print('Saving to', home)
-            wget.download('https://sandiegozoo.box.com/shared/static/tetfkotf295espoaw8jyco4tk1t0trtt.csv',
-                          out=home)
+            models.download_model(models.CLASS_LIST['SDZWA_Southwest_v3'], out_dir=home)
+
     # Call the main function
     pipeline.from_paths(args.imagedir_config, args.detector, args.classifier, args.classlist)
+
+print(f"Pipeline took {time.time() - start_time:.2f} seconds")

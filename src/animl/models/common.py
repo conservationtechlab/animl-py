@@ -1,17 +1,15 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
-Common modules
-"""
+YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 
-import json
+Common modules
+Required for MDv5
+
+"""
 import math
-import platform
 import warnings
-from collections import OrderedDict, namedtuple
 from copy import copy
 from pathlib import Path
 
-import cv2
 import numpy as np
 import pandas as pd
 import requests
@@ -22,10 +20,9 @@ from PIL import Image
 from torch.cuda import amp
 
 
-from animl.utils.augmentations import exif_transpose, letterbox
-from animl.utils.general import (LOGGER, check_requirements, check_suffix, check_version, increment_path,
-                           make_divisible, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh)
-from animl.utils.torch_utils import copy_attr, time_sync
+from animl.utils.general import (increment_path, make_divisible, non_max_suppression, 
+                                 scale_coords, xywhc2xyxy, xyxyc2xywh, exif_transpose, letterbox,
+                                 copy_attr, time_sync)
 
 
 def autopad(k, p=None):  # kernel, padding
@@ -33,6 +30,17 @@ def autopad(k, p=None):  # kernel, padding
     if p is None:
         p = k // 2 if isinstance(k, int) else [x // 2 for x in k]  # auto-pad
     return p
+
+
+def check_suffix(file='yolov5s.pt', suffix=('.pt',), msg=''):
+    # Check file(s) for acceptable suffix
+    if file and suffix:
+        if isinstance(suffix, str):
+            suffix = [suffix]
+        for f in file if isinstance(file, (list, tuple)) else [file]:
+            s = Path(f).suffix.lower()  # file suffix
+            if len(s):
+                assert s in suffix, f"{msg}{f} acceptable suffix is {suffix}"
 
 
 class Conv(nn.Module):
@@ -335,107 +343,9 @@ class DetectMultiBackend(nn.Module):
             stride = max(int(model.stride.max()), 32)  # model stride
             names = model.module.names if hasattr(model, 'module') else model.names  # get class names
             model.half() if fp16 else model.float()
-            self.model = model  # explicitly assign for to(), cpu(), cuda(), half()
-        elif jit:  # TorchScript
-            LOGGER.info(f'Loading {w} for TorchScript inference...')
-            extra_files = {'config.txt': ''}  # model metadata
-            model = torch.jit.load(w, _extra_files=extra_files)
-            model.half() if fp16 else model.float()
-            if extra_files['config.txt']:
-                d = json.loads(extra_files['config.txt'])  # extra_files dict
-                stride, names = int(d['stride']), d['names']
-        elif dnn:  # ONNX OpenCV DNN
-            LOGGER.info(f'Loading {w} for ONNX OpenCV DNN inference...')
-            check_requirements(('opencv-python>=4.5.4',))
-            net = cv2.dnn.readNetFromONNX(w)
-        elif onnx:  # ONNX Runtime
-            LOGGER.info(f'Loading {w} for ONNX Runtime inference...')
-            cuda = torch.cuda.is_available()
-            check_requirements(('onnx', 'onnxruntime-gpu' if cuda else 'onnxruntime'))
-            import onnxruntime
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if cuda else ['CPUExecutionProvider']
-            session = onnxruntime.InferenceSession(w, providers=providers)
-            meta = session.get_modelmeta().custom_metadata_map  # metadata
-            if 'stride' in meta:
-                stride, names = int(meta['stride']), eval(meta['names'])
-        elif xml:  # OpenVINO
-            LOGGER.info(f'Loading {w} for OpenVINO inference...')
-            check_requirements(('openvino',))  # requires openvino-dev: https://pypi.org/project/openvino-dev/
-            from openvino.runtime import Core
-            ie = Core()
-            if not Path(w).is_file():  # if not *.xml
-                w = next(Path(w).glob('*.xml'))  # get *.xml file from *_openvino_model dir
-            network = ie.read_model(model=w, weights=Path(w).with_suffix('.bin'))
-            executable_network = ie.compile_model(model=network, device_name="CPU")
-            output_layer = next(iter(executable_network.outputs))
-            meta = Path(w).with_suffix('.yaml')
-            if meta.exists():
-                stride, names = self._load_metadata(meta)  # load metadata
-        elif engine:  # TensorRT
-            LOGGER.info(f'Loading {w} for TensorRT inference...')
-            import tensorrt as trt  # https://developer.nvidia.com/nvidia-tensorrt-download
-            check_version(trt.__version__, '7.0.0', hard=True)  # require tensorrt>=7.0.0
-            Binding = namedtuple('Binding', ('name', 'dtype', 'shape', 'data', 'ptr'))
-            logger = trt.Logger(trt.Logger.INFO)
-            with open(w, 'rb') as f, trt.Runtime(logger) as runtime:
-                model = runtime.deserialize_cuda_engine(f.read())
-            bindings = OrderedDict()
-            fp16 = False  # default updated below
-            for index in range(model.num_bindings):
-                name = model.get_binding_name(index)
-                dtype = trt.nptype(model.get_binding_dtype(index))
-                shape = tuple(model.get_binding_shape(index))
-                data = torch.from_numpy(np.empty(shape, dtype=np.dtype(dtype))).to(device)
-                bindings[name] = Binding(name, dtype, shape, data, int(data.data_ptr()))
-                if model.binding_is_input(index) and dtype == np.float16:
-                    fp16 = True
-            binding_addrs = OrderedDict((n, d.ptr) for n, d in bindings.items())
-            context = model.create_execution_context()
-            batch_size = bindings['images'].shape[0]
-        elif coreml:  # CoreML
-            LOGGER.info(f'Loading {w} for CoreML inference...')
-            import coremltools as ct
-            model = ct.models.MLModel(w)
-        else:  # TensorFlow (SavedModel, GraphDef, Lite, Edge TPU)
-            if saved_model:  # SavedModel
-                LOGGER.info(f'Loading {w} for TensorFlow SavedModel inference...')
-                import tensorflow as tf
-                keras = False  # assume TF1 saved_model
-                model = tf.keras.models.load_model(w) if keras else tf.saved_model.load(w)
-            elif pb:  # GraphDef https://www.tensorflow.org/guide/migrate#a_graphpb_or_graphpbtxt
-                LOGGER.info(f'Loading {w} for TensorFlow GraphDef inference...')
-                import tensorflow as tf
-
-                def wrap_frozen_graph(gd, inputs, outputs):
-                    x = tf.compat.v1.wrap_function(lambda: tf.compat.v1.import_graph_def(gd, name=""), [])  # wrapped
-                    ge = x.graph.as_graph_element
-                    return x.prune(tf.nest.map_structure(ge, inputs), tf.nest.map_structure(ge, outputs))
-
-                gd = tf.Graph().as_graph_def()  # graph_def
-                with open(w, 'rb') as f:
-                    gd.ParseFromString(f.read())
-                frozen_func = wrap_frozen_graph(gd, inputs="x:0", outputs="Identity:0")
-            elif tflite or edgetpu:  # https://www.tensorflow.org/lite/guide/python#install_tensorflow_lite_for_python
-                try:  # https://coral.ai/docs/edgetpu/tflite-python/#update-existing-tf-lite-code-for-the-edge-tpu
-                    from tflite_runtime.interpreter import Interpreter, load_delegate
-                except ImportError:
-                    import tensorflow as tf
-                    Interpreter, load_delegate = tf.lite.Interpreter, tf.lite.experimental.load_delegate,
-                if edgetpu:  # Edge TPU https://coral.ai/software/#edgetpu-runtime
-                    LOGGER.info(f'Loading {w} for TensorFlow Lite Edge TPU inference...')
-                    delegate = {
-                        'Linux': 'libedgetpu.so.1',
-                        'Darwin': 'libedgetpu.1.dylib',
-                        'Windows': 'edgetpu.dll'}[platform.system()]
-                    interpreter = Interpreter(model_path=w, experimental_delegates=[load_delegate(delegate)])
-                else:  # Lite
-                    LOGGER.info(f'Loading {w} for TensorFlow Lite inference...')
-                    interpreter = Interpreter(model_path=w)  # load TFLite model
-                interpreter.allocate_tensors()  # allocate
-                input_details = interpreter.get_input_details()  # inputs
-                output_details = interpreter.get_output_details()  # outputs
-            elif tfjs:
-                raise Exception('ERROR: YOLOv5 TF.js inference is not supported')
+            self.model = model  # explicitly assign for to(), cpu(), cuda(), half(
+        else:
+            raise Exception('ERROR: Only torch inference is supported')
         self.__dict__.update(locals())  # assign all variables to self
 
     def forward(self, im, augment=False, visualize=False, val=False):
@@ -466,7 +376,7 @@ class DetectMultiBackend(nn.Module):
             # im = im.resize((192, 320), Image.ANTIALIAS)
             y = self.model.predict({'image': im})  # coordinates are xywh normalized
             if 'confidence' in y:
-                box = xywh2xyxy(y['coordinates'] * [[w, h, w, h]])  # xyxy pixels
+                box = xywhc2xyxy(y['coordinates'] * [[w, h, w, h]])  # xyxy pixels
                 conf, cls = y['confidence'].max(1), y['confidence'].argmax(1).astype(np.float)
                 y = np.concatenate((box, conf.reshape(-1, 1), cls.reshape(-1, 1)), 1)
             else:
@@ -537,7 +447,7 @@ class AutoShape(nn.Module):
     def __init__(self, model, verbose=True):
         super().__init__()
         if verbose:
-            LOGGER.info('Adding AutoShape... ')
+            print('Adding AutoShape... ')
         copy_attr(self, model, include=('yaml', 'nc', 'hyp', 'names', 'stride', 'abc'), exclude=())  # copy attributes
         self.dmb = isinstance(model, DetectMultiBackend)  # DetectMultiBackend() instance
         self.pt = not self.dmb or model.pt  # PyTorch model
@@ -629,7 +539,7 @@ class Detections:
         self.files = files  # image filenames
         self.times = times  # profiling times
         self.xyxy = pred  # xyxy pixels
-        self.xywh = [xyxy2xywh(x) for x in pred]  # xywh pixels
+        self.xywh = [xyxyc2xywh(x) for x in pred]  # xywh pixels
         self.xyxyn = [x / g for x, g in zip(self.xyxy, gn)]  # xyxy normalized
         self.xywhn = [x / g for x, g in zip(self.xywh, gn)]  # xywh normalized
         self.n = len(self.pred)  # number of images (batch size)
@@ -693,14 +603,3 @@ class Classify(nn.Module):
     def forward(self, x):
         z = torch.cat([self.aap(y) for y in (x if isinstance(x, list) else [x])], 1)  # cat if list
         return self.flat(self.conv(z))  # flatten to x(b,c2)
-
-
-# FROM autoanchor.py
-def check_anchor_order(m):
-    # Check anchor order against stride order for YOLOv5 Detect() module m, and correct if necessary
-    a = m.anchors.prod(-1).mean(-1).view(-1)  # mean anchor area per output layer
-    da = a[-1] - a[0]  # delta a
-    ds = m.stride[-1] - m.stride[0]  # delta s
-    if da and (da.sign() != ds.sign()):  # same order
-        LOGGER.info(f'{PREFIX}Reversing anchor order')
-        m.anchors[:] = m.anchors.flip(0)

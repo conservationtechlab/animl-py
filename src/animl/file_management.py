@@ -1,24 +1,23 @@
 """
-    File Management Module
+File Management Module
 
-    This module provides functions and classes for managing files and directories.
+This module provides functions and classes for managing files and directories.
 
-    @ Kyra Swanson 2023
+@ Kyra Swanson 2023
 """
-import os
-from pathlib import Path
-from glob import glob
+import json
+from shutil import copyfile
+from pathlib import Path, PosixPath
 from datetime import datetime, timedelta
 import pandas as pd
 import PIL
 from typing import Optional
 
 
-VALID_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff",
-                    ".mp4", ".avi", ".mov", ".wmv",
+IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff", '.tif"'}
+VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
-
-IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff"}
+VALID_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 
 
 def build_file_manifest(image_dir: str,
@@ -27,17 +26,17 @@ def build_file_manifest(image_dir: str,
                         offset: int = 0,
                         recursive: bool = True):
     """
-    Find Image/Video Files and Gather exif Data
+    Find Image/Video Files and Gather exif Data.
 
     Args:
-        - image_dir (str): directory of files to analyze
-        - exif (bool): returns date and time info from exif data, defaults to True
-        - out_file (str): file path to which the dataframe should be saved
-        - offset (int): add timezone offset in hours to datetime column
-        - recursive (bool): recursively search thhrough all child directories
+        image_dir (str): directory of files to analyze
+        exif (bool): returns date and time info from exif data, defaults to True
+        out_file (str): file path to which the dataframe should be saved
+        offset (int): add timezone offset in hours to datetime column
+        recursive (bool): recursively search through all child directories
 
     Returns:
-        - files (pd.DataFrame): list of files with or without file modify dates
+        files (pd.DataFrame): list of files with or without file modify dates
     """
     image_dir = Path(image_dir)
     if check_file(out_file):
@@ -45,42 +44,62 @@ def build_file_manifest(image_dir: str,
     if not image_dir.is_dir():
         raise FileNotFoundError(f"The given directory: {image_dir}, does not exist.")
 
-    files = glob(os.path.join(image_dir, '**', '*.*'), recursive=recursive)
+    files = Path(image_dir).rglob("*.*") if recursive else Path(image_dir).glob("*.*")
 
     # only keep images and videos
-    files = [f for f in files if os.path.splitext(os.path.basename(f))[1].lower() in VALID_EXTENSIONS]
+    files = [str(f) for f in files if Path(f).suffix.lower() in VALID_EXTENSIONS]
 
     # no files found, return empty dataframe
     if not files:
         return pd.DataFrame()
 
-    files = pd.DataFrame(files, columns=["FilePath"])
-    files["FileName"] = files["FilePath"].apply(lambda x: os.path.split(x)[1])
-    files["Extension"] = files["FilePath"].apply(lambda x: os.path.splitext(os.path.basename(x))[1].lower())
+    files = pd.DataFrame(files, columns=["filepath"])
+    files["frame"] = files["filepath"]
+    files["filename"] = files["filepath"].apply(lambda x: Path(x).name)
+    files["extension"] = files["filepath"].apply(lambda x: Path(x).suffix.lower())
 
     invalid = []
 
+    def check_time(timestamp):
+        input_formats = ['%Y:%m:%d %H:%M:%S', "%d-%m-%Y %H:%M", "%Y/%m/%d %H:%M:%S"]
+        desired_format = '%Y-%m-%d %H:%M:%S'
+        try:
+            # If it already matches, return as is
+            if datetime.strptime(timestamp, desired_format).strftime(desired_format) == timestamp:
+                return timestamp
+        except ValueError:
+            pass
+        # Try other input formats
+        for fmt in input_formats:
+            try:
+                newtimestamp = datetime.strptime(timestamp, fmt)
+                return newtimestamp.strftime(desired_format)
+            except ValueError:
+                continue
+        # timestamp not recognized
+        return None
+
     if exif:
         for i, row in files.iterrows():
-            if row["Extension"] in IMAGE_EXTENSIONS:
+            if row["extension"] in IMAGE_EXTENSIONS:
                 try:
-                    img = PIL.Image.open(row['FilePath'])
-                    files.loc[i, "Width"] = img.size[0]
-                    files.loc[i, "Height"] = img.size[1]
-                    files.loc[i, "CreateDate"] = img.getexif().get(0x0132)
+                    img = PIL.Image.open(row['filepath'])
+                    files.loc[i, "width"] = img.size[0]
+                    files.loc[i, "height"] = img.size[1]
+                    files.loc[i, "createdate"] = img.getexif().get(0x0132)
                 except PIL.UnidentifiedImageError:
                     invalid.append(i)
 
         # get filemodifydate as backup (videos, etc)
-        files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
-        files["FileModifyDate"] = pd.to_datetime(files["FileModifyDate"]) + timedelta(hours=offset)
+        files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
+        files["filemodifydate"] = pd.to_datetime(files["filemodifydate"]) + timedelta(hours=offset)
         try:
             # select createdate if exists, else choose filemodify date
-            files['CreateDate'] = files['CreateDate'].replace(r'^\s*$', None, regex=True)
-            files["CreateDate"] = files['CreateDate'].apply(lambda x: datetime.strptime(str(x), '%Y:%m:%d %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S') if isinstance(x, str) else x)
-            files["DateTime"] = files['CreateDate'].combine_first(files['FileModifyDate'])
+            files['createdate'] = files['createdate'].replace(r'^\s*$', None, regex=True)
+            files["createdate"] = files['createdate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
+            files["datetime"] = files['createdate'].combine_first(files['filemodifydate'])
         except KeyError:
-            files["DateTime"] = files["FileModifyDate"]
+            files["datetime"] = files["filemodifydate"]
 
     files = files.drop(index=invalid).reset_index(drop=True)
 
@@ -92,13 +111,14 @@ def build_file_manifest(image_dir: str,
 
 class WorkingDirectory():
     """
-    Set Working Directory and Save File Global Variables
+    Set Working Directory and save file global variables.
 
     Constructor requires root working_directory
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self, working_dir):
-        working_dir = Path(r"" + working_dir)  # OS-agnostic path
+        if not isinstance(working_dir, PosixPath):
+            working_dir = Path(working_dir)  # OS-agnostic path
         if not working_dir.is_dir():
             raise FileNotFoundError(f"The given directory: {working_dir}, does not exist.")
 
@@ -106,12 +126,12 @@ class WorkingDirectory():
         self.datadir = self.basedir / Path("Data/")
         self.vidfdir = self.basedir / Path("Frames/")
         self.linkdir = self.basedir / Path("Sorted/")
+        self.visdir = self.basedir / Path("Plots/")
 
         # Create directories if they do not already exist
         self.basedir.mkdir(exist_ok=True)
         self.datadir.mkdir(exist_ok=True)
         self.vidfdir.mkdir(exist_ok=True)
-        self.linkdir.mkdir(exist_ok=True)
 
         # Assign specific file paths
         self.filemanifest = self.datadir / Path("FileManifest.csv")
@@ -121,101 +141,172 @@ class WorkingDirectory():
         self.detections = self.datadir / Path("Detections.csv")
         self.mdraw = self.datadir / Path("MD_Raw.json")
 
+    def activate_visdir(self):
+        self.visdir.mkdir(exist_ok=True)
 
-def save_data(data: pd.DataFrame, out_file: str, prompt: bool = True) -> None:
+    def activate_linkdir(self):
+        self.linkdir.mkdir(exist_ok=True)
+
+
+def save_data(data: pd.DataFrame,
+              out_file: str,
+              prompt: bool = True) -> None:
     """
-    Save Data to Given File
+    Save data to given file.
 
     Args:
-        - data (pd.DataFrame): the dataframe to be saved
-        - out_file (str): full path to save file to
-        - prompt (bool): prompts the user to confirm overwrite
+        data (pd.DataFrame): the dataframe to be saved
+        out_file (str): full path to save file to
+        prompt (bool): prompts the user to confirm overwrite
 
     Returns:
         None
     """
-    if os.path.exists(out_file) and (prompt is True):
+    if Path(out_file).is_file() and (prompt is True):
         prompt = "Output file exists, would you like to overwrite? y/n: "
-        if input(prompt).lower() == "y":
-            data.to_csv(out_file, index=False)
+        if input(prompt).lower() != "y":
+            return
     else:
-        data.to_csv(out_file, index=False)
+        if Path(out_file).parent.exists():
+            data.to_csv(out_file, index=False)
+        else:
+            raise AssertionError('Cannot save, directory does not exis.')
 
 
 def load_data(file: str) -> pd.DataFrame:
     """
-    Load .csv File
+    Load .csv File.
 
     Args:
-        - file (str): the full path of the file to load
+        file (str): the full path of the file to load
 
     Returns:
-        - data extracted from the file. pd.dataframe form
+        data extracted from the file. pd.dataframe form
     """
-    ext = os.path.splitext(file)[1]
-    if ext == ".csv":
+    if Path(file).suffix.lower() == ".csv":
         return pd.read_csv(file)
     else:
-        raise AssertionError("Error. Expecting a .csv file.")
+        raise AssertionError("Expecting a .csv file.")
+
+
+def save_json(data: dict,
+              out_file: str,
+              prompt: bool = True) -> None:
+    """
+    Save data to a JSON file.
+
+    Args:
+        data (dict): the dictionary to be saved
+        out_file (str): full path to save file to
+        prompt (bool): prompt user to confirm overwrite
+
+    Returns:
+        None
+    """
+    if Path(out_file).is_file() and (prompt is True):
+        prompt = "Output file exists, would you like to overwrite? y/n: "
+        if input(prompt).lower() != "y":
+            return
+    with open(out_file, 'w') as f:
+        json.dump(data, f, indent=4)
+
+
+def load_json(file: str) -> dict:
+    """
+    Load data from a JSON file.
+
+    Args:
+        file (str): the full path of the file to load
+
+    Returns:
+        data extracted from the file. dict form
+    """
+    if Path(file).suffix.lower() == ".json":
+        with open(file, 'r') as f:
+            return json.load(f)
+    else:
+        raise AssertionError("Error. Expecting a .json file.")
 
 
 def check_file(file: str) -> bool:
     """
-    Check for files existence and prompt user if they want to load
+    Check for files existence and prompt user if they want to load.
 
     Args:
-        - file (str): the full path of the file to check
+        file (str): the full path of the file to check
 
     Returns:
-        - a boolean indicating whether a file was found and
-          the user wants to load or not
+        a boolean indicating whether a file was found and the user wants to load or not
     """
 
-    if file is not None and os.path.isfile(file):
-        date = datetime.fromtimestamp(os.path.getmtime(file))
+    if file is not None and Path(file).is_file():
+        date = datetime.fromtimestamp(Path(file).stat().st_mtime)
         prompt = "Output file already exists and was last modified {}, would you like to load it? y/n: ".format(date)
         if input(prompt).lower() == "y":
             return True
     return False
 
 
-def active_times(manifest_dir: str,
+def save_detection_checkpoint(checkpoint_path: str, results: dict) -> None:
+    """
+    Save a checkpoint of the detection results to a JSON file.
+
+    Args:
+        checkpoint_path (str): the path to the checkpoint file
+        results (list): a list of detection results to save
+    """
+    assert checkpoint_path is not None
+    # Back up any previous checkpoints, to protect against crashes while we're writing
+    # the checkpoint file.
+    checkpoint_tmp_path = None
+    if Path(checkpoint_path).is_file():
+        checkpoint_tmp_path = str(checkpoint_path) + '_tmp'
+        copyfile(checkpoint_path, checkpoint_tmp_path)
+
+    # Write the new checkpoint
+    save_json({'images': results}, checkpoint_path, prompt=False)
+
+    # Remove the backup checkpoint if it exists
+    if checkpoint_tmp_path is not None:
+        Path(checkpoint_tmp_path).unlink()
+
+
+def active_times(manifest_dir,
                  depth: int = 1,
                  recursive: bool = True,
                  offset: int = 0) -> pd.DataFrame:
     """
-    Get start and stop dates for each camera folder
+    Get start and stop dates for each camera folder.
 
     Args:
-        - manifest_dir (str): either file manifest or directory of files to analyze
-        - depth (int): directory depth from which to split cameras
-        - recursive (bool): recursively search thhrough all child directories
-        - offset (int): add timezone offset in hours to datetime column
+        manifest_dir (str): either file manifest or directory of files to analyze
+        depth (int): directory depth from which to split cameras
+        recursive (bool): recursively search thhrough all child directories
+        offset (int): add timezone offset in hours to datetime column
 
     Returns:
-        - times (pd.DataFrame): list of files with or without file modify dates
-
+        times (pd.DataFrame): list of files with or without file modify dates
     """
     # from manifest file
-    if check_file(manifest_dir):
-        files = load_data(manifest_dir)  # load_data(outfile) load file manifest
+    if isinstance(manifest_dir, str):
+        if check_file(manifest_dir):
+            files = load_data(manifest_dir)  # load_data(outfile) load file manifest
 
     # from manifest dataframe
     elif isinstance(manifest_dir, pd.DataFrame):
         # get time stamps if dne
-        if "FileModifyDate" not in manifest_dir.columns:
+        if "filemodifydate" not in manifest_dir.columns:
             files = manifest_dir
-            files["FileModifyDate"] = files["FilePath"].apply(lambda x: datetime.fromtimestamp(os.path.getmtime(x)).strftime('%Y-%m-%d %H:%M:%S'))
+            files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
 
     # from scratch
-    elif os.path.isdir(manifest_dir):
+    elif Path(manifest_dir).is_dir():
         files = build_file_manifest(manifest_dir, exif=True, offset=offset, recursive=recursive)
-
     else:
         raise FileNotFoundError("Requires a file manifest or image directory.")
 
-    files["Camera"] = files["FilePath"].apply(lambda x: x.split(os.sep)[depth])
+    files["camera"] = files["filepath"].apply(lambda x: Path(x).parts[depth])
 
-    times = files.groupby("Camera").agg({'FileModifyDate': ['min', 'max']})
+    times = files.groupby("camera").agg({'filemodifydate': ['min', 'max']})
 
     return times

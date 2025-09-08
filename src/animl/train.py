@@ -1,64 +1,52 @@
 '''
-    Training script. Here, we load the training and validation datasets (and
-    data loaders) and the model and train and validate the model accordingly.
+Classifier Training Script
 
-    Original script from
-    2022 Benjamin Kellenberger
+Original script from
+2022 Benjamin Kellenberger
 
-    Modiefied by Peter van Lunteren 2024
+Modified by Peter van Lunteren 2024
 '''
 import argparse
 import yaml
-import os
 from tqdm import trange
 import pandas as pd
-import random
+
 import torch.nn as nn
 import torch
-from torch.backends import cudnn
+
 from torch.optim import SGD, AdamW
 from sklearn.metrics import precision_score, recall_score
-from torch.optim.lr_scheduler import ReduceLROnPlateau, LambdaLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR  # , ReduceLROnPlateau
 from torch.amp import autocast, GradScaler
+
 from animl.generator import train_dataloader
-from animl.classification import save_model, load_model
+from animl.classification import save_classifier, load_classifier, load_classifier_checkpoint
+from animl.utils.general import NUM_THREADS, init_seed
 
-# # log values using comet ml (comet.com)
-# from comet_ml import Experiment
-# from comet_ml.integration.pytorch import log_model
-# experiment = Experiment()
+# mlops
+try:
+    import comet_ml
+except ImportError:
+    comet_ml = None
 
 
-def init_seed(seed):
+def train_func(data_loader, model, optimizer, scheduler, device='cpu',
+               mixed_precision=False, progress=True):
     '''
-        Initalizes the seed for all random number generators used. This is
-        important to be able to reproduce results and experiment with different
-        random setups of the same code and experiments.
+    Main training loop.
 
-        Args:
-            - seed (int): seed for RNG
-    '''
-    if seed is not None:
-        random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-        cudnn.benchmark = True
-        cudnn.deterministic = True
+    Args:
+        data_loader: dataloader object
+        model: loaded model object
+        optimizer: optimizer object
+        scheduler: learning rate scheduler
+        device (str): device to load model and data to
+        mixed_precision (bool): flag to enable mixed precision for GPU
+        progress (bool): flag to enable/disable progress bar
 
-
-def train_func(data_loader, model, optimizer, device='cpu'):
-    '''
-        Training Function
-
-        Args:
-            - data_loader: dataloader object
-            - model: loaded model object
-            - optimizer: optimizer object
-            - device (str): device to load model and data to
-
-        Returns:
-            - loss_total: loss for epoch
-            - oa_total: overall accuracy for epoch
+    Returns:
+        loss_total: loss for epoch
+        oa_total: overall accuracy for epoch
     '''
     model.to(device)
     model.train()  # put the model into training mode
@@ -69,9 +57,10 @@ def train_func(data_loader, model, optimizer, device='cpu'):
     # log the loss and overall accuracy (OA)
     loss_total, oa_total = 0.0, 0.0
 
-    progressBar = trange(len(data_loader))
+    if progress:
+        progressBar = trange(len(data_loader))
 
-    if cfg.get('mixed_precision', False) and device != 'cpu' and torch.cuda.is_available():
+    if mixed_precision and device != 'cpu' and torch.cuda.is_available():
         # Creates a GradScaler once at the beginning of training.
         scaler = GradScaler('cuda', enabled=True)
 
@@ -84,7 +73,7 @@ def train_func(data_loader, model, optimizer, device='cpu'):
         optimizer.zero_grad()
 
         # mixed precision training if GPU is available
-        if cfg.get('mixed_precision', False) and device != 'cpu' and torch.cuda.is_available():
+        if mixed_precision and device != 'cpu' and torch.cuda.is_available():
             # Scales the loss, and calls backward() on the scaled loss to create
             # backward gradients. This is a more efficient way to calculate gradients.
             with autocast(device_type='cuda', dtype=torch.float16):
@@ -114,38 +103,43 @@ def train_func(data_loader, model, optimizer, device='cpu'):
         oa = torch.mean((pred_label == labels).float())
         oa_total += oa.item()
 
-        progressBar.set_description(
-            '[Train] Loss: {:.2f}; OA: {:.2f}%'.format(
-                loss_total/(idx+1),
-                100*oa_total/(idx+1)
+        if progress:
+            progressBar.set_description(
+                '[Train] Loss: {:.2f}; OA: {:.2f}%'.format(
+                    loss_total/(idx+1),
+                    100*oa_total/(idx+1)
+                )
             )
-        )
-        progressBar.update(1)
+            progressBar.update(1)
 
     # end of epoch
     scheduler.step()
-    progressBar.close()
+    if progress:
+        progressBar.close()
     loss_total /= len(data_loader)
     oa_total /= len(data_loader)
 
     return loss_total, oa_total
 
 
-def validate(data_loader, model, device="cpu"):
+def validate_func(data_loader, model, device="cpu", progress=True):
     '''
-        Validation function. Note that this looks almost the same as the training
-        function, except that we don't use any optimizer or gradient steps.
+    Model validation function for each epoch.
+
+    Note that this looks almost the same as the training
+    function, except that we don't use any optimizer or gradient steps.
 
     Args:
-        - data_loader: dataloader object
-        - model: loaded model object
-        - device (str): device to load model and data to
+        data_loader: dataloader object
+        model: loaded model object
+        device (str): device to load model and data to
+        progress (bool): flag to enable/disable progress bar
 
     Returns:
-        - loss_total: loss for validation set
-        - oa_total: accuracy for validation set
-        - precision: precision for validation set
-        - recall: recall for validation set
+        loss_total: loss for validation set
+        oa_total: accuracy for validation set
+        precision: precision for validation set
+        recall: recall for validation set
     '''
     model.to(device)
     model.eval()  # put the model into evaluation mode
@@ -159,7 +153,8 @@ def validate(data_loader, model, device="cpu"):
     true_labels = []
     pred_labels = []
 
-    progressBar = trange(len(data_loader))
+    if progress:
+        progressBar = trange(len(data_loader))
     with torch.no_grad():  # gradients not necessary for validation
         for idx, batch in enumerate(data_loader):
             data = batch[0]
@@ -187,16 +182,18 @@ def validate(data_loader, model, device="cpu"):
             pred_label_np = pred_label.cpu().detach().numpy()
             pred_labels.extend(pred_label_np)
 
-            progressBar.set_description(
-                '[Val  ] Loss: {:.2f}; OA: {:.2f}%'.format(
-                    loss_total/(idx+1),
-                    100*oa_total/(idx+1)
+            if progress:
+                progressBar.set_description(
+                    '[Val  ] Loss: {:.2f}; OA: {:.2f}%'.format(
+                        loss_total/(idx+1),
+                        100*oa_total/(idx+1)
+                    )
                 )
-            )
-            progressBar.update(1)
+                progressBar.update(1)
 
     # end of epoch; finalize
-    progressBar.close()
+    if progress:
+        progressBar.close()
     loss_total /= len(data_loader)
     oa_total /= len(data_loader)
 
@@ -207,70 +204,27 @@ def validate(data_loader, model, device="cpu"):
     return loss_total, oa_total, precision, recall
 
 
-def load_checkpoint(model_path, model, optimizer, scheduler, device):
-    model_states = []
-    for file in os.listdir(model_path):
-        if os.path.splitext(file)[1] == ".pt":
-            model_states.append(file)
-
-    if len(model_states):
-        # at least one save state found; get latest
-        model_epochs = [int(m.replace(model_path, '').replace('.pt', '')) for m in model_states]
-        start_epoch = max(model_epochs)
-
-        # load state dict and apply weights to model
-        print(f'Resuming from epoch {start_epoch}')
-        checkpoint = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'), map_location=device)
-        model.load_state_dict(checkpoint['model'])
-        # Model is assumed to be on the correct device already (moved in main before optimizer creation)
-
-        # load optimzier state if available
-        if 'optimizer' in checkpoint:
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            # Ensure optimizer's state tensors are on the correct device
-            for state in optimizer.state.values():
-                for k, v in state.items():
-                    if isinstance(v, torch.Tensor) and v.device != device:
-                        state[k] = v.to(device)
-
-        # load scheduler state if available
-        if 'scheduler' in checkpoint:
-            scheduler.load_state_dict(checkpoint['scheduler'])
-
-        # get last epoch from model if avialble
-        if 'epoch' in checkpoint:
-            return checkpoint['epoch']
-        else:
-            return start_epoch
-    else:
-        # no save state found; stasrt anew
-        print('No model state found, starting new model')
-        return 0
-
-
-def main():
-    return
-
-
-if __name__ == '__main__':
+def train_main(cfg):
     '''
     Command line function
 
-    Example usage :
+    Example usage:
     > python train.py --config configs/exp_resnet18.yaml
     '''
-    parser = argparse.ArgumentParser(description='Train deep learning model.')
-    parser.add_argument('--config', help='Path to config file', default='exp_resnet18.yaml')
-    args = parser.parse_args()
+    # load cfg file
+    cfg = yaml.safe_load(open(cfg, 'r'))
 
-    # load config
-    print(f'Using config "{args.config}"')
-    cfg = yaml.safe_load(open(args.config, 'r'))
-
+    if comet_ml:
+        api_key = cfg.get('coment_api_key', None)
+        if api_key:
+            experiment = comet_ml.Experiment({"api_key": api_key,
+                                              "project_name": cfg.get('comet_project_name', None),
+                                              "workspace": cfg.get('comet_workspace', None)})
+    progress = cfg.get('progress', True)
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
     crop = cfg.get('crop', True)
-    file_col = cfg.get('file_col', 'FilePath')
+    file_col = cfg.get('file_col', 'filepath')
     label_col = cfg.get('label_col', 'species')
 
     # check if GPU is available
@@ -278,11 +232,13 @@ if __name__ == '__main__':
     if device != 'cpu' and not torch.cuda.is_available():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
         device = 'cpu'
+    # get mixed precision
+    mixed_precision = cfg.get('mixed_precision', False)
 
     # initialize model and get class list
     classes = pd.read_csv(cfg['class_file'])
     # model will be on CPU after this call if cfg['experiment_folder'] is a directory
-    model, current_epoch = load_model(cfg['experiment_folder'], len(classes), device=device, architecture=cfg['architecture'])
+    model, current_epoch = load_classifier(cfg['experiment_folder'], len(classes), device=device, architecture=cfg['architecture'])
 
     # Move model to the target device BEFORE optimizer initialization
     model.to(device)
@@ -295,11 +251,18 @@ if __name__ == '__main__':
     validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
 
     # Initialize data loaders for training and validation set
-    dl_train = train_dataloader(train_dataset, categories, batch_size=cfg['batch_size'], workers=cfg['num_workers'],
-                                file_col=file_col, label_col=label_col, crop=crop, augment=cfg.get('augment', True),
+    dl_train = train_dataloader(train_dataset, categories,
+                                batch_size=cfg['batch_size'],
+                                num_workers=cfg.get('num_workers', NUM_THREADS),
+                                file_col=file_col, label_col=label_col,
+                                crop=crop, augment=cfg.get('augment', True),
                                 cache_dir=cfg.get('cache_folder', None))
-    dl_val = train_dataloader(validate_dataset, categories, batch_size=cfg.get('val_batch_size', 16), workers=cfg['num_workers'],
-                              file_col=file_col, label_col=label_col, crop=crop, augment=False, cache_dir=cfg.get('cache_folder', None))
+    dl_val = train_dataloader(validate_dataset, categories,
+                              batch_size=cfg.get('val_batch_size', 16),
+                              num_workers=cfg.get('num_workers', NUM_THREADS),
+                              file_col=file_col, label_col=label_col,
+                              crop=crop, augment=False,
+                              cache_dir=cfg.get('cache_folder', None))
 
     # set up model optimizer
     if cfg.get("optimizer", "AdamW") == 'AdamW':
@@ -314,8 +277,10 @@ if __name__ == '__main__':
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
+    print(scheduler)
+
     # Load checkpoint for model weights, optimizer state, scheduler state, and actual current_epoch
-    current_epoch = load_checkpoint(cfg['experiment_folder'], model, optim, scheduler, device)
+    current_epoch = load_classifier_checkpoint(cfg['experiment_folder'], model, optim, scheduler, device=device)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
@@ -337,7 +302,6 @@ if __name__ == '__main__':
 
     # training loop
     while current_epoch < numEpochs:
-
         current_epoch += 1
         print(f'Epoch {current_epoch}/{numEpochs}')
         print(f"Using learning rate : {scheduler.get_last_lr()[0]}")
@@ -346,8 +310,8 @@ if __name__ == '__main__':
             for param in model.parameters():
                 param.requires_grad = True
 
-        loss_train, oa_train = train_func(dl_train, model, optim, device)
-        loss_val, oa_val, precision, recall = validate(dl_val, model, device)
+        loss_train, oa_train = train_func(dl_train, model, optim, scheduler, device, mixed_precision=mixed_precision, progress=progress)
+        loss_val, oa_val, precision, recall = validate_func(dl_val, model, device, progress=progress)
 
         # combine stats and save
         stats = {
@@ -369,15 +333,18 @@ if __name__ == '__main__':
 
         # <current_epoch>.pt checkpoint saving every *checkpoint_frequency* epochs
         checkpoint = cfg.get('checkpoint_frequency', 10)
-        # experiment.log_metrics(stats, step=current_epoch)
+
+        if comet_ml:
+            experiment.log_metrics(stats, step=current_epoch)
+
         if current_epoch % checkpoint == 0:
-            save_model(cfg['experiment_folder'], current_epoch, model, stats, optim, scheduler)
+            save_classifier(model, cfg['experiment_folder'], current_epoch, stats, optim, scheduler)
 
         # best.pt saving
         if loss_val < best_val_loss:
             best_val_loss = loss_val
             epochs_no_improve = 0
-            save_model(cfg['experiment_folder'], 'best', model, stats)
+            save_classifier(model, cfg['experiment_folder'], 'best',  stats)
             print(f"Current best model saved at epoch {current_epoch} with ...")
             print(f"     val loss : {best_val_loss:.5f}")
             print(f"       val OA : {oa_val:.5f}")
@@ -387,7 +354,7 @@ if __name__ == '__main__':
             epochs_no_improve += 1
 
         # last.pt saving
-        save_model(cfg['experiment_folder'], 'last', model, stats)
+        save_classifier(model, cfg['experiment_folder'], 'last', stats)
 
         # if user specified early stopping
         if early_stopping:
@@ -395,3 +362,12 @@ if __name__ == '__main__':
             if epochs_no_improve >= patience:
                 print(f"Early stopping triggered after {patience} epochs without improvement.")
                 break
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Train deep learning model.')
+    parser.add_argument('--config', help='Path to config file', default='exp_resnet18.yaml')
+    args = parser.parse_args()
+
+    print(f'Using config "{args.config}"')
+    train_main(args.config)
