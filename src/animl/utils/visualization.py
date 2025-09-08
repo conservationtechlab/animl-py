@@ -89,8 +89,8 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
     plots the boxes in the new image, and saves it the specified directory.
 
     Args:
-        data_frame (Pandas DataFrame): Output of Mega Detector
-        output_dir (str): Name of the output directory
+        manifest (Pandas DataFrame): manifest of detections
+        out_dir (str): Name of the output directory
         file_col (str): Column name containing file paths
         min_conf (Optional) (Int or Float): Confidence threshold to plot the box
         prediction (Optional) (Boolean): Should the prediction be printed alongside bounding box
@@ -134,13 +134,13 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
                 cv2.destroyAllWindows()
 
 
-def plot_from_file(csv_file: str, output_dir: str):
+def plot_from_file(csv_file: str, out_dir: str):
     """
     Read a CSV manifest file and perform box plotting on the images.
 
     Args:
         csv_file (str): Path to the CSV file.
-        output_dir (str): Saved location  of boxed images output dir.
+        out_dir (str): Saved location  of boxed images output dir.
 
     Returns:
         None
@@ -154,7 +154,7 @@ def plot_from_file(csv_file: str, output_dir: str):
         # Save the image with boxes
         file_name_no_ext = Path(row['FilePath']).stem
         file_ext = Path(row['FilePath']).suffix
-        new_file_path = Path(output_dir, f"{file_name_no_ext}_{i}_{file_ext}")
+        new_file_path = Path(out_dir, f"{file_name_no_ext}_{i}_{file_ext}")
         cv2.imwrite(new_file_path, img)
 
 
@@ -164,10 +164,10 @@ if __name__ == '__main__':
 
     # Add the CSV file and output directory arguments
     parser.add_argument('csv_file', type=str, help='Path to the CSV file')
-    parser.add_argument('output_dir', type=str, help='Path to the output dir')
+    parser.add_argument('out_dir', type=str, help='Path to the output dir')
 
     # Parse the command-line arguments
     args = parser.parse_args()
 
-    # Call the main function
-    plot_from_file(args.csv_file, args.output_dir)
+    # Call the main function'
+    plot_from_file(args.csv_file, args.out_dir)
