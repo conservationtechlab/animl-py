@@ -8,6 +8,8 @@ import numpy as np
 from math import fsum
 from typing import Optional, Tuple
 
+from animl.file_management import save_data
+
 
 def get_animals(manifest: pd.DataFrame):
     """
@@ -51,14 +53,15 @@ def get_empty(manifest: pd.DataFrame):
     return otherdf
 
 
+# TODO: IMPROVE
 def train_val_test(manifest: pd.DataFrame,
                    out_dir: Optional[str] = None,
-                   label_col: str = "Class",
+                   label_col: str = "class",
                    file_col: str = 'filepath',
                    percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
                    seed: Optional[int] = None):
     '''
-    Splits the manifest into training. validation and test dataets for training
+    Splits the manifest into Training, Validation, and Test Datasets for training
 
     Credit: Unduwap Kandage-Don
 
@@ -132,12 +135,11 @@ def train_val_test(manifest: pd.DataFrame,
              "train": trainCtArr, "test": testCtArr, "validation": valCtArr}
 
     if out_dir is not None:
-        statsdf = pd.DataFrame(stats)
-        statsdf.to_csv(out_dir + "/data_split.csv")
+        save_data(pd.DataFrame(stats), out_dir + "/data_split.csv")
 
         # save to csv
-        train.to_csv(out_dir + "/train_data.csv", index=False)
-        validate.to_csv(out_dir + "/validate_data.csv", index=False)
-        test.to_csv(out_dir + "/test_data.csv", index=False)
+        save_data(train, out_dir + "/train_data.csv")
+        save_data(validate, out_dir + "/validate_data.csv")
+        save_data(test, out_dir + "/test_data.csv")
 
     return train, validate, test, stats

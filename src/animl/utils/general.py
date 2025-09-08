@@ -3,20 +3,12 @@ General utils
 
 """
 import cv2
-import glob
-import inspect
 import math
 import os
-import platform
-import re
 import random
-import subprocess
 import time
 import warnings
-from copy import deepcopy
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -60,52 +52,6 @@ def tensor_to_onnx(tensor, channel_last=True):
     return tensor
 
 
-def clean_str(s):
-    # Cleans a string by replacing special characters with underscore _
-    return re.sub(pattern="[|@#!¡·$€%&()=?¿^*;:,¨´><+]", repl="_", string=s)
-
-
-def intersect_dicts(da, db, exclude=()):
-    # Dictionary intersection of matching keys and shapes, omitting 'exclude' keys, using da values
-    return {k: v for k, v in da.items() if k in db and not any(x in k for x in exclude) and v.shape == db[k].shape}
-
-
-def file_age(path=__file__):
-    # Return days since last file update
-    dt = (datetime.now() - datetime.fromtimestamp(Path(path).stat().st_mtime))  # delta
-    return dt.days  # + dt.seconds / 86400  # fractional days
-
-
-def file_date(path=__file__):
-    # Return human-readable file modification date, i.e. '2021-3-26'
-    t = datetime.fromtimestamp(Path(path).stat().st_mtime)
-    return f'{t.year}-{t.month}-{t.day}'
-
-
-def file_size(path):
-    # Return file/dir size (MB)
-    mb = 1 << 20  # bytes to MiB (1024 ** 2)
-    path = Path(path)
-    if path.is_file():
-        return path.stat().st_size / mb
-    elif path.is_dir():
-        return sum(f.stat().st_size for f in path.glob('**/*') if f.is_file()) / mb
-    else:
-        return 0.0
-
-
-def get_image_size(image_path):
-    """
-    Returns the size of an image.
-
-    Args:
-        image_path (str): Path to the image file.
-    Returns:
-        tuple: Image size in the format (width, height).
-    """
-    with Image.open(image_path) as img:
-        return img.size
-
 # ==============================================================================
 # CUDA
 # ==============================================================================
@@ -133,37 +79,6 @@ def init_seed(seed):
         torch.cuda.manual_seed(seed)
         cudnn.benchmark = True
         cudnn.deterministic = True
-
-
-def device_count():
-    # Returns number of CUDA devices available. Safe version of torch.cuda.device_count(). Supports Linux and Windows
-    assert platform.system() in ('Linux', 'Windows'), 'device_count() only supported on Linux or Windows'
-    try:
-        cmd = 'nvidia-smi -L | wc -l' if platform.system() == 'Linux' else 'nvidia-smi -L | find /c /v ""'  # Windows
-        return int(subprocess.run(cmd, shell=True, capture_output=True, check=True).stdout.decode().split()[-1])
-    except Exception:
-        return 0
-
-
-def select_device(device='', batch_size=0, newline=True):
-    # device = None or 'cpu' or 0 or '0' or '0,1,2,3'
-    device = str(device).strip().lower().replace('cuda:', '').replace('none', '')  # to string, 'cuda:0' to '0'
-    cpu = device == 'cpu'
-    mps = device == 'mps'  # Apple Metal Performance Shaders (MPS)
-    if cpu or mps:
-        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # force torch.cuda.is_available() = False
-    elif device:  # non-cpu device requested
-        os.environ['CUDA_VISIBLE_DEVICES'] = device  # set environment variable - must be before assert is_available()
-        assert torch.cuda.is_available() and torch.cuda.device_count() >= len(device.replace(',', '')), \
-            f"Invalid CUDA '--device {device}' requested, use '--device cpu' or pass valid CUDA device(s)"
-
-    cuda = not cpu and torch.cuda.is_available()
-    if cuda:
-        devices = device.split(',') if device else '0'  # range(torch.cuda.device_count())  # i.e. 0,1,6,7
-        n = len(devices)  # device count
-        if n > 1 and batch_size > 0:  # check batch_size is divisible by device_count
-            assert batch_size % n == 0, f'batch-size {batch_size} not multiple of GPU count {n}'
-    return torch.device('cuda:0' if cuda else 'mps' if mps else 'cpu')
 
 
 def time_sync():
@@ -231,25 +146,6 @@ def copy_attr(a, b, include=(), exclude=()):
         else:
             setattr(a, k, v)
 
-
-def get_latest_run(search_dir='.'):
-    # Return path to most recent 'last.pt' in /runs (i.e. to --resume from)
-    last_list = glob.glob(f'{search_dir}/**/last*.pt', recursive=True)
-    return max(last_list, key=os.path.getctime) if last_list else ''
-
-
-def check_img_size(imgsz, s=32, floor=0):
-    # Verify image size is a multiple of stride s in each dimension
-    if isinstance(imgsz, int):  # integer i.e. img_size=640
-        new_size = max(make_divisible(imgsz, int(s)), floor)
-    else:  # list i.e. img_size=[640, 480]
-        imgsz = list(imgsz)  # convert to list if tuple
-        new_size = [max(make_divisible(x, int(s)), floor) for x in imgsz]
-    if new_size != imgsz:
-        print(f'WARNING: --img-size {imgsz} must be multiple of max stride {s}, updating to {new_size}')
-    return new_size
-
-
 def make_divisible(x, divisor):
     # Returns nearest x divisible by divisor
     if isinstance(divisor, torch.Tensor):
@@ -266,7 +162,7 @@ def increment_path(path, exist_ok=False, sep='', mkdir=False):
         # Method 1
         for n in range(2, 9999):
             p = f'{path}{sep}{n}{suffix}'  # increment path
-            if not os.path.exists(p):  #
+            if not Path(p).exists():  #
                 break
         path = Path(p)
 
@@ -402,23 +298,6 @@ def convert_minxywh_to_absxyxy(bbox, width, height):
     y2 = y_min + h
 
     return [int(x1 * width), int(y1 * height), int(x2 * width), int(y2 * height)]
-
-
-# From MegeDetector/ct_utils
-def convert_yolo_to_xywh(yolo_box):
-    """
-    Converts a YOLO format bounding box to [x_min, y_min, width_of_box, height_of_box].
-
-    Args:
-        yolo_box: bounding box of format [x_center, y_center, width_of_box, height_of_box].
-
-    Returns:
-        bbox with coordinates represented as [x_min, y_min, width_of_box, height_of_box].
-    """
-    x_center, y_center, width_of_box, height_of_box = yolo_box
-    x_min = x_center - width_of_box / 2.0
-    y_min = y_center - height_of_box / 2.0
-    return [x_min, y_min, width_of_box, height_of_box]
 
 
 def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
@@ -716,5 +595,3 @@ def exif_transpose(image):
             del exif[0x0112]
             image.info["exif"] = exif.tobytes()
     return image
-
-

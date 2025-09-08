@@ -5,9 +5,9 @@ Custom generators for training and inference
 
 """
 import hashlib
-import os
 from typing import Tuple
 import pandas as pd
+from pathlib import Path
 from PIL import Image, ImageFile
 
 import torch
@@ -16,6 +16,9 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, RandomHorizontalFlip,
                                        RandomAffine, RandomGrayscale, RandomApply,
                                        ColorJitter, GaussianBlur)
+
+
+from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
 
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -122,8 +125,8 @@ class ImageGenerator(Dataset):
     '''
     def __init__(self, x: pd.DataFrame,
                  file_col: str = "file",
-                 resize_height: int = 480,
-                 resize_width: int = 480,
+                 resize_height: int = SDZWA_CLASSIFIER_SIZE,
+                 resize_width: int = SDZWA_CLASSIFIER_SIZE,
                  crop: bool = True,
                  crop_coord: str = 'relative',
                  normalize: bool = True,
@@ -131,7 +134,11 @@ class ImageGenerator(Dataset):
                  transform: Compose = None) -> None:
         self.x = x.reset_index(drop=True)
         self.file_col = file_col
+        if self.file_col not in self.x.columns:
+            raise ValueError(f"file_col '{self.file_col}' not found in dataframe columns")
         self.crop = crop
+        if self.crop and not {'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(self.x.columns):
+            raise ValueError("No bbox columns found for cropping")
         self.crop_coord = crop_coord
         if self.crop_coord not in ['relative', 'absolute']:
             raise ValueError("crop_coord must be either 'relative' or 'absolute'")
@@ -221,7 +228,7 @@ class ImageGenerator(Dataset):
         if not self.normalize:  # un-normalize
             img_tensor = img_tensor * 255
 
-        return img_tensor, image_name, torch.tensor((height, width))
+        return img_tensor, str(image_name), torch.tensor((height, width))
 
 
 class TrainGenerator(Dataset):
@@ -242,8 +249,8 @@ class TrainGenerator(Dataset):
                  classes: dict,
                  file_col: str = 'filepath',
                  label_col: str = 'species',
-                 resize_height: int = 480,
-                 resize_width: int = 480,
+                 resize_height: int = SDZWA_CLASSIFIER_SIZE,
+                 resize_width: int = SDZWA_CLASSIFIER_SIZE,
                  crop: bool = True,
                  crop_coord: str = 'relative',
                  augment: bool = False,
@@ -252,17 +259,24 @@ class TrainGenerator(Dataset):
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
         self.file_col = file_col
+        if self.file_col not in self.x.columns:
+            raise ValueError(f"file_col '{self.file_col}' not found in dataframe columns")
         self.label_col = label_col
+        if self.label_col not in self.x.columns:
+            raise ValueError(f"label_col '{self.label_col}' not found in dataframe columns")
         self.buffer = 0
         self.crop = crop
+        if self.crop and not {'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(self.x.columns):
+            raise ValueError("No bbox columns found for cropping")
         self.crop_coord = crop_coord
         if self.crop_coord not in ['relative', 'absolute']:
             raise ValueError("crop_coord must be either 'relative' or 'absolute'")
-        self.augment = augment
+        # cache directory
         self.cache_dir = cache_dir
         if self.cache_dir is not None:
-            os.makedirs(self.cache_dir, exist_ok=True)
-
+            Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
+        # augmentations
+        self.augment = augment
         augmentations = Compose([
                                 # random horizontal flip
                                 RandomHorizontalFlip(p=0.5),
@@ -292,21 +306,21 @@ class TrainGenerator(Dataset):
 
     def _get_cache_path(self, img_path):
         if self.cache_dir is None:
-            return ""
+            return None
 
         if self.crop:
             identifier = f"{img_path}_{self.x['bbox_x']}_{self.x['bbox_y']}_{self.x['bbox_w']}_{self.x['bbox_h']}"
         else:
             identifier = f"{img_path}"
         hash_id = hashlib.md5(identifier.encode()).hexdigest()
-        return os.path.join(self.cache_dir, f"{hash_id}.jpg")
+        return Path(self.cache_dir / f"{hash_id}.jpg")
 
     def __getitem__(self, idx):
         image_name = self.x.loc[idx, self.file_col]
         label = self.categories[self.x.loc[idx, self.label_col]]
         cache_path = self._get_cache_path(image_name)
 
-        if os.path.exists(cache_path):
+        if cache_path is not None and Path(cache_path).exists():
             img = Image.open(cache_path).convert("RGB")
             img_tensor = self.transform(img)
             return img_tensor, label, image_name
@@ -353,15 +367,15 @@ class TrainGenerator(Dataset):
                 img.save(cache_path, format="JPEG")
             img.close()
 
-        return img_tensor, label, image_name
+        return img_tensor, label, str(image_name)
 
 
 def train_dataloader(manifest: pd.DataFrame,
                      classes: dict,
                      file_col: str = "filepath",
                      label_col: str = "species",
-                     resize_height: int = 480,
-                     resize_width: int = 480,
+                     resize_height: int = SDZWA_CLASSIFIER_SIZE,
+                     resize_width: int = SDZWA_CLASSIFIER_SIZE,
                      crop: bool = False,
                      crop_coord: str = 'relative',
                      augment: bool = False,
@@ -409,8 +423,8 @@ def manifest_dataloader(manifest: pd.DataFrame,
                         crop_coord: str = 'relative',
                         normalize: bool = True,
                         letterbox: bool = False,
-                        resize_height: int = 480,
-                        resize_width: int = 480,
+                        resize_height: int = SDZWA_CLASSIFIER_SIZE,
+                        resize_width: int = SDZWA_CLASSIFIER_SIZE,
                         transform: Compose = None,
                         batch_size: int = 1,
                         num_workers: int = 1):

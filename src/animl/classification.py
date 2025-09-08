@@ -3,7 +3,6 @@ Tools for Saving, Loading, and Using Species Classifiers
 
 @ Kyra Swanson 2023
 '''
-import os
 from typing import Optional
 import pandas as pd
 import numpy as np
@@ -99,7 +98,7 @@ def load_classifier(model_path: str,
         if model_path.suffix == '.pt':
             if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
                 model = EfficientNet(num_classes, device=device, tune=False)
-                # torch 2.6 defaults to weights_only = True
+                # TODO: torch 2.6 defaults to weights_only = True, revert on retrain
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
@@ -107,12 +106,12 @@ def load_classifier(model_path: str,
                 model.framework = "EfficientNet"
             elif architecture == "convnext_base":
                 model = ConvNeXtBase(num_classes, tune=False)
-                checkpoint = torch.load(model_path, map_location=device, weights_only=False)
+                checkpoint = torch.load(model_path, map_location=device)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()
                 model.framework = "ConvNeXt-Base"
-        # PyTorch full model
+        # PyTorch full modelspeak
         elif model_path.suffix == '.pth':
             model = torch.load(model_path, map_location=device)
             model.to(device)
@@ -152,8 +151,8 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
         starting epoch (int)
     '''
     model_states = []
-    for file in os.listdir(model_path):
-        if os.path.splitext(file)[1] == ".pt":
+    for file in Path.iterdir(Path(model_path)):
+        if Path(file).suffix.lower() == ".pt":
             model_states.append(file)
 
     if len(model_states):
@@ -201,35 +200,37 @@ def load_class_list(classlist_file):
     Returns:
         pd.DataFrame of class list
     """
+    if not Path(classlist_file).is_file():
+        raise FileNotFoundError(f"Class list file not found at {classlist_file}")
     return pd.read_csv(classlist_file)
 
 
 def classify(model,
              detections,
-             device: Optional[str] = None,
-             out_file: Optional[str] = None,
+             resize_width: int = 480,
+             resize_height: int = 480,
              file_col: str = 'frame',
              crop: bool = True,
              normalize: bool = True,
-             resize_width: int = 480,
-             resize_height: int = 480,
              batch_size: int = 1,
-             num_workers: int = NUM_THREADS):
+             num_workers: int = NUM_THREADS,
+             device: Optional[str] = None,
+             out_file: Optional[str] = None):
     """
     Predict species using classifier model.
 
     Args:
         model: preloaded classifier model
         detections (mult): dataframe of (animal) detections, list of filepaths or filepath str
-        device (str): specify to run model on cpu or gpu, default to cpu
-        out_file (str): path to save prediction results to
+        resize_width (int): image width input size
+        resize_height (int): image height input size
         file_col (str): column name containing file paths
         crop (bool): use bbox to crop images before feeding into model
         normalize (bool): normalize the tensor before inference
-        resize_width (int): image width input size
-        resize_height (int): image height input size
         batch_size (int): data generator batch size
         num_workers (int): number of cores
+        device (str): specify to run model on cpu or gpu, default to cpu
+        out_file (str): path to save prediction results to
 
     Returns:
         detections (pd.DataFrame): MD detections with classifier prediction and confidence
@@ -242,6 +243,9 @@ def classify(model,
 
     # initialize lists
     raw_output = []
+
+    if not {file_col}.issubset(detections.columns):
+        raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
     # Manifest
     if isinstance(detections, pd.DataFrame):
@@ -296,6 +300,7 @@ def classify(model,
 
 
 def single_classification(animals: pd.DataFrame,
+                          empty: Optional[pd.DataFrame],
                           predictions_raw: np.array,
                           class_list: pd.DataFrame):
     """
@@ -312,7 +317,8 @@ def single_classification(animals: pd.DataFrame,
     class_list = pd.Series(class_list)
     animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
     animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
-    return animals
+    manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+    return manifest
 
 
 def sequence_classification(animals: pd.DataFrame,
@@ -336,7 +342,7 @@ def sequence_classification(animals: pd.DataFrame,
     Args:
         animals (pd.DataFrame): Sub-selection of all images that contain animals
         empty (Optional) (pd.DataFrame): Sub-selection of all images that do not contain animals
-        predictions (Numpy Array of Numpy Arrays): Logits of all entries in "animals"
+        predictions_raw (Numpy Array of Numpy Arrays): Logits of all entries in "animals"
         class_list (pd.DataFrame): class list associated with classifier model
         station_col (str): The name of the station column
         empty_class (str) (Optional): the name of class_list 'empty' label
@@ -364,6 +370,9 @@ def sequence_classification(animals: pd.DataFrame,
     if not isinstance(maxdiff, (int, float)) or maxdiff < 0:
         raise Exception("'maxdiff' must be a number >= 0")
 
+    if not {file_col}.issubset(animals.columns):
+        raise ValueError(f"DataFrame must contain '{file_col}' column.")
+
     if "conf" not in animals.columns:
         animals["conf"] = 1
 
@@ -380,9 +389,9 @@ def sequence_classification(animals: pd.DataFrame,
         predempty = pd.concat([pd.DataFrame(np.zeros((empty.shape[0], len(class_list)))), predempty], axis=1)
 
         if empty_class > "":
-            # replace md empty with empty col
-            predempty[empty_col] = predempty["empty"]
-            predempty = predempty.drop("empty", axis=1)
+            if 'empty' in predempty.columns:
+                predempty[empty_col] = predempty["empty"]
+                predempty = predempty.drop("empty", axis=1)
             class_list = pd.concat([class_list,
                                     pd.Series([x for x in empty["prediction"].unique() if x != "empty"])], ignore_index=True)
 
@@ -476,93 +485,3 @@ def sequence_classification(animals: pd.DataFrame,
     animals_sort['sequence'] = sequence_placeholder
 
     return animals_sort
-
-
-# TODO test
-def multispecies_classification(animals: pd.DataFrame,
-                                threshold: float,
-                                file_col: str = "filepath") -> pd.DataFrame:
-    """
-    This function applies image classifications at a image level. All images which have multiple
-    species present with confidence above threshold, will be returned as a DataFrame
-
-    Args:
-        animals (Pandas DataFrame): Sub-selection of all images that contain animals
-        threshold (float): Minimum confidence for the image to be considered
-        file_col (str): The name of the filepath column
-
-    Raises:
-        - Exception: If threshold is not a float or threshold < 0 or threshold > 1
-
-    Returns:
-        result_df (Pandas DataFrame): Rows from images having more than one species
-    """
-    # Sanity check to verify that threshold is a float and is in range [0,1]
-    if (not isinstance(threshold, float)) or (threshold < 0) or (threshold > 1):
-        raise Exception("Threshold must be a value between 0 and 1, both inclusive")
-
-    # Sorting by file name to accumulate all rows belonging to the same image
-    animals[file_col] = animals[file_col].astype(str)
-    animals = animals.sort_values(by=file_col)
-
-    # Initializing data frame to store the result
-    result_df = pd.DataFrame()
-
-    # Making a new column for count
-    result_df['count'] = []
-
-    # List to store all the rows which have the same file name
-    curr_picture = []
-
-    # Iterating through all rows and gathering the ones which belong to the same image
-    for index, row in animals.iterrows():
-        # Initializing the list when it's empty
-        if len(curr_picture) == 0:
-            curr_picture.append(row)
-
-        # Check if row belongs to the same image
-        elif row[file_col] == curr_picture[0][file_col]:
-            curr_picture.append(row)
-
-        # All rows for the current image have been collected
-        else:
-            # Key is the specie, value is list [row, count]
-            dic = {}
-
-            # For all images above threshold, save the one with highest confidence for each class
-            for element in curr_picture:
-                if element['confidence'] > threshold:
-                    if element['prediction'] in dic:
-                        dic[element['prediction']][1] += 1
-                        if dic[element['prediction']][0]['confidence'] < element['confidence']:
-                            dic[element['prediction']][0] = element
-                    else:
-                        dic[element['prediction']] = [element, 1]
-
-            # Make current image a part of output only if it has more than 1 species
-            if len(dic) > 1:
-                for key in dic:
-                    dic[key][0]['count'] = dic[key][1]
-                    result_df = pd.concat([result_df, pd.DataFrame([dic[key][0]])])
-
-            # Reset list for next image
-            curr_picture = [row]
-
-    # Handeling the last batch
-    dic = {}
-    for element in curr_picture:
-        if element['confidence'] > threshold and element['prediction'] != 'empty':
-            if element['prediction'] in dic:
-                dic[element['prediction']][1] += 1
-                if dic[element['prediction']][0]['confidence'] < element['confidence']:
-                    dic[element['prediction']][0] = element
-            else:
-                dic[element['prediction']] = [element, 1]
-
-    # Make current image a part of output only if it has more than 1 species
-    if len(dic) > 1:
-        for key in dic:
-            dic[key][0]['count'] = dic[key][1]
-            result_df = pd.concat([result_df, pd.DataFrame([dic[key][0]])])
-
-    return result_df

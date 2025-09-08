@@ -1,0 +1,26 @@
+{
+    "images": [
+        {
+            "file": "/home/kyra/animl-py/examples/Southwest/IMAG1065_cougar.JPG",
+            "max_detection_conf": 0.7560999989509583,
+            "detections": [
+                {
+                    "category": 1,
+                    "conf": 0.7560999989509583,
+                    "bbox_x": 0.05950000137090683,
+                    "bbox_y": 0.6144999861717224,
+                    "bbox_w": 0.25,
+                    "bbox_h": 0.1657000035047531
+                },
+                {
+                    "category": 1,
+                    "conf": 0.73089998960495,
+                    "bbox_x": 0.2540999948978424,
+                    "bbox_y": 0.6287000179290771,
+                    "bbox_w": 0.24230000376701355,
+                    "bbox_h": 0.16359999775886536
+                }
+            ]
+        }
+    ]
+}

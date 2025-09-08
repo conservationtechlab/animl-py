@@ -9,10 +9,10 @@ workspace: "your_workspace"
 
 # dataset parameters
 num_classes: 2
-training_set: "/examples/Cats_vs_Dogs/train_data.csv"
-validate_set: "/examples/Cats_vs_Dogs/validate_data.csv"
-test_set: "/examples/Cats_vs_Dogs/test_data.csv"
-class_file: "/examples/Cats_vs_Dogs/cat_dog_labels.csv" 
+training_set: "/home/kyra/animl-py/examples/Cats_vs_Dogs/train_data.csv"
+validate_set: "/home/kyra/animl-py/examples/Cats_vs_Dogs/validate_data.csv"
+test_set: "/home/kyra/animl-py/examples/Cats_vs_Dogs/test_data.csv"
+class_file: "/home/kyra/animl-py/examples/Cats_vs_Dogs/cat_dog_labels.csv" 
 
 # CSV Column Selection
 file_col: 'filepath'
@@ -41,9 +41,10 @@ mixed_precision: True # True or False, if you have a GPU with Tensor Cores (NVID
 
 # overwrite .pt files
 overwrite: False
-experiment_folder: '/examples/Cats_vs_Dogs/Output/'
-log_file: '/examples/Cats_vs_Dogs/training_log.txt'
+experiment_folder: '/home/kyra/animl-py/examples/Cats_vs_Dogs/Output/'
+log_file: '/home/kyra/animl-py/examples/Cats_vs_Dogs/training_log.txt'
 #cache_folder: '/examples/Cats_vs_Dogs/Cache' #folder to cache cropped images, preferably local SSD
+progress: False
 
 # path to save the best model
-active_model: '/examples/Cats_vs_Dogs/Output/best.pt'
+active_model: '/home/kyra/animl-py/examples/Cats_vs_Dogs/Output/best.pt'

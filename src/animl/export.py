@@ -64,8 +64,8 @@ def export_folders(manifest: pd.DataFrame,
         try:
             name = row[unique_name]
         except KeyError:
-            filename = os.path.basename(str(row[file_col]))
-            filename, extension = os.path.splitext(filename)
+            filename = Path(row[file_col]).stem
+            extension = Path(row[file_col]).suffix
 
             # get datetime
             if "datetime" in manifest.columns:
@@ -93,7 +93,9 @@ def export_folders(manifest: pd.DataFrame,
             if copy:  # make a hard copy
                 copy2(row[file_col], link)
             else:  # make a hard
-                os.link(row[file_col], link,)
+                os.link(row[file_col], link)
+                
+                #Path(link).symlink_to(row[file_col])
 
     if out_file:
         manifest.to_csv(out_file, index=False)
@@ -115,7 +117,7 @@ def remove_link(manifest: pd.DataFrame,
     """
     # delete files
     for _, row in manifest.iterrows():
-        os.remove(row[link_col])
+        Path(row[link_col]).unlink(missing_ok=True)
     # remove column
     manifest.drop(columns=[link_col])
     return manifest
@@ -146,7 +148,7 @@ def update_labels_from_folders(manifest: pd.DataFrame,
 
     # last level should be label level
     ground_truth = ground_truth.rename(columns={'filename': unique_name})
-    ground_truth['label'] = ground_truth["filepath"].apply(lambda x: os.path.split(os.path.split(x)[0])[1])
+    ground_truth['label'] = ground_truth["filepath"].apply(lambda x: Path(x).parent.name)
 
     return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
 
@@ -167,10 +169,11 @@ def export_coco(manifest: pd.DataFrame,
     return None
 
 
+# TODO: TEST
 def export_timelapse(animals: pd.DataFrame,
                      empty: pd.DataFrame,
                      imagedir: str,
-                     only_animl: bool = True):
+                     only_animal: bool = True):
     '''
     Converts the Pandas DataFrame created by running the animl classsifier to a csv file that contains columns needed for TimeLapse conversion in later step
 
@@ -187,12 +190,9 @@ def export_timelapse(animals: pd.DataFrame,
         non-anim.csv - A csv file containing detections of all non-animals made to be similar to animals.csv in columns \
         csv_loc - Location of the stored animals csv file
     '''
-    if not imagedir.endswith("/"):
-        imagedir += "/"
-
     # Create directory
-    ICdir = os.path.join(imagedir, "Animl-Directory", "IC")
-    os.makedirs(ICdir, exist_ok=True)
+    ICdir = Path(imagedir) / "Animl-Directory" / "IC"
+    Path(ICdir).mkdir(exist_ok=True)
 
     expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame', 'file',
                         'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
@@ -211,13 +211,11 @@ def export_timelapse(animals: pd.DataFrame,
     # Rename column names for clarity
     animals.rename(columns={'conf': 'detection_conf', 'prediction': 'class', 'confidence': 'classification_conf'}, inplace=True)
 
-    if only_animl:
+    if only_animal:
         # Saving animal results to csv file for conversion to timelapse compatible json
-        csv_loc = os.path.join(ICdir, "animals.csv")
-        animals.to_csv(csv_loc, index=False)
-
+        animals.to_csv(Path(ICdir / "animals.csv"), index=False)
         # Saving non-animal csv entries for manual perusal
-        empty.to_csv(os.path.join(ICdir, "non-anim.csv"), index=False)
+        empty.to_csv(Path(ICdir / "non-anim.csv"), index=False)
 
     else:
         # Checking if the columns match the expected DataFrame
@@ -236,7 +234,7 @@ def export_timelapse(animals: pd.DataFrame,
         empty['classification_conf'] = empty.loc[:, 'detection_conf']
 
         # Combining DataFrames and saving it to csv file for further use
-        csv_loc = os.path.join(ICdir, "manifest.csv")
+        csv_loc = Path(ICdir / "manifest.csv")
         manifest = pd.concat([animals, empty])
         manifest.to_csv(csv_loc, index=False)
 
@@ -245,7 +243,8 @@ def export_timelapse(animals: pd.DataFrame,
 
 
 def export_megadetector(manifest: pd.DataFrame,
-                        output_file: Optional[str] = None):
+                        output_file: Optional[str] = None,
+                        detector: str = 'MegaDetector v5a'):
     """
     Converts the .csv file [input_file] to the MD-formatted .json file [output_file].
 
@@ -267,13 +266,9 @@ def export_megadetector(manifest: pd.DataFrame,
     if output_file is None:
         output_file = 'detections.json'
 
-    expected_columns = ('file', 'category', 'detection_conf',
-                        'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h',
-                        'class', 'classification_conf')
-
-    for s in expected_columns:
-        assert s in manifest.columns, \
-            'Expected column {} not found'.format(s)
+    if not {'file', 'category', 'conf', 'bbox_x', 'bbox_y',
+            'bbox_w', 'bbox_h', 'prediction', 'confidence'}.issubset(manifest.columns):
+        raise ValueError("DataFrame must contain bounding boxes and confidence.")
 
     classification_category_name_to_id = {}
     filename_to_results = {}
@@ -299,10 +294,10 @@ def export_megadetector(manifest: pd.DataFrame,
 
         detection = {}
         detection['category'] = detection_category_id
-        detection['conf'] = row['detection_conf']
+        detection['conf'] = row['conf']
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         detection['bbox'] = bbox
-        classification_category_name = row['class']
+        classification_category_name = row['prediction']
 
         # Have we seen this classification category before?
         if classification_category_name in classification_category_name_to_id:
@@ -313,7 +308,7 @@ def export_megadetector(manifest: pd.DataFrame,
             classification_category_name_to_id[classification_category_name] = \
                 classification_category_id
 
-        classifications = [[classification_category_id, row['classification_conf']]]
+        classifications = [[classification_category_id, row['confidence']]]
         detection['classifications'] = classifications
 
         im['detections'].append(detection)
@@ -322,7 +317,7 @@ def export_megadetector(manifest: pd.DataFrame,
 
     info = {}
     info['format_version'] = '3.0'
-    info['detector'] = 'Animl'
+    info['detector'] = detector
     info['classifier'] = 'Animl'
 
     results = {}

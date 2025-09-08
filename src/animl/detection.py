@@ -5,22 +5,21 @@ Functions for loading MegaDetector, as well as custom YOLO models
 parse_detections() converts json output into a dataframe
 
 """
+import argparse
 from typing import Optional
 import time
-import torch
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from tqdm import tqdm
 
+import torch
 from ultralytics import YOLO
 
 from animl import file_management
+from animl.model_architecture import MEGADETECTORv5_SIZE
 from animl.generator import manifest_dataloader, image_to_tensor
 from animl.utils.general import normalize_boxes, xyxy2xywh, scale_letterbox, non_max_suppression, get_device
-
-
-MEGADETECTORv5_SIZE = 1280
-MEGADETECTORv5_STRIDE = 64
 
 
 def load_detector(model_path: str,
@@ -37,11 +36,14 @@ def load_detector(model_path: str,
     Returns:
         object: loaded model object
     """
+    if not Path(model_path).is_file():
+        raise FileNotFoundError(f"Model file not found at {model_path}")
+
     if device is None:
         device = get_device()
     print('Device set to', device)
 
-    if model_type in {"MDv5", "MDV5", "YOLOv5", "YOLOV5"}:
+    if model_type.lower() in {"mdv5", "yolov5"}:
         checkpoint = torch.load(model_path, map_location=device, weights_only=False)
         # Compatibility fix that allows older YOLOv5 models with
         # newer versions of YOLOv5/PT
@@ -51,11 +53,10 @@ def load_detector(model_path: str,
                 if t is torch.nn.Upsample and not hasattr(m, 'recompute_scale_factor'):
                     m.recompute_scale_factor = None
         model = checkpoint['model'].float().fuse().eval()  # FP32 model
-        model.model_type = "MDV5"
-    # TODO specify available model versions
-    elif model_type in {"YOLO", "MDV6"}:
+        model.model_type = "yolov5"
+    elif model_type.lower() in {"yolo", "mdv6", "mdv1000"}:
         model = YOLO(model_path, task='detect')
-        model.model_type = "YOLO"
+        model.model_type = "yolo"
     else:
         print(f"Please chose a supported model. Version {model_type} is not supported.")
         return None
@@ -70,7 +71,7 @@ def detect(detector,
            resize_height: int,
            letterbox: bool = True,
            confidence_threshold: float = 0.1,
-           file_col: str = 'Frame',
+           file_col: str = 'frame',
            batch_size: int = 1,
            num_workers: int = 1,
            device: Optional[str] = None,
@@ -105,7 +106,7 @@ def detect(detector,
         device = get_device()
     print('Device set to', device)
 
-    # Single Image
+    # Single image filepath
     if isinstance(image_file_names, str):
         # convert img path to tensor
         batch_from_dataloader = image_to_tensor(image_file_names, letterbox=letterbox,
@@ -113,7 +114,7 @@ def detect(detector,
         image_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
         current_image_paths = batch_from_dataloader[1]  # List of image names for the current batch
         image_sizes = batch_from_dataloader[2]  # List of original image sizes for the current batch
-        if detector.model_type == "MDV5":
+        if detector.model_type == "yolov5":
             # letterboxing should be true
             prediction = detector(image_tensors.to(device))
             pred: list = prediction[0]
@@ -122,19 +123,19 @@ def detect(detector,
             pred = detector.predict(source=image_tensors.to(device), conf=confidence_threshold, verbose=False)
         results = convert_yolo_detections(pred, image_tensors, current_image_paths, image_sizes, letterbox, detector.model_type)
         return results
-
     # Full manifest, select file_col
     elif isinstance(image_file_names, pd.DataFrame):
+        if file_col not in image_file_names.columns:
+            raise ValueError(f"file_col {file_col} not found in manifest columns")
         image_file_names = image_file_names[file_col]
-
-    # TODO: TEST ROW VS COLUMN
+    # single row pd.Series, select file_col
     elif isinstance(image_file_names, pd.Series):
-        pass
+        if file_col not in image_file_names.index:
+            raise ValueError(f"file_col {file_col} not found in Series index")
+        image_file_names = [image_file_names[file_col]]
     # column from pd.DataFrame, expected input
     elif isinstance(image_file_names, list):
         pass
-    elif isinstance(image_file_names, str):
-        image_file_names = [image_file_names]
     else:
         raise ValueError('image_file_names is not a recognized object')
 
@@ -169,7 +170,7 @@ def detect(detector,
         image_sizes = batch_from_dataloader[2]  # List of original image sizes for the current batch
 
         # Run inference on the current batch of image_tensors
-        if detector.model_type == "MDV5":
+        if detector.model_type == "yolov5":
             # letterboxing should be true
             prediction = detector(image_tensors.to(device))
             pred: list = prediction[0]
@@ -219,8 +220,10 @@ def convert_yolo_detections(predictions: list,
     # loop over all predictions
     for i, pred in enumerate(predictions):
         file = image_paths[i]
+
+        # extract boxes and conf
         # YOLOv5/MDv5
-        if model_type in {"MDv5", "MDV5", "YOLOv5", "YOLOV5"}:
+        if model_type.lower() in {"mdv5", "yolov5"}:
             if isinstance(pred, torch.Tensor):
                 pred = pred.cpu().numpy()
             boxes = pred[:, :4]  # Bounding box coordinates
@@ -228,7 +231,7 @@ def convert_yolo_detections(predictions: list,
             category = pred[:, 5]  # Class labels as integers
             max_detection_conf = conf.max() if len(conf) > 0 else 0
         # YOLOv6+
-        elif model_type == "YOLO" or model_type == "MDV6":
+        elif model_type.lower() in {"yolo", "mdv6", "mdv1000"}:
             boxes = pred.boxes.xyxyn.cpu().numpy()  # Bounding box coordinates
             conf = pred.boxes.conf.cpu().numpy()  # Confidence scores
             category = pred.boxes.cls.cpu().numpy()  # Class labels as integers
@@ -237,25 +240,27 @@ def convert_yolo_detections(predictions: list,
             print(f"Please chose a supported model. Version {model_type} is not supported.")
             return None
 
+        # no detections
         if len(conf) == 0:
             data = {'file': file,
                     'max_detection_conf': float(round(max_detection_conf, 4)),
                     'detections': []}
             results.append(data)
-
+        # detections
         else:
             detections = []
             for j in range(len(conf)):
                 # YOLOv5/MDv5
-                if model_type in {"MDv5", "MDV5", "YOLOv5", "YOLOV5"}:  # xyxy absolute
+                if model_type.lower() in {'mdv5', 'yolov5'}:  # xyxy absolute
                     bbox = normalize_boxes(boxes[j], image_tensors[i].shape[1:])
                     bbox = xyxy2xywh(bbox)
                 # YOLOv6+
-                elif model_type == "YOLO" or model_type == "MDV6":  # xyxy relative
+                elif model_type.lower() in {'yolo', "mdv6", "mdv1000"}:  # xyxy relative
                     bbox = xyxy2xywh(boxes[j])
                 else:
                     print(f"Please chose a supported model. Version {model_type} is not supported.")
                     return None
+
                 if letterbox:
                     bbox = scale_letterbox(bbox, image_tensors[i].shape[1:], image_sizes[i, :])
 
@@ -343,10 +348,41 @@ def parse_detections(results: list,
 
     df = pd.DataFrame(lst)
 
-    if isinstance(manifest, pd.DataFrame):
-        df = manifest.merge(df, left_on=file_col, right_on="file")
+    if manifest is not None:
+        if file_col in manifest.columns:
+            df = manifest.merge(df, left_on=file_col, right_on="file")
+        else:
+            raise ValueError("Please provide a manifest with a valid file_col to merge results onto.")
 
     if out_file:
         file_management.save_data(df, out_file)
 
     return df
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Train deep learning model.')
+
+    parser.add_argument('detector', help='Path to detector file')
+    parser.add_argument('manifest', help='Path to manifest file')
+    parser.add_argument('output_path', help='Path to output file')
+
+    parser.add_argument('--model_type', nargs='?', help='Path to detector file', default='MDv5')
+    parser.add_argument('--resize_width', nargs='?', help='Path to config file', default=MEGADETECTORv5_SIZE)
+    parser.add_argument('--resize_height', nargs='?', help='Path to config file', default=MEGADETECTORv5_SIZE)
+    parser.add_argument('--letterbox', nargs='?', help='Path to config file', default=True)
+    parser.add_argument('--confidence_threshold', nargs='?', help='Path to config file', default=0.1)
+    parser.add_argument('--file_col', nargs='?', help='Path to config file', default='frame')
+    parser.add_argument('--batch_size', nargs='?', help='Path to config file', default=4)
+    parser.add_argument('--num_workers', nargs='?', help='Path to config file', default=4)
+    parser.add_argument('--device', nargs='?', help='Path to config file', default=get_device())
+
+    args = parser.parse_args()
+
+    detector = load_detector(args.detector, args.model_type)
+    manifest = file_management.load_data(args.manifest)
+
+    mdresults = detect(detector, manifest, args.resize_width, args.resize_height, args.letterbox,
+           confidence_threshold=args.confidence_threshold, file_col=args.file_col,
+           batch_size=args.batch_size, num_workers=args.num_workers, device=args.device)
+    results = parse_detections(mdresults, manifest=manifest, out_file=args.output_path)

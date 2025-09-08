@@ -36,8 +36,8 @@ device: cuda:0
 checkpoint_frequency: 1000
 batch_size: 4
 num_workers: 8 
-file_col_detection: Frame
-file_col_classification: Frame
+file_col_detection: frame
+file_col_classification: frame
 class_label_col: class
 
 # sort

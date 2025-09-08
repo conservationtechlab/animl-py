@@ -8,7 +8,7 @@ Functionality to draw bounding boxes and labels provided image DataFrame.
 import cv2
 import argparse
 import pandas as pd
-import os
+from pathlib import Path
 import numpy as np
 from typing import Union
 
@@ -25,6 +25,7 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
         row (pandas.Series): Row from the DataFrame containing bounding box coordinates and prediction.
             Expected columns:
             - file_col
+            - 'conf': Confidence score of the detection.
             - 'bbox_x': x-coordinate of the top-left corner of the bounding box.
             - 'bbox_y': y-coordinate of the top-left corner of the bounding box.
             - 'bbox_w': width of the bounding box.
@@ -42,9 +43,12 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
     img = cv2.imread(rows.iloc[0][file_col])
     height, width, _ = img.shape
 
+    if not {file_col, 'conf', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(rows.columns):
+        raise ValueError(f"DataFrame must contain {file_col}, 'conf', 'bbox_x', 'bbox_y', 'bbox_w', and 'bbox_h' columns.")
+
     for _, row in rows.iterrows():
         # Skipping the box if the confidence threshold is not met
-        if (row['max_detection_conf']) < min_conf:
+        if (row['conf']) < min_conf:
             continue
 
         # If any of the box isn't defined, jump to next one
@@ -59,6 +63,8 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
 
         # Printing prediction if enabled
         if prediction:
+            if not {'prediction'}.issubset(rows.columns):
+                raise ValueError("DataFrame must contain 'prediction' column to display labels.")
             label = row['prediction']
             text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
             text_size_width, text_size_height = text_size
@@ -70,9 +76,7 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
 
             cv2.putText(img, label, (xyxy[0], xyxy[1] - 12), 0, 1e-3 * height,
                         (0, 0, 0), thick // 3)
-
     return img
-
 
 
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
@@ -85,8 +89,8 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
     plots the boxes in the new image, and saves it the specified directory.
 
     Args:
-        data_frame (Pandas DataFrame): Output of Mega Detector
-        output_dir (str): Name of the output directory
+        manifest (Pandas DataFrame): manifest of detections
+        out_dir (str): Name of the output directory
         file_col (str): Column name containing file paths
         min_conf (Optional) (Int or Float): Confidence threshold to plot the box
         prediction (Optional) (Boolean): Should the prediction be printed alongside bounding box
@@ -94,15 +98,18 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
     Returns:
         None
     """
+    if not {file_col}.issubset(manifest.columns):
+        raise ValueError(f"DataFrame must contain '{file_col}' column.")
+
     # If the specified output directory does not exist, make it
-    if not os.path.exists(out_dir) or not os.path.isdir(out_dir):
-        os.makedirs(out_dir)
+    Path(out_dir).mkdir(exist_ok=True)
 
     # iterate through unique file paths
     manifest_filepaths = manifest.groupby(file_col)
     for filepath, detections in manifest_filepaths:
         # ouput name
-        file_name_no_ext, file_ext = os.path.splitext(os.path.split(filepath)[1])
+        file_name_no_ext = Path(filepath).stem
+        file_ext = Path(filepath).suffix
 
         # file is an image
         if file_ext.lower() in IMAGE_EXTENSIONS:
@@ -110,10 +117,8 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
             img = plot_box(detections, file_col=file_col, min_conf=min_conf, prediction=prediction)
 
                 # Saving the image
-            new_file_name = f"{file_name_no_ext}_box.jpg"
-            new_file_path = os.path.join(out_dir, new_file_name)
+            new_file_path = Path(out_dir) / f"{file_name_no_ext}_box.jpg"
             cv2.imwrite(new_file_path, img)
-
             cv2.destroyAllWindows()
             
         # file is a video, break up by frames
@@ -124,83 +129,18 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
                 img = plot_box(frame_detections, file_col="frame", min_conf=min_conf, prediction=prediction)
 
                 # Saving the image
-                new_file_name = f"{file_name_no_ext}_box.jpg"
-                new_file_path = os.path.join(out_dir, new_file_name)
+                new_file_path = Path(out_dir) / f"{file_name_no_ext}_box.jpg"
                 cv2.imwrite(new_file_path, img)
-
-        cv2.destroyAllWindows()
-
-
-def demo_boxes(manifest: pd.DataFrame, file_col: str, min_conf: float = 0.9, prediction: bool = True):
-    """
-    Draws bounding boxes and labels on image DataFrame.
-
-    Args:
-        manifest : DataFrame containing image data - coordinates and predictions.
-            The DataFrame should have the following columns:
-            - file_col: Filename or path to the image file.
-            - 'bbox_x': Normalized x-coordinate of the top-left corner.
-            - 'bbox_y': Normalized y-coordinate of the top-left corner.
-            - 'bbox_w': Normalized width of the bounding box (range: 0-1).
-            - 'bbox_h': Normalized height of the bounding box (range: 0-1).
-            - 'prediction': Object prediction label for the bounding box.
-        file_col (str): column containing file paths
-        min_conf (float): minimum confidence threshold to plot box
-        prediction (bool): if true, add prediction label
-
-    Returns:
-        None
-    """
-    images = manifest[file_col].unique()
-
-    for image_path in images:
-        # display the image, wait for key
-        img = cv2.imread(image_path)  # Use row directly without indexing
-        cv2.namedWindow("Display", cv2.WINDOW_NORMAL)
-        cv2.imshow('Display', img)
-        cv2.waitKey(0)
-
-        boxes = manifest[manifest[file_col] == image_path]
-        print(boxes)
-        for _, row in boxes.iterrows():
-            confidence = row["confidence"]
-            if confidence >= min_conf:
-                height, width, _ = img.shape
-                left = int(row['bbox_x'] * width)
-                top = int(row['bbox_y'] * height)
-                right = int((row['bbox_x'] + row['bbox_w']) * width)
-                bottom = int((row['bbox_y'] + row['bbox_h']) * height)
-                label = row['prediction']
-                text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 1, 1)
-                text_size_width, text_size_height = text_size
-                thick = int((height + width) // 900)
-                box_right = (right if (right - left) < (text_size_width * 3)
-                             else left + (text_size_width * 3))
-
-                cv2.rectangle(img, (left, top), (right, bottom), (90, 255, 0), thick)
-
-                if prediction:
-                    cv2.rectangle(img, (left, top),
-                                  (box_right, top - (text_size_height * 3)),
-                                  (90, 255, 0), -1)
-                    cv2.putText(img, label, (left, top - 12), 0, 1e-3 * height,
-                                (0, 0, 0), thick // 3)
-                cv2.imshow('Display', img)
-                cv2.waitKey(0)
-
-            else:
-                continue
-
-    cv2.destroyAllWindows()
+                cv2.destroyAllWindows()
 
 
-def main(csv_file: str, output_dir: str):
+def plot_from_file(csv_file: str, out_dir: str):
     """
     Read a CSV manifest file and perform box plotting on the images.
 
     Args:
         csv_file (str): Path to the CSV file.
-        output_dir (str): Saved location  of boxed images output dir.
+        out_dir (str): Saved location  of boxed images output dir.
 
     Returns:
         None
@@ -212,9 +152,9 @@ def main(csv_file: str, output_dir: str):
     for i, row in data.iterrows():
         img = plot_box(row)
         # Save the image with boxes
-        file_name_no_ext, file_ext = os.path.splitext(os.path.split(row['FilePath'])[1])
-        new_file_name = f"{file_name_no_ext}_{i}_{file_ext}"
-        new_file_path = os.path.join(output_dir, new_file_name)
+        file_name_no_ext = Path(row['FilePath']).stem
+        file_ext = Path(row['FilePath']).suffix
+        new_file_path = Path(out_dir, f"{file_name_no_ext}_{i}_{file_ext}")
         cv2.imwrite(new_file_path, img)
 
 
@@ -224,10 +164,10 @@ if __name__ == '__main__':
 
     # Add the CSV file and output directory arguments
     parser.add_argument('csv_file', type=str, help='Path to the CSV file')
-    parser.add_argument('output_dir', type=str, help='Path to the output dir')
+    parser.add_argument('out_dir', type=str, help='Path to the output dir')
 
     # Parse the command-line arguments
     args = parser.parse_args()
 
-    # Call the main function
-    main(args.csv_file, args.output_dir)
+    # Call the main function'
+    plot_from_file(args.csv_file, args.out_dir)
