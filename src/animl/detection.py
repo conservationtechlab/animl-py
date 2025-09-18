@@ -41,7 +41,6 @@ def load_detector(model_path: str,
 
     if device is None:
         device = get_device()
-    print('Device set to', device)
 
     if model_type.lower() in {"mdv5", "yolov5"}:
         checkpoint = torch.load(model_path, map_location=device, weights_only=False)
@@ -71,7 +70,7 @@ def detect(detector,
            resize_height: int,
            letterbox: bool = True,
            confidence_threshold: float = 0.1,
-           file_col: str = 'frame',
+           file_col: str = 'filepath',
            batch_size: int = 1,
            num_workers: int = 1,
            device: Optional[str] = None,
@@ -104,7 +103,6 @@ def detect(detector,
     # check to make sure GPU is available if chosen
     if device is None:
         device = get_device()
-    print('Device set to', device)
 
     # Single image filepath
     if isinstance(image_file_names, str):
@@ -123,19 +121,31 @@ def detect(detector,
             pred = detector.predict(source=image_tensors.to(device), conf=confidence_threshold, verbose=False)
         results = convert_yolo_detections(pred, image_tensors, current_image_paths, image_sizes, letterbox, detector.model_type)
         return results
+    
     # Full manifest, select file_col
     elif isinstance(image_file_names, pd.DataFrame):
         if file_col not in image_file_names.columns:
             raise ValueError(f"file_col {file_col} not found in manifest columns")
-        image_file_names = image_file_names[file_col]
+        # no frame column, assume all images and set to 0
+        if 'frame' not in image_file_names.columns:
+            print("Warning: 'frame' column not found in manifest columns. Defaulting to 0 assuming images.")
+            image_file_names['frame'] = 0
+        # create a list of image paths
+        manifest = image_file_names[[file_col, 'frame']]
+
+
+    # TODO CHECK
     # single row pd.Series, select file_col
     elif isinstance(image_file_names, pd.Series):
         if file_col not in image_file_names.index:
             raise ValueError(f"file_col {file_col} not found in Series index")
-        image_file_names = [image_file_names[file_col]]
+        if 'frame' not in image_file_names.index:
+            print("Warning: 'frame' column not found in Series index. Defaulting to 0 assuming images.")
+            image_file_names['frame'] = 0
+        image_file_names = [image_file_names[file_col], image_file_names['frame']]
+        # create a data frame from image_file_names
+        manifest = pd.DataFrame(image_file_names, columns=['filepath', 'frame'])
     # column from pd.DataFrame, expected input
-    elif isinstance(image_file_names, list):
-        pass
     else:
         raise ValueError('image_file_names is not a recognized object')
 
@@ -146,13 +156,11 @@ def detect(detector,
         results = []
 
     # remove loaded images
-    already_processed = set([i['file'] for i in results])
+    already_processed = set([i['filepath'] for i in results])
     image_file_names = set(image_file_names) - already_processed
 
     count = 0
 
-    # create a data frame from image_file_names
-    manifest = pd.DataFrame(image_file_names, columns=['file'])
     # create dataloader
     dataloader = manifest_dataloader(manifest, batch_size=batch_size,
                                      num_workers=num_workers, crop=False,
@@ -160,7 +168,6 @@ def detect(detector,
                                      resize_width=resize_width,
                                      resize_height=resize_height)
 
-    print("Starting batch processing...")
     start_time = time.time()
     for batch_idx, batch_from_dataloader in tqdm(enumerate(dataloader), total=len(dataloader)):
         count += 1
@@ -184,7 +191,7 @@ def detect(detector,
             print('Writing a new checkpoint after having processed {} images since last restart'.format(count*batch_size))
             file_management.save_detection_checkpoint(checkpoint_path, results)
 
-    print(f"\nFinished batch processing. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
+    print(f"\nFinished detection. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
 
     return results
 
@@ -242,7 +249,7 @@ def convert_yolo_detections(predictions: list,
 
         # no detections
         if len(conf) == 0:
-            data = {'file': file,
+            data = {'filepath': file,
                     'max_detection_conf': float(round(max_detection_conf, 4)),
                     'detections': []}
             results.append(data)
@@ -272,7 +279,7 @@ def convert_yolo_detections(predictions: list,
                         'bbox_h': float(round(bbox[3], 4))}
                 detections.append(data)
 
-            data = {'file': file,
+            data = {'filepath': file,
                     'max_detection_conf': float(round(max_detection_conf, 4)),
                     'detections': detections}
             results.append(data)
@@ -284,7 +291,7 @@ def parse_detections(results: list,
                      manifest: Optional[pd.DataFrame] = None,
                      out_file: Optional[str] = None,
                      threshold: float = 0,
-                     file_col: str = "frame"):
+                     file_col: str = "filepath"):
     """
     Converts listed output from detector to DataFrame.
 
@@ -301,10 +308,10 @@ def parse_detections(results: list,
     # load checkpoint
     if file_management.check_file(out_file):  # checkpoint comes back empty
         df = file_management.load_data(out_file)
-        already_processed = set([row['file'] for row in df])
+        already_processed = set([row['filepath'] for row in df])
 
     else:
-        df = pd.DataFrame(columns=('file', 'max_detection_conf', 'category', 'conf',
+        df = pd.DataFrame(columns=('filepath', 'max_detection_conf', 'category', 'conf',
                                    'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'))
         already_processed = set()
 
@@ -318,17 +325,17 @@ def parse_detections(results: list,
 
     for frame in tqdm(results):
         # pass if already analyzed
-        if frame['file'] in already_processed:
+        if frame['filepath'] in already_processed:
             continue
 
         try:
             detections = frame['detections']
         except KeyError:
-            print('File error ', frame['file'])
+            print('File error ', frame['filepath'])
             continue
 
         if len(detections) == 0:
-            data = {'file': frame['file'],
+            data = {'filepath': frame['filepath'],
                     'max_detection_conf': frame['max_detection_conf'],
                     'category': 0, 'conf': None, 'bbox_x': None,
                     'bbox_y': None, 'bbox_w': None, 'bbox_h': None}
@@ -337,7 +344,7 @@ def parse_detections(results: list,
         else:
             for detection in detections:
                 if (detection['conf'] > threshold):
-                    data = {'file': frame['file'],
+                    data = {'filepath': frame['filepath'],
                             'max_detection_conf': frame['max_detection_conf'],
                             'category': detection['category'], 'conf': detection['conf'],
                             'bbox_x': np.clip(detection['bbox_x'], 0, 1),
@@ -350,7 +357,7 @@ def parse_detections(results: list,
 
     if manifest is not None:
         if file_col in manifest.columns:
-            df = manifest.merge(df, left_on=file_col, right_on="file")
+            df = manifest.merge(df, left_on=file_col, right_on="filepath")
         else:
             raise ValueError("Please provide a manifest with a valid file_col to merge results onto.")
 

@@ -52,9 +52,9 @@ def from_paths(image_dir: str,
     print("Found %d files." % len(files))
 
     #split out videos
-    all_frames = video_processing.extract_frames(files)
+    all_frames = video_processing.extract_frames2(files, frames=1)
 
-    print("Running images and video frames through MegaDetector...")
+    print("Running images and video frames through detector...")
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
@@ -63,7 +63,6 @@ def from_paths(image_dir: str,
                                       all_frames,
                                       resize_height=model_architecture.MEGADETECTORv5_SIZE,
                                       resize_width=model_architecture.MEGADETECTORv5_SIZE,
-                                      file_col="frame",
                                       batch_size=batch_size,
                                       num_workers=NUM_THREADS,
                                       device=device,
@@ -71,6 +70,7 @@ def from_paths(image_dir: str,
                                       checkpoint_frequency=5000)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
+        detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)        
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
@@ -79,7 +79,7 @@ def from_paths(image_dir: str,
     # Plot boxes
     if visualize:
         working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='frame', prediction=False)
+        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, prediction=False)
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
@@ -89,7 +89,6 @@ def from_paths(image_dir: str,
                                               device=device,
                                               resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
                                               resize_width=model_architecture.SDZWA_CLASSIFIER_SIZE,
-                                              file_col="frame",
                                               batch_size=batch_size,
                                               num_workers=NUM_THREADS,
                                               out_file=working_dir.predictions)
@@ -99,8 +98,7 @@ def from_paths(image_dir: str,
                                                           class_list[class_label],
                                                           station_col='station',
                                                           empty_class="",
-                                                          sort_columns=None,
-                                                          file_col="filepath",
+                                                          sort_columns=["station", "datetime", "frame"],
                                                           maxdiff=60)
     else:
         print("Classifying individual frames...")
@@ -165,7 +163,7 @@ def from_config(config: str):
                                       files,
                                       resize_height=model_architecture.MEGADETECTORv5_SIZE,
                                       resize_width=model_architecture.MEGADETECTORv5_SIZE,
-                                      file_col=cfg.get('file_col_detection', 'frame'),
+                                      file_col=cfg.get('file_col_detection', 'filepath'),
                                       batch_size=cfg.get('batch_size', 4),
                                       num_workers=cfg.get('num_workers', NUM_THREADS),
                                       device=device,
@@ -182,7 +180,7 @@ def from_config(config: str):
     # Plot boxes
     if cfg.get('visualize', False):
         working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='frame', prediction=False)
+        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, prediction=False)
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
@@ -191,7 +189,7 @@ def from_config(config: str):
     predictions_raw = classification.classify(classifier, animals,
                                               resize_height=cfg.get('classifier_resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
                                               resize_width=cfg.get('classifier_resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
-                                              file_col=cfg.get('file_col_classification', 'frame'),
+                                              file_col=cfg.get('file_col_classification', 'filepath'),
                                               batch_size=cfg.get('batch_size', 4),
                                               num_workers=cfg.get('num_workers', NUM_THREADS),
                                               device=device,
@@ -203,7 +201,7 @@ def from_config(config: str):
                                                           class_list[cfg.get('class_label_col', 'class')],
                                                           station_col='station',
                                                           empty_class=cfg['empty_class'],
-                                                          sort_columns=["station", "datetime", "framenumber"],
+                                                          sort_columns=["station", "datetime", "frame"],
                                                           file_col=cfg.get('file_col_classification', 'frame'),
                                                           maxdiff=60)
     else:

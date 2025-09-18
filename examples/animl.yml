@@ -18,8 +18,8 @@ device: cuda:0
 checkpoint_frequency: 1000
 batch_size: 4
 num_workers: 4
-file_col_detection: frame
-file_col_classification: frame
+file_col_detection: filepath
+file_col_classification: filepath
 class_label_col: class
 empty_class: Empty # necessary for sequence classification
 

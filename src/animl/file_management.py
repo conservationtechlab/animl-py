@@ -54,7 +54,6 @@ def build_file_manifest(image_dir: str,
         return pd.DataFrame()
 
     files = pd.DataFrame(files, columns=["filepath"])
-    files["frame"] = files["filepath"]
     files["filename"] = files["filepath"].apply(lambda x: Path(x).name)
     files["extension"] = files["filepath"].apply(lambda x: Path(x).suffix.lower())
 
@@ -124,14 +123,12 @@ class WorkingDirectory():
 
         self.basedir = working_dir / Path("Animl-Directory/")
         self.datadir = self.basedir / Path("Data/")
-        self.vidfdir = self.basedir / Path("Frames/")
         self.linkdir = self.basedir / Path("Sorted/")
         self.visdir = self.basedir / Path("Plots/")
 
         # Create directories if they do not already exist
         self.basedir.mkdir(exist_ok=True)
         self.datadir.mkdir(exist_ok=True)
-        self.vidfdir.mkdir(exist_ok=True)
 
         # Assign specific file paths
         self.filemanifest = self.datadir / Path("FileManifest.csv")

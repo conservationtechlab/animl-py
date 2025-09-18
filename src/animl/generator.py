@@ -4,6 +4,7 @@ Generators and Dataloaders
 Custom generators for training and inference
 
 """
+import cv2
 import hashlib
 from typing import Tuple
 import pandas as pd
@@ -19,6 +20,7 @@ from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, R
 
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
+from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -180,7 +182,7 @@ class ImageGenerator(Dataset):
         try:
             img = Image.open(image_name).convert('RGB')
         except OSError:
-            print("File error", image_name)
+            print(f"Image {image_name} cannot be opened. Skipping.")
             return None
 
         width, height = img.size
@@ -327,7 +329,7 @@ class TrainGenerator(Dataset):
             try:
                 img = Image.open(image_name).convert('RGB')
             except OSError:
-                print("File error", image_name)
+                print(f"Image {image_name} cannot be opened. Skipping.")
                 return None
 
             if self.crop:
@@ -417,7 +419,7 @@ def train_dataloader(manifest: pd.DataFrame,
 
 
 def manifest_dataloader(manifest: pd.DataFrame,
-                        file_col: str = "file",
+                        file_col: str = "filepath",
                         crop: bool = True,
                         crop_coord: str = 'relative',
                         normalize: bool = True,
@@ -452,8 +454,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
     if crop is True and not any(manifest.columns.isin(["bbox_x"])):
         crop = False
 
-    # default values file_col='file', resize=299
-    dataset_instance = ImageGenerator(manifest, file_col=file_col, crop=crop, crop_coord=crop_coord,
+    dataset_instance = VideoGenerator(manifest, file_col=file_col, crop=crop, crop_coord=crop_coord,
                                       normalize=normalize, letterbox=letterbox,
                                       resize_width=resize_width, resize_height=resize_height, transform=transform)
 
@@ -472,7 +473,7 @@ def collate_fn(batch):
 
 
 
-class ImageGenerator(Dataset):
+class VideoGenerator(Dataset):
     '''
     Data generator that crops images on the fly, requires relative bbox coordinates,
     ie from MegaDetector
@@ -487,7 +488,7 @@ class ImageGenerator(Dataset):
         transform: torchvision transforms to apply to images
     '''
     def __init__(self, x: pd.DataFrame,
-                 file_col: str = "file",
+                 file_col: str = "filepath",
                  resize_height: int = SDZWA_CLASSIFIER_SIZE,
                  resize_width: int = SDZWA_CLASSIFIER_SIZE,
                  crop: bool = True,
@@ -539,13 +540,23 @@ class ImageGenerator(Dataset):
         return len(self.x)
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, str]:
-        image_name = self.x.loc[idx, self.file_col]
-        ext = Path(image_name).suffix.lower()
+        filepath = self.x.loc[idx, self.file_col]
+        ext = Path(filepath).suffix.lower()
 
-        try:
-            img = Image.open(image_name).convert('RGB')
-        except OSError:
-            print("File error", image_name)
+        if ext in VIDEO_EXTENSIONS:
+            img = self.extract_frames(idx, filepath)
+            if img is None:
+                return None
+
+        elif ext in IMAGE_EXTENSIONS:
+            try:
+                img = Image.open(filepath).convert('RGB')
+            except OSError:
+                print(f"Image {filepath} cannot be opened. Skipping.")
+                return None
+
+        else:
+            print(f"File {filepath} is not a video or image. Skipping.")
             return None
 
         width, height = img.size
@@ -592,4 +603,21 @@ class ImageGenerator(Dataset):
         if not self.normalize:  # un-normalize
             img_tensor = img_tensor * 255
 
-        return img_tensor, str(image_name), torch.tensor((height, width))
+        return img_tensor, str(filepath), torch.tensor((height, width))
+    
+    def extract_frames(self, idx, filepath):
+        frame = self.x.loc[idx, 'frame']
+
+        cap = cv2.VideoCapture(filepath)
+        if not cap.isOpened():  # corrupted video
+            print(f"Video {filepath} cannot be opened. Skipping.")
+            return None
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame)
+        ret, frame = cap.read()
+        if not ret:
+            print(f"Frame {frame} in video {filepath} cannot be read. Skipping.")
+            return None
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(frame)
+        cap.release()
+        return img
