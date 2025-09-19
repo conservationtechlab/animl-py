@@ -115,3 +115,6 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'video_processing', 'viewpoint', 'visualization', 'xyn2xy',
            'xywh2xyxy', 'xywhc2xyxy', 'xywhn2xyxy', 'xyxy2xywh', 'xyxyc2xywh',
            'xyxyc2xywhn', 'yolo']
+
+
+__version__ = "3.0.1" 
