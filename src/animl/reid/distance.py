@@ -103,7 +103,7 @@ def compute_distance_matrix(input1, input2, metric='euclidean'):
             'Please choose either "euclidean" or "cosine"'.format(metric)
         )
 
-    return distmat
+    return distmat.numpy()
 
 
 def compute_batched_distance_matrix(input1, input2, metric='cosine', batch_size=10):
