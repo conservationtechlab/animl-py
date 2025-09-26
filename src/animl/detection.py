@@ -146,7 +146,7 @@ def detect(detector,
         results = []
 
     # remove loaded images
-    already_processed = set([i['file'] for i in results])
+    already_processed = set([r['file'] for r in results.get('images')]) 
     image_file_names = set(image_file_names) - already_processed
 
     count = 0
