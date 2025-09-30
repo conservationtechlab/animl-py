@@ -180,8 +180,6 @@ def extract_frames2(files,
 
     videos = files[files[file_col].apply(
         lambda x: Path(x).suffix.lower()).isin(file_management.VIDEO_EXTENSIONS)]
-    
-    print(videos)
 
     if not videos.empty:
         video_frames = []

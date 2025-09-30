@@ -52,7 +52,7 @@ def from_paths(image_dir: str,
     print("Found %d files." % len(files))
 
     #split out videos
-    all_frames = video_processing.extract_frames2(files, frames=1)
+    all_frames = video_processing.extract_frames2(files, frames=5, out_file=working_dir.imageframes)
 
     print("Running images and video frames through detector...")
     if (file_management.check_file(working_dir.detections)):
@@ -67,7 +67,7 @@ def from_paths(image_dir: str,
                                       num_workers=NUM_THREADS,
                                       device=device,
                                       checkpoint_path=working_dir.mdraw,
-                                      checkpoint_frequency=5000)
+                                      checkpoint_frequency=1000)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)        
@@ -151,7 +151,7 @@ def from_config(config: str):
     if station_dir:
         files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[station_dir])
 
-    all_frames = video_processing.extract_frames(files)
+    all_frames = video_processing.extract_frames2(files, frames=5, out_file=working_dir.imageframes)
 
     # Run all images and video frames through MegaDetector
     print("Running images and video frames through MegaDetector...")
@@ -160,7 +160,7 @@ def from_config(config: str):
     else:
         detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'mdv5'), device=device)
         md_results = detection.detect(detector,
-                                      files,
+                                      all_frames,
                                       resize_height=model_architecture.MEGADETECTORv5_SIZE,
                                       resize_width=model_architecture.MEGADETECTORv5_SIZE,
                                       file_col=cfg.get('file_col_detection', 'filepath'),

@@ -98,7 +98,7 @@ def detect(detector,
         list: list of dicts, each dict represents detections on one image
     """
     if checkpoint_frequency != -1:
-        checkpoint_frequency = round(checkpoint_frequency/batch_size, 0)
+        checkpoint_frequency = max(1, round(checkpoint_frequency/batch_size, None))
 
     # check to make sure GPU is available if chosen
     if device is None:
@@ -151,13 +151,14 @@ def detect(detector,
 
     # load checkpoint
     if file_management.check_file(checkpoint_path):
-        results = file_management.load_json(checkpoint_path)
+        results = file_management.load_json(checkpoint_path).get('images')
+        already_processed = set([r['filepath'] for r in results]) 
+        manifest = image_file_names[~image_file_names[file_col].isin(already_processed)][[file_col, 'frame']].reset_index(drop=True)
+        if manifest.empty:
+            print("All images have already been processed. Exiting.")
+            return results
     else:
         results = []
-
-    # remove loaded images
-    already_processed = set([i['filepath'] for i in results])
-    image_file_names = set(image_file_names) - already_processed
 
     count = 0
 
@@ -169,7 +170,7 @@ def detect(detector,
                                      resize_height=resize_height)
 
     start_time = time.time()
-    for batch_idx, batch_from_dataloader in tqdm(enumerate(dataloader), total=len(dataloader)):
+    for _, batch_from_dataloader in tqdm(enumerate(dataloader), total=len(dataloader)):
         count += 1
 
         image_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
@@ -308,6 +309,7 @@ def parse_detections(results: list,
     # load checkpoint
     if file_management.check_file(out_file):  # checkpoint comes back empty
         df = file_management.load_data(out_file)
+        print(df)
         already_processed = set([row['filepath'] for row in df])
 
     else:
