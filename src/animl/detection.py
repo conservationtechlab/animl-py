@@ -142,12 +142,13 @@ def detect(detector,
     # load checkpoint
     if file_management.check_file(checkpoint_path):
         results = file_management.load_json(checkpoint_path)
+        # remove loaded images
+        already_processed = set([r['file'] for r in results.get('images')]) 
+        image_file_names = set(image_file_names) - already_processed
     else:
         results = []
 
-    # remove loaded images
-    already_processed = set([r['file'] for r in results.get('images')]) 
-    image_file_names = set(image_file_names) - already_processed
+
 
     count = 0
 
