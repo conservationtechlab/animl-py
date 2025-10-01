@@ -134,7 +134,6 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
             
         # file is a video, break up by frames
         else:
-            print(filepath, detections)
             if not {'frame'}.issubset(manifest.columns):
                 raise ValueError("DataFrame must contain 'frame' column for video files.")
             

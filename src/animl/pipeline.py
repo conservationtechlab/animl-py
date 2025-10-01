@@ -104,8 +104,6 @@ def from_paths(image_dir: str,
         print("Classifying individual frames...")
         manifest = classification.single_classification(animals, empty, predictions_raw, class_list[class_label])
 
-    # create symlinks
-    print(manifest)
     if sort:
         print("Sorting...")
         working_dir.activate_linkdir()

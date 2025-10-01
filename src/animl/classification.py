@@ -317,9 +317,10 @@ def single_classification(animals: pd.DataFrame,
         animals dataframe with "prediction" label an "confidence" columns
     """
     class_list = pd.Series(class_list)
+    manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 
-    if not animals.empty:
-        files = animals.groupby('filepath')
+    if not manifest.empty:
+        files = manifest.groupby('filepath')
         updated_files = []
         for f, file in files:
             preds = predictions_raw[file.index]
@@ -328,10 +329,8 @@ def single_classification(animals: pd.DataFrame,
             file["confidence"] = np.max(file["conf"]) * np.max(preds)
             updated_files.append(file)
 
-        animals = pd.concat(updated_files, ignore_index=True)
-    print(animals)
+        manifest = pd.concat(updated_files, ignore_index=True)
 
-    manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
     return manifest
 
 
