@@ -20,7 +20,7 @@ def from_paths(image_dir: str,
                classlist_file: str,
                class_label: str = "class",
                sort: bool = True,
-               visualize: bool = False,
+               visualize: bool = True,
                sequence: bool = False) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
@@ -105,6 +105,7 @@ def from_paths(image_dir: str,
         manifest = classification.single_classification(animals, empty, predictions_raw, class_list[class_label])
 
     # create symlinks
+    print(manifest)
     if sort:
         print("Sorting...")
         working_dir.activate_linkdir()

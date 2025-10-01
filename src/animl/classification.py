@@ -235,7 +235,7 @@ def classify(model,
         detections (pd.DataFrame): MD detections with classifier prediction and confidence
     """
     if file_management.check_file(out_file):
-        return file_management.load_data(out_file)
+        return file_management.load_data(out_file).to_numpy()
 
     if device is None:
         device = get_device()
@@ -317,8 +317,20 @@ def single_classification(animals: pd.DataFrame,
         animals dataframe with "prediction" label an "confidence" columns
     """
     class_list = pd.Series(class_list)
-    animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
-    animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
+
+    if not animals.empty:
+        files = animals.groupby('filepath')
+        updated_files = []
+        for f, file in files:
+            preds = predictions_raw[file.index]
+            preds = np.mean(preds, axis=0)
+            file["prediction"] = class_list[np.argmax(preds)]
+            file["confidence"] = np.max(file["conf"]) * np.max(preds)
+            updated_files.append(file)
+
+        animals = pd.concat(updated_files, ignore_index=True)
+    print(animals)
+
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
     return manifest
 

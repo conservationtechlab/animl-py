@@ -175,7 +175,8 @@ def detect(detector,
 
         image_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
         current_image_paths = batch_from_dataloader[1]  # List of image names for the current batch
-        image_sizes = batch_from_dataloader[2]  # List of original image sizes for the current batch
+        current_frames = batch_from_dataloader[2]  # List of frame numbers for the current batch
+        image_sizes = batch_from_dataloader[3]  # List of original image sizes for the current batch
 
         # Run inference on the current batch of image_tensors
         if detector.model_type == "yolov5":
@@ -186,7 +187,7 @@ def detect(detector,
         else:
             pred = detector.predict(source=image_tensors.to(device), conf=confidence_threshold, verbose=False)
         # convert to normalized xywh
-        results.extend(convert_yolo_detections(pred, image_tensors, current_image_paths, image_sizes, letterbox, detector.model_type))
+        results.extend(convert_yolo_detections(pred, image_tensors, current_image_paths, current_frames, image_sizes, letterbox, detector.model_type))
         # Write a checkpoint if necessary
         if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
             print('Writing a new checkpoint after having processed {} images since last restart'.format(count*batch_size))
@@ -200,6 +201,7 @@ def detect(detector,
 def convert_yolo_detections(predictions: list,
                             image_tensors: list,
                             image_paths: list,
+                            image_frames: list,
                             image_sizes: list,
                             letterbox: bool,
                             model_type: str,) -> pd.DataFrame:
@@ -222,6 +224,8 @@ def convert_yolo_detections(predictions: list,
         image_sizes = image_sizes.cpu().numpy()
     if isinstance(image_tensors, torch.Tensor):
         image_tensors = image_tensors.cpu().numpy()
+    if isinstance(image_frames, torch.Tensor):
+        image_frames = image_frames.cpu().numpy()
 
     results = []
 
@@ -251,6 +255,7 @@ def convert_yolo_detections(predictions: list,
         # no detections
         if len(conf) == 0:
             data = {'filepath': file,
+                    'frame': image_frames[i],
                     'max_detection_conf': float(round(max_detection_conf, 4)),
                     'detections': []}
             results.append(data)
@@ -281,6 +286,7 @@ def convert_yolo_detections(predictions: list,
                 detections.append(data)
 
             data = {'filepath': file,
+                    'frame': image_frames[i],
                     'max_detection_conf': float(round(max_detection_conf, 4)),
                     'detections': detections}
             results.append(data)
@@ -309,11 +315,10 @@ def parse_detections(results: list,
     # load checkpoint
     if file_management.check_file(out_file):  # checkpoint comes back empty
         df = file_management.load_data(out_file)
-        print(df)
         already_processed = set([row['filepath'] for row in df])
 
     else:
-        df = pd.DataFrame(columns=('filepath', 'max_detection_conf', 'category', 'conf',
+        df = pd.DataFrame(columns=('filepath', 'frame', 'max_detection_conf', 'category', 'conf',
                                    'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'))
         already_processed = set()
 
@@ -338,6 +343,7 @@ def parse_detections(results: list,
 
         if len(detections) == 0:
             data = {'filepath': frame['filepath'],
+                    'frame': frame['frame'],
                     'max_detection_conf': frame['max_detection_conf'],
                     'category': 0, 'conf': None, 'bbox_x': None,
                     'bbox_y': None, 'bbox_w': None, 'bbox_h': None}
@@ -347,6 +353,7 @@ def parse_detections(results: list,
             for detection in detections:
                 if (detection['conf'] > threshold):
                     data = {'filepath': frame['filepath'],
+                            'frame': frame['frame'],
                             'max_detection_conf': frame['max_detection_conf'],
                             'category': detection['category'], 'conf': detection['conf'],
                             'bbox_x': np.clip(detection['bbox_x'], 0, 1),
@@ -359,7 +366,7 @@ def parse_detections(results: list,
 
     if manifest is not None:
         if file_col in manifest.columns:
-            df = manifest.merge(df, left_on=file_col, right_on="filepath")
+            df = manifest.merge(df, left_on=[file_col, 'frame'], right_on=["filepath", "frame"], how='left')
         else:
             raise ValueError("Please provide a manifest with a valid file_col to merge results onto.")
 

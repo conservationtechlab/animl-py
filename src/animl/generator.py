@@ -541,6 +541,7 @@ class VideoGenerator(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, str]:
         filepath = self.x.loc[idx, self.file_col]
+        frame = self.x.loc[idx, 'frame']
         ext = Path(filepath).suffix.lower()
 
         if ext in VIDEO_EXTENSIONS:
@@ -603,7 +604,7 @@ class VideoGenerator(Dataset):
         if not self.normalize:  # un-normalize
             img_tensor = img_tensor * 255
 
-        return img_tensor, str(filepath), torch.tensor((height, width))
+        return img_tensor, str(filepath), int(frame), torch.tensor((height, width))
     
     def extract_frames(self, idx, filepath):
         frame = self.x.loc[idx, 'frame']
@@ -620,4 +621,5 @@ class VideoGenerator(Dataset):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(frame)
         cap.release()
+        cv2.destroyAllWindows()
         return img
