@@ -539,7 +539,7 @@ class VideoGenerator(Dataset):
     def __len__(self) -> int:
         return len(self.x)
 
-    def __getitem__(self, idx: int) -> Tuple[Tensor, str]:
+    def __getitem__(self, idx: int) -> Tuple[Tensor, str, int, Tensor]:
         filepath = self.x.loc[idx, self.file_col]
         frame = self.x.loc[idx, 'frame']
         ext = Path(filepath).suffix.lower()
