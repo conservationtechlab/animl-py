@@ -168,7 +168,8 @@ def extract_frames(files: Union[str, pd.DataFrame, list[str]],
 
 
 def extract_frames2(files,
-                    frames: int = 1,
+                    frames: int = 5,
+                    fps: Optional[int] = None,
                     out_file: Optional[str] = None,
                     file_col: str = "filepath",
                     parallel: bool = True,
@@ -185,7 +186,7 @@ def extract_frames2(files,
         video_frames = []
         if parallel:
             pool = mp.Pool(num_workers)
-            output = [pool.apply(count_frames, args=(video, frames)) for video in tqdm(videos[file_col])]
+            output = [pool.apply(count_frames, args=(video, frames, fps)) for video in tqdm(videos[file_col])]
             output = list(filter(None, output))
             video_frames = vstack(output)
             video_frames = pd.DataFrame(video_frames, columns=[file_col, "frame"])
@@ -194,7 +195,7 @@ def extract_frames2(files,
 
         else:
             for i, video in tqdm(enumerate(videos[file_col])):
-                output = count_frames(video, frames=frames)
+                output = count_frames(video, frames=frames, fps=fps)
                 if output is not None:
                     video_frames.extend(output)
 
@@ -236,8 +237,22 @@ def count_frames(filepath, frames=5, fps=None) -> int:
     frames_saved = []
     frame_capture = 0
 
+    # select by fps
     if fps is not None:
         video_fps = cap.get(cv2.CAP_PROP_FPS)
+        if video_fps == 0:
+            # try to calculate fps from duration
+            duration = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000  # Sometimes unreliable
+            if duration > 0:
+                video_fps = frame_count / duration
+            else:
+                print("Could not determine video FPS, defaulting to set number of frames")
+                increment = int(frame_count / frames)
+                while len(frames_saved) < frames:
+                    frames_saved.append([str(filepath), frame_capture])
+                    frame_capture += increment
+                return frames_saved
+
         frames = int(frame_count / video_fps * fps)
         sampled_times = [i / fps for i in range(frames)]
         frames_saved = [min(int(round(t * video_fps)), frame_count-1) for t in sampled_times]
