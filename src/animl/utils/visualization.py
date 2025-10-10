@@ -14,9 +14,10 @@ from typing import Union
 
 from animl.utils import general
 from animl.file_management import IMAGE_EXTENSIONS
+from animl.video_processing import get_frame_as_image
 
 
-def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, prediction=False):
+def plot_box(rows, file_col="filepath", min_conf: Union[int, float] = 0, prediction=False):
     """
     Plot a bounding box on a given (loaded) image
 
@@ -40,7 +41,17 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
     if isinstance(rows, pd.Series):
         rows = pd.DataFrame([rows])
 
-    img = cv2.imread(rows.iloc[0][file_col])
+    # Load the image
+    path = rows.iloc[0][file_col]
+    if not Path(path).is_file():
+        raise FileNotFoundError(f"The file {path} does not exist.")
+
+    if Path(path).suffix.lower() in IMAGE_EXTENSIONS:
+        img = cv2.imread(rows.iloc[0][file_col])
+    else:
+        frame = rows.iloc[0]['frame'] if 'frame' in rows.columns else 0
+        img = get_frame_as_image(rows.iloc[0][file_col], frame)
+    
     height, width, _ = img.shape
 
     if not {file_col, 'conf', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(rows.columns):
@@ -81,7 +92,7 @@ def plot_box(rows, file_col="FilePath", min_conf: Union[int, float] = 0, predict
 
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             out_dir: str,
-                            file_col: str = 'frame',
+                            file_col: str = 'filepath',
                             min_conf: Union[int, float] = 0.1,
                             prediction: bool = False):
     """
@@ -123,18 +134,21 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
             
         # file is a video, break up by frames
         else:
+            if not {'frame'}.issubset(manifest.columns):
+                raise ValueError("DataFrame must contain 'frame' column for video files.")
+            
             frames = detections.groupby('frame')
             for f, frame_detections in frames:
 
-                img = plot_box(frame_detections, file_col="frame", min_conf=min_conf, prediction=prediction)
+                img = plot_box(frame_detections, file_col=file_col, min_conf=min_conf, prediction=prediction)
 
                 # Saving the image
-                new_file_path = Path(out_dir) / f"{file_name_no_ext}_box.jpg"
+                new_file_path = Path(out_dir) / f"{file_name_no_ext}_{f}_box.jpg"
                 cv2.imwrite(new_file_path, img)
                 cv2.destroyAllWindows()
 
 
-def plot_from_file(csv_file: str, out_dir: str):
+def plot_from_file(csv_file: str, out_dir: str, file_col: str = 'filepath'):
     """
     Read a CSV manifest file and perform box plotting on the images.
 
@@ -152,8 +166,10 @@ def plot_from_file(csv_file: str, out_dir: str):
     for i, row in data.iterrows():
         img = plot_box(row)
         # Save the image with boxes
-        file_name_no_ext = Path(row['FilePath']).stem
-        file_ext = Path(row['FilePath']).suffix
+        file_name_no_ext = Path(row[file_col]).stem
+        file_ext = Path(row[file_col]).suffix
+        if file_ext.lower() not in IMAGE_EXTENSIONS:
+            file_ext = '.jpg'
         new_file_path = Path(out_dir, f"{file_name_no_ext}_{i}_{file_ext}")
         cv2.imwrite(new_file_path, img)
 

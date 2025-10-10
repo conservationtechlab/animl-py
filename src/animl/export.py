@@ -169,7 +169,7 @@ def export_coco(manifest: pd.DataFrame,
     return None
 
 
-# TODO: TEST
+# TODO: FIX FOR 3.1
 def export_timelapse(animals: pd.DataFrame,
                      empty: pd.DataFrame,
                      imagedir: str,
@@ -242,6 +242,7 @@ def export_timelapse(animals: pd.DataFrame,
     return csv_loc
 
 
+# TODO: FIX FOR 3.1 to support frames
 def export_megadetector(manifest: pd.DataFrame,
                         output_file: Optional[str] = None,
                         detector: str = 'MegaDetector v5a'):
@@ -266,7 +267,7 @@ def export_megadetector(manifest: pd.DataFrame,
     if output_file is None:
         output_file = 'detections.json'
 
-    if not {'file', 'category', 'conf', 'bbox_x', 'bbox_y',
+    if not {'filepath', 'category', 'conf', 'bbox_x', 'bbox_y',
             'bbox_w', 'bbox_h', 'prediction', 'confidence'}.issubset(manifest.columns):
         raise ValueError("DataFrame must contain bounding boxes and confidence.")
 
@@ -279,12 +280,12 @@ def export_megadetector(manifest: pd.DataFrame,
             continue
 
         # Is this the first detection we've seen for this file?
-        if row['file'] in filename_to_results:
-            im = filename_to_results[row['file']]
+        if row['filepath'] in filename_to_results:
+            im = filename_to_results[row['filepath']]
         else:
             im = {}
             im['detections'] = []
-            im['file'] = row['file']
+            im['file'] = row['filepath']
             filename_to_results[im['file']] = im
 
         assert isinstance(row['category'], int), 'Invalid category identifier in row {}'.format(im['file'])

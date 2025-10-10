@@ -25,7 +25,7 @@ import pandas as pd
 import animl
 
 
-@unittest.skip
+# @unittest.skip
 def main_test():
     start_time = time.time()
 
@@ -43,7 +43,7 @@ def main_test():
     class_list_file = Path.cwd() / 'models/sdzwa_southwest_v3_classes.csv'
 
     animl.from_paths(image_dir, megadetector, classifier_file, class_list_file,
-                     sort = True, visualize= False, sequence = False)
+                     sort = True, visualize= True, sequence = False)
 
     results_path = Path(image_dir) / 'Animl-Directory' / 'Data' / 'Results.csv'
     gt_path = Path.cwd() / 'tests' / 'GroundTruth' / 'main' / 'Results.csv'

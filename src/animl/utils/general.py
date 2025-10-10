@@ -60,7 +60,9 @@ def get_device():
     """
     Get Torch device if available
     """
-    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print('Device set to', device)
+    return device
 
 
 def init_seed(seed):

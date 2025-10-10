@@ -54,7 +54,6 @@ def build_file_manifest(image_dir: str,
         return pd.DataFrame()
 
     files = pd.DataFrame(files, columns=["filepath"])
-    files["frame"] = files["filepath"]
     files["filename"] = files["filepath"].apply(lambda x: Path(x).name)
     files["extension"] = files["filepath"].apply(lambda x: Path(x).suffix.lower())
 
@@ -123,23 +122,19 @@ class WorkingDirectory():
             raise FileNotFoundError(f"The given directory: {working_dir}, does not exist.")
 
         self.basedir = working_dir / Path("Animl-Directory/")
-        self.datadir = self.basedir / Path("Data/")
-        self.vidfdir = self.basedir / Path("Frames/")
         self.linkdir = self.basedir / Path("Sorted/")
         self.visdir = self.basedir / Path("Plots/")
 
         # Create directories if they do not already exist
         self.basedir.mkdir(exist_ok=True)
-        self.datadir.mkdir(exist_ok=True)
-        self.vidfdir.mkdir(exist_ok=True)
 
         # Assign specific file paths
-        self.filemanifest = self.datadir / Path("FileManifest.csv")
-        self.imageframes = self.datadir / Path("ImageFrames.csv")
-        self.results = self.datadir / Path("Results.csv")
-        self.predictions = self.datadir / Path("Predictions.csv")
-        self.detections = self.datadir / Path("Detections.csv")
-        self.mdraw = self.datadir / Path("MD_Raw.json")
+        self.filemanifest = self.basedir / Path("FileManifest.csv")
+        self.imageframes = self.basedir / Path("ImageFrames.csv")
+        self.results = self.basedir / Path("Results.csv")
+        self.predictions = self.basedir / Path("Predictions.csv")
+        self.detections = self.basedir / Path("Detections.csv")
+        self.mdraw = self.basedir / Path("MD_Raw.json")
 
     def activate_visdir(self):
         self.visdir.mkdir(exist_ok=True)
