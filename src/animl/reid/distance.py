@@ -16,6 +16,15 @@ import torch.nn.functional as F
 
 
 def remove_diagonal(A):
+    """
+    Removes the diagonal elements from a square matrix.
+
+    Args:
+        A (torch.Tensor): Input square matrix.
+
+    Returns:
+        torch.Tensor: Matrix with diagonal elements removed.
+    """
     print("A.shape", A.shape)
     print(A.size(0), A.size(1))
     if A.size(0) != A.size(1):
@@ -94,7 +103,7 @@ def compute_distance_matrix(input1, input2, metric='euclidean'):
             'Please choose either "euclidean" or "cosine"'.format(metric)
         )
 
-    return distmat
+    return distmat.numpy()
 
 
 def compute_batched_distance_matrix(input1, input2, metric='cosine', batch_size=10):

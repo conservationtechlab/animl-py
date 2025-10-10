@@ -159,6 +159,7 @@ def detect(detector,
             return results
     else:
         results = []
+        image_file_names = set(image_file_names)
 
     count = 0
 
