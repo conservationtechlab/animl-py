@@ -17,7 +17,11 @@ from animl.file_management import IMAGE_EXTENSIONS
 from animl.video_processing import get_frame_as_image
 
 
-def plot_box(rows, file_col="filepath", min_conf: Union[int, float] = 0, prediction=False):
+def plot_box(rows,
+             file_col="filepath", 
+             min_conf: Union[int, float] = 0,
+             prediction: bool = True,
+             return_img: bool = False):
     """
     Plot a bounding box on a given (loaded) image
 
@@ -82,19 +86,24 @@ def plot_box(rows, file_col="filepath", min_conf: Union[int, float] = 0, predict
 
             box_right = (xyxy[2] if (xyxy[2] - xyxy[0]) < (text_size_width * 3)
                         else xyxy[0] + (text_size_width * 3))
-            cv2.rectangle(img, (xyxy[0], xyxy[1]), (box_right, xyxy[1] - (text_size_height * 2)),
+            cv2.rectangle(img, (xyxy[0], xyxy[1]), (box_right, xyxy[1] - (text_size_height * 3)),
                         (90, 255, 0), -1)
 
             cv2.putText(img, label, (xyxy[0], xyxy[1] - 12), 0, 1e-3 * height,
                         (0, 0, 0), thick // 3)
-    return img
+    if return_img:
+        return img
+    else:
+        cv2.imshow('image', img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             out_dir: str,
                             file_col: str = 'filepath',
                             min_conf: Union[int, float] = 0.1,
-                            prediction: bool = False):
+                            prediction: bool = True):
     """
     This function takes the parsed dataframe output from MegaDetector, makes a copy of each image,
     plots the boxes in the new image, and saves it the specified directory.
@@ -125,7 +134,8 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         # file is an image
         if file_ext.lower() in IMAGE_EXTENSIONS:
 
-            img = plot_box(detections, file_col=file_col, min_conf=min_conf, prediction=prediction)
+            img = plot_box(detections, file_col=file_col, min_conf=min_conf, 
+                           prediction=prediction, return_img=True)
 
                 # Saving the image
             new_file_path = Path(out_dir) / f"{file_name_no_ext}_box.jpg"
@@ -140,7 +150,8 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
             frames = detections.groupby('frame')
             for f, frame_detections in frames:
 
-                img = plot_box(frame_detections, file_col=file_col, min_conf=min_conf, prediction=prediction)
+                img = plot_box(frame_detections, file_col=file_col, min_conf=min_conf, 
+                               prediction=prediction, return_img=True)
 
                 # Saving the image
                 new_file_path = Path(out_dir) / f"{file_name_no_ext}_{f}_box.jpg"
@@ -164,7 +175,7 @@ def plot_from_file(csv_file: str, out_dir: str, file_col: str = 'filepath'):
 
     # Perform box plotting for each image in the CSV file
     for i, row in data.iterrows():
-        img = plot_box(row)
+        img = plot_box(row, return_img=True)
         # Save the image with boxes
         file_name_no_ext = Path(row[file_col]).stem
         file_ext = Path(row[file_col]).suffix

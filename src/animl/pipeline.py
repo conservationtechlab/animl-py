@@ -76,10 +76,6 @@ def from_paths(image_dir: str,
     animals = split.get_animals(detections)
     empty = split.get_empty(detections)
 
-    # Plot boxes
-    if visualize:
-        working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, prediction=False)
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
@@ -108,6 +104,11 @@ def from_paths(image_dir: str,
         print("Sorting...")
         working_dir.activate_linkdir()
         manifest = export.export_folders(manifest, working_dir.linkdir)
+
+    # Plot boxes
+    if visualize:
+        working_dir.activate_visdir()
+        visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, prediction=True)
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
@@ -176,11 +177,6 @@ def from_config(config: str):
     animals = split.get_animals(detections)
     empty = split.get_empty(detections)
 
-    # Plot boxes
-    if cfg.get('visualize', False):
-        working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, prediction=False)
-
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
     class_list = classification.load_class_list(cfg['class_list'])
@@ -205,6 +201,11 @@ def from_config(config: str):
                                                           maxdiff=60)
     else:
         manifest = classification.single_classification(animals, empty, predictions_raw, class_list[cfg.get('class_label_col', 'class')])
+
+    # Plot boxes
+    if cfg.get('visualize', False):
+        working_dir.activate_visdir()
+        visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, prediction=True)
 
     # Create Symlinks
     if cfg.get('sort', False):
