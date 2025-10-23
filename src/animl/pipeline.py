@@ -20,7 +20,7 @@ def from_paths(image_dir: str,
                classlist_file: str,
                class_label: str = "class",
                sort: bool = True,
-               visualize: bool = True,
+               visualize: bool = False,
                sequence: bool = False) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
@@ -107,6 +107,7 @@ def from_paths(image_dir: str,
 
     # Plot boxes
     if visualize:
+        print("Plotting boxes...")
         working_dir.activate_visdir()
         visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, prediction=True)
 
