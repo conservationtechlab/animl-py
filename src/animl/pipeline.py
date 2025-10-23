@@ -67,7 +67,7 @@ def from_paths(image_dir: str,
                                       num_workers=NUM_THREADS,
                                       device=device,
                                       checkpoint_path=working_dir.mdraw,
-                                      checkpoint_frequency=1000)
+                                      checkpoint_frequency=-1)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)        
