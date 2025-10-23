@@ -175,6 +175,13 @@ def extract_frames2(files,
                     parallel: bool = True,
                     num_workers: int = NUM_THREADS):
 
+    if file_management.check_file(out_file):
+        return file_management.load_data(out_file)
+    if (fps is not None) and (frames is not None):
+        print("If both fps and frames are defined fps will be used.")
+    if (fps is None) and (frames is None):
+        raise AssertionError("Either fps or frames need to be defined.")
+
     images = files[files[file_col].apply(
         lambda x: Path(x).suffix.lower()).isin(file_management.IMAGE_EXTENSIONS)]
     images = images.assign(frame=0)
