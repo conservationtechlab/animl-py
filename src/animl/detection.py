@@ -255,8 +255,8 @@ def convert_yolo_detections(predictions: list,
 
         # no detections
         if len(conf) == 0:
-            data = {'filepath': file,
-                    'frame': image_frames[i],
+            data = {'filepath': str(file),
+                    'frame': int(image_frames[i]),
                     'max_detection_conf': float(round(max_detection_conf, 4)),
                     'detections': []}
             results.append(data)
@@ -286,8 +286,8 @@ def convert_yolo_detections(predictions: list,
                         'bbox_h': float(round(bbox[3], 4))}
                 detections.append(data)
 
-            data = {'filepath': file,
-                    'frame': image_frames[i],
+            data = {'filepath': str(file),
+                    'frame': int(image_frames[i]),
                     'max_detection_conf': float(round(max_detection_conf, 4)),
                     'detections': detections}
             results.append(data)
