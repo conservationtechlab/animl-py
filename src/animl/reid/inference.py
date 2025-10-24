@@ -34,6 +34,7 @@ def load_miew(file_path: str,
     weights = torch.load(file_path, weights_only=True)
     miew = MiewIdNet(device=device)
     miew.to(device)
+    miew.device = device
     miew.load_state_dict(weights, strict=False)
     miew.eval()
     return miew
