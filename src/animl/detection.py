@@ -121,7 +121,7 @@ def detect(detector,
             pred = detector.predict(source=image_tensors.to(device), conf=confidence_threshold, verbose=False)
         results = convert_yolo_detections(pred, image_tensors, current_image_paths, image_sizes, letterbox, detector.model_type)
         return results
-    
+
     # Full manifest, select file_col
     elif isinstance(image_file_names, pd.DataFrame):
         if file_col not in image_file_names.columns:
@@ -133,8 +133,6 @@ def detect(detector,
         # create a list of image paths
         manifest = image_file_names[[file_col, 'frame']]
 
-
-    # TODO CHECK
     # single row pd.Series, select file_col
     elif isinstance(image_file_names, pd.Series):
         if file_col not in image_file_names.index:
@@ -152,7 +150,7 @@ def detect(detector,
     # load checkpoint
     if file_management.check_file(checkpoint_path):
         results = file_management.load_json(checkpoint_path).get('images')
-        already_processed = set([r['filepath'] for r in results]) 
+        already_processed = set([r['filepath'] for r in results])
         manifest = image_file_names[~image_file_names[file_col].isin(already_processed)][[file_col, 'frame']].reset_index(drop=True)
         if manifest.empty:
             print("All images have already been processed. Exiting.")
@@ -400,6 +398,6 @@ if __name__ == '__main__':
     manifest = file_management.load_data(args.manifest)
 
     mdresults = detect(detector, manifest, args.resize_width, args.resize_height, args.letterbox,
-           confidence_threshold=args.confidence_threshold, file_col=args.file_col,
-           batch_size=args.batch_size, num_workers=args.num_workers, device=args.device)
+                       confidence_threshold=args.confidence_threshold, file_col=args.file_col,
+                       batch_size=args.batch_size, num_workers=args.num_workers, device=args.device)
     results = parse_detections(mdresults, manifest=manifest, out_file=args.output_path)

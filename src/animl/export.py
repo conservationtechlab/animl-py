@@ -94,8 +94,6 @@ def export_folders(manifest: pd.DataFrame,
                 copy2(row[file_col], link)
             else:  # make a hard
                 os.link(row[file_col], link)
-                
-                #Path(link).symlink_to(row[file_col])
 
     if out_file:
         manifest.to_csv(out_file, index=False)

@@ -329,7 +329,7 @@ def single_classification(animals: pd.DataFrame,
             updated_files.append(file)
 
         animals = pd.concat(updated_files, ignore_index=True)
-    
+
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 
     # remove empties from videos

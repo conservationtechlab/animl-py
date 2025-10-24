@@ -8,9 +8,9 @@ Functionality to draw bounding boxes and labels provided image DataFrame.
 import cv2
 import argparse
 import pandas as pd
-import os
 import math
 import numpy as np
+from pathlib import Path
 from typing import Union
 
 from animl.utils import general
@@ -179,7 +179,7 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
             frames = detections.groupby('frame')
             for f, frame_detections in frames:
 
-                img = plot_box(frame_detections, file_col="frame", min_conf=min_conf,
+                img = plot_box(frame_detections, file_col=file_col, min_conf=min_conf,
                                label_col=label_col, show_confidence=show_confidence,
                                colors=colors, detector_labels=detector_labels, return_img=True)
 

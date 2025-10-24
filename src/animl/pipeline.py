@@ -51,8 +51,8 @@ def from_paths(image_dir: str,
     # files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[-2])
     print("Found %d files." % len(files))
 
-    #split out videos
-    all_frames = video_processing.extract_frames2(files, frames=5, out_file=working_dir.imageframes)
+    # split out videos
+    all_frames = video_processing.extract_frames(files, frames=5, out_file=working_dir.imageframes)
 
     print("Running images and video frames through detector...")
     if (file_management.check_file(working_dir.detections)):
@@ -70,7 +70,7 @@ def from_paths(image_dir: str,
                                       checkpoint_frequency=1000)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
-        detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)        
+        detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
@@ -108,7 +108,7 @@ def from_paths(image_dir: str,
     # Plot boxes
     if visualize:
         working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='frame', label_col='prediction')
+        visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, file_col='filepath', label_col='prediction')
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
@@ -151,7 +151,7 @@ def from_config(config: str):
     if station_dir:
         files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[station_dir])
 
-    all_frames = video_processing.extract_frames2(files, frames=5, out_file=working_dir.imageframes)
+    all_frames = video_processing.extract_frames(files, frames=5, out_file=working_dir.imageframes)
 
     # Run all images and video frames through MegaDetector
     print("Running images and video frames through MegaDetector...")
@@ -205,7 +205,7 @@ def from_config(config: str):
     # Plot boxes
     if cfg.get('visualize', False):
         working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(animals, working_dir.visdir, file_col='frame', label_col='prediction')
+        visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, file_col='filepath', label_col='prediction')
 
     # Create Symlinks
     if cfg.get('sort', False):
