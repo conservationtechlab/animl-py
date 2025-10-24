@@ -18,8 +18,8 @@ device: cuda:0  # set to local gpu device
 num_workers: 8  # number of cores
 
 # CSV Column Selection
-file_col: 'FilePath'
-label_col: 'Species'
+file_col: 'filepath'
+label_col: 'species'
 class_list_index: 'id'
 class_list_label: 'class'
 
@@ -27,7 +27,7 @@ class_list_label: 'class'
 architecture: "efficientnet_v2_m" # or choose "convnext_base"
 image_size: [480, 480]
 crop: True # train on cropped images or not
-crop_coord: 'absolute' #relative or absolute bounding box coordinates
+crop_coord: 'relative' #relative or absolute bounding box coordinates
 batch_size: 12
 val_batch_size: 48
 num_epochs: 60

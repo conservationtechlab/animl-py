@@ -20,7 +20,7 @@ def model_training_test():
     output = Path(cfg['experiment_folder'])
     if output.exists():
         shutil.rmtree(output)
-    Path.mkdir(output)
+    Path(output).mkdir(exist_ok=True)
 
     train.train_main(config)
     test.test_main(config)

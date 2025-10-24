@@ -1,5 +1,6 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
+YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+
 YOLO-specific modules
 Required for MDv5
 
@@ -353,7 +354,6 @@ def parse_model(d, ch):
             args = [ch[f]]
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
-        # TODO: channel, gw, gd
         elif m in {Detect, Segment}:
             args.append([ch[x] for x in f])
             if isinstance(args[1], int):  # number of anchors
