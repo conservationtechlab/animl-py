@@ -1,6 +1,6 @@
 [project]
 name = "animl"  
-version = "3.0.0"
+version = "3.0.1"
 description = "Tools for classifying camera trap images"  
 
 readme = "README.md" 
@@ -12,8 +12,7 @@ authors = [{name = "Kyra Swanson", email = "tswanson@sdzwa.org" }]
 requires-python = ">=3.9"
 dependencies = [
     "dill>=0.4.0",
-    "numpy>=2.0.2", 
-    "onnxruntime-gpu>=1.19.2", 
+    "numpy>=2.0.2",
     "pandas>=2.2.2", 
     "pillow>=11.0.0", 
     "opencv-python>=4.12.0.88", 

@@ -11,7 +11,7 @@ from time import time
 from tqdm import tqdm
 
 import torch
-import onnxruntime
+#import onnxruntime
 
 from animl import generator, file_management
 from animl.model_architecture import EfficientNet, ConvNeXtBase
@@ -117,12 +117,12 @@ def load_classifier(model_path: str,
             model.to(device)
             model.eval()
             model.framework = "pytorch"
-        elif model_path.suffix == '.onnx':
-            if device == "cpu":
-                model = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
-            else:
-                model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider", 'CPUExecutionProvider'])
-            model.framework = "onnx"
+        #elif model_path.suffix == '.onnx':
+        #    if device == "cpu":
+        #        model = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        #    else:
+        #        model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider", 'CPUExecutionProvider'])
+        #    model.framework = "onnx"
         else:
             raise ValueError('Unrecognized model format: {}'.format(model_path))
         elapsed = time() - start_time
