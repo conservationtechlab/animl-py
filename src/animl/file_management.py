@@ -239,6 +239,10 @@ def check_file(file: str) -> bool:
         prompt = "Output file already exists and was last modified {}, would you like to load it? y/n: ".format(date)
         if input(prompt).lower() == "y":
             return True
+        elif input(prompt).lower() == "n":
+            return False
+        else:
+            print("Invalid input, proceeding without loading file.")
     return False
 
 
