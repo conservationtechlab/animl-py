@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from math import fsum
 from typing import Optional, Tuple
+from sklearn.model_selection import train_test_split
 
 from animl.file_management import save_data
 
@@ -58,6 +59,7 @@ def train_val_test(manifest: pd.DataFrame,
                    out_dir: Optional[str] = None,
                    label_col: str = "class",
                    file_col: str = 'filepath',
+                   groupby_col: Optional[list] = None,
                    percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
                    seed: Optional[int] = None):
     '''
@@ -70,6 +72,7 @@ def train_val_test(manifest: pd.DataFrame,
         out_dir (str): location to save split lists to
         label_col (str): column name containing class labels
         file_col (str): column containing file paths
+        groupby_col (list): columns to group by before splitting, ie station
         percentage (tuple): fraction of data dedicated to train-val-test
         seed (int): RNG seed, if none will pick one at random within [0,100]
 
@@ -81,65 +84,51 @@ def train_val_test(manifest: pd.DataFrame,
     '''
     if seed is None:
         seed = np.random.randint(0, 100)
+    print(f"RNG seed: {seed}")
 
     # check percentages add up to 1
     if not (fsum(percentage) == 1):
         print("Invalid percentages")
 
-    # create blank dataframes
-    train = pd.DataFrame()
-    validate = pd.DataFrame()
-    test = pd.DataFrame()
+    # only one label per file 
+    manifest.drop_duplicates(subset=[file_col], inplace=True)
 
-    # stats
-    totCtArr = []
-    trainCtArr = []
-    valCtArr = []
-    testCtArr = []
-
-    # group the data based on label column
-    manifest.drop_duplicates(subset=[file_col])
-    manifest_by_label = manifest.groupby(label_col)
     labelCt = manifest[label_col].value_counts()
+    # downsampling based on label counts
+    median = np.median(labelCt.values)
+    
 
-    print("seed =", seed)
+    if groupby_col:
+        groupby_col = groupby_col + [label_col]
+    else:
+        groupby_col = [label_col]
 
-    for label in labelCt.keys():
-        # calc how much of each data belongs to each category
-        # test gets the remainder due to rounding percentages
-        catCt = labelCt[label]
-        trainCt = round(catCt * percentage[0])
-        valCt = round(catCt * percentage[1])
-        testCt = catCt - (trainCt + valCt)
 
-        totCtArr.append(catCt)
-        trainCtArr.append(trainCt)
-        valCtArr.append(valCt)
-        testCtArr.append(testCt)
+    # split groups into train, val, test
+    trainGroups, tempGroups = train_test_split(manifest,
+                                               test_size=(1 - percentage[0]),
+                                               shuffle=False,
+                                               random_state=seed, stratify=groupby_col)
 
-        # shuffle based on seed without re-sample
-        currLabel = manifest_by_label.get_group(label).sample(frac=1, replace=False, random_state=seed)
+    valGroups, testGroups = train_test_split(tempGroups,
+                                             test_size=(percentage[2] / (percentage[1] + percentage[2])),
+                                             shuffle=False,
+                                             random_state=seed, stratify=groupby_col)
 
-        # split group into train, test, val
-        trainLabel = currLabel[0:trainCt]
-        valLabel = currLabel[trainCt:trainCt+valCt]
-        testLabel = currLabel[trainCt+valCt:]
-
-        # save to combined data frame
-        train = pd.concat([train, trainLabel], ignore_index=True)
-        validate = pd.concat([validate, valLabel], ignore_index=True)
-        test = pd.concat([test, testLabel], ignore_index=True)
+    # get all data for each split based on groups
+    train = pd.merge(manifest, trainGroups, on=groupby_col, how='inner')
+    val = pd.merge(manifest, valGroups, on=groupby_col, how='inner')
+    test = pd.merge(manifest, testGroups, on=groupby_col, how='inner')
 
     # save stats
-    stats = {"label": list(labelCt.keys()), "total images": totCtArr,
-             "train": trainCtArr, "test": testCtArr, "validation": valCtArr}
-
+    stats = {"label": list(labelCt.keys()), "total images": len(manifest),
+             "train": len(train), "test": len(test), "validation": len(val)}
     if out_dir is not None:
         save_data(pd.DataFrame(stats), out_dir + "/data_split.csv")
 
         # save to csv
         save_data(train, out_dir + "/train_data.csv")
-        save_data(validate, out_dir + "/validate_data.csv")
+        save_data(val, out_dir + "/validate_data.csv")
         save_data(test, out_dir + "/test_data.csv")
 
-    return train, validate, test, stats
+    return train, val, test, stats
