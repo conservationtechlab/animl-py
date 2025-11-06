@@ -7,7 +7,7 @@ import pandas as pd
 
 import animl
 
-@unittest.skip
+# @unittest.skip
 def onnx_test():
     # test onnx model
     # test sequence classification
@@ -19,7 +19,6 @@ def onnx_test():
     config = Path.cwd() / 'examples' / 'animl.yml'
 
     results = animl.from_config(config)
-    print(results)
 
     #export_coco, 
     #export_timelapse, 

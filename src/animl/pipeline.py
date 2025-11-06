@@ -3,6 +3,7 @@ Automated Pipeline Functions
 
 @ Kyra Swanson 2023
 """
+import json
 import os
 import yaml
 import torch
@@ -151,10 +152,10 @@ def from_config(config: str):
     if station_dir:
         files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[station_dir])
 
+   # split out videos
     all_frames = video_processing.extract_frames(files, frames=5, out_file=working_dir.imageframes)
 
-    # Run all images and video frames through MegaDetector
-    print("Running images and video frames through MegaDetector...")
+    print("Running images and video frames through detector...")
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
@@ -168,10 +169,10 @@ def from_config(config: str):
                                       num_workers=cfg.get('num_workers', NUM_THREADS),
                                       device=device,
                                       checkpoint_path=working_dir.mdraw,
-                                      checkpoint_frequency=cfg.get('checkpoint_frequency', -1))
+                                      checkpoint_frequency=1000)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
-        detections = detection.parse_detections(md_results, manifest=files, out_file=working_dir.detections)
+        detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
@@ -179,8 +180,23 @@ def from_config(config: str):
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
-    class_list = classification.load_class_list(cfg['class_list'])
+    class_list = cfg.get('class_list', [])
+    if class_list:
+        class_list = classification.load_class_list(class_list)
+
+    # Load classifier
     classifier = classification.load_classifier(cfg['classifier_file'], len(class_list), device=device)
+
+    if classifier.framework == "onnx" and hasattr(classifier, "get_modelmeta"):
+        props = classifier.get_modelmeta().custom_metadata_map
+        if "class_dict" in props:
+            class_dict = json.loads(props["class_dict"])
+            class_list = [class_dict[str(i)] for i in range(len(class_dict))]
+            class_list = pd.DataFrame({cfg.get('class_label_col', 'class'): class_list})
+        else:
+            raise ValueError("No class_dict metadata found in ONNX model.")
+
+
     predictions_raw = classification.classify(classifier, animals,
                                               resize_height=cfg.get('classifier_resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
                                               resize_width=cfg.get('classifier_resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),

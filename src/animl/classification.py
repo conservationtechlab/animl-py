@@ -3,6 +3,7 @@ Tools for Saving, Loading, and Using Species Classifiers
 
 @ Kyra Swanson 2023
 '''
+import json
 from typing import Optional
 import pandas as pd
 import numpy as np
@@ -122,6 +123,13 @@ def load_classifier(model_path: str,
             else:
                 model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider", 'CPUExecutionProvider'])
             model.framework = "onnx"
+
+            props = model.get_modelmeta().custom_metadata_map
+            if "class_dict" in props:
+                class_dict = json.loads(props["class_dict"])
+                print("Loaded class_dict from ONNX metadata:", class_dict)
+            else:
+                print("No class_dict metadata found in ONNX model.")
         else:
             raise ValueError('Unrecognized model format: {}'.format(model_path))
         elapsed = time() - start_time
