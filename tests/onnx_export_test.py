@@ -63,7 +63,7 @@ def export_onnx(model_path: str, img_size: int = 1280):
     model = ultralytics.YOLO(model_path)
 
     # Export the model to ONNX format
-    model.export(format="onnx", imgsz=img_size, opset=13, dynamic=False, nms=True)
+    model.export(format="onnx", imgsz=img_size, opset=13, dynamic=True, nms=True)
 
 
 def add_class_dict(model_path, class_dict):
@@ -113,15 +113,15 @@ def test_env_print():
     print("PYTHON_EXECUTABLE:", sys.executable)
     print("PYTHONPATH:", os.environ.get("PYTHONPATH"))
     print("PATH:", os.environ.get("PATH"))
-    assert True
-
-# @unittest.skip
-def main():
-    test_env_print()
 
     print("Signature:", inspect.signature(ultralytics.YOLO.export))
     print("Docstring:\n", ultralytics.YOLO.export.__doc__)
 
+    assert True
+
+@unittest.skip
+def main():
+    #test_env_print()
 
     #megadetector
     export_onnx("models/md_v1000.0.0-sorrel.pt", img_size=960)
