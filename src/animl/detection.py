@@ -42,6 +42,7 @@ def load_detector(model_path: str,
     if device is None:
         device = get_device()
 
+    # YOLOv5/MDv5
     if model_type.lower() in {"mdv5", "yolov5"}:
         checkpoint = torch.load(model_path, map_location=device, weights_only=False)
         # Compatibility fix that allows older YOLOv5 models with
@@ -53,15 +54,26 @@ def load_detector(model_path: str,
                     m.recompute_scale_factor = None
         model = checkpoint['model'].float().fuse().eval()  # FP32 model
         model.model_type = "yolov5"
+        model.to(device)
+        return model
+    # YOLOv6+
     elif model_type.lower() in {"yolo", "mdv6", "mdv1000"}:
         model = YOLO(model_path, task='detect')
         model.model_type = "yolo"
+        model.to(device)
+        return model
+    # ONNX model
+    elif model_type.lower() in {"onnx"}:
+        import onnxruntime as ort
+        providers = ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        sess = ort.InferenceSession(model_path,
+                                    providers=providers)
+        model = sess
+        model.model_type = "onnx"
+        return model
     else:
         print(f"Please chose a supported model. Version {model_type} is not supported.")
         return None
-
-    model.to(device)
-    return model
 
 
 def detect(detector,
@@ -183,16 +195,83 @@ def detect(detector,
             prediction = detector(image_tensors.to(device))
             pred: list = prediction[0]
             pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
+            # convert to normalized xywh
+            results.extend(convert_yolo_detections(pred, image_tensors, current_image_paths, current_frames,
+                                                   image_sizes, letterbox, detector.model_type))
+        elif detector.model_type == "onnx":
+            # ONNX Runtime inference
+            input_name = detector.get_inputs()[0].name
+            if device == "cpu":
+                outputs = detector.run(None, {input_name: image_tensors.cpu().numpy()})[0]
+            else:
+                outputs = detector.run(None, {input_name: image_tensors.numpy()})[0]
+
+            # Process outputs to match expected format
+            results.extend(convert_onnx_detections(outputs, image_tensors, current_image_paths, current_frames,
+                                                   image_sizes, letterbox))
         else:
             pred = detector.predict(source=image_tensors.to(device), conf=confidence_threshold, verbose=False)
-        # convert to normalized xywh
-        results.extend(convert_yolo_detections(pred, image_tensors, current_image_paths, current_frames, image_sizes, letterbox, detector.model_type))
+            # convert to normalized xywh
+            results.extend(convert_yolo_detections(pred, image_tensors, current_image_paths, current_frames,
+                                                   image_sizes, letterbox, detector.model_type))
+
         # Write a checkpoint if necessary
         if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
             print('Writing a new checkpoint after having processed {} images since last restart'.format(count*batch_size))
             file_management.save_detection_checkpoint(checkpoint_path, results)
 
     print(f"\nFinished detection. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
+
+    return results
+
+
+def convert_onnx_detections(predictions: list,
+                            image_tensors: list,
+                            image_paths: list,
+                            image_frames: list,
+                            image_sizes: list,
+                            letterbox: bool) -> pd.DataFrame:
+    # Process ONNX predictions
+    results = []
+
+    for i, pred in enumerate(predictions):
+
+        boxes = pred[:, :4]  # Bounding box coordinates
+        conf = pred[:, 4]  # Confidence scores
+        category = pred[:, 5]  # Class labels as integers
+        max_detection_conf = conf.max() if len(conf) > 0 else 0
+
+        if len(conf) == 0:
+            data = {'filepath': str(image_paths[i]),
+                    'frame': int(image_frames[i]),
+                    'max_detection_conf': float(round(max_detection_conf, 4)),
+                    'detections': []}
+            results.append(data)
+        else:
+            detections = []
+            for j in range(len(conf)):
+                bbox = normalize_boxes(boxes[j], image_tensors[i].shape[1:])
+                bbox = xyxy2xywh(bbox)
+                if bbox.all() == 0:
+                    continue
+
+                if letterbox:
+                    bbox = scale_letterbox(bbox, image_tensors[i].shape[1:], image_sizes[i, :])
+
+                detection = {
+                    'bbox_x': float(round(bbox[0], 4)),
+                    'bbox_y': float(round(bbox[1], 4)),
+                    'bbox_w': float(round(bbox[2], 4)),
+                    'bbox_h': float(round(bbox[3], 4)),
+                    'conf': float(round(conf[j], 4)),
+                    'category': int(category[j]+1)
+                }
+                detections.append(detection)
+            data = {'filepath': str(image_paths[i]),
+                    'frame': int(image_frames[i]),
+                    'max_detection_conf': float(round(max_detection_conf, 4)),
+                    'detections': detections}
+            results.append(data)
 
     return results
 

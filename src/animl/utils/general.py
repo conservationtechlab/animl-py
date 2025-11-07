@@ -40,7 +40,7 @@ def softmax(x):
     return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
 
 
-def tensor_to_onnx(tensor, channel_last=True):
+def tensor_to_onnx(tensor, channel_last=False):
     '''
     Helper function for onnx, shifts dims to BxHxWxC
     '''

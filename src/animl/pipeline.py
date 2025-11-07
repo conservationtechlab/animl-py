@@ -3,6 +3,7 @@ Automated Pipeline Functions
 
 @ Kyra Swanson 2023
 """
+
 import os
 import yaml
 import torch
@@ -19,6 +20,7 @@ def from_paths(image_dir: str,
                classifier_file: str,
                classlist_file: str,
                class_label: str = "class",
+               batch_size: int = 4,
                sort: bool = True,
                visualize: bool = False,
                sequence: bool = False) -> pd.DataFrame:
@@ -32,6 +34,7 @@ def from_paths(image_dir: str,
         classifier_file (str): file path of the classifier model.
         classlist_file (list): list of classes or species for classification.
         class_label: column in the class list that contains the label wanted
+        batch_size (int): batch size for inference
         sort (bool): toggle option to create symlinks
         visualize (bool): if True, run visualization
         sequence (bool): if True, run sequence_classification
@@ -40,7 +43,6 @@ def from_paths(image_dir: str,
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
     device = get_device()
-    batch_size = 4
 
     print("Searching directory...")
     # Create a working directory, build the file manifest from img_dir
@@ -78,8 +80,7 @@ def from_paths(image_dir: str,
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
-    class_list = classification.load_class_list(classlist_file)
-    classifier = classification.load_classifier(classifier_file, len(class_list), device=device)
+    classifier, class_list = classification.load_classifier(classifier_file, classlist_file, device=device)
     predictions_raw = classification.classify(classifier, animals,
                                               device=device,
                                               resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
@@ -104,7 +105,6 @@ def from_paths(image_dir: str,
         working_dir.activate_linkdir()
         manifest = export.export_folders(manifest, working_dir.linkdir)
 
-    # Plot boxes
     # Plot boxes
     if visualize:
         working_dir.activate_visdir()
@@ -151,10 +151,10 @@ def from_config(config: str):
     if station_dir:
         files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[station_dir])
 
+    # split out videos
     all_frames = video_processing.extract_frames(files, frames=5, out_file=working_dir.imageframes)
 
-    # Run all images and video frames through MegaDetector
-    print("Running images and video frames through MegaDetector...")
+    print("Running images and video frames through detector...")
     if (file_management.check_file(working_dir.detections)):
         detections = file_management.load_data(working_dir.detections)
     else:
@@ -163,15 +163,16 @@ def from_config(config: str):
                                       all_frames,
                                       resize_height=model_architecture.MEGADETECTORv5_SIZE,
                                       resize_width=model_architecture.MEGADETECTORv5_SIZE,
+                                      letterbox=cfg.get('letterbox', True),
                                       file_col=cfg.get('file_col_detection', 'filepath'),
                                       batch_size=cfg.get('batch_size', 4),
                                       num_workers=cfg.get('num_workers', NUM_THREADS),
                                       device=device,
                                       checkpoint_path=working_dir.mdraw,
-                                      checkpoint_frequency=cfg.get('checkpoint_frequency', -1))
+                                      checkpoint_frequency=1000)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
-        detections = detection.parse_detections(md_results, manifest=files, out_file=working_dir.detections)
+        detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
@@ -179,8 +180,9 @@ def from_config(config: str):
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species...")
-    class_list = classification.load_class_list(cfg['class_list'])
-    classifier = classification.load_classifier(cfg['classifier_file'], len(class_list), device=device)
+    # Load classifier
+    classifier, class_list = classification.load_classifier(cfg['classifier_file'], cfg.get('class_list', None), device=device)
+
     predictions_raw = classification.classify(classifier, animals,
                                               resize_height=cfg.get('classifier_resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
                                               resize_width=cfg.get('classifier_resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
@@ -202,18 +204,15 @@ def from_config(config: str):
     else:
         manifest = classification.single_classification(animals, empty, predictions_raw, class_list[cfg.get('class_label_col', 'class')])
 
+    if cfg.get('sort', True):
+        print("Sorting...")
+        working_dir.activate_linkdir()
+        manifest = export.export_folders(manifest, working_dir.linkdir)
+
     # Plot boxes
     if cfg.get('visualize', False):
         working_dir.activate_visdir()
         visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, file_col='filepath', label_col='prediction')
-
-    # Create Symlinks
-    if cfg.get('sort', False):
-        working_dir.activate_linkdir()
-        manifest = export.export_folders(manifest,
-                                         out_dir=cfg.get('link_dir', working_dir.linkdir),
-                                         out_file=working_dir.results,
-                                         copy=cfg.get('copy', False))
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))

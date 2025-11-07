@@ -3,6 +3,7 @@ Tools for Saving, Loading, and Using Species Classifiers
 
 @ Kyra Swanson 2023
 '''
+import json
 from typing import Optional
 import pandas as pd
 import numpy as np
@@ -55,7 +56,7 @@ def save_classifier(model,
 
 
 def load_classifier(model_path: str,
-                    num_classes: int,
+                    classes: int | str,
                     device: Optional[str] = None,
                     architecture: str = "CTL"):
     '''
@@ -63,15 +64,24 @@ def load_classifier(model_path: str,
 
     Args:
         model_path (str): file or directory path to model weights
-        num_classes (int): path to associated class list
+        classes (int | str): number of classes or path to associated class list
         device (str): specify to run on cpu or gpu
         architecture (str): expected model architecture
 
     Returns:
         model: model object of given architecture with loaded weights
-        start_epoch (int, optional): current epoch, 0 if not resuming training
+        class_list: list of class names
     '''
+    class_list = None
     model_path = Path(model_path)
+
+    # get number of classes
+    if isinstance(classes, str) or isinstance(classes, Path):
+        class_list = load_class_list(classes)
+        num_classes = len(class_list)
+    else:
+        class_list = None
+        num_classes = classes
 
     # check to make sure GPU is available if chosen
     if device is None:
@@ -117,18 +127,24 @@ def load_classifier(model_path: str,
             model.eval()
             model.framework = "pytorch"
         elif model_path.suffix == '.onnx':
-            if device == "cpu":
-                model = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
-            else:
-                model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider", 'CPUExecutionProvider'])
+            providers = ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            model = onnxruntime.InferenceSession(model_path,
+                                                 providers=providers)
             model.framework = "onnx"
+            # try to load class dict from metadata
+            props = model.get_modelmeta().custom_metadata_map
+            if "class_dict" in props:
+                print("Loaded class_dict from ONNX metadata.")
+                class_dict = json.loads(props["class_dict"])
+                class_list = [class_dict[str(i)] for i in range(len(class_dict))]
+                class_list = pd.DataFrame({'class': class_list})
         else:
             raise ValueError('Unrecognized model format: {}'.format(model_path))
         elapsed = time() - start_time
         print('Loaded model in %.2f seconds' % elapsed)
 
         # no need to return epoch
-        return model
+        return model, class_list
 
     # no dir or file found
     else:

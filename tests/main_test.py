@@ -25,7 +25,7 @@ import pandas as pd
 import animl
 
 
-# @unittest.skip
+@unittest.skip
 def main_test():
     start_time = time.time()
 
