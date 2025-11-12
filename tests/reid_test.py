@@ -3,7 +3,6 @@ import time
 import numpy as np
 from pathlib import Path
 
-
 import animl
 from animl.utils.general import NUM_THREADS
 
@@ -46,10 +45,11 @@ def reid_test():
     if e2_match and cos_match and batched_match:
         print("ReID Test Successful!")
     else:
-        print(e2==e2_gt)
+        print(e2 == e2_gt)
         print(e2_gt)
     print(f"Test completed in {time.time() - start_time:.2f} seconds")
 
-    #TODO : remove_diagonal()
+    # TODO : remove_diagonal()
+
 
 reid_test()

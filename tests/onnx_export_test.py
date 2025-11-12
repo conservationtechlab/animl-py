@@ -11,6 +11,8 @@ What it does:
 - calls torch.onnx.export with dynamic_axes for batch dimension
 - (optionally) verifies the exported model runs in ONNX Runtime for different batch sizes
 """
+import sys
+import os
 import unittest
 import torch
 import inspect
@@ -18,7 +20,6 @@ import json
 import onnxruntime as ort
 import ultralytics
 
-from animl import load_classifier, load_class_list, load_detector
 
 def export_model(model: str,
                  output_path: str,
@@ -107,36 +108,34 @@ def verify_with_onnxruntime(onnx_path: str, input_size):
     else:
         print("No class_dict metadata found in ONNX model.")
 
-    
+
 def test_env_print():
-    import sys, os
     print("PYTHON_EXECUTABLE:", sys.executable)
     print("PYTHONPATH:", os.environ.get("PYTHONPATH"))
     print("PATH:", os.environ.get("PATH"))
-
     print("Signature:", inspect.signature(ultralytics.YOLO.export))
     print("Docstring:\n", ultralytics.YOLO.export.__doc__)
-
     assert True
+
 
 @unittest.skip
 def main():
-    #test_env_print()
+    # test_env_print()
 
-    #megadetector
+    # megadetector
     export_onnx("models/md_v1000.0.0-sorrel.pt", img_size=960)
     verify_with_onnxruntime("models/md_v1000.0.0-sorrel.onnx", 960)
 
-   # classes = load_class_list("models/sdzwa_southwest_v3_classes.csv")
-   # class_dict = {i: c['class'] for i, c in classes.iterrows()}
+    # classes = load_class_list("models/sdzwa_southwest_v3_classes.csv")
+    # class_dict = {i: c['class'] for i, c in classes.iterrows()}
 
-    #model = load_classifier("models/sdzwa_southwest_v3.pt", len(class_dict))
+    # model = load_classifier("models/sdzwa_southwest_v3.pt", len(class_dict))
 
-#    export_model(model, "models/sdzwa_southwest_v3.onnx")
+    # export_model(model, "models/sdzwa_southwest_v3.onnx")
 
     # add class dict metadata
- #   add_class_dict("models/sdzwa_southwest_v3.onnx", class_dict)
-  #  verify_with_onnxruntime("models/sdzwa_southwest_v3.onnx")
+    # add_class_dict("models/sdzwa_southwest_v3.onnx", class_dict)
+    # verify_with_onnxruntime("models/sdzwa_southwest_v3.onnx")
 
 
 # run test

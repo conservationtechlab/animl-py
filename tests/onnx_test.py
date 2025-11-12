@@ -1,16 +1,18 @@
+"""
+Test pipeline using ONNX models.
+
+"""
 import unittest
 import time
 import shutil
 from pathlib import Path
-import pandas as pd
 import yaml
 
 import animl
 
-#@unittest.skip
+
+# @unittest.skip
 def onnx_test():
-    # test onnx model
-    # test sequence classification
     start_time = time.time()
 
     workingdir = Path.cwd() / 'examples' / 'Southwest' / 'Animl-Directory'
@@ -20,12 +22,11 @@ def onnx_test():
 
     results = animl.from_config(config)
 
-    #export_coco, 
-    #export_timelapse, 
+    # export_coco
+    # export_timelapse
 
-
-    #export.remove_link
-    #export.update_labels_from_folders
+    # export.remove_link
+    # export.update_labels_from_folders
     print(f"Test completed in {time.time() - start_time:.2f} seconds")
 
 
@@ -54,6 +55,8 @@ def onnx_gpu_test():
 
     print(detections_gpu)
 
+    print(f"ONNX GPU Test completed in {time.time() - start_time:.2f} seconds")
+
 
 onnx_test()
-#onnx_gpu_test()
+# onnx_gpu_test()
