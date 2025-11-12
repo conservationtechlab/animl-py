@@ -66,9 +66,7 @@ def load_detector(model_path: str,
     elif model_type.lower() in {"onnx"}:
         import onnxruntime as ort
         providers = ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        sess = ort.InferenceSession(model_path,
-                                    providers=providers)
-        model = sess
+        model = ort.InferenceSession(model_path, providers=providers)
         model.model_type = "onnx"
         return model
     else:

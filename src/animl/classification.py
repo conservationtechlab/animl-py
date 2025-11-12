@@ -56,7 +56,7 @@ def save_classifier(model,
 
 
 def load_classifier(model_path: str,
-                    classes: int | str,
+                    classes,
                     device: Optional[str] = None,
                     architecture: str = "CTL"):
     '''
