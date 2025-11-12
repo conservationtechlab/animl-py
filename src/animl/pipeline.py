@@ -51,7 +51,7 @@ def from_paths(image_dir: str,
                                                 out_file=working_dir.filemanifest,
                                                 exif=True)
     # files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[-2])
-    print("Found %d files." % len(files))
+    print(f"Found {len(files)} files.")
 
     # split out videos
     all_frames = video_processing.extract_frames(files, frames=5, out_file=working_dir.imageframes)
@@ -144,7 +144,7 @@ def from_config(config: str):
     files = file_management.build_file_manifest(image_dir,
                                                 out_file=working_dir.filemanifest,
                                                 exif=cfg.get('exif', True))
-    print("Found %d files." % len(files))
+    print(f"Found {len(files)} files.")
 
     # Station Col
     station_dir = cfg.get('station_dir', None)

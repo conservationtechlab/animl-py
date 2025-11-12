@@ -26,7 +26,6 @@ def remove_diagonal(A):
         torch.Tensor: Matrix with diagonal elements removed.
     """
     print("A.shape", A.shape)
-    print(A.size(0), A.size(1))
     if A.size(0) != A.size(1):
         raise ValueError("Input must be a square matrix")
 

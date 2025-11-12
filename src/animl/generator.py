@@ -90,7 +90,7 @@ def image_to_tensor(file_path, letterbox, resize_width, resize_height):
         img = Image.open(file_path).convert(mode='RGB')
         img.load()
     except Exception as e:
-        print('Image {} cannot be loaded. Exception: {}'.format(file_path, e))
+        print(f'Image {file_path} cannot be loaded. Exception: {e}')
         return None
 
     width, height = img.size
