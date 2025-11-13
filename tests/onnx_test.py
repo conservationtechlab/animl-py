@@ -11,7 +11,7 @@ import yaml
 import animl
 
 
-# @unittest.skip
+@unittest.skip
 def onnx_test():
     start_time = time.time()
 
@@ -23,7 +23,7 @@ def onnx_test():
     results = animl.from_config(config)
 
     # export_coco
-    # export_timelapse
+    animl.export_timelapse(results, out_dir=workingdir, only_animl=True)
 
     # export.remove_link
     # export.update_labels_from_folders
