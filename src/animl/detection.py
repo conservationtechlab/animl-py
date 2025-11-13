@@ -408,11 +408,6 @@ def parse_detections(results: list,
     lst = []
 
     for frame in tqdm(results):
-        try:
-            f = frame['frame']
-        except KeyError:
-            print('File error ', frame['filepath'])
-            continue
 
         # pass if already analyzed
         if frame['filepath'] in already_processed:

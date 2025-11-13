@@ -13,7 +13,6 @@ What it does:
 """
 import unittest
 import torch
-import json
 import numpy as np
 import onnxruntime as ort
 
@@ -59,14 +58,13 @@ def export_miew(model: str,
     print("Export finished.")
 
 
-# @unittest.skip
+@unittest.skip
 def main():
     # test_env_print()
 
     miew_model = load_miew("models/miewid_v3.bin", device="cpu")
 
-   # export_miew(miew_model, "models/miewid_v3.onnx")
-
+    export_miew(miew_model, "models/miewid_v3.onnx")
 
     sess = ort.InferenceSession("models/miewid_v3.onnx", providers=["CPUExecutionProvider"])
     inp = sess.get_inputs()[0]
