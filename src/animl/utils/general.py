@@ -61,7 +61,7 @@ def get_device():
     Get Torch device if available
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Device set to {device}.')
+    print(f'Device is set to {device}.')
     return device
 
 
