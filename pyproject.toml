@@ -9,7 +9,7 @@ keywords = ["camera trap", "ecology", "conservation", "zoo", "SDZWA", "conservat
 
 authors = [{name = "Kyra Swanson", email = "tswanson@sdzwa.org" }]
 
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "dill>=0.4.0",
     "numpy>=2.0.2", 
