@@ -57,7 +57,7 @@ def from_paths(image_dir: str,
     all_frames = video_processing.extract_frames(files, frames=5, out_file=working_dir.imageframes)
 
     print("Running images and video frames through detector...")
-    if (file_management.check_file(working_dir.detections)):
+    if (file_management.check_file(working_dir.detections, output_type="Detections")):
         detections = file_management.load_data(working_dir.detections)
     else:
         detector = detection.load_detector(detector_file, "mdv5", device=device)
@@ -155,7 +155,7 @@ def from_config(config: str):
     all_frames = video_processing.extract_frames(files, frames=5, out_file=working_dir.imageframes)
 
     print("Running images and video frames through detector...")
-    if (file_management.check_file(working_dir.detections)):
+    if (file_management.check_file(working_dir.detections, output_type="Detections")):
         detections = file_management.load_data(working_dir.detections)
     else:
         detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'mdv5'), device=device)

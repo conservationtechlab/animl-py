@@ -158,7 +158,7 @@ def detect(detector,
         raise ValueError('image_file_names is not a recognized object')
 
     # load checkpoint
-    if file_management.check_file(checkpoint_path):
+    if file_management.check_file(checkpoint_path, output_type="Megadetector raw output"):
         results = file_management.load_json(checkpoint_path).get('images')
         already_processed = set([r['filepath'] for r in results])
         manifest = image_file_names[~image_file_names[file_col].isin(already_processed)][[file_col, 'frame']].reset_index(drop=True)
@@ -389,7 +389,7 @@ def parse_detections(results: list,
         df (pd.DataFrame): formatted md outputs, one row per detection
     """
     # load checkpoint
-    if file_management.check_file(out_file):  # checkpoint comes back empty
+    if file_management.check_file(out_file, output_type="Detections"):  # checkpoint comes back empty
         df = file_management.load_data(out_file)
         already_processed = set([row['filepath'] for row in df])
 

@@ -250,7 +250,7 @@ def classify(model,
     Returns:
         detections (pd.DataFrame): MD detections with classifier prediction and confidence
     """
-    if file_management.check_file(out_file):
+    if file_management.check_file(out_file, output_type="Classification results"):
         return file_management.load_data(out_file).to_numpy()
 
     if device is None:

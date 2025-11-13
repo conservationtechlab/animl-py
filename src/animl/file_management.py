@@ -39,7 +39,7 @@ def build_file_manifest(image_dir: str,
         files (pd.DataFrame): list of files with or without file modify dates
     """
     image_dir = Path(image_dir)
-    if check_file(out_file):
+    if check_file(out_file, output_type="Manifest"):
         return load_data(out_file)
     if not image_dir.is_dir():
         raise FileNotFoundError(f"The given directory: {image_dir}, does not exist.")
@@ -223,7 +223,7 @@ def load_json(file: str) -> dict:
         raise AssertionError("Error. Expecting a .json file.")
 
 
-def check_file(file: str) -> bool:
+def check_file(file: str, output_type: str = None) -> bool:
     """
     Check for files existence and prompt user if they want to load.
 
@@ -235,11 +235,14 @@ def check_file(file: str) -> bool:
     """
 
     if file is not None and Path(file).is_file():
-        date = datetime.fromtimestamp(Path(file).stat().st_mtime)
-        prompt = "Output file already exists and was last modified {}, would you like to load it? y/n: ".format(date)
-        if input(prompt).lower() == "y":
+        date = datetime.fromtimestamp(Path(file).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+        if output_type is None:
+            output_type = "Output"
+        prompt = f"{output_type} file already exists and was last modified {date}, would you like to load it? y/n: "
+        response = input(prompt)
+        if response.lower() == "y":
             return True
-        elif input(prompt).lower() == "n":
+        elif response.lower() == "n":
             return False
         else:
             print("Invalid input, proceeding without loading file.")

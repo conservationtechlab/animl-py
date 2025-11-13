@@ -43,7 +43,7 @@ def extract_frames(files,
         pd.DataFrame: A DataFrame containing the file paths and corresponding frame numbers for the extracted frames.
                       The DataFrame will have columns [file_col, "frame"].
     """
-    if file_management.check_file(out_file):
+    if file_management.check_file(out_file, output_type="ImageFrames"):
         return file_management.load_data(out_file)
     if not {file_col}.issubset(files.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
