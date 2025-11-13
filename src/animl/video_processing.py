@@ -77,6 +77,7 @@ def extract_frames(files,
                     video_frames.extend(output)
 
             video_frames = pd.DataFrame(video_frames, columns=[file_col, "frame"])
+            video_frames['frame'] = video_frames['frame'].astype(int)
         videos = videos.merge(video_frames, on=file_col)
 
     allframes = pd.concat([images, videos]).reset_index(drop=True)
@@ -107,6 +108,9 @@ def count_frames(filepath, frames=5, fps=None) -> int:
         return None
 
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if frame_count == 0:
+        # print(f"Video file {filepath} has 0 frames, skipping.")
+        return None
 
     cap.release()
     cv2.destroyAllWindows()
