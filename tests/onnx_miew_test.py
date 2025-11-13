@@ -20,15 +20,14 @@ from animl.reid.inference import load_miew
 
 
 def export_miew(model: str,
-                 output_path: str,
-                 input_names=("input",),
-                 output_names=("output",),
-                 opset_version: int = 18,
-                 resize_height: int = 440,
-                 resize_width: int = 440,
-                 do_constant_folding: bool = True,
-                 dynamic_batch_dim: bool = False,):
-
+                output_path: str,
+                input_names=("input",),
+                output_names=("output",),
+                opset_version: int = 18,
+                resize_height: int = 440,
+                resize_width: int = 440,
+                do_constant_folding: bool = True,
+                dynamic_batch_dim: bool = False,):
     example_input = torch.randn(1, 3, resize_height, resize_width, dtype=torch.float32)
     model.eval()
     model_cpu = model.to("cpu")
@@ -76,17 +75,16 @@ def main():
     x = np.random.randn(*input_shape).astype(np.float32)
 
     # get PyTorch model output for comparison
-    emb = miew_model.extract_feat(torch.from_numpy(x) )
+    emb = miew_model.extract_feat(torch.from_numpy(x))
     emb = emb.detach().cpu().numpy()
     print(emb)
 
     # get ONNX model output
     outputs = sess.run(None, {inp.name: x})[0]
     print(outputs)
-    
-    
     print(f"Pytorch output shape: {emb.shape}")
     print(f"Onnx output shape: {outputs.shape}")
+
 
 # run test
 main()
