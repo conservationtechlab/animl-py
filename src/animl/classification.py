@@ -4,7 +4,7 @@ Tools for Saving, Loading, and Using Species Classifiers
 @ Kyra Swanson 2023
 '''
 import json
-from typing import Optional
+from typing import Optional, Union
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -56,7 +56,7 @@ def save_classifier(model,
 
 
 def load_classifier(model_path: str,
-                    classes,
+                    classes: Union[int, str, Path, pd.DataFrame],
                     device: Optional[str] = None,
                     architecture: str = "CTL"):
     '''
@@ -64,7 +64,7 @@ def load_classifier(model_path: str,
 
     Args:
         model_path (str): file or directory path to model weights
-        classes (int | str): number of classes or path to associated class list
+        classes (int | str | Path | pd.DataFrame): number of classes, path to associated class list, or pd.DataFrame of class list
         device (str): specify to run on cpu or gpu
         architecture (str): expected model architecture
 
@@ -78,6 +78,9 @@ def load_classifier(model_path: str,
     # get number of classes
     if isinstance(classes, str) or isinstance(classes, Path):
         class_list = load_class_list(classes)
+        num_classes = len(class_list)
+    elif isinstance(classes, pd.DataFrame):
+        class_list = classes
         num_classes = len(class_list)
     else:
         class_list = None
