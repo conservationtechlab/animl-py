@@ -12,7 +12,7 @@ from time import time
 from tqdm import tqdm
 
 import torch
-import onnxruntime
+#import onnxruntime
 
 from animl import generator, file_management
 from animl.model_architecture import EfficientNet, ConvNeXtBase
