@@ -219,6 +219,7 @@ def detect(detector,
             file_management.save_detection_checkpoint(checkpoint_path, results)
 
     print(f"\nFinished detection. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
+    file_management.save_detection_checkpoint(checkpoint_path, results)
 
     return results
 
@@ -407,6 +408,12 @@ def parse_detections(results: list,
     lst = []
 
     for frame in tqdm(results):
+        try:
+            f = frame['frame']
+        except KeyError:
+            print('File error ', frame['filepath'])
+            continue
+
         # pass if already analyzed
         if frame['filepath'] in already_processed:
             continue
