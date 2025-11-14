@@ -18,7 +18,7 @@ def buow_test():
     detector = Path.cwd() / 'models/mani_buow_2025.pt'
     files = file_management.build_file_manifest(image_dir, exif=False)
 
-    activetimes = file_management.active_times(files, depth = 1)
+    activetimes = file_management.active_times(files, depth=1)
     print(activetimes)
 
     detector = detection.load_detector(detector, "YOLO")
@@ -28,7 +28,7 @@ def buow_test():
                                   model_architecture.MEGADETECTORv5_SIZE,
                                   model_architecture.MEGADETECTORv5_SIZE,
                                   letterbox=False,
-                                  file_col="frame",
+                                  file_col="filepath",
                                   batch_size=4,
                                   num_workers=4,
                                   confidence_threshold=0.1)
@@ -38,7 +38,9 @@ def buow_test():
     gt_path = Path.cwd() / 'tests' / 'GroundTruth' / 'buow' / 'buow_detections.csv'
     gt_manifest = pd.read_csv(gt_path)
 
-    visualization.plot_all_bounding_boxes(detections, 'buow_boxes/', file_col='frame', min_conf=0.1, prediction=False)
+    visualization.plot_all_bounding_boxes(detections, 'buow_boxes/', file_col='filepath', min_conf=0.1,
+                                          label_col='category', show_confidence=True,
+                                          detector_labels={'1': 'adult', '2': 'juvenile'})
 
     try:
         detections.equals(gt_manifest)

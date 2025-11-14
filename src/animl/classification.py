@@ -3,7 +3,8 @@ Tools for Saving, Loading, and Using Species Classifiers
 
 @ Kyra Swanson 2023
 '''
-from typing import Optional
+import json
+from typing import Optional, Union
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -55,7 +56,7 @@ def save_classifier(model,
 
 
 def load_classifier(model_path: str,
-                    num_classes: int,
+                    classes: Union[int, str, Path, pd.DataFrame],
                     device: Optional[str] = None,
                     architecture: str = "CTL"):
     '''
@@ -63,20 +64,31 @@ def load_classifier(model_path: str,
 
     Args:
         model_path (str): file or directory path to model weights
-        num_classes (int): path to associated class list
+        classes (int | str | Path | pd.DataFrame): number of classes, path to associated class list, or pd.DataFrame of class list
         device (str): specify to run on cpu or gpu
         architecture (str): expected model architecture
 
     Returns:
         model: model object of given architecture with loaded weights
-        start_epoch (int, optional): current epoch, 0 if not resuming training
+        class_list: list of class names
     '''
+    class_list = None
     model_path = Path(model_path)
+
+    # get number of classes
+    if isinstance(classes, str) or isinstance(classes, Path):
+        class_list = load_class_list(classes)
+        num_classes = len(class_list)
+    elif isinstance(classes, pd.DataFrame):
+        class_list = classes
+        num_classes = len(class_list)
+    else:
+        class_list = None
+        num_classes = classes
 
     # check to make sure GPU is available if chosen
     if device is None:
         device = get_device()
-    print('Device set to', device)
 
     # Create a new model intance for training
     if model_path.is_dir():
@@ -117,19 +129,25 @@ def load_classifier(model_path: str,
             model.to(device)
             model.eval()
             model.framework = "pytorch"
-        #elif model_path.suffix == '.onnx':
-        #    if device == "cpu":
-        #        model = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
-        #    else:
-        #        model = onnxruntime.InferenceSession(model_path, providers=["CUDAExecutionProvider", 'CPUExecutionProvider'])
-        #    model.framework = "onnx"
+        elif model_path.suffix == '.onnx':
+            providers = ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            model = onnxruntime.InferenceSession(model_path,
+                                                 providers=providers)
+            model.framework = "onnx"
+            # try to load class dict from metadata
+            props = model.get_modelmeta().custom_metadata_map
+            if "class_dict" in props:
+                print("Loaded class_dict from ONNX metadata.")
+                class_dict = json.loads(props["class_dict"])
+                class_list = [class_dict[str(i)] for i in range(len(class_dict))]
+                class_list = pd.DataFrame({'class': class_list})
         else:
             raise ValueError('Unrecognized model format: {}'.format(model_path))
         elapsed = time() - start_time
         print('Loaded model in %.2f seconds' % elapsed)
 
         # no need to return epoch
-        return model
+        return model, class_list
 
     # no dir or file found
     else:
@@ -209,7 +227,7 @@ def classify(model,
              detections,
              resize_width: int = 480,
              resize_height: int = 480,
-             file_col: str = 'frame',
+             file_col: str = 'filepath',
              crop: bool = True,
              normalize: bool = True,
              batch_size: int = 1,
@@ -235,8 +253,8 @@ def classify(model,
     Returns:
         detections (pd.DataFrame): MD detections with classifier prediction and confidence
     """
-    if file_management.check_file(out_file):
-        return file_management.load_data(out_file)
+    if file_management.check_file(out_file, output_type="Classification results"):
+        return file_management.load_data(out_file).to_numpy()
 
     if device is None:
         device = get_device()
@@ -244,23 +262,27 @@ def classify(model,
     # initialize lists
     raw_output = []
 
-    if not {file_col}.issubset(detections.columns):
-        raise ValueError(f"DataFrame must contain '{file_col}' column.")
-
     # Manifest
     if isinstance(detections, pd.DataFrame):
+        if file_col not in detections.columns:
+            raise ValueError(f"file_col {file_col} not found in manifest columns")
+        # no frame column, assume all images and set to 0
+        if 'frame' not in detections.columns:
+            print("Warning: 'frame' column not found in manifest columns. Defaulting to 0 assuming images.")
+            detections['frame'] = 0
+
         dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=crop,
                                                 resize_width=resize_width, resize_height=resize_height,
                                                 normalize=normalize, batch_size=batch_size, num_workers=num_workers)
     # Single File
     elif isinstance(detections, str):
-        detections = pd.DataFrame({file_col: detections}, index=[0])
+        detections = pd.DataFrame({file_col: detections, 'frame': 0}, index=[0])
         dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
                                                 resize_width=resize_width, resize_height=resize_height,
                                                 normalize=normalize, batch_size=1, num_workers=1)
     # List of Files
     elif isinstance(detections, list):
-        detections = pd.DataFrame({file_col: detections}, index=range(len(detections)))
+        detections = pd.DataFrame({file_col: detections, 'frame': 0}, index=range(len(detections)))
         dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
                                                 resize_width=resize_width, resize_height=resize_height,
                                                 normalize=normalize, batch_size=batch_size, num_workers=1)
@@ -268,7 +290,6 @@ def classify(model,
         raise AssertionError("Input must be a data frame of crops, single file path or vector of file paths.")
 
     # Predict
-    print("Starting batch processing...")
     start_time = time()
     with torch.no_grad():
         for _, batch in tqdm(enumerate(dataset), total=len(dataset)):
@@ -294,7 +315,7 @@ def classify(model,
     if out_file:
         file_management.save_data(pd.DataFrame(raw_output), out_file)
 
-    print(f"\nFinished batch processing. Total images processed: {len(raw_output)} at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
+    print(f"\nFinished classification. Total images processed: {len(raw_output)} at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
 
     return raw_output
 
@@ -315,9 +336,30 @@ def single_classification(animals: pd.DataFrame,
         animals dataframe with "prediction" label an "confidence" columns
     """
     class_list = pd.Series(class_list)
-    animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
-    animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
+
+    if not animals.empty:
+        files = animals.groupby('filepath')
+        updated_files = []
+        for f, file in files:
+            preds = predictions_raw[file.index]
+            preds = np.mean(preds, axis=0)
+            file["prediction"] = class_list[np.argmax(preds)]
+            file["confidence"] = np.max(file["conf"]) * np.max(preds)
+            updated_files.append(file)
+
+        animals = pd.concat(updated_files, ignore_index=True)
+
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
+
+    # remove empties from videos
+    files = manifest.groupby('filepath')
+    for f, file in files:
+        if file['extension'].iloc[0] in file_management.VIDEO_EXTENSIONS:
+            predictions = file['prediction'].unique()
+            if 'empty' in predictions and len(predictions) > 1:
+                real_prediction = predictions[predictions != 'empty'][0]
+                manifest.loc[manifest['filepath'] == f, 'prediction'] = real_prediction
+
     return manifest
 
 

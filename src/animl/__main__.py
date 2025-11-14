@@ -28,7 +28,7 @@ start_time = time.time()
 
 # IF RUN FROM COMMAND LINE
 parser = argparse.ArgumentParser(description='Folder locations for the main script')
-home =  Path.cwd() / 'models'
+home = Path.cwd() / 'models'
 # Create and parse arguements
 parser.add_argument('imagedir_config', type=str,
                     help='Path to Image Directory or Config File')

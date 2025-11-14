@@ -32,17 +32,17 @@ MD_FILENAMES = {
 }
 
 CLASSIFIER = {
-    'SDZWA_Amazon_v2': 'None',
-    'SDZWA_Andes_v1': 'https://sandiegozoo.box.com/shared/static/a25q2uojqj8undj1x9mz26w1xayotcbl.pt',
-    'SDZWA_Savanna_v3': 'https://sandiegozoo.box.com/shared/static/m1h1q689bma52rosuk00k3o6zgt2nrc1.pt',
-    'SDZWA_Southwest_v3': 'https://sandiegozoo.box.com/shared/static/ucbk8kc2h3qu15g4xbg0nvbghvo1cl97.pt',
+    'sdzwa_amazon_v2': 'None',
+    'sdzwa_andes_v1': 'https://sandiegozoo.box.com/shared/static/a25q2uojqj8undj1x9mz26w1xayotcbl.pt',
+    'sdzwa_savanna_v3': 'https://sandiegozoo.box.com/shared/static/m1h1q689bma52rosuk00k3o6zgt2nrc1.pt',
+    'sdzwa_southwest_v3': 'https://sandiegozoo.box.com/shared/static/ucbk8kc2h3qu15g4xbg0nvbghvo1cl97.pt',
 }
 
 CLASS_LIST = {
-    'SDZWA_Amazon_v2': 'None',
-    'SDZWA_Andes_v1': 'https://sandiegozoo.box.com/shared/static/c50li41abi3cvoaxzuo1pzs1x9zw37s8.csv',
-    'SDZWA_Savanna_v3': 'https://sandiegozoo.box.com/shared/static/r5fcvksluzgk1qfi1ayjik3ew5v9279s.csv',
-    'SDZWA_Southwest_v3': 'https://sandiegozoo.box.com/shared/static/lplo7ifz1xwdie1jw4400r377kweahsu.csv',
+    'sdzwa_amazon_v2': 'None',
+    'sdzwa_andes_v1': 'https://sandiegozoo.box.com/shared/static/c50li41abi3cvoaxzuo1pzs1x9zw37s8.csv',
+    'sdzwa_savanna_v3': 'https://sandiegozoo.box.com/shared/static/r5fcvksluzgk1qfi1ayjik3ew5v9279s.csv',
+    'sdzwa_southwest_v3': 'https://sandiegozoo.box.com/shared/static/lplo7ifz1xwdie1jw4400r377kweahsu.csv',
 }
 
 

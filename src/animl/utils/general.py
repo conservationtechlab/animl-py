@@ -40,7 +40,7 @@ def softmax(x):
     return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
 
 
-def tensor_to_onnx(tensor, channel_last=True):
+def tensor_to_onnx(tensor, channel_last=False):
     '''
     Helper function for onnx, shifts dims to BxHxWxC
     '''
@@ -60,7 +60,9 @@ def get_device():
     """
     Get Torch device if available
     """
-    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Device is set to {device}.')
+    return device
 
 
 def init_seed(seed):

@@ -43,7 +43,7 @@ def main_test():
     class_list_file = Path.cwd() / 'models/sdzwa_southwest_v3_classes.csv'
 
     animl.from_paths(image_dir, megadetector, classifier_file, class_list_file,
-                     sort = True, visualize= False, sequence = False)
+                     sort=True, visualize=True, sequence=False)
 
     results_path = Path(image_dir) / 'Animl-Directory' / 'Data' / 'Results.csv'
     gt_path = Path.cwd() / 'tests' / 'GroundTruth' / 'main' / 'Results.csv'
@@ -68,5 +68,6 @@ def main_test():
         print("Main Test Successful!")
 
     print(f"Pipeline took {time.time() - start_time:.2f} seconds")
+
 
 main_test()

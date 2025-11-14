@@ -39,7 +39,7 @@ def build_file_manifest(image_dir: str,
         files (pd.DataFrame): list of files with or without file modify dates
     """
     image_dir = Path(image_dir)
-    if check_file(out_file):
+    if check_file(out_file, output_type="Manifest"):
         return load_data(out_file)
     if not image_dir.is_dir():
         raise FileNotFoundError(f"The given directory: {image_dir}, does not exist.")
@@ -54,7 +54,6 @@ def build_file_manifest(image_dir: str,
         return pd.DataFrame()
 
     files = pd.DataFrame(files, columns=["filepath"])
-    files["frame"] = files["filepath"]
     files["filename"] = files["filepath"].apply(lambda x: Path(x).name)
     files["extension"] = files["filepath"].apply(lambda x: Path(x).suffix.lower())
 
@@ -123,23 +122,19 @@ class WorkingDirectory():
             raise FileNotFoundError(f"The given directory: {working_dir}, does not exist.")
 
         self.basedir = working_dir / Path("Animl-Directory/")
-        self.datadir = self.basedir / Path("Data/")
-        self.vidfdir = self.basedir / Path("Frames/")
         self.linkdir = self.basedir / Path("Sorted/")
         self.visdir = self.basedir / Path("Plots/")
 
         # Create directories if they do not already exist
         self.basedir.mkdir(exist_ok=True)
-        self.datadir.mkdir(exist_ok=True)
-        self.vidfdir.mkdir(exist_ok=True)
 
         # Assign specific file paths
-        self.filemanifest = self.datadir / Path("FileManifest.csv")
-        self.imageframes = self.datadir / Path("ImageFrames.csv")
-        self.results = self.datadir / Path("Results.csv")
-        self.predictions = self.datadir / Path("Predictions.csv")
-        self.detections = self.datadir / Path("Detections.csv")
-        self.mdraw = self.datadir / Path("MD_Raw.json")
+        self.filemanifest = self.basedir / Path("FileManifest.csv")
+        self.imageframes = self.basedir / Path("ImageFrames.csv")
+        self.results = self.basedir / Path("Results.csv")
+        self.predictions = self.basedir / Path("Predictions.csv")
+        self.detections = self.basedir / Path("Detections.csv")
+        self.mdraw = self.basedir / Path("MD_Raw.json")
 
     def activate_visdir(self):
         self.visdir.mkdir(exist_ok=True)
@@ -228,7 +223,7 @@ def load_json(file: str) -> dict:
         raise AssertionError("Error. Expecting a .json file.")
 
 
-def check_file(file: str) -> bool:
+def check_file(file: str, output_type: str = None) -> bool:
     """
     Check for files existence and prompt user if they want to load.
 
@@ -240,10 +235,17 @@ def check_file(file: str) -> bool:
     """
 
     if file is not None and Path(file).is_file():
-        date = datetime.fromtimestamp(Path(file).stat().st_mtime)
-        prompt = "Output file already exists and was last modified {}, would you like to load it? y/n: ".format(date)
-        if input(prompt).lower() == "y":
+        date = datetime.fromtimestamp(Path(file).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+        if output_type is None:
+            output_type = "Output"
+        prompt = f"{output_type} file already exists and was last modified {date}, would you like to load it? y/n: "
+        response = input(prompt)
+        if response.lower() == "y":
             return True
+        elif response.lower() == "n":
+            return False
+        else:
+            print("Invalid input, proceeding without loading file.")
     return False
 
 

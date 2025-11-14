@@ -28,6 +28,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 notebooks/
+models/
 *.pt
 *.csv
 *.ipynb

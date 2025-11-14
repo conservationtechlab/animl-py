@@ -277,8 +277,6 @@ def train_main(cfg):
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
-    print(scheduler)
-
     # Load checkpoint for model weights, optimizer state, scheduler state, and actual current_epoch
     current_epoch = load_classifier_checkpoint(cfg['experiment_folder'], model, optim, scheduler, device=device)
 

@@ -1,12 +1,11 @@
 image_dir:  /home/kyra/animl-py/examples/Southwest
 working_dir: /home/kyra/animl-py/examples/Southwest
 detector_file: "/home/kyra/animl-py/models/md_v5a.0.0.pt"
-classifier_file: "/home/kyra/animl-py/models/mbaza-gabon.onnx"
-class_list: "/home/kyra/animl-py/models/gabon_classes.csv"
+classifier_file: "models/sdzwa_southwest_v3.onnx"
 
 # file metadata
 exif: True
-station_dir: -2
+# station_dir: None
 
 # video processing
 parallel: True
@@ -18,14 +17,17 @@ device: cuda:0
 checkpoint_frequency: 1000
 batch_size: 4
 num_workers: 4
-file_col_detection: frame
-file_col_classification: frame
+file_col_detection: filepath
+file_col_classification: filepath
 class_label_col: class
 empty_class: Empty # necessary for sequence classification
 
-classifier_resize_width: 768
-classifier_resize_height: 576
+classifier_resize_width: 299
+classifier_resize_height: 299
 
 # sort
-sort: False
+sort: True
 copy: False
+
+# visualization
+visualize: True

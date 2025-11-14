@@ -2,8 +2,8 @@ import unittest
 import time
 from pathlib import Path
 
-
 import animl
+
 
 @unittest.skip
 def md_test():
@@ -26,30 +26,28 @@ def md_test():
                           resize_width=animl.MEGADETECTORv5_SIZE)
     string_parsed = animl.parse_detections(string)
 
-
+    # Series
     series = animl.detect(detector,
                           manifest.iloc[2],
                           resize_height=animl.MEGADETECTORv5_SIZE,
                           resize_width=animl.MEGADETECTORv5_SIZE)
     series_parsed = animl.parse_detections(series)
-    
     print("Series match:", string_parsed.equals(series_parsed))
 
-
+    # DataFrame slice
     slice = animl.detect(detector,
                          manifest.iloc[2:3],
                          resize_height=animl.MEGADETECTORv5_SIZE,
                          resize_width=animl.MEGADETECTORv5_SIZE)
     slice_parsed = animl.parse_detections(slice)
-
     print("Slice match:", string_parsed.equals(slice_parsed))
 
+    # List
     slist = animl.detect(detector,
                          manifest['filepath'].tolist()[2:3],
-                          resize_height=animl.MEGADETECTORv5_SIZE,
-                          resize_width=animl.MEGADETECTORv5_SIZE)
+                         resize_height=animl.MEGADETECTORv5_SIZE,
+                         resize_width=animl.MEGADETECTORv5_SIZE)
     slist_parsed = animl.parse_detections(slist)
-    
     print("List match:", string_parsed.equals(slist_parsed))
 
     gt_path = Path.cwd() / 'tests' / 'GroundTruth' / 'md' / 'md_gt.json'
@@ -59,14 +57,14 @@ def md_test():
     slist_parsed['confidence'] = 1
 
     animl.export_megadetector(slist_parsed, "md_export_test.json")
-    
+
     print(slist_parsed)
 
     if (string == md_gt['images']):
         print("MD Test Successful!")
     else:
         print("MD Test Failed :(")
-    
+
     print(f"Test completed in {time.time() - start_time:.2f} seconds")
 
 
