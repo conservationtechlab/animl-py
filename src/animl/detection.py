@@ -219,7 +219,8 @@ def detect(detector,
             file_management.save_detection_checkpoint(checkpoint_path, results)
 
     print(f"\nFinished detection. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
-    file_management.save_detection_checkpoint(checkpoint_path, results)
+    if checkpoint_path:
+        file_management.save_detection_checkpoint(checkpoint_path, results)
 
     return results
 
