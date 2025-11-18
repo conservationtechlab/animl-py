@@ -1,6 +1,6 @@
 [project]
 name = "animl"  
-version = "3.1.0"
+version = "3.1.1"
 description = "Tools for classifying camera trap images"  
 
 readme = "README.md" 
