@@ -22,8 +22,12 @@ def onnx_test():
 
     results = animl.from_config(config)
 
-    # export_coco
+    # export timelapse
     animl.export_timelapse(results, out_dir=workingdir, only_animl=True)
+
+    # export coco
+    class_list=animl.load_class_list(Path.cwd() / 'models' / 'sdzwa_southwest_v3_classes.csv')
+    animl.export_coco(results, class_list=class_list, out_file=workingdir / 'coco_export.json')
 
     # export.remove_link
     # export.update_labels_from_folders
