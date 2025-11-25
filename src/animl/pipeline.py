@@ -21,7 +21,7 @@ def from_paths(image_dir: str,
                classlist_file: str,
                class_label: str = "class",
                batch_size: int = 4,
-               sort: bool = True,
+               sort: bool = False,
                visualize: bool = False,
                sequence: bool = False) -> pd.DataFrame:
     """
