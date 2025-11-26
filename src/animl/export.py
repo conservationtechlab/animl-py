@@ -5,6 +5,7 @@ Provides functions for creating, removing, and updating sorted symlinks.
 
 @ Kyra Swanson 2023
 """
+import json
 import os
 import pandas as pd
 from typing import Optional
@@ -13,7 +14,8 @@ from random import randrange
 from pathlib import Path
 from tqdm import tqdm
 
-from animl import file_management
+from animl import file_management, __version__
+from animl.utils.general import convert_minxywh_to_absxyxy
 
 
 def export_folders(manifest: pd.DataFrame,
@@ -152,7 +154,10 @@ def update_labels_from_folders(manifest: pd.DataFrame,
 
 
 def export_coco(manifest: pd.DataFrame,
-                out_file: str):
+                class_list: pd.DataFrame,
+                out_file: str,
+                info: Optional[dict] = None,
+                licenses: Optional[list] = None):
     """
     Export a manifest to COCO format.
 
@@ -163,8 +168,79 @@ def export_coco(manifest: pd.DataFrame,
     Returns:
         coco formatted json file saved to out_file
     """
-    # TODO
-    return None
+    expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame',
+                        'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
+                        'bbox_h', 'prediction', 'confidence')
+
+    for s in expected_columns:
+        assert s in manifest.columns, f'Expected column {s} not found in results DataFrame'
+
+    if info is None:
+        info = {'description': 'COCO Export from animl',
+                'version': __version__,
+                'date_created': pd.Timestamp.now().strftime("%Y/%m/%d")}
+    
+    if licenses is None:
+        licenses = []
+
+    # build categories from class list
+    class_dict = {row['class']: int(row['id']) for _, row in class_list.iterrows()}
+    categories = []
+    for _, row in class_list.iterrows():
+        category = {'id': int(row['id']),
+                    'name': row['class'],
+                    'supercategory': 'none'}
+        categories.append(category)
+
+    # create image id based on filepath
+    manifest['image_id'] = manifest.groupby('filepath').ngroup()
+
+
+    images = []
+    annotations = []
+    for i_row, row in manifest.iterrows():
+
+        width = int(row['width']) if not pd.isna(row['width']) else 0
+        height = int(row['height']) if not pd.isna(row['height']) else 0
+
+        image = {'id': row['image_id'],
+                 'file_name': Path(row['filepath']).name,
+                 'width': width,
+                 'height': height}
+        images.append(image)
+
+        
+        # convert bbox to abs coordinates
+        bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
+        # skip annotation if bbox is NaN
+        if pd.isna(bbox).any():
+            continue
+
+        bbox = convert_minxywh_to_absxyxy(bbox, width, height)
+        area = bbox[2] * bbox[3]
+
+        # get category id
+        category_id = class_dict.get(row['prediction'], -1)
+
+        annotation = {'id': i_row,
+                      'image_id': row['image_id'],
+                      'category_id': category_id,
+                      'frame': int(row.get('frame', 0)),
+                      'bbox': bbox,
+                      'area': area,
+                      'iscrowd': 0}
+        annotations.append(annotation)
+
+    coco_format = {'info': info,
+                   'licenses': licenses,
+                   'images': images,
+                   'annotations': annotations,
+                   'categories': categories}
+
+    with open(out_file, 'w') as f:
+        json.dump(coco_format, f)
+
+    return coco_format
 
 
 def export_timelapse(results: pd.DataFrame,
@@ -190,22 +266,21 @@ def export_timelapse(results: pd.DataFrame,
     export_dir = Path(out_dir) / "Export"
     Path(export_dir).mkdir(exist_ok=True)
 
-    expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame', 'file',
+    expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame',
                         'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
                         'bbox_h', 'prediction', 'confidence')
 
     for s in expected_columns:
-        assert s in results.columns, 'Expected column {} not found in results DataFrame'.format(s)
+        assert s in results.columns, f'Expected column {s} not found in results DataFrame'
 
     # Dropping unnecessary columns (Refer to columns numbers above for expected columns - 0 indexed).
-    results.drop(['filepath', 'filemodifydate', 'max_detection_conf'], axis=1, inplace=True)
+    results = results.drop(['filepath', 'filemodifydate', 'max_detection_conf'], axis=1)
 
     # Keep relative path only
     results['file'] = results['filename']
 
     # Rename column names for clarity
-    results.rename(columns={'conf': 'detection_conf', 'prediction': 'class', 'confidence': 'classification_conf'}, inplace=True)
-
+    results = results.rename(columns={'conf': 'detection_conf', 'prediction': 'class', 'confidence': 'classification_conf'})
     csv_loc = Path(export_dir / "timelapse_manifest.csv")
     results.to_csv(csv_loc, index=False)
 

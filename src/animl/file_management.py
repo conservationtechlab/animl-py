@@ -89,6 +89,17 @@ def build_file_manifest(image_dir: str,
                 except PIL.UnidentifiedImageError:
                     invalid.append(i)
 
+            elif row["extension"] in VIDEO_EXTENSIONS:
+                try:
+                    import cv2
+                    vid = cv2.VideoCapture(row['filepath'])
+                    if vid.isOpened():
+                        files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    vid.release()
+                except Exception:
+                    invalid.append(i)
+
         # get filemodifydate as backup (videos, etc)
         files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
         files["filemodifydate"] = pd.to_datetime(files["filemodifydate"]) + timedelta(hours=offset)
