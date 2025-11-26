@@ -344,7 +344,7 @@ class TrainGenerator(Dataset):
         else:
             identifier = f"{img_path}"
         hash_id = hashlib.md5(identifier.encode()).hexdigest()
-        return Path(self.cache_dir / f"{hash_id}.jpg")
+        return Path(self.cache_dir) / f"{hash_id}.jpg"
 
     def __getitem__(self, idx):
         image_name = self.x.loc[idx, self.file_col]
