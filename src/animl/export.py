@@ -168,8 +168,6 @@ def export_coco(manifest: pd.DataFrame,
     Returns:
         coco formatted json file saved to out_file
     """
-    print(manifest.columns)
-
     expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame',
                         'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
                         'bbox_h', 'prediction', 'confidence')
