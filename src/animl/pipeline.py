@@ -23,7 +23,8 @@ def from_paths(image_dir: str,
                batch_size: int = 4,
                sort: bool = False,
                visualize: bool = False,
-               sequence: bool = False) -> pd.DataFrame:
+               sequence: bool = False,
+               detect_only: bool = False) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
@@ -73,6 +74,10 @@ def from_paths(image_dir: str,
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
+
+    if detect_only:
+        print("Detection only flag set, skipping classification.")
+        return detections
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
