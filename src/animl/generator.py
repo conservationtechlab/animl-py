@@ -21,6 +21,7 @@ from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, R
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
 from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
+from animl.utils import get_device
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -458,8 +459,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
                         resize_width: int = SDZWA_CLASSIFIER_SIZE,
                         transform: Compose = None,
                         batch_size: int = 1,
-                        num_workers: int = 1,
-                        video: bool = False) -> DataLoader:
+                        num_workers: int = 1) -> DataLoader:
     '''
     Loads a dataset and wraps it in a PyTorch DataLoader object.
 
@@ -487,12 +487,15 @@ def manifest_dataloader(manifest: pd.DataFrame,
     dataset_instance = ManifestGenerator(manifest, file_col=file_col, crop=crop,
                                          crop_coord=crop_coord, normalize=normalize, letterbox=letterbox,
                                          resize_width=resize_width, resize_height=resize_height, transform=transform)
-
+    # set pin_memory based on device
+    device = get_device()
+    pin_memory = False if device == 'cpu' else True
+       
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
                             num_workers=num_workers,
                             shuffle=False,
-                            pin_memory=True,
+                            pin_memory=pin_memory,
                             collate_fn=collate_fn)
     return dataLoader
 
