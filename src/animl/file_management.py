@@ -111,6 +111,9 @@ def build_file_manifest(image_dir: str,
         except KeyError:
             files["datetime"] = files["filemodifydate"]
 
+    # convert to datetime
+    files["datetime"] = pd.to_datetime(files["datetime"])
+
     files = files.drop(index=invalid).reset_index(drop=True)
 
     if out_file:
