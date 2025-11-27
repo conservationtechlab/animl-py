@@ -11,9 +11,14 @@ import yaml
 from tqdm import trange
 import pandas as pd
 
-import torch.nn as nn
-import torch
+# mlops
+try:
+    import comet_ml
+except ImportError:
+    comet_ml = None
 
+import torch
+import torch.nn as nn
 from torch.optim import SGD, AdamW
 from sklearn.metrics import precision_score, recall_score
 from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR  # , ReduceLROnPlateau
@@ -22,12 +27,6 @@ from torch.amp import autocast, GradScaler
 from animl.generator import train_dataloader
 from animl.classification import save_classifier, load_classifier, load_classifier_checkpoint
 from animl.utils.general import NUM_THREADS, init_seed
-
-# mlops
-try:
-    import comet_ml
-except ImportError:
-    comet_ml = None
 
 
 def train_func(data_loader, model, optimizer, scheduler, device='cpu',
@@ -215,11 +214,18 @@ def train_main(cfg):
     cfg = yaml.safe_load(open(cfg, 'r'))
 
     if comet_ml:
-        api_key = cfg.get('coment_api_key', None)
+        api_key = cfg.get('comet_api_key', None)
         if api_key:
-            experiment = comet_ml.Experiment({"api_key": api_key,
-                                              "project_name": cfg.get('comet_project_name', None),
-                                              "workspace": cfg.get('comet_workspace', None)})
+            experiment = comet_ml.start(api_key=api_key,
+                                        project_name=cfg.get('comet_project_name', None),
+                                        workspace=cfg.get('comet_workspace', None))
+            print("Comet ML experiment initialized.")
+        else:
+            print("Comet ML not configured; skipping experiment logging.")
+    else:
+        experiment = None
+        print("Comet ML not installed; skipping experiment logging.")
+        
     progress = cfg.get('progress', True)
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
@@ -283,6 +289,7 @@ def train_main(cfg):
     # initialize training arguments
     numEpochs = cfg['num_epochs']
     frozen_epochs = cfg.get('frozen_epochs', 1)
+    print(f"Training for a total of {numEpochs} epochs, with {frozen_epochs} frozen epochs.")
     if 'patience' in cfg:
         patience = cfg['patience']
         early_stopping = True
