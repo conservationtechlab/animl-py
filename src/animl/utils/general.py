@@ -56,12 +56,13 @@ def tensor_to_onnx(tensor, channel_last=False):
 # CUDA
 # ==============================================================================
 
-def get_device():
+def get_device(quiet=False):
     """
     Get Torch device if available
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Device is set to {device}.')
+    if not quiet:
+        print(f'Device is set to {device}.')
     return device
 
 
