@@ -107,7 +107,7 @@ def build_file_manifest(image_dir: str,
             # select createdate if exists, else choose filemodify date
             files['createdate'] = files['createdate'].replace(r'^\s*$', None, regex=True)
             files["createdate"] = files['createdate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
-            files["datetime"] = files['createdate'].combine_first(files['filemodifydate'])
+            files["datetime"] = files['createdate'].fillna(files['filemodifydate'])
         except KeyError:
             files["datetime"] = files["filemodifydate"]
 
