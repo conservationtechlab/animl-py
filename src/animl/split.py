@@ -132,3 +132,43 @@ def train_val_test(manifest: pd.DataFrame,
         save_data(test, out_dir + "/test_data.csv")
 
     return train, val, test, stats
+
+
+def balanced_train_val_test_split(manifest: pd.DataFrame,
+                                    label_col: str = "class",
+                                    out_dir: Optional[str] = None, 
+                                    test_size: float = 0.1,
+                                    val_size: float = 0.1,
+                                    random_state: int = 42):
+    """
+    Returns train_df, val_df, test_df with label_col stratified.
+    test_size and val_size are fractions of the whole dataset (e.g., 0.2 -> 20%).
+    """
+    assert 0 <= test_size < 1
+    assert 0 <= val_size < 1 
+    assert test_size + val_size < 1
+
+    # Stage 1: split off test
+    trainval_df, test_df = train_test_split(manifest,
+                                            test_size=test_size,
+        stratify=manifest[label_col],
+        random_state=random_state,
+    )
+
+    # Stage 2: split train/val from trainval (val_size is relative to the original dataset)
+    # Compute val fraction relative to trainval size
+    rel_val_size = val_size / (1.0 - test_size)
+    train_df, val_df = train_test_split(
+        trainval_df,
+        test_size=rel_val_size,
+        stratify=trainval_df[label_col],
+        random_state=random_state + 1,
+    )
+
+    if out_dir is not None:
+            # save to csv
+        save_data(train_df, out_dir + "/train_data.csv")
+        save_data(val_df, out_dir + "/validate_data.csv")
+        save_data(test_df, out_dir + "/test_data.csv")
+
+    return train_df.reset_index(drop=True), val_df.reset_index(drop=True), test_df.reset_index(drop=True)
