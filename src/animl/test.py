@@ -30,7 +30,6 @@ def test_func(data_loader: DataLoader,
         model: trained model object
         device: run model on gpu or cpu, defaults to cpu
     '''
-    model.to(device)
     model.eval()  # put the model into training mode
 
     pred_labels = []
@@ -80,8 +79,10 @@ def test_main(cfg):
         device = 'cpu'
 
     # initialize model and get class list
-    classes = pd.read_csv(cfg['class_file'])
-    model = load_classifier(cfg['active_model'], len(classes), device=device, architecture=cfg['architecture'])
+    model, classes = load_classifier(cfg['active_model'],
+                                     cfg['class_file'], 
+                                     device=device,
+                                     architecture=cfg['architecture'])
 
     class_list_label = cfg.get('class_list_label', 'class')
     class_list_index = cfg.get('class_list_index', 'id')
