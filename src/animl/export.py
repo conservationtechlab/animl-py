@@ -244,7 +244,7 @@ def export_coco(manifest: pd.DataFrame,
 
 
 def export_timelapse(results: pd.DataFrame,
-                     out_dir: str,
+                     image_dir: str,
                      only_animl: bool = True) -> Path:
     '''
     Converts the Pandas DataFrame created by running the animl classsifier to a csv file that contains columns needed for TimeLapse conversion in later step
@@ -252,9 +252,8 @@ def export_timelapse(results: pd.DataFrame,
     Credit: Sachin Gopal Wani
 
     Args:
-        animals - a DataFrame that has entries of anuimal classification \
-        empty - a DataFrame that has detection of non-animal objects in images \
-        imagedir - location of root directory where all images are stored (can contain subdirectories) \
+        results - a DataFrame that contains classifications \
+        image_dir - location of root directory where all images are stored (can contain subdirectories) \
         only_animl - A bool that confirms whether we want only animal detctions or all (animal + non-animal detection from MegaDetector + classifier)
 
     Returns:
@@ -263,7 +262,7 @@ def export_timelapse(results: pd.DataFrame,
         csv_loc - Location of the stored animals csv file
     '''
     # Create directory
-    export_dir = Path(out_dir) / "Export"
+    export_dir = Path(image_dir) / "Export"
     Path(export_dir).mkdir(exist_ok=True)
 
     expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame',
