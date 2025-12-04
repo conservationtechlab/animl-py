@@ -118,21 +118,43 @@ def detect(detector,
     if isinstance(image_file_names, str):
         # convert img path to tensor
         batch_from_dataloader = image_to_tensor(image_file_names, letterbox=letterbox,
-                                                resize_width=resize_width, resize_height=resize_height)
-        image_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
-        current_image_paths = batch_from_dataloader[1]  # List of image names for the current batch
-        image_sizes = batch_from_dataloader[2]  # List of original image sizes for the current batch
+                                        resize_width=resize_width, resize_height=resize_height)
+        batch_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
+        batch_paths = batch_from_dataloader[1]  # List of image names for the current batch
+        batch_sizes = batch_from_dataloader[2]  # List of original image sizes for the current batch
+
+        batch_frames = [0]  # single image, frame 0
+
         if detector.model_type == "yolov5":
             # letterboxing should be true
-            prediction = detector(image_tensors.to(device))
+            prediction = detector(batch_tensors.to(device))
             pred: list = prediction[0]
             pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
+            results = convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+                                              batch_sizes, letterbox, detector.model_type)
+        elif detector.model_type == "onnx":
+            input_name = detector.get_inputs()[0].name
+            if device == "cpu":
+                outputs = detector.run(None, {input_name: batch_tensors.cpu().numpy()})[0]
+            else:
+                outputs = detector.run(None, {input_name: batch_tensors.numpy()})[0]
+            # Process outputs to match expected format
+            results = convert_onnx_detections(outputs, batch_tensors, batch_paths,
+                                              batch_frames, batch_sizes, letterbox)
         else:
-            pred = detector.predict(source=image_tensors.to(device), conf=confidence_threshold, verbose=False)
-        results = convert_yolo_detections(pred, image_tensors, current_image_paths, image_sizes, letterbox, detector.model_type)
+            pred = detector.predict(source=batch_tensors.to(device), conf=confidence_threshold, verbose=False)
+            results = convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+                                              batch_sizes, letterbox, detector.model_type)
         return results
+    
+    # list of image filepaths
+    elif isinstance(image_file_names, list):
+        # create a data frame from list of image paths
+        manifest = pd.DataFrame(image_file_names, columns=[file_col])
+        # no frame column, assume all images and set to 0
+        manifest['frame'] = 0   
 
-    # Full manifest, select file_col
+    # full manifest, select file_col
     elif isinstance(image_file_names, pd.DataFrame):
         if file_col not in image_file_names.columns:
             raise ValueError(f"file_col {file_col} not found in manifest columns")
@@ -150,9 +172,8 @@ def detect(detector,
         if 'frame' not in image_file_names.index:
             print("Warning: 'frame' column not found in Series index. Defaulting to 0 assuming images.")
             image_file_names['frame'] = 0
-        image_file_names = [image_file_names[file_col], image_file_names['frame']]
         # create a data frame from image_file_names
-        manifest = pd.DataFrame(image_file_names, columns=['filepath', 'frame'])
+        manifest = pd.DataFrame(image_file_names).T
     # column from pd.DataFrame, expected input
     else:
         raise ValueError('image_file_names is not a recognized object')
@@ -182,36 +203,36 @@ def detect(detector,
     for _, batch_from_dataloader in tqdm(enumerate(dataloader), total=len(dataloader)):
         count += 1
 
-        image_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
-        current_image_paths = batch_from_dataloader[1]  # List of image names for the current batch
-        current_frames = batch_from_dataloader[2]  # List of frame numbers for the current batch
-        image_sizes = batch_from_dataloader[3]  # List of original image sizes for the current batch
+        batch_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
+        batch_paths = batch_from_dataloader[1]  # List of image names for the current batch
+        batch_frames = batch_from_dataloader[2]  # List of frame numbers for the current batch
+        batch_sizes = batch_from_dataloader[3]  # List of original image sizes for the current batch
 
         # Run inference on the current batch of image_tensors
         if detector.model_type == "yolov5":
             # letterboxing should be true
-            prediction = detector(image_tensors.to(device))
+            prediction = detector(batch_tensors.to(device))
             pred: list = prediction[0]
             pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
             # convert to normalized xywh
-            results.extend(convert_yolo_detections(pred, image_tensors, current_image_paths, current_frames,
-                                                   image_sizes, letterbox, detector.model_type))
+            results.extend(convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+                                                   batch_sizes, letterbox, detector.model_type))
         elif detector.model_type == "onnx":
-            # ONNX Runtime inference
             input_name = detector.get_inputs()[0].name
             if device == "cpu":
-                outputs = detector.run(None, {input_name: image_tensors.cpu().numpy()})[0]
+                outputs = detector.run(None, {input_name: batch_tensors.cpu().numpy()})[0]
             else:
-                outputs = detector.run(None, {input_name: image_tensors.numpy()})[0]
+                outputs = detector.run(None, {input_name: batch_tensors.numpy()})[0]
 
             # Process outputs to match expected format
-            results.extend(convert_onnx_detections(outputs, image_tensors, current_image_paths, current_frames,
-                                                   image_sizes, letterbox))
+            results.extend(convert_onnx_detections(outputs, batch_tensors, batch_paths, batch_frames,
+                                                   batch_sizes, letterbox))
+        # standard yolo model (v6+)
         else:
-            pred = detector.predict(source=image_tensors.to(device), conf=confidence_threshold, verbose=False)
+            pred = detector.predict(source=batch_tensors.to(device), conf=confidence_threshold, verbose=False)
             # convert to normalized xywh
-            results.extend(convert_yolo_detections(pred, image_tensors, current_image_paths, current_frames,
-                                                   image_sizes, letterbox, detector.model_type))
+            results.extend(convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+                                                   batch_sizes, letterbox, detector.model_type))
 
         # Write a checkpoint if necessary
         if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
