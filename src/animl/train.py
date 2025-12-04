@@ -226,7 +226,7 @@ def train_main(cfg):
     else:
         experiment = None
         print("Comet ML not installed; skipping experiment logging.")
-        
+
     progress = cfg.get('progress', True)
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))

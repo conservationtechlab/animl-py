@@ -80,7 +80,7 @@ def test_main(cfg):
 
     # initialize model and get class list
     model, classes = load_classifier(cfg['active_model'],
-                                     cfg['class_file'], 
+                                     cfg['class_file'],
                                      device=device,
                                      architecture=cfg['architecture'])
 

@@ -496,7 +496,6 @@ def manifest_dataloader(manifest: pd.DataFrame,
     # set pin_memory based on device
     device = get_device(quiet=True)
     pin_memory = False if device == 'cpu' else True
-       
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
                             num_workers=num_workers,

@@ -97,7 +97,6 @@ def from_paths(image_dir: str,
         classifier_device = get_device()
     classifier, class_list = classification.load_classifier(classifier_file, classlist_file, device=classifier_device)
 
-
     predictions_raw = classification.classify(classifier, animals,
                                               device=classifier_device,
                                               resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
@@ -144,15 +143,13 @@ def from_config(config: str):
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
-
     print(f'Using config "{config}"')
     cfg = yaml.safe_load(open(config, 'r'))
 
     # get image dir and cuda defaults
     image_dir = cfg['image_dir']
-
     device = cfg.get('device', 'cpu')
-    
+
     print("Searching directory...")
     # Create a working directory, default to image_dir
     working_dir = file_management.WorkingDirectory(cfg.get('working_dir', image_dir))

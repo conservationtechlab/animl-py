@@ -41,11 +41,11 @@ parser.add_argument('--classifier', type=str, nargs='?',
 parser.add_argument('--classlist', type=str, nargs='?',
                     help='Path to class list',
                     default=Path(home / 'sdzwa_southwest_v3_classes.csv'))
-parser.add_argument('--detect_only','-d', action='store_true',
+parser.add_argument('--detect_only', '-d', action='store_true',
                     help='Run detection only, skip classification')
-parser.add_argument('--sort','-s', action='store_true',
+parser.add_argument('--sort', '-s', action='store_true',
                     help='Sort images into subfolders based on classification')
-parser.add_argument('--visualize','-v', action='store_true',
+parser.add_argument('--visualize', '-v', action='store_true',
                     help='Visualize detections and classifications on images')
 args = parser.parse_args()
 

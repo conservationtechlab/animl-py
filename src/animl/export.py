@@ -182,7 +182,7 @@ def export_coco(manifest: pd.DataFrame,
         info = {'description': 'COCO Export from animl',
                 'version': __version__,
                 'date_created': pd.Timestamp.now().strftime("%Y/%m/%d")}
-    
+
     if licenses is None:
         licenses = []
 
@@ -198,7 +198,6 @@ def export_coco(manifest: pd.DataFrame,
     # create image id based on filepath
     manifest['image_id'] = manifest.groupby('filepath').ngroup()
 
-
     images = []
     annotations = []
     for i_row, row in manifest.iterrows():
@@ -212,13 +211,11 @@ def export_coco(manifest: pd.DataFrame,
                  'height': height}
         images.append(image)
 
-        
         # convert bbox to abs coordinates
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         # skip annotation if bbox is NaN
         if pd.isna(bbox).any():
             continue
-
         bbox = convert_minxywh_to_absxyxy(bbox, width, height)
         area = bbox[2] * bbox[3]
 

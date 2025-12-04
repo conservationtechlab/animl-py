@@ -118,7 +118,7 @@ def detect(detector,
     if isinstance(image_file_names, str):
         # convert img path to tensor
         batch_from_dataloader = image_to_tensor(image_file_names, letterbox=letterbox,
-                                        resize_width=resize_width, resize_height=resize_height)
+                                                resize_width=resize_width, resize_height=resize_height)
         batch_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
         batch_paths = batch_from_dataloader[1]  # List of image names for the current batch
         batch_sizes = batch_from_dataloader[2]  # List of original image sizes for the current batch
@@ -146,13 +146,13 @@ def detect(detector,
             results = convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
                                               batch_sizes, letterbox, detector.model_type)
         return results
-    
+
     # list of image filepaths
     elif isinstance(image_file_names, list):
         # create a data frame from list of image paths
         manifest = pd.DataFrame(image_file_names, columns=[file_col])
         # no frame column, assume all images and set to 0
-        manifest['frame'] = 0   
+        manifest['frame'] = 0
 
     # full manifest, select file_col
     elif isinstance(image_file_names, pd.DataFrame):
