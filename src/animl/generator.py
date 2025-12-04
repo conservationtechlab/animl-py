@@ -144,6 +144,8 @@ class ManifestGenerator(Dataset):
         self.crop_coord = crop_coord
         if self.crop_coord not in ['relative', 'absolute']:
             raise ValueError("crop_coord must be either 'relative' or 'absolute'")
+        if 'frame' not in self.x.columns:
+            self.x['frame'] = 0  # default frame 0 for images
 
         self.resize_height = resize_height
         self.resize_width = resize_width

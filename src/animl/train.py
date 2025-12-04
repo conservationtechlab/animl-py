@@ -221,6 +221,7 @@ def train_main(cfg):
                                         workspace=cfg.get('comet_workspace', None))
             print("Comet ML experiment initialized.")
         else:
+            experiment = None
             print("Comet ML not configured; skipping experiment logging.")
     else:
         experiment = None
@@ -339,7 +340,7 @@ def train_main(cfg):
         # <current_epoch>.pt checkpoint saving every *checkpoint_frequency* epochs
         checkpoint = cfg.get('checkpoint_frequency', 10)
 
-        if comet_ml:
+        if experiment:
             experiment.log_metrics(stats, step=current_epoch)
 
         if current_epoch % checkpoint == 0:

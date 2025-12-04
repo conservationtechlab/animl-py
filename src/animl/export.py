@@ -163,7 +163,10 @@ def export_coco(manifest: pd.DataFrame,
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
+        class_list (pd.DataFrame): dataframe containing class names and their corresponding IDs
         out_file (str): path to save the COCO formatted file
+        info (Optional[dict]): info section of COCO file
+        licenses (Optional[list]): licenses section of COCO file
 
     Returns:
         coco formatted json file saved to out_file
@@ -293,7 +296,8 @@ def export_timelapse(results: pd.DataFrame,
 
 def export_megadetector(manifest: pd.DataFrame,
                         output_file: Optional[str] = None,
-                        detector: str = 'MegaDetector v5a'):
+                        detector: str = 'MegaDetector v5a',
+                        prompt: bool = True):
     """
     Converts the .csv file [input_file] to the MD-formatted .json file [output_file].
 
@@ -378,4 +382,4 @@ def export_megadetector(manifest: pd.DataFrame,
     results['images'] = list(filename_to_results.values())
 
     # Save the results to a JSON file
-    file_management.save_json(results, output_file)
+    file_management.save_json(results, output_file, prompt=prompt)
