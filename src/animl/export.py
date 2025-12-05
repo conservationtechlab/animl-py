@@ -306,6 +306,8 @@ def export_megadetector(manifest: pd.DataFrame,
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated detections
         output_file (Optional[str]): path to save the MD formatted file
+        detector (str): name of the detector used
+        prompt (bool): whether to prompt before overwriting existing file
 
     Returns:
         None, saves a json file in MD format

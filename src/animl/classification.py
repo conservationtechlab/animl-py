@@ -330,6 +330,7 @@ def single_classification(animals: pd.DataFrame,
 
     Args:
         animals (pd.DataFrame): animal detections from manifest
+        empty (Optional) (pd.DataFrame): empty detections from manifest
         predictions_raw (np.array): softmaxed logits from classify()
         class_list (pd.DataFrame): class list associated with model
 

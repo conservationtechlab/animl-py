@@ -243,6 +243,7 @@ def check_file(file: str, output_type: str = None) -> bool:
 
     Args:
         file (str): the full path of the file to check
+        output_type (str): type of output file (e.g., "Manifest", "Detections")
 
     Returns:
         a boolean indicating whether a file was found and the user wants to load or not
