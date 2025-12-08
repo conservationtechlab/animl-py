@@ -135,10 +135,12 @@ def train_val_test(manifest: pd.DataFrame,
 
 
 def balanced_train_val_test_split(manifest: pd.DataFrame,
-                                    label_col: str = "class",
-                                    out_dir: Optional[str] = None, 
-                                    test_size: float = 0.1,
-                                    val_size: float = 0.1,
+                                  label_col: str = "class",
+                                  file_col: str = 'filepath',
+                                  conf_col: str = "conf",
+                                  out_dir: Optional[str] = None, 
+                                  test_size: float = 0.1,
+                                  val_size: float = 0.1,
                                     random_state: int = 42):
     """
     Returns train_df, val_df, test_df with label_col stratified.
@@ -147,6 +149,18 @@ def balanced_train_val_test_split(manifest: pd.DataFrame,
     assert 0 <= test_size < 1
     assert 0 <= val_size < 1 
     assert test_size + val_size < 1
+
+    if label_col not in manifest.columns:
+        raise ValueError(f"label_col '{label_col}' not found in dataframe columns")
+    if file_col not in manifest.columns:
+        raise ValueError(f"file_col '{file_col}' not found in dataframe columns")
+
+    # Keep only the highest confidence entry for each file, or one entry per file if no conf_col
+    if conf_col not in manifest.columns:
+        manifest = manifest.drop_duplicates(subset=[file_col])
+    else:
+        idx = manifest.groupby(file_col)[conf_col].idxmax()
+        manifest = manifest.loc[idx].reset_index(drop=True)
 
     # Stage 1: split off test
     trainval_df, test_df = train_test_split(manifest,
