@@ -54,13 +54,13 @@ def get_empty(manifest: pd.DataFrame):
 
 
 def train_val_test(manifest: pd.DataFrame,
-                                  label_col: str = "class",
-                                  file_col: str = 'filepath',
-                                  conf_col: str = "conf",
-                                  out_dir: Optional[str] = None,
-                                  test_size: float = 0.1,
-                                  val_size: float = 0.1,
-                                  random_state: int = 42):
+                   label_col: str = "class",
+                   file_col: str = 'filepath',
+                   conf_col: str = "conf",
+                   out_dir: Optional[str] = None,
+                   test_size: float = 0.1,
+                   val_size: float = 0.1,
+                   random_state: int = 42):
     """
     Returns train_df, val_df, test_df with label_col stratified.
     test_size and val_size are fractions of the whole dataset (e.g., 0.2 -> 20%).
