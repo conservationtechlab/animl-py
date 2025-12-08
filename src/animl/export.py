@@ -44,20 +44,16 @@ def export_folders(manifest: pd.DataFrame,
     if label_col not in manifest.columns:
         raise AssertionError(f"Label column {label_col} not found in manifest.")
 
-    if label_col == 'prediction':
-        # Create species folders
-        for species in manifest['prediction'].unique():
-            path = out_dir / Path(str(species))
-            path.mkdir(exist_ok=True)
-
-    elif label_col == 'category':
+    if label_col == 'category':
         classes = {"0": "empty", "1": "animal", "2": "human", "3": "vehicle"}
         for i in classes.values():
-            path = out_dir / Path(i)
+            path = out_dir / str(i)
             path.mkdir(exist_ok=True)
-
     else:
-        raise AssertionError(f"Label column {label_col} not recognized, must be 'prediction' or 'category'.")
+        classes = manifest[label_col].unique()
+        for i in classes:
+            path = out_dir / str(i)
+            path.mkdir(exist_ok=True)
 
     # create new column
     manifest['link'] = out_dir
@@ -83,11 +79,10 @@ def export_folders(manifest: pd.DataFrame,
 
             manifest.loc[i, unique_name] = name
 
-        if label_col == 'prediction':
-            link = out_dir / Path(row['prediction']) / Path(name)
-
-        elif label_col == 'category':
-            link = out_dir / Path(classes[str(row['category'])]) / Path(name)
+        if label_col == 'category':
+            link = out_dir / str(classes[str(row['category'])]) / str(name)
+        else:
+            link = out_dir / str(row[label_col]) / str(name)
 
         manifest.loc[i, 'link'] = str(link)
 
