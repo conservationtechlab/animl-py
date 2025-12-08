@@ -5,8 +5,7 @@ Tools for splitting the data for different workflows
 """
 import pandas as pd
 import numpy as np
-from math import fsum
-from typing import Optional, Tuple
+from typing import Optional
 from sklearn.model_selection import train_test_split
 
 from animl.file_management import save_data
@@ -54,100 +53,20 @@ def get_empty(manifest: pd.DataFrame):
     return otherdf
 
 
-# TODO: IMPROVE
 def train_val_test(manifest: pd.DataFrame,
-                   out_dir: Optional[str] = None,
-                   label_col: str = "class",
-                   file_col: str = 'filepath',
-                   groupby_col: Optional[list] = None,
-                   percentage: Tuple[float, float, float] = (0.7, 0.2, 0.1),
-                   seed: Optional[int] = None):
-    '''
-    Splits the manifest into Training, Validation, and Test Datasets for training
-
-    Credit: Unduwap Kandage-Don
-
-    Args:
-        manifest (DataFrame): list of files to split for training
-        out_dir (str): location to save split lists to
-        label_col (str): column name containing class labels
-        file_col (str): column containing file paths
-        groupby_col (list): columns to group by before splitting, ie station
-        percentage (tuple): fraction of data dedicated to train-val-test
-        seed (int): RNG seed, if none will pick one at random within [0,100]
-
-    Returns:
-        train manifest
-        validate manifest
-        test manifest
-        stats file
-    '''
-    if seed is None:
-        seed = np.random.randint(0, 100)
-    print(f"RNG seed: {seed}")
-
-    # check percentages add up to 1
-    if not (fsum(percentage) == 1):
-        print("Invalid percentages")
-
-    # only one label per file 
-    manifest.drop_duplicates(subset=[file_col], inplace=True)
-
-    labelCt = manifest[label_col].value_counts()
-    # downsampling based on label counts
-    median = np.median(labelCt.values)
-    
-
-    if groupby_col:
-        groupby_col = groupby_col + [label_col]
-    else:
-        groupby_col = [label_col]
-
-
-    # split groups into train, val, test
-    trainGroups, tempGroups = train_test_split(manifest,
-                                               test_size=(1 - percentage[0]),
-                                               shuffle=False,
-                                               random_state=seed, stratify=groupby_col)
-
-    valGroups, testGroups = train_test_split(tempGroups,
-                                             test_size=(percentage[2] / (percentage[1] + percentage[2])),
-                                             shuffle=False,
-                                             random_state=seed, stratify=groupby_col)
-
-    # get all data for each split based on groups
-    train = pd.merge(manifest, trainGroups, on=groupby_col, how='inner')
-    val = pd.merge(manifest, valGroups, on=groupby_col, how='inner')
-    test = pd.merge(manifest, testGroups, on=groupby_col, how='inner')
-
-    # save stats
-    stats = {"label": list(labelCt.keys()), "total images": len(manifest),
-             "train": len(train), "test": len(test), "validation": len(val)}
-    if out_dir is not None:
-        save_data(pd.DataFrame(stats), out_dir + "/data_split.csv")
-
-        # save to csv
-        save_data(train, out_dir + "/train_data.csv")
-        save_data(val, out_dir + "/validate_data.csv")
-        save_data(test, out_dir + "/test_data.csv")
-
-    return train, val, test, stats
-
-
-def balanced_train_val_test_split(manifest: pd.DataFrame,
                                   label_col: str = "class",
                                   file_col: str = 'filepath',
                                   conf_col: str = "conf",
-                                  out_dir: Optional[str] = None, 
+                                  out_dir: Optional[str] = None,
                                   test_size: float = 0.1,
                                   val_size: float = 0.1,
-                                    random_state: int = 42):
+                                  random_state: int = 42):
     """
     Returns train_df, val_df, test_df with label_col stratified.
     test_size and val_size are fractions of the whole dataset (e.g., 0.2 -> 20%).
     """
     assert 0 <= test_size < 1
-    assert 0 <= val_size < 1 
+    assert 0 <= val_size < 1
     assert test_size + val_size < 1
 
     if label_col not in manifest.columns:
@@ -165,22 +84,18 @@ def balanced_train_val_test_split(manifest: pd.DataFrame,
     # Stage 1: split off test
     trainval_df, test_df = train_test_split(manifest,
                                             test_size=test_size,
-        stratify=manifest[label_col],
-        random_state=random_state,
-    )
+                                            stratify=manifest[label_col],
+                                            random_state=random_state)
 
     # Stage 2: split train/val from trainval (val_size is relative to the original dataset)
     # Compute val fraction relative to trainval size
     rel_val_size = val_size / (1.0 - test_size)
-    train_df, val_df = train_test_split(
-        trainval_df,
-        test_size=rel_val_size,
-        stratify=trainval_df[label_col],
-        random_state=random_state + 1,
-    )
-
+    train_df, val_df = train_test_split(trainval_df,
+                                        test_size=rel_val_size,
+                                        stratify=trainval_df[label_col],
+                                        random_state=random_state + 1)
+    # save to csv
     if out_dir is not None:
-            # save to csv
         save_data(train_df, out_dir + "/train_data.csv")
         save_data(val_df, out_dir + "/validate_data.csv")
         save_data(test_df, out_dir + "/test_data.csv")
