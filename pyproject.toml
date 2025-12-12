@@ -1,6 +1,6 @@
 [project]
 name = "animl"  
-version = "3.1.0"
+version = "3.1.1"
 description = "Tools for classifying camera trap images"  
 
 readme = "README.md" 
@@ -9,7 +9,7 @@ keywords = ["camera trap", "ecology", "conservation", "zoo", "SDZWA", "conservat
 
 authors = [{name = "Kyra Swanson", email = "tswanson@sdzwa.org" }]
 
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "dill>=0.4.0",
     "numpy>=2.0.2", 
@@ -20,28 +20,19 @@ dependencies = [
     "scikit-learn>=1.5.2", 
     "timm>=1.0.9",
     "torch>=2.6.0",
-    "torchaudio>=2.6.0",
     "torchvision>=0.21.0",
     "tqdm>=4.66.5",
     "ultralytics>=8.3.95",
     "wget>=3.2"
 ]
+[project.optional-dependencies]
+mlops = [
+    "comet-ml>=3.54.2", 
+]
 
 [project.urls]  # Optional
 "Homepage" = "https://github.com/conservationtechlab/animl-py"
 
-
-# The following would provide a command line executable called `sample`
-# which executes the function `main` from this package when invoked.
-#[project.scripts]  # Optional
-#sample = "sample:main"
-
-# This is configuration specific to the `setuptools` build backend.
-# If you are using a different build backend, you will need to change this.
-#[tool.setuptools]
-# If there are data files included in your packages that need to be
-# installed, specify them here.
-#package-data = {"sample" = ["*.dat"]}
 
 [build-system]
 # These are the assumed default build requirements from pip:

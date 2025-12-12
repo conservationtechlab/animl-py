@@ -19,6 +19,7 @@ def md_test():
 
     #animl.download_model(animl.MEGADETECTOR[md_version], out_dir='models')
     detector = animl.load_detector('models/' + animl.MD_FILENAMES[md_version], 'yolo')
+    #detector = animl.load_detector('models/md_v1000.0.0-sorrel.onnx', 'onnx')
 
     string = animl.detect(detector,
                           manifest.iloc[2]['filepath'],
@@ -56,7 +57,7 @@ def md_test():
     slist_parsed['prediction'] = 'test'
     slist_parsed['confidence'] = 1
 
-    animl.export_megadetector(slist_parsed, "md_export_test.json")
+    animl.export_megadetector(slist_parsed, "md_export_test.json", prompt=False)
 
     print(slist_parsed)
 

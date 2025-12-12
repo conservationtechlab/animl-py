@@ -23,7 +23,7 @@ MD_COLORS = {"1": (0, 255, 0), "2": (0, 0, 255),  "3": (255, 0, 0)}
 MD_LABELS = {"1": "animal", "2": "human",  "3": "vehicle"}
 
 def plot_box(rows,
-             file_col="filepath",
+             file_col: str = "filepath",
              min_conf: Union[int, float] = 0,
              label_col=None,
              show_confidence=False,
@@ -34,8 +34,7 @@ def plot_box(rows,
     Plot a bounding box on a given (loaded) image
 
     Args:
-        img (numpy.ndarray): Loaded image in which the bounding box will be plotted.
-        row (pandas.Series): Row from the DataFrame containing bounding box coordinates and prediction.
+        rows (pandas.DataFrame): Row from the DataFrame containing bounding box coordinates and prediction.
             Expected columns:
             - file_col
             - 'conf': Confidence score of the detection.
@@ -44,7 +43,13 @@ def plot_box(rows,
             - 'bbox_w': width of the bounding box.
             - 'bbox_h': height of the bounding box.
             - 'prediction': Prediction label to be displayed alongside the bounding box (optional).
-        prediction (bool): If True, display the prediction label alongside the bounding box.
+        file_col (str): filepath column name in the DataFrame
+        min_conf (int or float): Minimum confidence threshold to plot the box
+        label_col (str or None): Column name containing class to print above the box. If None, no label is printed.
+        show_confidence (bool): If true, show confidence score above the box.
+        colors (dict): Dictionary mapping class labels to BGR color tuples for the bounding boxes.
+        detector_labels (dict): Dictionary mapping detector categories to human-readable labels.
+        return_img (bool): If true, return the image array with boxes overlaid, otherwise display it using cv2.imshow.
 
     Returns:
         None
@@ -55,6 +60,11 @@ def plot_box(rows,
         
     if not {file_col, 'conf', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(rows.columns):
         raise ValueError(f"DataFrame must contain {file_col}, 'conf', 'bbox_x', 'bbox_y', 'bbox_w', and 'bbox_h' columns.")
+    
+    if colors is None:
+        colors = MD_COLORS
+    if detector_labels is None:
+        detector_labels = MD_LABELS
 
     # Load the image
     path = rows.iloc[0][file_col]
@@ -142,12 +152,19 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         min_conf (Optional) (Int or Float): Confidence threshold to plot the box
         label_col (Optional) (str): Column name containing label to print on box
         show_confidence (Optional) (bool): If true, show confidence score on box
+        colors (Optional) (dict): Dictionary mapping class labels to BGR color tuples for the bounding boxes.
+        detector_labels (Optional) (dict): Dictionary mapping detector categories to human-readable labels.
 
     Returns:
         None
     """
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
+    
+    if colors is None:
+        colors = MD_COLORS
+    if detector_labels is None:
+        detector_labels = MD_LABELS
 
     # If the specified output directory does not exist, make it
     Path(out_dir).mkdir(exist_ok=True)
@@ -196,6 +213,7 @@ def plot_from_file(csv_file: str, out_dir: str, file_col: str = 'filepath'):
     Args:
         csv_file (str): Path to the CSV file.
         out_dir (str): Saved location  of boxed images output dir.
+        file_col (str): Column name containing file paths.
 
     Returns:
         None

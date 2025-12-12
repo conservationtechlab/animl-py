@@ -18,6 +18,7 @@ def extract_frames(files,
                    frames: int = 5,
                    fps: Optional[int] = None,
                    out_file: Optional[str] = None,
+                   out_dir: str = None,
                    file_col: str = "filepath",
                    parallel: bool = True,
                    num_workers: int = NUM_THREADS):
@@ -30,6 +31,7 @@ def extract_frames(files,
         frames (int): Number of frames to sample from each video (default is 5).
         fps (Optional[int]): Frames per second to sample from each video. If specified, overrides frames.
         out_file (Optional[str]): Path to save the extracted frames manifest as a CSV file.
+        out_dir (str): Directory to save extracted frame images. If None, frames are not saved as images.
         file_col (str): Column name in the DataFrame that contains the file paths (default is "filepath").
         parallel (bool): Whether to use multiprocessing for frame extraction (default is True).
         num_workers (int): Number of worker processes to use for parallel processing (default is NUM_THREADS).
@@ -43,7 +45,7 @@ def extract_frames(files,
         pd.DataFrame: A DataFrame containing the file paths and corresponding frame numbers for the extracted frames.
                       The DataFrame will have columns [file_col, "frame"].
     """
-    if file_management.check_file(out_file):
+    if file_management.check_file(out_file, output_type="ImageFrames"):
         return file_management.load_data(out_file)
     if not {file_col}.issubset(files.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
@@ -77,12 +79,19 @@ def extract_frames(files,
                     video_frames.extend(output)
 
             video_frames = pd.DataFrame(video_frames, columns=[file_col, "frame"])
+            video_frames['frame'] = video_frames['frame'].astype(int)
         videos = videos.merge(video_frames, on=file_col)
 
     allframes = pd.concat([images, videos]).reset_index(drop=True)
 
     if (out_file is not None):
         file_management.save_data(allframes, out_file)
+
+    if out_dir is not None:
+        for _, row in videos.iterrows():
+            image = get_frame_as_image(row[file_col], frame=row['frame'])
+            image_path = Path(out_dir) / f"{Path(row[file_col]).stem}_{row['frame']}.jpg"
+            cv2.imwrite(str(image_path), image)
 
     return allframes
 
@@ -107,6 +116,9 @@ def count_frames(filepath, frames=5, fps=None) -> int:
         return None
 
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if frame_count == 0:
+        # print(f"Video file {filepath} has 0 frames, skipping.")
+        return None
 
     cap.release()
     cv2.destroyAllWindows()

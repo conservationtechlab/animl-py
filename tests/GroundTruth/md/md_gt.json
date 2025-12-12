@@ -1,26 +1,57 @@
 {
+    "info": {
+        "format_version": "3.0",
+        "detector": "MegaDetector v5a",
+        "classifier": "Animl"
+    },
+    "detection_categories": {
+        "0": "empty",
+        "1": "animal",
+        "2": "person",
+        "3": "vehicle"
+    },
+    "classification_categories": {
+        "0": "test"
+    },
     "images": [
         {
-            "file": "/home/kyra/animl-py/examples/Southwest/IMAG1065_cougar.JPG",
-            "max_detection_conf": 0.7560999989509583,
             "detections": [
                 {
-                    "category": 1,
-                    "conf": 0.7560999989509583,
-                    "bbox_x": 0.05950000137090683,
-                    "bbox_y": 0.6144999861717224,
-                    "bbox_w": 0.25,
-                    "bbox_h": 0.1657000035047531
+                    "category": "1",
+                    "conf": 0.7401999831199646,
+                    "frame": 0,
+                    "bbox": [
+                        0.0966000035405159,
+                        0.7735000252723694,
+                        0.27900001406669617,
+                        0.225600004196167
+                    ],
+                    "classifications": [
+                        [
+                            "0",
+                            1
+                        ]
+                    ]
                 },
                 {
-                    "category": 1,
-                    "conf": 0.73089998960495,
-                    "bbox_x": 0.2540999948978424,
-                    "bbox_y": 0.6287000179290771,
-                    "bbox_w": 0.24230000376701355,
-                    "bbox_h": 0.16359999775886536
+                    "category": "1",
+                    "conf": 0.15809999406337738,
+                    "frame": 0,
+                    "bbox": [
+                        0.19460000097751617,
+                        0.6100000143051147,
+                        0.22630000114440918,
+                        0.18389999866485596
+                    ],
+                    "classifications": [
+                        [
+                            "0",
+                            1
+                        ]
+                    ]
                 }
-            ]
+            ],
+            "file": "/home/kyra/animl-py/examples/Southwest/IMAG1065_cougar.JPG"
         }
     ]
 }

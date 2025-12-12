@@ -1,3 +1,5 @@
+__version__ = '3.1.1'
+
 from animl import classification
 from animl import detection
 from animl import export
@@ -116,5 +118,3 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'utils', 'validate_func', 'video_processing', 'viewpoint',
            'visualization', 'xyn2xy', 'xywh2xyxy', 'xywhc2xyxy', 'xywhn2xyxy',
            'xyxy2xywh', 'xyxyc2xywh', 'xyxyc2xywhn', 'yolo']
-
-__version__ = '3.1.0'

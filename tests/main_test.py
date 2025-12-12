@@ -37,7 +37,8 @@ def main_test():
     if megadetector.exists():
         megadetector.unlink()
 
-    animl.download_model(animl.MEGADETECTOR['MDV5a'], out_dir='models')
+    #animl.download_model(animl.MEGADETECTOR['MDV5a'], out_dir='models')
+    megadetector = Path.cwd() / 'models/md_v1000.0.0-sorrel.onnx'
 
     classifier_file = Path.cwd() / 'models/sdzwa_southwest_v3.pt'
     class_list_file = Path.cwd() / 'models/sdzwa_southwest_v3_classes.csv'
@@ -45,7 +46,7 @@ def main_test():
     animl.from_paths(image_dir, megadetector, classifier_file, class_list_file,
                      sort=True, visualize=True, sequence=False)
 
-    results_path = Path(image_dir) / 'Animl-Directory' / 'Data' / 'Results.csv'
+    results_path = Path(image_dir) / 'Animl-Directory' / 'Results.csv'
     gt_path = Path.cwd() / 'tests' / 'GroundTruth' / 'main' / 'Results.csv'
     if results_path.exists():
         test_manifest = pd.read_csv(results_path)

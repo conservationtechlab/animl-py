@@ -4,7 +4,7 @@ Tools for Saving, Loading, and Using Species Classifiers
 @ Kyra Swanson 2023
 '''
 import json
-from typing import Optional
+from typing import Optional, Union
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -56,7 +56,7 @@ def save_classifier(model,
 
 
 def load_classifier(model_path: str,
-                    classes,
+                    classes: Union[int, str, Path, pd.DataFrame],
                     device: Optional[str] = None,
                     architecture: str = "CTL"):
     '''
@@ -64,7 +64,7 @@ def load_classifier(model_path: str,
 
     Args:
         model_path (str): file or directory path to model weights
-        classes (int | str): number of classes or path to associated class list
+        classes (int | str | Path | pd.DataFrame): number of classes, path to associated class list, or pd.DataFrame of class list
         device (str): specify to run on cpu or gpu
         architecture (str): expected model architecture
 
@@ -79,6 +79,9 @@ def load_classifier(model_path: str,
     if isinstance(classes, str) or isinstance(classes, Path):
         class_list = load_class_list(classes)
         num_classes = len(class_list)
+    elif isinstance(classes, pd.DataFrame):
+        class_list = classes
+        num_classes = len(class_list)
     else:
         class_list = None
         num_classes = classes
@@ -87,7 +90,7 @@ def load_classifier(model_path: str,
     if device is None:
         device = get_device()
 
-    # Create a new model intance for training
+    # Create a new model instance for training
     if model_path.is_dir():
         model_path = str(model_path)
         start_epoch = 0
@@ -172,7 +175,8 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
 
     if len(model_states):
         # at least one save state found; get latest
-        model_epochs = [int(m.replace(model_path, '').replace('.pt', '')) for m in model_states]
+        savepoints = [m.stem for m in model_states]
+        model_epochs = [int(sp) for sp in savepoints if sp.isdigit()]
         start_epoch = max(model_epochs)
 
         # load state dict and apply weights to model
@@ -250,7 +254,7 @@ def classify(model,
     Returns:
         detections (pd.DataFrame): MD detections with classifier prediction and confidence
     """
-    if file_management.check_file(out_file):
+    if file_management.check_file(out_file, output_type="Classification results"):
         return file_management.load_data(out_file).to_numpy()
 
     if device is None:
@@ -326,6 +330,7 @@ def single_classification(animals: pd.DataFrame,
 
     Args:
         animals (pd.DataFrame): animal detections from manifest
+        empty (Optional) (pd.DataFrame): empty detections from manifest
         predictions_raw (np.array): softmaxed logits from classify()
         class_list (pd.DataFrame): class list associated with model
 

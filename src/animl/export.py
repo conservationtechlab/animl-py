@@ -5,6 +5,7 @@ Provides functions for creating, removing, and updating sorted symlinks.
 
 @ Kyra Swanson 2023
 """
+import json
 import os
 import pandas as pd
 from typing import Optional
@@ -13,7 +14,8 @@ from random import randrange
 from pathlib import Path
 from tqdm import tqdm
 
-from animl import file_management
+from animl import file_management, __version__
+from animl.utils.general import convert_minxywh_to_absxyxy
 
 
 def export_folders(manifest: pd.DataFrame,
@@ -42,20 +44,16 @@ def export_folders(manifest: pd.DataFrame,
     if label_col not in manifest.columns:
         raise AssertionError(f"Label column {label_col} not found in manifest.")
 
-    if label_col == 'prediction':
-        # Create species folders
-        for species in manifest['prediction'].unique():
-            path = out_dir / Path(str(species))
-            path.mkdir(exist_ok=True)
-
-    elif label_col == 'category':
+    if label_col == 'category':
         classes = {"0": "empty", "1": "animal", "2": "human", "3": "vehicle"}
         for i in classes.values():
-            path = out_dir / Path(i)
+            path = out_dir / str(i)
             path.mkdir(exist_ok=True)
-
     else:
-        raise AssertionError(f"Label column {label_col} not recognized, must be 'prediction' or 'category'.")
+        classes = manifest[label_col].unique()
+        for i in classes:
+            path = out_dir / str(i)
+            path.mkdir(exist_ok=True)
 
     # create new column
     manifest['link'] = out_dir
@@ -81,11 +79,10 @@ def export_folders(manifest: pd.DataFrame,
 
             manifest.loc[i, unique_name] = name
 
-        if label_col == 'prediction':
-            link = out_dir / Path(row['prediction']) / Path(name)
-
-        elif label_col == 'category':
-            link = out_dir / Path(classes[str(row['category'])]) / Path(name)
+        if label_col == 'category':
+            link = out_dir / str(classes[str(row['category'])]) / str(name)
+        else:
+            link = out_dir / str(row[label_col]) / str(name)
 
         manifest.loc[i, 'link'] = str(link)
 
@@ -152,35 +149,106 @@ def update_labels_from_folders(manifest: pd.DataFrame,
 
 
 def export_coco(manifest: pd.DataFrame,
-                out_file: str):
+                class_list: pd.DataFrame,
+                out_file: str,
+                info: Optional[dict] = None,
+                licenses: Optional[list] = None):
     """
     Export a manifest to COCO format.
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
+        class_list (pd.DataFrame): dataframe containing class names and their corresponding IDs
         out_file (str): path to save the COCO formatted file
+        info (Optional[dict]): info section of COCO file
+        licenses (Optional[list]): licenses section of COCO file
 
     Returns:
         coco formatted json file saved to out_file
     """
-    # TODO
-    return None
+    expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame',
+                        'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
+                        'bbox_h', 'prediction', 'confidence')
+
+    for s in expected_columns:
+        assert s in manifest.columns, f'Expected column {s} not found in results DataFrame'
+
+    if info is None:
+        info = {'description': 'COCO Export from animl',
+                'version': __version__,
+                'date_created': pd.Timestamp.now().strftime("%Y/%m/%d")}
+
+    if licenses is None:
+        licenses = []
+
+    # build categories from class list
+    class_dict = {row['class']: int(row['id']) for _, row in class_list.iterrows()}
+    categories = []
+    for _, row in class_list.iterrows():
+        category = {'id': int(row['id']),
+                    'name': row['class'],
+                    'supercategory': 'none'}
+        categories.append(category)
+
+    # create image id based on filepath
+    manifest['image_id'] = manifest.groupby('filepath').ngroup()
+
+    images = []
+    annotations = []
+    for i_row, row in manifest.iterrows():
+
+        width = int(row['width']) if not pd.isna(row['width']) else 0
+        height = int(row['height']) if not pd.isna(row['height']) else 0
+
+        image = {'id': row['image_id'],
+                 'file_name': Path(row['filepath']).name,
+                 'width': width,
+                 'height': height}
+        images.append(image)
+
+        # convert bbox to abs coordinates
+        bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
+        # skip annotation if bbox is NaN
+        if pd.isna(bbox).any():
+            continue
+        bbox = convert_minxywh_to_absxyxy(bbox, width, height)
+        area = bbox[2] * bbox[3]
+
+        # get category id
+        category_id = class_dict.get(row['prediction'], -1)
+
+        annotation = {'id': i_row,
+                      'image_id': row['image_id'],
+                      'category_id': category_id,
+                      'frame': int(row.get('frame', 0)),
+                      'bbox': bbox,
+                      'area': area,
+                      'iscrowd': 0}
+        annotations.append(annotation)
+
+    coco_format = {'info': info,
+                   'licenses': licenses,
+                   'images': images,
+                   'annotations': annotations,
+                   'categories': categories}
+
+    with open(out_file, 'w') as f:
+        json.dump(coco_format, f)
+
+    return coco_format
 
 
-# TODO: FIX FOR 3.1
-def export_timelapse(animals: pd.DataFrame,
-                     empty: pd.DataFrame,
-                     imagedir: str,
-                     only_animal: bool = True):
+def export_timelapse(results: pd.DataFrame,
+                     image_dir: str,
+                     only_animl: bool = True) -> Path:
     '''
     Converts the Pandas DataFrame created by running the animl classsifier to a csv file that contains columns needed for TimeLapse conversion in later step
 
     Credit: Sachin Gopal Wani
 
     Args:
-        animals - a DataFrame that has entries of anuimal classification \
-        empty - a DataFrame that has detection of non-animal objects in images \
-        imagedir - location of root directory where all images are stored (can contain subdirectories) \
+        results - a DataFrame that contains classifications \
+        image_dir - location of root directory where all images are stored (can contain subdirectories) \
         only_animl - A bool that confirms whether we want only animal detctions or all (animal + non-animal detection from MegaDetector + classifier)
 
     Returns:
@@ -189,61 +257,39 @@ def export_timelapse(animals: pd.DataFrame,
         csv_loc - Location of the stored animals csv file
     '''
     # Create directory
-    ICdir = Path(imagedir) / "Animl-Directory" / "IC"
-    Path(ICdir).mkdir(exist_ok=True)
+    export_dir = Path(image_dir) / "Export"
+    Path(export_dir).mkdir(exist_ok=True)
 
-    expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame', 'file',
+    expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame',
                         'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
                         'bbox_h', 'prediction', 'confidence')
 
     for s in expected_columns:
-        assert s in animals.columns, 'Expected column {} not found in animals DataFrame'.format(s)
+        assert s in results.columns, f'Expected column {s} not found in results DataFrame'
 
     # Dropping unnecessary columns (Refer to columns numbers above for expected columns - 0 indexed).
-    animals.drop(['filepath', 'filename', 'filemodifydate', 'frame', 'max_detection_conf'], axis=1, inplace=True)
+    results = results.drop(['filepath', 'filemodifydate', 'max_detection_conf'], axis=1)
 
     # Keep relative path only
-    animals['file'] = animals['file'].apply(lambda x: x[len(imagedir):])
-    # ALT: copy_ani['file'] = copy_ani['file'].str.slice(start=len(imagedir))
+    results['file'] = results['filename']
 
     # Rename column names for clarity
-    animals.rename(columns={'conf': 'detection_conf', 'prediction': 'class', 'confidence': 'classification_conf'}, inplace=True)
+    results = results.rename(columns={'conf': 'detection_conf', 'prediction': 'class', 'confidence': 'classification_conf'})
+    csv_loc = Path(export_dir / "timelapse_manifest.csv")
+    results.to_csv(csv_loc, index=False)
 
-    if only_animal:
-        # Saving animal results to csv file for conversion to timelapse compatible json
-        animals.to_csv(Path(ICdir / "animals.csv"), index=False)
-        # Saving non-animal csv entries for manual perusal
-        empty.to_csv(Path(ICdir / "non-anim.csv"), index=False)
-
-    else:
-        # Checking if the columns match the expected DataFrame
-        for s in expected_columns:
-            assert s in empty.columns, 'Expected column {} not found in empty (non-animals) DataFrame'.format(s)
-
-        # Doing the same process for non-animal results
-        empty.drop(['filepath', 'filename', 'filemodifydate', 'frame', 'max_detection_conf'], axis=1, inplace=True)
-        empty['file'] = empty['file'].apply(lambda x: x[len(imagedir):])
-        empty.rename(columns={'conf': 'detection_conf', 'prediction': 'class'}, inplace=True)
-
-        # Adding prediction as person and human
-        empty['class'].replace({'0': 'empty', '2': 'person', '3': 'vehicle'}, inplace=True)
-
-        # Changing classification conf = detection_conf instead of max_detection_conf
-        empty['classification_conf'] = empty.loc[:, 'detection_conf']
-
-        # Combining DataFrames and saving it to csv file for further use
-        csv_loc = Path(ICdir / "manifest.csv")
-        manifest = pd.concat([animals, empty])
-        manifest.to_csv(csv_loc, index=False)
+    if only_animl:
+        animals = results[results['category'] == 1]
+        animals.to_csv(Path(export_dir / "animals.csv"), index=False)
 
     # Return the location of csv for json conversion
     return csv_loc
 
 
-# TODO: FIX FOR 3.1 to support frames
 def export_megadetector(manifest: pd.DataFrame,
                         output_file: Optional[str] = None,
-                        detector: str = 'MegaDetector v5a'):
+                        detector: str = 'MegaDetector v5a',
+                        prompt: bool = True):
     """
     Converts the .csv file [input_file] to the MD-formatted .json file [output_file].
 
@@ -255,6 +301,8 @@ def export_megadetector(manifest: pd.DataFrame,
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated detections
         output_file (Optional[str]): path to save the MD formatted file
+        detector (str): name of the detector used
+        prompt (bool): whether to prompt before overwriting existing file
 
     Returns:
         None, saves a json file in MD format
@@ -294,6 +342,7 @@ def export_megadetector(manifest: pd.DataFrame,
         detection = {}
         detection['category'] = detection_category_id
         detection['conf'] = row['conf']
+        detection['frame'] = int(row.get('frame', 0))
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         detection['bbox'] = bbox
         classification_category_name = row['prediction']
@@ -327,4 +376,4 @@ def export_megadetector(manifest: pd.DataFrame,
     results['images'] = list(filename_to_results.values())
 
     # Save the results to a JSON file
-    file_management.save_json(results, output_file)
+    file_management.save_json(results, output_file, prompt=prompt)
