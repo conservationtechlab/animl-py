@@ -238,6 +238,60 @@ def export_coco(manifest: pd.DataFrame,
     return coco_format
 
 
+def export_camtrapR(manifest: pd.DataFrame,
+                    out_dir: str,
+                    out_file: Optional[str] = None,
+                    label_col: str = 'prediction',
+                    file_col: str = "filepath",
+                    station_col: str = 'station',
+                    unique_name: str = 'uniquename',
+                    copy: bool = False) -> pd.DataFrame:
+    
+    expected_columns = (file_col, station_col, label_col)
+    for s in expected_columns:
+        assert s in manifest.columns, f'Expected column {s} not found in results DataFrame'
+
+    manifest['link'] = out_dir
+
+    stations = manifest.groupby(station_col)
+
+    for station_name, station in tqdm(stations):
+        for i, row in station.iterrows():
+            try:
+                name = row[unique_name]
+            except KeyError:
+                filename = Path(row[file_col]).stem
+                extension = Path(row[file_col]).suffix
+
+                # get datetime
+                if "datetime" in manifest.columns:
+                    reformat_date = pd.to_datetime(row['datetime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+                else:
+                    reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
+                # get station
+                if "station" in manifest.columns:
+                    station = row['station']
+                    name = "_".join([station, reformat_date, filename]) + extension
+                else:
+                    name = "_".join([reformat_date, filename]) + extension
+
+                manifest.loc[i, unique_name] = name
+
+            link = out_dir / str(station_name) / str(row[label_col]) / str(name)
+
+            manifest.loc[i, 'link'] = str(link)
+
+            if not link.is_file():
+                if copy:  # make a hard copy
+                    copy2(row[file_col], link)
+                else:  # make a hard
+                    os.link(row[file_col], link)
+
+    if out_file:
+        manifest.to_csv(out_file, index=False)
+
+    return manifest
+
 def export_timelapse(results: pd.DataFrame,
                      image_dir: str,
                      only_animl: bool = True) -> Path:
