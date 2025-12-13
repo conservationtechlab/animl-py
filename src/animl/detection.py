@@ -30,7 +30,7 @@ def load_detector(model_path: str,
 
     Args:
         model_path (str): path to model file
-        model_type (str): type of model expected ["MDV5", "MDV6", "mdv1000", "YOLO", "ONNX"]
+        model_type (str): type of model expected ["MDV5", "MDV6", "YOLO", "ONNX"]
         device (str): specify to run on cpu or gpu
 
     Returns:
@@ -57,7 +57,7 @@ def load_detector(model_path: str,
         model.to(device)
         return model
     # YOLOv6+
-    elif model_type.lower() in {"yolo", "mdv6", "mdv1000"}:
+    elif model_type.lower() in {"yolo", "mdv6"}:
         model = YOLO(model_path, task='detect')
         model.model_type = "yolo"
         model.to(device)
