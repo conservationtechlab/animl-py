@@ -10,6 +10,10 @@ What it does:
 - uses a dummy input with batch size 1 for tracing
 - calls torch.onnx.export with dynamic_axes for batch dimension
 - (optionally) verifies the exported model runs in ONNX Runtime for different batch sizes
+
+
+NOTES: 
+MDv1000_sorrel converted with opset 22 with nms=True
 """
 import sys
 import os
@@ -64,7 +68,7 @@ def export_onnx(model_path: str, img_size: int = 1280):
     model = ultralytics.YOLO(model_path)
 
     # Export the model to ONNX format
-    model.export(format="onnx", imgsz=img_size, opset=13, dynamic=True, nms=True)
+    model.export(format="onnx", imgsz=img_size, dynamic=True, nms=True, batch=16)
 
 
 def add_class_dict(model_path, class_dict):
@@ -123,8 +127,9 @@ def main():
     # test_env_print()
 
     # megadetector
+    # nms = False for v1000
     export_onnx("models/md_v1000.0.0-sorrel.pt", img_size=960)
-    verify_with_onnxruntime("models/md_v1000.0.0-sorrel.onnx", 960)
+    #verify_with_onnxruntime("models/md_v1000.0.0-sorrel.onnx", 960)
 
     # classes = load_class_list("models/sdzwa_southwest_v3_classes.csv")
     # class_dict = {i: c['class'] for i, c in classes.iterrows()}

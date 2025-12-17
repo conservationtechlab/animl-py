@@ -1,6 +1,7 @@
 image_dir:  /home/kyra/animl-py/examples/Southwest
 working_dir: /home/kyra/animl-py/examples/Southwest
-detector_file: "/home/kyra/animl-py/models/md_v5a.0.0.pt"
+detector_file: "models/md_v1000.0.0-sorrel.onnx"
+detector_type: "onnx"
 classifier_file: "models/sdzwa_southwest_v3.onnx"
 
 # file metadata

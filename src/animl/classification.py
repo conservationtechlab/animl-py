@@ -12,7 +12,7 @@ from time import time
 from tqdm import tqdm
 
 import torch
-#import onnxruntime
+import onnxruntime
 
 from animl import generator, file_management
 from animl.model_architecture import EfficientNet, ConvNeXtBase
@@ -90,7 +90,7 @@ def load_classifier(model_path: str,
     if device is None:
         device = get_device()
 
-    # Create a new model intance for training
+    # Create a new model instance for training
     if model_path.is_dir():
         model_path = str(model_path)
         start_epoch = 0
@@ -175,7 +175,8 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
 
     if len(model_states):
         # at least one save state found; get latest
-        model_epochs = [int(m.replace(model_path, '').replace('.pt', '')) for m in model_states]
+        savepoints = [m.stem for m in model_states]
+        model_epochs = [int(sp) for sp in savepoints if sp.isdigit()]
         start_epoch = max(model_epochs)
 
         # load state dict and apply weights to model
@@ -329,6 +330,7 @@ def single_classification(animals: pd.DataFrame,
 
     Args:
         animals (pd.DataFrame): animal detections from manifest
+        empty (Optional) (pd.DataFrame): empty detections from manifest
         predictions_raw (np.array): softmaxed logits from classify()
         class_list (pd.DataFrame): class list associated with model
 

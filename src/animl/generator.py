@@ -21,6 +21,7 @@ from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, R
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
 from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
+from animl.utils import get_device
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -143,6 +144,8 @@ class ManifestGenerator(Dataset):
         self.crop_coord = crop_coord
         if self.crop_coord not in ['relative', 'absolute']:
             raise ValueError("crop_coord must be either 'relative' or 'absolute'")
+        if 'frame' not in self.x.columns:
+            self.x['frame'] = 0  # default frame 0 for images
 
         self.resize_height = resize_height
         self.resize_width = resize_width
@@ -344,7 +347,7 @@ class TrainGenerator(Dataset):
         else:
             identifier = f"{img_path}"
         hash_id = hashlib.md5(identifier.encode()).hexdigest()
-        return Path(self.cache_dir / f"{hash_id}.jpg")
+        return Path(self.cache_dir) / f"{hash_id}.jpg"
 
     def __getitem__(self, idx):
         image_name = self.x.loc[idx, self.file_col]
@@ -440,10 +443,14 @@ def train_dataloader(manifest: pd.DataFrame,
                                       resize_height=resize_height, resize_width=resize_width,
                                       augment=augment, cache_dir=cache_dir)
 
+    device = get_device(quiet=True)
+    pin_memory = False if device == 'cpu' else True
+
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
                             num_workers=num_workers,
                             shuffle=True,
+                            pin_memory=pin_memory,
                             collate_fn=collate_fn)
     return dataLoader
 
@@ -458,8 +465,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
                         resize_width: int = SDZWA_CLASSIFIER_SIZE,
                         transform: Compose = None,
                         batch_size: int = 1,
-                        num_workers: int = 1,
-                        video: bool = False) -> DataLoader:
+                        num_workers: int = 1) -> DataLoader:
     '''
     Loads a dataset and wraps it in a PyTorch DataLoader object.
 
@@ -487,12 +493,14 @@ def manifest_dataloader(manifest: pd.DataFrame,
     dataset_instance = ManifestGenerator(manifest, file_col=file_col, crop=crop,
                                          crop_coord=crop_coord, normalize=normalize, letterbox=letterbox,
                                          resize_width=resize_width, resize_height=resize_height, transform=transform)
-
+    # set pin_memory based on device
+    device = get_device(quiet=True)
+    pin_memory = False if device == 'cpu' else True
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
                             num_workers=num_workers,
                             shuffle=False,
-                            pin_memory=True,
+                            pin_memory=pin_memory,
                             collate_fn=collate_fn)
     return dataLoader
 

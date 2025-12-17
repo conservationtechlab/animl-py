@@ -6,13 +6,13 @@ Automated Pipeline Functions
 
 import os
 import yaml
-import torch
 import pandas as pd
+from pathlib import Path
 
 from animl import (classification, detection, export, file_management,
                    video_processing, split, model_architecture)
 from animl.utils import visualization
-from animl.utils.general import get_device, NUM_THREADS
+from animl.utils.general import get_device, NUM_THREADS, get_device_onnx
 
 
 def from_paths(image_dir: str,
@@ -21,9 +21,10 @@ def from_paths(image_dir: str,
                classlist_file: str,
                class_label: str = "class",
                batch_size: int = 4,
-               sort: bool = True,
+               sort: bool = False,
                visualize: bool = False,
-               sequence: bool = False) -> pd.DataFrame:
+               sequence: bool = False,
+               detect_only: bool = False) -> pd.DataFrame:
     """
     This function is the main method to invoke all the sub functions
     to create a working directory for the image directory.
@@ -42,8 +43,6 @@ def from_paths(image_dir: str,
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
-    device = get_device()
-
     print("Searching directory...")
     # Create a working directory, build the file manifest from img_dir
     working_dir = file_management.WorkingDirectory(image_dir)
@@ -60,19 +59,29 @@ def from_paths(image_dir: str,
     if (file_management.check_file(working_dir.detections, output_type="Detections")):
         detections = file_management.load_data(working_dir.detections)
     else:
-        detector = detection.load_detector(detector_file, "mdv5", device=device)
+        detector_ext = Path(detector_file).suffix.lower()
+        if detector_ext == '.onnx':
+            detector_device = get_device_onnx()
+            detector = detection.load_detector(detector_file, "onnx", device=detector_device)
+        else:
+            detector_device = get_device()
+            detector = detection.load_detector(detector_file, model_type="mdv5", device=detector_device)
         md_results = detection.detect(detector,
                                       all_frames,
                                       resize_height=model_architecture.MEGADETECTORv5_SIZE,
                                       resize_width=model_architecture.MEGADETECTORv5_SIZE,
                                       batch_size=batch_size,
                                       num_workers=NUM_THREADS,
-                                      device=device,
+                                      device=detector_device,
                                       checkpoint_path=working_dir.mdraw,
                                       checkpoint_frequency=1000)
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
+
+    if detect_only:
+        print("Detection only flag set, skipping classification.")
+        return detections
 
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
@@ -80,9 +89,16 @@ def from_paths(image_dir: str,
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
-    classifier, class_list = classification.load_classifier(classifier_file, classlist_file, device=device)
+
+    classifier_ext = Path(classifier_file).suffix.lower()
+    if classifier_ext == '.onnx':
+        classifier_device = get_device_onnx()
+    else:
+        classifier_device = get_device()
+    classifier, class_list = classification.load_classifier(classifier_file, classlist_file, device=classifier_device)
+
     predictions_raw = classification.classify(classifier, animals,
-                                              device=device,
+                                              device=classifier_device,
                                               resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
                                               resize_width=model_architecture.SDZWA_CLASSIFIER_SIZE,
                                               batch_size=batch_size,
@@ -127,16 +143,12 @@ def from_config(config: str):
     Returns:
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
-
     print(f'Using config "{config}"')
     cfg = yaml.safe_load(open(config, 'r'))
 
     # get image dir and cuda defaults
     image_dir = cfg['image_dir']
-
-    device = cfg.get('device', get_device())
-    if device != 'cpu' and not torch.cuda.is_available():
-        device = 'cpu'
+    device = cfg.get('device', 'cpu')
 
     print("Searching directory...")
     # Create a working directory, default to image_dir
@@ -207,7 +219,7 @@ def from_config(config: str):
     if cfg.get('sort', True):
         print("Sorting...")
         working_dir.activate_linkdir()
-        manifest = export.export_folders(manifest, working_dir.linkdir)
+        manifest = export.export_folders(manifest, working_dir.linkdir, copy=cfg.get('copy', False))
 
     # Plot boxes
     if cfg.get('visualize', False):

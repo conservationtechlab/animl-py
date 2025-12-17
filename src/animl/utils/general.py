@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
+import onnxruntime as ort
 import torch
 import torchvision
 import torch.nn as nn
@@ -56,12 +57,26 @@ def tensor_to_onnx(tensor, channel_last=False):
 # CUDA
 # ==============================================================================
 
-def get_device():
+def get_device(quiet=False):
     """
     Get Torch device if available
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Device is set to {device}.')
+    if not quiet:
+        print(f'Device is set to {device}.')
+    return device
+
+def get_device_onnx(quiet=False):
+    """
+    Get ort device if available
+    """
+    providers = ort.get_available_providers()
+    if 'CUDAExecutionProvider' in providers:
+        device = 'cuda'
+    else:
+        device = 'cpu'
+    if not quiet:
+        print(f'Device is set to {device}.')
     return device
 
 

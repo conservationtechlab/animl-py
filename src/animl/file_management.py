@@ -89,6 +89,17 @@ def build_file_manifest(image_dir: str,
                 except PIL.UnidentifiedImageError:
                     invalid.append(i)
 
+            elif row["extension"] in VIDEO_EXTENSIONS:
+                try:
+                    import cv2
+                    vid = cv2.VideoCapture(row['filepath'])
+                    if vid.isOpened():
+                        files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    vid.release()
+                except Exception:
+                    invalid.append(i)
+
         # get filemodifydate as backup (videos, etc)
         files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
         files["filemodifydate"] = pd.to_datetime(files["filemodifydate"]) + timedelta(hours=offset)
@@ -96,9 +107,12 @@ def build_file_manifest(image_dir: str,
             # select createdate if exists, else choose filemodify date
             files['createdate'] = files['createdate'].replace(r'^\s*$', None, regex=True)
             files["createdate"] = files['createdate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
-            files["datetime"] = files['createdate'].combine_first(files['filemodifydate'])
+            files["datetime"] = files['createdate'].fillna(files['filemodifydate'])
         except KeyError:
             files["datetime"] = files["filemodifydate"]
+
+        # convert to datetime
+        files["datetime"] = pd.to_datetime(files["datetime"])
 
     files = files.drop(index=invalid).reset_index(drop=True)
 
@@ -229,6 +243,7 @@ def check_file(file: str, output_type: str = None) -> bool:
 
     Args:
         file (str): the full path of the file to check
+        output_type (str): type of output file (e.g., "Manifest", "Detections")
 
     Returns:
         a boolean indicating whether a file was found and the user wants to load or not

@@ -28,7 +28,7 @@ pip install animl
 ### Dependencies
 We recommend running AniML on GPU-enabled hardware. **If using an NVIDIA GPU, ensure driviers, cuda-toolkit and cudnn are installed.
 
-**Python** >= 3.9
+**Python** >= 3.12
 
 **PyTorch** <br>
 Animl currently depends on torch >= 2.6.0.
@@ -37,13 +37,13 @@ To enable GPU, install the [CUDA-enabled version](https://pytorch.org/get-starte
 Python Package Dependencies
 * dill>=0.4.0
 * numpy>=2.0.2
+* onnxruntime-gpu>=1.19.2 
 * pandas>=2.2.2 
 * pillow>=11.0.0
 * opencv-python>=4.12.0.88 
 * scikit-learn>=1.5.2
 * timm>=1.0.9
 * torch>=2.6.0
-* torchaudio>=2.6.0
 * torchvision>=0.21.0
 * tqdm>=4.66.5
 * ultralytics>=8.3.95

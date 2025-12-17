@@ -41,6 +41,12 @@ parser.add_argument('--classifier', type=str, nargs='?',
 parser.add_argument('--classlist', type=str, nargs='?',
                     help='Path to class list',
                     default=Path(home / 'sdzwa_southwest_v3_classes.csv'))
+parser.add_argument('--detect_only', '-d', action='store_true',
+                    help='Run detection only, skip classification')
+parser.add_argument('--sort', '-s', action='store_true',
+                    help='Sort images into subfolders based on classification')
+parser.add_argument('--visualize', '-v', action='store_true',
+                    help='Visualize detections and classifications on images')
 args = parser.parse_args()
 
 # first argument is config file
@@ -65,6 +71,7 @@ else:
             models.download_model(models.CLASS_LIST['SDZWA_Southwest_v3'], out_dir=home)
 
     # Call the main function
-    pipeline.from_paths(args.imagedir_config, args.detector, args.classifier, args.classlist)
+    pipeline.from_paths(args.imagedir_config, args.detector, args.classifier, args.classlist,
+                        sort=args.sort, visualize=args.visualize, detect_only=args.detect_only)
 
 print(f"Pipeline took {time.time() - start_time:.2f} seconds")
