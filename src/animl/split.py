@@ -56,14 +56,24 @@ def get_empty(manifest: pd.DataFrame):
 def train_val_test(manifest: pd.DataFrame,
                    label_col: str = "class",
                    file_col: str = 'filepath',
-                   conf_col: str = "conf",
+                   conf_col: str = "confidence",
                    out_dir: Optional[str] = None,
-                   test_size: float = 0.1,
                    val_size: float = 0.1,
+                   test_size: float = 0.1,
                    random_state: int = 42):
     """
     Returns train_df, val_df, test_df with label_col stratified.
     test_size and val_size are fractions of the whole dataset (e.g., 0.2 -> 20%).
+
+    Args:
+        manifest (pd.DataFrame): DataFrame containing predictions
+        label_col (str): column containing species labels
+        file_col (str): column containing source paths
+        conf_col (str): column containing confidence scores
+        out_dir (Optional[str]): if provided, save the splits to this directory
+        val_size (float): fraction of data to use for validation
+        test_size (float): fraction of data to use for testing
+        random_state (int): random seed for reproducibility
     """
     assert 0 <= test_size < 1
     assert 0 <= val_size < 1

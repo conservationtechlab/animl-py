@@ -246,6 +246,19 @@ def export_camtrapR(manifest: pd.DataFrame,
                     station_col: str = 'station',
                     unique_name: str = 'uniquename',
                     copy: bool = False) -> pd.DataFrame:
+    """
+    Export data into sorted folders organized by station
+
+    Args:
+        - manifest (pd.DataFrame): dataframe containing images and associated predictions
+        - out_dir (str): directory to export sorted images
+        - out_file (Optional[str]): if provided, save the manifest to this file
+        - label_col (str): column containing species labels
+        - file_col (str): column containing source paths
+        - station_col (str): column containing station names
+        - unique_name (str): column containing unique file name
+        - copy (bool): if true, hard copy
+    """
     
     expected_columns = (file_col, station_col, label_col)
     for s in expected_columns:
@@ -293,7 +306,7 @@ def export_camtrapR(manifest: pd.DataFrame,
     return manifest
 
 def export_timelapse(results: pd.DataFrame,
-                     image_dir: str,
+                     out_dir: str,
                      only_animl: bool = True) -> Path:
     '''
     Converts the Pandas DataFrame created by running the animl classsifier to a csv file that contains columns needed for TimeLapse conversion in later step
@@ -301,18 +314,17 @@ def export_timelapse(results: pd.DataFrame,
     Credit: Sachin Gopal Wani
 
     Args:
-        results - a DataFrame that contains classifications \
-        image_dir - location of root directory where all images are stored (can contain subdirectories) \
+        results - a DataFrame that contains classifications
+        out_dir - location of directory where csv files will be saved
         only_animl - A bool that confirms whether we want only animal detctions or all (animal + non-animal detection from MegaDetector + classifier)
 
     Returns:
-        animals.csv - A csv file containing all the detection and classification information for animal detections \
-        non-anim.csv - A csv file containing detections of all non-animals made to be similar to animals.csv in columns \
+        animals.csv - A csv file containing all the detection and classification information for animal detections
+        non-anim.csv - A csv file containing detections of all non-animals made to be similar to animals.csv in columns
         csv_loc - Location of the stored animals csv file
     '''
     # Create directory
-    export_dir = Path(image_dir) / "Export"
-    Path(export_dir).mkdir(exist_ok=True)
+    Path(out_dir).mkdir(exist_ok=True)
 
     expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame',
                         'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
@@ -329,32 +341,32 @@ def export_timelapse(results: pd.DataFrame,
 
     # Rename column names for clarity
     results = results.rename(columns={'conf': 'detection_conf', 'prediction': 'class', 'confidence': 'classification_conf'})
-    csv_loc = Path(export_dir / "timelapse_manifest.csv")
+    csv_loc = Path(out_dir / "timelapse_manifest.csv")
     results.to_csv(csv_loc, index=False)
 
     if only_animl:
         animals = results[results['category'] == 1]
-        animals.to_csv(Path(export_dir / "animals.csv"), index=False)
+        animals.to_csv(Path(out_dir / "animals.csv"), index=False)
 
     # Return the location of csv for json conversion
     return csv_loc
 
 
 def export_megadetector(manifest: pd.DataFrame,
-                        output_file: Optional[str] = None,
+                        out_file: Optional[str] = None,
                         detector: str = 'MegaDetector v5a',
                         prompt: bool = True):
     """
-    Converts the .csv file [input_file] to the MD-formatted .json file [output_file].
+    Converts the .csv file [input_file] to the MD-formatted .json file [out_file].
 
-    If [output_file] is None, '.json' will be appended to the input file.
+    If [out_file] is None, '.json' will be appended to the input file.
 
     # Credit goes to Dan Morris https://github.com/agentmorris/MegaDetector/tree/main
     # Adding a modified script to animl-py repo
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated detections
-        output_file (Optional[str]): path to save the MD formatted file
+        out_file (Optional[str]): path to save the MD formatted file
         detector (str): name of the detector used
         prompt (bool): whether to prompt before overwriting existing file
 
@@ -364,8 +376,8 @@ def export_megadetector(manifest: pd.DataFrame,
 
     detection_category_id_to_name = {'0': 'empty', '1': 'animal', '2': 'person', '3': 'vehicle'}
 
-    if output_file is None:
-        output_file = 'detections.json'
+    if out_file is None:
+        out_file = 'detections.json'
 
     if not {'filepath', 'category', 'conf', 'bbox_x', 'bbox_y',
             'bbox_w', 'bbox_h', 'prediction', 'confidence'}.issubset(manifest.columns):
@@ -430,4 +442,4 @@ def export_megadetector(manifest: pd.DataFrame,
     results['images'] = list(filename_to_results.values())
 
     # Save the results to a JSON file
-    file_management.save_json(results, output_file, prompt=prompt)
+    file_management.save_json(results, out_file, prompt=prompt)
