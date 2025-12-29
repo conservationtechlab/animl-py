@@ -80,16 +80,15 @@ def extract_miew_embeddings(miew_model,
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
     output = []
-    if isinstance(manifest, pd.DataFrame):
-        transform = Compose([Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),])
 
-        dataloader = manifest_dataloader(manifest, batch_size=batch_size, num_workers=num_workers,
+    transform = Compose([Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),])
+
+    if miew_model.framework == 'onnx':
+        dataloader = manifest_dataloader(manifest, batch_size=1, num_workers=num_workers,
                                          file_col=file_col, crop=True, normalize=True,
                                          resize_width=MIEWID_SIZE,
                                          resize_height=MIEWID_SIZE,
                                          transform=transform)
-        
-    if miew_model.framework == 'onnx':
         for _, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
             img = batch[0].numpy()
             inp = miew_model.get_inputs()[0]
@@ -97,6 +96,12 @@ def extract_miew_embeddings(miew_model,
             output.extend(emb)
         output = np.vstack(output)
     else:
+        dataloader = manifest_dataloader(manifest, batch_size=batch_size, num_workers=num_workers,
+                                         file_col=file_col, crop=True, normalize=True,
+                                         resize_width=MIEWID_SIZE,
+                                         resize_height=MIEWID_SIZE,
+                                         transform=transform)
+
         with torch.no_grad():
             for _, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
                 img = batch[0]
