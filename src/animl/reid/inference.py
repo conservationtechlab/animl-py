@@ -4,11 +4,13 @@ Code to run Miew_ID and other re-identification models
 (https://github.com/WildMeOrg/wbia-plugin-miew-id)
 
 """
+from pathlib import Path
 from typing import Optional
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import torch
+import onnxruntime as ort
 
 from animl.reid.miewid import MiewIdNet, MIEWID_SIZE
 from animl.utils.general import get_device
@@ -28,15 +30,26 @@ def load_miew(file_path: str,
     Returns:
         loaded miewid model object
     """
-    if device is None:
-        device = get_device()
-    print(f'Sending model to {device}')
-    weights = torch.load(file_path, weights_only=True)
-    miew = MiewIdNet(device=device)
-    miew.to(device)
-    miew.device = device
-    miew.load_state_dict(weights, strict=False)
-    miew.eval()
+    if Path(file_path).suffix == '.onnx':
+        if "CUDAExecutionProvider" in ort.get_available_providers():
+            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        else:
+            providers = ['CPUExecutionProvider']
+        miew = ort.InferenceSession(file_path, providers=providers)
+        miew.framework = 'onnx'
+        return miew
+
+    else:
+        if device is None:
+            device = get_device()
+        print(f'Sending model to {device}')
+        weights = torch.load(file_path, weights_only=True)
+        miew = MiewIdNet(device=device)
+        miew.to(device)
+        miew.device = device
+        miew.framework = 'torch'
+        miew.load_state_dict(weights, strict=False)
+        miew.eval()
     return miew
 
 
@@ -67,14 +80,28 @@ def extract_miew_embeddings(miew_model,
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
     output = []
-    if isinstance(manifest, pd.DataFrame):
-        transform = Compose([Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),])
 
+    transform = Compose([Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),])
+
+    if miew_model.framework == 'onnx':
+        dataloader = manifest_dataloader(manifest, batch_size=1, num_workers=num_workers,
+                                         file_col=file_col, crop=True, normalize=True,
+                                         resize_width=MIEWID_SIZE,
+                                         resize_height=MIEWID_SIZE,
+                                         transform=transform)
+        for _, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
+            img = batch[0].numpy()
+            inp = miew_model.get_inputs()[0]
+            emb = miew_model.run(None, {inp.name: img})[0]
+            output.extend(emb)
+        output = np.vstack(output)
+    else:
         dataloader = manifest_dataloader(manifest, batch_size=batch_size, num_workers=num_workers,
                                          file_col=file_col, crop=True, normalize=True,
                                          resize_width=MIEWID_SIZE,
                                          resize_height=MIEWID_SIZE,
                                          transform=transform)
+
         with torch.no_grad():
             for _, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
                 img = batch[0]
