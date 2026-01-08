@@ -40,8 +40,7 @@ def load_miew(file_path: str,
         return miew
 
     else:
-        if device is None:
-            device = get_device()
+        device = get_device(user_set=device)
         print(f'Sending model to {device}')
         weights = torch.load(file_path, weights_only=True)
         miew = MiewIdNet(device=device)
@@ -73,9 +72,6 @@ def extract_miew_embeddings(miew_model,
     Returns:
         output (np.ndarray): array of extracted embeddings
     """
-    if device is None:
-        device = get_device()
-
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
@@ -96,6 +92,7 @@ def extract_miew_embeddings(miew_model,
             output.extend(emb)
         output = np.vstack(output)
     else:
+        device = get_device(user_set=device)
         dataloader = manifest_dataloader(manifest, batch_size=batch_size, num_workers=num_workers,
                                          file_col=file_col, crop=True, normalize=True,
                                          resize_width=MIEWID_SIZE,

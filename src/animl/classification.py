@@ -87,8 +87,7 @@ def load_classifier(model_path: str,
         num_classes = classes
 
     # check to make sure GPU is available if chosen
-    if device is None:
-        device = get_device()
+    device = get_device(user_set=device)
 
     # Create a new model instance for training
     if model_path.is_dir():
@@ -257,8 +256,7 @@ def classify(model,
     if file_management.check_file(out_file, output_type="Classification results"):
         return file_management.load_data(out_file).to_numpy()
 
-    if device is None:
-        device = get_device()
+    device = get_device(user_set=device)
 
     # initialize lists
     raw_output = []
