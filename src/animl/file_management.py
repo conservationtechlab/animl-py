@@ -104,9 +104,11 @@ def build_file_manifest(image_dir: str,
         files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
         files["filemodifydate"] = pd.to_datetime(files["filemodifydate"]) + timedelta(hours=offset)
         try:
-            # select createdate if exists, else choose filemodify date
+            # convert multiple string formats to datetime
             files['createdate'] = files['createdate'].replace(r'^\s*$', None, regex=True)
             files["createdate"] = files['createdate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
+            files["createdate"] = pd.to_datetime(files["createdate"])
+            # select createdate if exists, else choose filemodify date
             files["datetime"] = files['createdate'].fillna(files['filemodifydate'])
         except KeyError:
             files["datetime"] = files["filemodifydate"]

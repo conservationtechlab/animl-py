@@ -94,7 +94,7 @@ def plot_box(rows,
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
 
-        color = colors[str(row['category'])]
+        color = colors[str(int(row['category']))]
         thick = int((height + width) // 900)
         cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), color, thick)
 

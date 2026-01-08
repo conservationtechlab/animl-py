@@ -246,7 +246,7 @@ def export_camtrapR(manifest: pd.DataFrame,
                     station_col: str = 'station',
                     unique_name: str = 'uniquename',
                     copy: bool = False) -> pd.DataFrame:
-    
+
     expected_columns = (file_col, station_col, label_col)
     for s in expected_columns:
         assert s in manifest.columns, f'Expected column {s} not found in results DataFrame'
@@ -291,6 +291,7 @@ def export_camtrapR(manifest: pd.DataFrame,
         manifest.to_csv(out_file, index=False)
 
     return manifest
+
 
 def export_timelapse(results: pd.DataFrame,
                      image_dir: str,
