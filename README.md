@@ -1,4 +1,4 @@
-# animl-py
+# animl-py 3.1.1
 AniML comprises a variety of machine learning tools for analyzing ecological data. This Python package includes a set of functions to classify subjects within camera trap field data and can handle both images and videos. 
 This package is also available in R: [animl](https://github.com/conservationtechlab/animl)
 
@@ -92,15 +92,14 @@ files = animl.build_file_manifest('/path/to/images', out_file=workingdir.fileman
    Select either the number of frames or fps using the argumments.
    The other option can be set to None or removed.
 ```python
-allframes = animl.extract_frames(files, out_dir=workingdir.vidfdir, out_file=workingdir.imageframes,
-                                 parallel=True, frames=3, fps=None)
+allframes = animl.extract_frames(files, frames=3, out_file=workingdir.imageframes, parallel=True)
 ```
 
 4. Pass all images into MegaDetector. We recommend [MDv5a](https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt).
    The function parse_MD will convert the json to a pandas DataFrame and merge detections with the original file manifest, if provided.
 
 ```python
-detector = animl.load_detector('/path/to/mdmodel.pt', model_type="MDV5", device='cuda:0')
+detector = animl.load_detector('/path/to/mdmodel.pt', model_type="mdv5", device='cuda:0')
 mdresults = animl.detect(detector, allframes, resize_width=animl.MEGADETECTORv5_SIZE, resize_height=animl.MEGADETECTORv5_SIZE, 
                          letterbox=True, file_col="frame", checkpoint_path=working_dir.mdraw, quiet=True)
 detections = animl.parse_detections(mdresults, manifest=all_frames, out_file=workingdir.detections)
@@ -117,7 +116,7 @@ empty = animl.get_empty(detections)
 class_list = animl.load_class_list('/path/to/classlist.txt')
 classifier = animl.load_classifier('/path/to/model', len(class_list), device='cuda:0')
 raw_predictions = animl.classify(classifier, animals, resize_width=480, resize_height=480, 
-                                 file_col="frame", batch_size=4, out_file=working_dir.predictions)
+                                 file_col="filepath", batch_size=4, out_file=working_dir.predictions)
 ```
 
 7. Apply labels from class list with or without utilizing timestamp-based sequences.
@@ -125,7 +124,7 @@ raw_predictions = animl.classify(classifier, animals, resize_width=480, resize_h
 manifest = animl.single_classification(animals, empty, raw_predictions, class_list['class'])
 
 ```
-or 
+or, after defining a station column,
 ```python
 manifest = animl.sequence_classification(animals, empty, 
                                          raw_predictions,
@@ -139,8 +138,8 @@ manifest = animl.sequence_classification(animals, empty,
 
 8. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
 ```python
-csv_loc = animl.export_timelapse(animals, empty, imagedir, only_animal = True)
-animl.export_megadetector(csv_loc, imagedir + "final_result.json")
+csv_loc = animl.export_timelapse(manifest, imagedir, only_animal = True)
+animl.export_megadetector(manifest, out_file ="final_result.json", detector = 'MegaDetector v5a')
 ```
 
 9. (OPTIONAL) Create symlinks within a given directory for file browser access.
@@ -157,7 +156,7 @@ Training workflows are still under development. Please submit Issues as you come
    This function splits each label proportionally by the given percentages, by default 0.7 training, 0.2 validation, 0.1 Test.
 ```python
 train, val, test, stats = animl.train_val_test(manifest, out_dir='path/to/save/data/', label_col="species",
-                                               percentage=(0.7, 0.2, 0.1), seed=None)
+                                               val_size: float = 0.2, test_size: float = 0.1, random_state: int = 42)
 ```
 
 2. Set up training configuration file. Specify the paths to the data splits from the previous step. See [config README]()
