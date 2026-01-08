@@ -305,6 +305,7 @@ def export_camtrapR(manifest: pd.DataFrame,
 
     return manifest
 
+
 def export_timelapse(results: pd.DataFrame,
                      out_dir: str,
                      only_animl: bool = True) -> Path:

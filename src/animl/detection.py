@@ -39,8 +39,7 @@ def load_detector(model_path: str,
     if not Path(model_path).is_file():
         raise FileNotFoundError(f"Model file not found at {model_path}")
 
-    if device is None:
-        device = get_device()
+    device = get_device(user_set=device)
 
     # YOLOv5/MDv5
     if model_type.lower() in {"mdv5", "yolov5"}:
@@ -111,8 +110,7 @@ def detect(detector,
         checkpoint_frequency = max(1, round(checkpoint_frequency/batch_size, None))
 
     # check to make sure GPU is available if chosen
-    if device is None:
-        device = get_device()
+    device = get_device(user_set=device)
 
     # Single image filepath
     if isinstance(image_file_names, str):

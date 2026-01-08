@@ -57,24 +57,40 @@ def tensor_to_onnx(tensor, channel_last=False):
 # CUDA
 # ==============================================================================
 
-def get_device(quiet=False):
+def get_device(user_set=None, quiet=False):
     """
     Get Torch device if available
     """
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # user selects device
+    if user_set is not None:
+        if user_set in {'cpu', 'cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3'}:
+            return torch.device(user_set)
+        else:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # automatic selection
+    else:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     if not quiet:
         print(f'Device is set to {device}.')
     return device
 
-def get_device_onnx(quiet=False):
+def get_device_onnx(user_set=None, quiet=False):
     """
     Get ort device if available
     """
     providers = ort.get_available_providers()
     if 'CUDAExecutionProvider' in providers:
-        device = 'cuda'
+        # user selects cuda device and is available
+        if user_set is not None and user_set in {'cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3'}:
+            device = 'cuda'
+        else:
+            device = 'cpu'
+    # cuda not available
     else:
         device = 'cpu'
+
     if not quiet:
         print(f'Device is set to {device}.')
     return device
