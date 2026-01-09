@@ -13,7 +13,7 @@ import torch
 import onnxruntime as ort
 
 from animl.reid.miewid import MiewIdNet, MIEWID_SIZE
-from animl.utils.general import get_device
+from animl.utils.general import get_torch_device, get_onnx_device
 from animl.generator import manifest_dataloader
 from torchvision.transforms import Compose, Normalize
 
@@ -31,16 +31,13 @@ def load_miew(file_path: str,
         loaded miewid model object
     """
     if Path(file_path).suffix == '.onnx':
-        if "CUDAExecutionProvider" in ort.get_available_providers():
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-        else:
-            providers = ['CPUExecutionProvider']
+        providers = get_onnx_device(user_set=device)
         miew = ort.InferenceSession(file_path, providers=providers)
         miew.framework = 'onnx'
         return miew
 
     else:
-        device = get_device(user_set=device)
+        device = get_torch_device(user_set=device)
         print(f'Sending model to {device}')
         weights = torch.load(file_path, weights_only=True)
         miew = MiewIdNet(device=device)
@@ -92,7 +89,7 @@ def extract_miew_embeddings(miew_model,
             output.extend(emb)
         output = np.vstack(output)
     else:
-        device = get_device(user_set=device)
+        device = get_torch_device(user_set=device)
         dataloader = manifest_dataloader(manifest, batch_size=batch_size, num_workers=num_workers,
                                          file_col=file_col, crop=True, normalize=True,
                                          resize_width=MIEWID_SIZE,

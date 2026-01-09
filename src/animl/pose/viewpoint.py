@@ -6,7 +6,7 @@ from typing import Optional
 from tqdm import tqdm
 import torch
 
-from animl.utils.general import get_device
+from animl.utils.general import get_torch_device
 from animl.generator import manifest_dataloader
 
 
@@ -25,8 +25,7 @@ def predict_viewpoints(model,
         pred_labels
         filepaths
     '''
-    if device is None:
-        device = get_device()
+    device = get_torch_device(user_set=device)
 
     model.to(device)
     model.eval()  # put the model into training mode
@@ -38,9 +37,7 @@ def predict_viewpoints(model,
     manifest['sequence_group'] = manifest.sort_values("sequence")['sequence'].diff().gt(6).cumsum().add(1)
     sequences = manifest.groupby('sequence_group')
 
-    def viewpoint_by_camera(model, dataloader, device: Optional[str] = None,):
-        if device is None:
-            device = get_device()
+    def viewpoint_by_camera(model, dataloader, device):
 
         # batch size is len of half, should have one batch per camera
         for _, batch in enumerate(dataloader):
