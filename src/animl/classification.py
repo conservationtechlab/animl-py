@@ -16,7 +16,8 @@ import onnxruntime
 
 from animl import generator, file_management
 from animl.model_architecture import EfficientNet, ConvNeXtBase
-from animl.utils.general import get_device, softmax, tensor_to_onnx, NUM_THREADS
+from animl.utils.general import (get_torch_device, get_onnx_device, softmax, 
+                                 tensor_to_onnx, NUM_THREADS)
 
 
 def save_classifier(model,
@@ -87,7 +88,7 @@ def load_classifier(model_path: str,
         num_classes = classes
 
     # check to make sure GPU is available if chosen
-    device = get_device(user_set=device)
+    device = get_torch_device(user_set=device)
 
     # Create a new model instance for training
     if model_path.is_dir():
@@ -129,7 +130,7 @@ def load_classifier(model_path: str,
             model.eval()
             model.framework = "pytorch"
         elif model_path.suffix == '.onnx':
-            providers = ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            providers = get_onnx_device(user_set=device)
             model = onnxruntime.InferenceSession(model_path,
                                                  providers=providers)
             model.framework = "onnx"
@@ -256,7 +257,8 @@ def classify(model,
     if file_management.check_file(out_file, output_type="Classification results"):
         return file_management.load_data(out_file).to_numpy()
 
-    device = get_device(user_set=device)
+    # set device
+    device = get_torch_device(user_set=device)
 
     # initialize lists
     raw_output = []

@@ -7,8 +7,18 @@ import time
 import shutil
 from pathlib import Path
 import yaml
+import onnxruntime as ort
 
 import animl
+
+
+@unittest.skip
+def main():
+    providers = ort.get_available_providers()
+    print(providers)
+
+    providers = animl.get_onnx_device(user_set='cuda:0', quiet=True)
+    print(providers)
 
 
 @unittest.skip
@@ -23,11 +33,11 @@ def onnx_test():
     results = animl.from_config(config)
 
     # export timelapse
-    animl.export_timelapse(results, image_dir=workingdir, only_animl=True)
+    #animl.export_timelapse(results, out_dir=workingdir.basedir, only_animl=True)
 
     # export coco
-    class_list=animl.load_class_list(Path.cwd() / 'models' / 'sdzwa_southwest_v3_classes.csv')
-    animl.export_coco(results, class_list=class_list, out_file=workingdir / 'coco_export.json')
+    #class_list=animl.load_class_list(Path.cwd() / 'models' / 'sdzwa_southwest_v3_classes.csv')
+    #animl.export_coco(results, class_list=class_list, out_file=workingdir / 'coco_export.json')
 
     # export.remove_link
     # export.update_labels_from_folders
@@ -65,6 +75,6 @@ def onnx_gpu_test():
 
     print(f"ONNX GPU Test completed in {time.time() - start_time:.2f} seconds")
 
-
+main()
 onnx_test()
 onnx_gpu_test()
