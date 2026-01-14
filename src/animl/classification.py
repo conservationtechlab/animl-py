@@ -495,7 +495,7 @@ def sequence_classification(animals: pd.DataFrame,
                 predbest = np.mean(predsort_confidence, axis=0)
                 conf_placeholder[rows] = np.max(predsort_confidence[:, np.argmax(predbest)])
                 predict_placeholder[rows] = class_list[np.argmax(predbest)]
-                sequence_placeholder[rows] = s
+                sequence_placeholder[rows] = int(s)
 
             else:
                 mask = pd.DataFrame((predclass == empty_col))
@@ -512,20 +512,20 @@ def sequence_classification(animals: pd.DataFrame,
                     predbest = np.mean(predsort_confidence, axis=0)
                     conf_placeholder[rows[sel_mixed]] = np.max(predsort_confidence[:, np.argmax(predbest)])
                     predict_placeholder[rows[sel_mixed]] = class_list[np.argmax(predbest)]
-                    sequence_placeholder[rows[sel_mixed]] = s
+                    sequence_placeholder[rows[sel_mixed]] = int(s)
                 for file in sel_all_empty[sel_all_empty[0]].index:
                     empty_row = np.where(animals_sort[file_col] == file)
                     predsort_confidence = predsort[empty_row] * np.reshape(animals_sort.loc[empty_row, 'conf'].values, (-1, 1))
                     predbest = np.mean(predsort_confidence, axis=0)
                     conf_placeholder[empty_row] = np.max(predsort_confidence[:, np.argmax(predbest)])
-                    sequence_placeholder[empty_row] = s
+                    sequence_placeholder[empty_row] = int(s)
                     predict_placeholder[empty_row] = class_list[np.argmax(predbest)]
         # single row in sequence
         else:
             predbest = predsort[rows]
             conf_placeholder[rows] = np.max(predbest * animals_sort.loc[rows, 'conf'].values)
             predict_placeholder[rows] = class_list[np.argmax(predbest)]
-            sequence_placeholder[rows] = s
+            sequence_placeholder[rows] = int(s)
 
         i = last_index
         s += 1
