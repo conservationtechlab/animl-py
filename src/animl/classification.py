@@ -416,6 +416,9 @@ def sequence_classification(animals: pd.DataFrame,
 
     if not {file_col}.issubset(animals.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
+    
+    if not {"datetime"}.issubset(animals.columns):
+        raise ValueError(f"DataFrame must contain 'datetime' column.")
 
     if "conf" not in animals.columns:
         animals["conf"] = 1
@@ -457,7 +460,7 @@ def sequence_classification(animals: pd.DataFrame,
     if sort_columns is None:
         sort_columns = [station_col, "datetime"]
 
-    animals_merged['filemodifydate'] = pd.to_datetime(animals_merged['filemodifydate'], format="%Y-%m-%d %H:%M:%S")
+    animals_merged['datetime'] = pd.to_datetime(animals_merged['datetime'], format="%Y-%m-%d %H:%M:%S")
 
     sort = animals_merged.sort_values(by=sort_columns).index
     animals_sort = animals_merged.loc[sort].reset_index(drop=True)
@@ -476,7 +479,7 @@ def sequence_classification(animals: pd.DataFrame,
         while (last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, "datetime"]) and
                not pd.isna(animals_sort.loc[last_index, "datetime"]) and
                animals_sort.loc[last_index, station_col] == animals_sort.loc[i, station_col] and
-               (animals_sort.loc[last_index, "filemodifydate"] - animals_sort.loc[i, "filemodifydate"]).total_seconds() <= maxdiff):
+               (animals_sort.loc[last_index, "datetime"] - animals_sort.loc[i, "datetime"]).total_seconds() <= maxdiff):
             rows.append(last_index)
             last_index += 1
 
@@ -492,6 +495,7 @@ def sequence_classification(animals: pd.DataFrame,
                 predbest = np.mean(predsort_confidence, axis=0)
                 conf_placeholder[rows] = np.max(predsort_confidence[:, np.argmax(predbest)])
                 predict_placeholder[rows] = class_list[np.argmax(predbest)]
+                sequence_placeholder[rows] = s
 
             else:
                 mask = pd.DataFrame((predclass == empty_col))
@@ -508,18 +512,20 @@ def sequence_classification(animals: pd.DataFrame,
                     predbest = np.mean(predsort_confidence, axis=0)
                     conf_placeholder[rows[sel_mixed]] = np.max(predsort_confidence[:, np.argmax(predbest)])
                     predict_placeholder[rows[sel_mixed]] = class_list[np.argmax(predbest)]
-
+                    sequence_placeholder[rows[sel_mixed]] = s
                 for file in sel_all_empty[sel_all_empty[0]].index:
                     empty_row = np.where(animals_sort[file_col] == file)
                     predsort_confidence = predsort[empty_row] * np.reshape(animals_sort.loc[empty_row, 'conf'].values, (-1, 1))
                     predbest = np.mean(predsort_confidence, axis=0)
                     conf_placeholder[empty_row] = np.max(predsort_confidence[:, np.argmax(predbest)])
+                    sequence_placeholder[empty_row] = s
                     predict_placeholder[empty_row] = class_list[np.argmax(predbest)]
         # single row in sequence
         else:
             predbest = predsort[rows]
             conf_placeholder[rows] = np.max(predbest * animals_sort.loc[rows, 'conf'].values)
             predict_placeholder[rows] = class_list[np.argmax(predbest)]
+            sequence_placeholder[rows] = s
 
         i = last_index
         s += 1
