@@ -29,7 +29,8 @@ from animl.file_management import (IMAGE_EXTENSIONS, VALID_EXTENSIONS,
                                    VIDEO_EXTENSIONS, WorkingDirectory,
                                    active_times, build_file_manifest,
                                    check_file, load_data, load_json, save_data,
-                                   save_detection_checkpoint, save_json,)
+                                   save_detection_checkpoint, save_json,
+                                   sequence_calculation,)
 from animl.generator import (Letterbox, ManifestGenerator, TrainGenerator,
                              collate_fn, image_to_tensor, manifest_dataloader,
                              train_dataloader,)
@@ -115,10 +116,11 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'predict_viewpoints', 'reid', 'remove_diagonal', 'remove_link',
            'save_classifier', 'save_data', 'save_detection_checkpoint',
            'save_json', 'scale_coords', 'scale_img', 'scale_letterbox',
-           'sequence_classification', 'single_classification', 'softmax',
-           'split', 'tensor_to_onnx', 'test', 'test_func', 'test_main',
-           'time_sync', 'train', 'train_dataloader', 'train_func',
-           'train_main', 'train_val_test', 'update_labels_from_folders',
-           'utils', 'validate_func', 'video_processing', 'viewpoint',
-           'visualization', 'xyn2xy', 'xywh2xyxy', 'xywhc2xyxy', 'xywhn2xyxy',
-           'xyxy2xywh', 'xyxyc2xywh', 'xyxyc2xywhn', 'yolo']
+           'sequence_calculation', 'sequence_classification',
+           'single_classification', 'softmax', 'split', 'tensor_to_onnx',
+           'test', 'test_func', 'test_main', 'time_sync', 'train',
+           'train_dataloader', 'train_func', 'train_main', 'train_val_test',
+           'update_labels_from_folders', 'utils', 'validate_func',
+           'video_processing', 'viewpoint', 'visualization', 'xyn2xy',
+           'xywh2xyxy', 'xywhc2xyxy', 'xywhn2xyxy', 'xyxy2xywh', 'xyxyc2xywh',
+           'xyxyc2xywhn', 'yolo']

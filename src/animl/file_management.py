@@ -10,6 +10,7 @@ from shutil import copyfile
 from pathlib import Path, PosixPath
 from datetime import datetime, timedelta
 import pandas as pd
+import numpy as np
 import PIL
 from typing import Optional
 
@@ -329,3 +330,65 @@ def active_times(manifest_dir,
     times = files.groupby("camera").agg({'filemodifydate': ['min', 'max']})
 
     return times
+
+
+def sequence_calculation(manifest,
+                         station_col: str,
+                         sort_columns: list[str] = None,
+                         file_col: str = "filepath",
+                         maxdiff: int = 60):
+    """
+    Simple sequence calculation based on time differences between consecutive images from the same station.
+    Unlike sequence_classification(), does not apply any classification or labeling to the sequences.
+
+    Args:
+        - manifest (pd.DataFrame): DataFrame containing image file information, including 'filepath' and 'datetime' columns
+        - station_col (str): column name in the DataFrame representing the station or camera
+        - sort_columns (list[str]): list of columns to sort by before calculating sequences. Defaults to None, which sorts by station_col and 'datetime'.
+        - file_col (str): column name representing the file path. Defaults to "filepath".
+        - maxdiff (int): maximum time difference in seconds between consecutive images to be considered part of the same sequence. Defaults to 60.
+    """
+    if not isinstance(station_col, str) or station_col == '':
+        raise Exception("'station_col' must be a non-empty string")
+
+    # Sanity check to verify that maxdiff is a positive number
+    if not isinstance(maxdiff, (int, float)) or maxdiff < 0:
+        raise Exception("'maxdiff' must be a number >= 0")
+
+    if not {file_col}.issubset(manifest.columns):
+        raise ValueError(f"DataFrame must contain '{file_col}' column.")
+    
+    if not {"datetime"}.issubset(manifest.columns):
+        raise ValueError(f"DataFrame must contain 'datetime' column.")
+
+    if sort_columns is None:
+        sort_columns = [station_col, "datetime"]
+
+    manifest['datetime'] = pd.to_datetime(manifest['datetime'], format="%Y-%m-%d %H:%M:%S")
+
+    sort = manifest.sort_values(by=sort_columns).index
+    manifest_sort = manifest.loc[sort].reset_index(drop=True)
+
+    sequence_placeholder = np.zeros(len(manifest_sort))
+
+    i = 0
+    s = 0
+    while i < len(manifest_sort):
+        rows = [i]
+        last_index = i+1
+
+        while (last_index < len(manifest_sort) and not pd.isna(manifest_sort.loc[i, "datetime"]) and
+               not pd.isna(manifest_sort.loc[last_index, "datetime"]) and
+               manifest_sort.loc[last_index, station_col] == manifest_sort.loc[i, station_col] and
+               (manifest_sort.loc[last_index, "datetime"] - manifest_sort.loc[i, "datetime"]).total_seconds() <= maxdiff):
+            rows.append(last_index)
+            last_index += 1
+
+        sequence_placeholder[np.array(rows)] = int(s)
+
+        i = last_index
+        s += 1
+
+    manifest_sort['sequence'] = sequence_placeholder
+
+    return manifest_sort
