@@ -15,7 +15,7 @@ import PIL
 from typing import Optional
 
 
-IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff", '.tif"'}
+IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', ".tiff", '.tif"'}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
 VALID_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
