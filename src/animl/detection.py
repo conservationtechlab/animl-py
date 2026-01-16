@@ -215,6 +215,7 @@ def detect(detector,
 
         # Run inference on the current batch of image_tensors
         if detector.model_type == "yolov5":
+            device = get_torch_device(user_set=device)
             # letterboxing should be true
             prediction = detector(batch_tensors.to(device))
             pred: list = prediction[0]
@@ -234,6 +235,7 @@ def detect(detector,
                                                    batch_sizes, letterbox))
         # standard yolo model (v6+)
         else:
+            device = get_torch_device(user_set=device)
             pred = detector.predict(source=batch_tensors.to(device), conf=confidence_threshold, verbose=False)
             # convert to normalized xywh
             results.extend(convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
