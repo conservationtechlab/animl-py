@@ -16,7 +16,7 @@ import onnxruntime
 
 from animl import generator, file_management
 from animl.model_architecture import EfficientNet, ConvNeXtBase
-from animl.utils.general import (get_torch_device, get_onnx_device, softmax, 
+from animl.utils.general import (get_torch_device, get_onnx_device, softmax,
                                  tensor_to_onnx, NUM_THREADS)
 
 
@@ -420,9 +420,9 @@ def sequence_classification(animals: pd.DataFrame,
 
     if not {file_col}.issubset(animals.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
-    
+
     if not {"datetime"}.issubset(animals.columns):
-        raise ValueError(f"DataFrame must contain 'datetime' column.")
+        raise ValueError("DataFrame must contain 'datetime' column.")
 
     if "conf" not in animals.columns:
         animals["conf"] = 1

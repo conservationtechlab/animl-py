@@ -259,7 +259,6 @@ def export_camtrapR(manifest: pd.DataFrame,
         - unique_name (str): column containing unique file name
         - copy (bool): if true, hard copy
     """
-    
     expected_columns = (file_col, station_col, label_col)
     for s in expected_columns:
         assert s in manifest.columns, f'Expected column {s} not found in results DataFrame'

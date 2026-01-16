@@ -357,9 +357,9 @@ def sequence_calculation(manifest,
 
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
-    
+
     if not {"datetime"}.issubset(manifest.columns):
-        raise ValueError(f"DataFrame must contain 'datetime' column.")
+        raise ValueError("DataFrame must contain 'datetime' column.")
 
     if sort_columns is None:
         sort_columns = [station_col, "datetime"]
