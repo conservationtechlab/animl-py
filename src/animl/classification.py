@@ -339,6 +339,10 @@ def single_classification(animals: pd.DataFrame,
     """
     class_list = pd.Series(class_list)
 
+    # convert None to empty dataframe fo concat
+    if empty is None:
+        empty = pd.DataFrame()
+
     if not animals.empty:
         files = animals.groupby('filepath')
         updated_files = []
