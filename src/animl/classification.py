@@ -324,7 +324,8 @@ def classify(model,
 def single_classification(animals: pd.DataFrame,
                           empty: Optional[pd.DataFrame],
                           predictions_raw: np.array,
-                          class_list: pd.DataFrame):
+                          class_list: list,
+                          best: bool = False):
     """
     Get maximum likelihood prediction from softmaxed logits.
 
@@ -332,7 +333,8 @@ def single_classification(animals: pd.DataFrame,
         animals (pd.DataFrame): animal detections from manifest
         empty (Optional) (pd.DataFrame): empty detections from manifest
         predictions_raw (np.array): softmaxed logits from classify()
-        class_list (pd.DataFrame): class list associated with model
+        class_list (list): class list associated with model
+        best (bool): whether to return one prediction per file
 
     Returns:
         animals dataframe with "prediction" label an "confidence" columns
@@ -344,16 +346,9 @@ def single_classification(animals: pd.DataFrame,
         empty = pd.DataFrame()
 
     if not animals.empty:
-        files = animals.groupby('filepath')
-        updated_files = []
-        for f, file in files:
-            preds = predictions_raw[file.index]
-            preds = np.mean(preds, axis=0)
-            file["prediction"] = class_list[np.argmax(preds)]
-            file["confidence"] = np.max(file["conf"]) * np.max(preds)
-            updated_files.append(file)
-
-        animals = pd.concat(updated_files, ignore_index=True)
+        animals = animals.reset_index(drop=True)
+        animals["prediction"] = class_list.values[np.argmax(predictions_raw, axis=1)]
+        animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 
@@ -366,7 +361,13 @@ def single_classification(animals: pd.DataFrame,
                 real_prediction = predictions[predictions != 'empty'][0]
                 manifest.loc[manifest['filepath'] == f, 'prediction'] = real_prediction
 
-    return manifest
+    # best guess
+    if best:
+        # take most confident guess    
+        manifest = manifest.sort_values("confidence", ascending=False)
+        manifest = manifest.drop_duplicates(subset="filepath", keep="first")
+    
+    return manifest.reset_index(drop=True)
 
 
 def sequence_classification(animals: pd.DataFrame,
