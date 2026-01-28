@@ -60,10 +60,14 @@ def tensor_to_onnx(tensor, channel_last=False):
 def get_torch_device(user_set=None, quiet=False):
     """
     Get Torch device if available
+
+    #TODO: test if user picks bad cuda device
     """
     # user selects device
     if user_set is not None:
-        if user_set in {'cpu', 'cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3'}:
+        if user_set == 'cpu':
+            device = torch.device('cpu')
+        elif user_set.startswith('cuda'):
             return torch.device(user_set)
         else:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -80,6 +84,8 @@ def get_torch_device(user_set=None, quiet=False):
 def get_onnx_device(user_set=None, quiet=False):
     """
     Get gpu if available
+
+    #TODO: test if user picks bad cuda device
     """
     providers = ort.get_available_providers()
     if 'CUDAExecutionProvider' in providers:
@@ -89,7 +95,7 @@ def get_onnx_device(user_set=None, quiet=False):
                 print('CUDA is available but set to cpu by user.')
                 providers = ['CPUExecutionProvider']
         # user selects cuda device and is available
-        elif user_set in {'cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3'}:
+        elif user_set.startswith('cuda'):
             device_number = int(user_set.split(':')[-1]) if ':' in user_set else 0
             providers = [('CUDAExecutionProvider', {'device_id': device_number}), 'CPUExecutionProvider']
             if not quiet:
@@ -110,7 +116,7 @@ def get_onnx_device(user_set=None, quiet=False):
         if user_set is not None and user_set in {'cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3'}:
             if not quiet:
                 print('Warning: CUDA device specified but not available, using CPU instead.')
-            providers = ['CPUExecutionProvider']
+        providers = ['CPUExecutionProvider']
     
     return providers
 
