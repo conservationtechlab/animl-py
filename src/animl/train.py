@@ -207,6 +207,9 @@ def train_main(cfg):
     '''
     Command line function
 
+    Args:
+        cfg: path to config file
+
     Example usage:
     > python train.py --config configs/exp_resnet18.yaml
     '''

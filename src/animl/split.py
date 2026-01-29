@@ -60,7 +60,7 @@ def train_val_test(manifest: pd.DataFrame,
                    out_dir: Optional[str] = None,
                    val_size: float = 0.1,
                    test_size: float = 0.1,
-                   random_state: int = 42):
+                   seed: int = 42):
     """
     Returns train_df, val_df, test_df with label_col stratified.
     test_size and val_size are fractions of the whole dataset (e.g., 0.2 -> 20%).
@@ -73,7 +73,7 @@ def train_val_test(manifest: pd.DataFrame,
         out_dir (Optional[str]): if provided, save the splits to this directory
         val_size (float): fraction of data to use for validation
         test_size (float): fraction of data to use for testing
-        random_state (int): random seed for reproducibility
+        seed (int): random seed for reproducibility
     """
     assert 0 <= test_size < 1
     assert 0 <= val_size < 1
@@ -95,7 +95,7 @@ def train_val_test(manifest: pd.DataFrame,
     trainval_df, test_df = train_test_split(manifest,
                                             test_size=test_size,
                                             stratify=manifest[label_col],
-                                            random_state=random_state)
+                                            random_state=seed)
 
     # Stage 2: split train/val from trainval (val_size is relative to the original dataset)
     # Compute val fraction relative to trainval size
@@ -103,7 +103,7 @@ def train_val_test(manifest: pd.DataFrame,
     train_df, val_df = train_test_split(trainval_df,
                                         test_size=rel_val_size,
                                         stratify=trainval_df[label_col],
-                                        random_state=random_state + 1)
+                                        random_state=seed + 1)
     # save to csv
     if out_dir is not None:
         save_data(train_df, out_dir + "/train_data.csv")
