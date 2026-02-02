@@ -16,7 +16,8 @@ import onnxruntime
 
 from animl import generator, file_management
 from animl.model_architecture import EfficientNet, ConvNeXtBase
-from animl.utils.general import get_device, softmax, tensor_to_onnx, NUM_THREADS
+from animl.utils.general import (get_torch_device, get_onnx_device, softmax,
+                                 tensor_to_onnx, NUM_THREADS)
 
 
 def save_classifier(model,
@@ -87,8 +88,7 @@ def load_classifier(model_path: str,
         num_classes = classes
 
     # check to make sure GPU is available if chosen
-    if device is None:
-        device = get_device()
+    device = get_torch_device(user_set=device)
 
     # Create a new model instance for training
     if model_path.is_dir():
@@ -130,7 +130,7 @@ def load_classifier(model_path: str,
             model.eval()
             model.framework = "pytorch"
         elif model_path.suffix == '.onnx':
-            providers = ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            providers = get_onnx_device(user_set=device)
             model = onnxruntime.InferenceSession(model_path,
                                                  providers=providers)
             model.framework = "onnx"
@@ -236,6 +236,7 @@ def classify(model,
              device: Optional[str] = None,
              out_file: Optional[str] = None):
     """
+    TODO: align with R version
     Predict species using classifier model.
 
     Args:
@@ -257,8 +258,8 @@ def classify(model,
     if file_management.check_file(out_file, output_type="Classification results"):
         return file_management.load_data(out_file).to_numpy()
 
-    if device is None:
-        device = get_device()
+    # set device
+    device = get_torch_device(user_set=device)
 
     # initialize lists
     raw_output = []
@@ -324,7 +325,8 @@ def classify(model,
 def single_classification(animals: pd.DataFrame,
                           empty: Optional[pd.DataFrame],
                           predictions_raw: np.array,
-                          class_list: pd.DataFrame):
+                          class_list: list,
+                          best: bool = False):
     """
     Get maximum likelihood prediction from softmaxed logits.
 
@@ -332,24 +334,22 @@ def single_classification(animals: pd.DataFrame,
         animals (pd.DataFrame): animal detections from manifest
         empty (Optional) (pd.DataFrame): empty detections from manifest
         predictions_raw (np.array): softmaxed logits from classify()
-        class_list (pd.DataFrame): class list associated with model
+        class_list (list): class list associated with model
+        best (bool): whether to return one prediction per file
 
     Returns:
         animals dataframe with "prediction" label an "confidence" columns
     """
     class_list = pd.Series(class_list)
 
-    if not animals.empty:
-        files = animals.groupby('filepath')
-        updated_files = []
-        for f, file in files:
-            preds = predictions_raw[file.index]
-            preds = np.mean(preds, axis=0)
-            file["prediction"] = class_list[np.argmax(preds)]
-            file["confidence"] = np.max(file["conf"]) * np.max(preds)
-            updated_files.append(file)
+    # convert None to empty dataframe fo concat
+    if empty is None:
+        empty = pd.DataFrame()
 
-        animals = pd.concat(updated_files, ignore_index=True)
+    if not animals.empty:
+        animals = animals.reset_index(drop=True)
+        animals["prediction"] = class_list.values[np.argmax(predictions_raw, axis=1)]
+        animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 
@@ -362,7 +362,13 @@ def single_classification(animals: pd.DataFrame,
                 real_prediction = predictions[predictions != 'empty'][0]
                 manifest.loc[manifest['filepath'] == f, 'prediction'] = real_prediction
 
-    return manifest
+    # best guess
+    if best:
+        # take most confident guess    
+        manifest = manifest.sort_values("confidence", ascending=False)
+        manifest = manifest.drop_duplicates(subset="filepath", keep="first")
+    
+    return manifest.reset_index(drop=True)
 
 
 def sequence_classification(animals: pd.DataFrame,
@@ -417,6 +423,9 @@ def sequence_classification(animals: pd.DataFrame,
     if not {file_col}.issubset(animals.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
+    if not {"datetime"}.issubset(animals.columns):
+        raise ValueError("DataFrame must contain 'datetime' column.")
+
     if "conf" not in animals.columns:
         animals["conf"] = 1
 
@@ -457,7 +466,7 @@ def sequence_classification(animals: pd.DataFrame,
     if sort_columns is None:
         sort_columns = [station_col, "datetime"]
 
-    animals_merged['filemodifydate'] = pd.to_datetime(animals_merged['filemodifydate'], format="%Y-%m-%d %H:%M:%S")
+    animals_merged['datetime'] = pd.to_datetime(animals_merged['datetime'], format="%Y-%m-%d %H:%M:%S")
 
     sort = animals_merged.sort_values(by=sort_columns).index
     animals_sort = animals_merged.loc[sort].reset_index(drop=True)
@@ -476,7 +485,7 @@ def sequence_classification(animals: pd.DataFrame,
         while (last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, "datetime"]) and
                not pd.isna(animals_sort.loc[last_index, "datetime"]) and
                animals_sort.loc[last_index, station_col] == animals_sort.loc[i, station_col] and
-               (animals_sort.loc[last_index, "filemodifydate"] - animals_sort.loc[i, "filemodifydate"]).total_seconds() <= maxdiff):
+               (animals_sort.loc[last_index, "datetime"] - animals_sort.loc[i, "datetime"]).total_seconds() <= maxdiff):
             rows.append(last_index)
             last_index += 1
 
@@ -492,6 +501,7 @@ def sequence_classification(animals: pd.DataFrame,
                 predbest = np.mean(predsort_confidence, axis=0)
                 conf_placeholder[rows] = np.max(predsort_confidence[:, np.argmax(predbest)])
                 predict_placeholder[rows] = class_list[np.argmax(predbest)]
+                sequence_placeholder[rows] = int(s)
 
             else:
                 mask = pd.DataFrame((predclass == empty_col))
@@ -508,18 +518,20 @@ def sequence_classification(animals: pd.DataFrame,
                     predbest = np.mean(predsort_confidence, axis=0)
                     conf_placeholder[rows[sel_mixed]] = np.max(predsort_confidence[:, np.argmax(predbest)])
                     predict_placeholder[rows[sel_mixed]] = class_list[np.argmax(predbest)]
-
+                    sequence_placeholder[rows[sel_mixed]] = int(s)
                 for file in sel_all_empty[sel_all_empty[0]].index:
                     empty_row = np.where(animals_sort[file_col] == file)
                     predsort_confidence = predsort[empty_row] * np.reshape(animals_sort.loc[empty_row, 'conf'].values, (-1, 1))
                     predbest = np.mean(predsort_confidence, axis=0)
                     conf_placeholder[empty_row] = np.max(predsort_confidence[:, np.argmax(predbest)])
+                    sequence_placeholder[empty_row] = int(s)
                     predict_placeholder[empty_row] = class_list[np.argmax(predbest)]
         # single row in sequence
         else:
             predbest = predsort[rows]
             conf_placeholder[rows] = np.max(predbest * animals_sort.loc[rows, 'conf'].values)
             predict_placeholder[rows] = class_list[np.argmax(predbest)]
+            sequence_placeholder[rows] = int(s)
 
         i = last_index
         s += 1

@@ -21,7 +21,7 @@ from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, R
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
 from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
-from animl.utils import get_device
+from animl.utils import get_torch_device
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -443,7 +443,7 @@ def train_dataloader(manifest: pd.DataFrame,
                                       resize_height=resize_height, resize_width=resize_width,
                                       augment=augment, cache_dir=cache_dir)
 
-    device = get_device(quiet=True)
+    device = get_torch_device(quiet=True)
     pin_memory = False if device == 'cpu' else True
 
     dataLoader = DataLoader(dataset=dataset_instance,
@@ -494,7 +494,7 @@ def manifest_dataloader(manifest: pd.DataFrame,
                                          crop_coord=crop_coord, normalize=normalize, letterbox=letterbox,
                                          resize_width=resize_width, resize_height=resize_height, transform=transform)
     # set pin_memory based on device
-    device = get_device(quiet=True)
+    device = get_torch_device(quiet=True)
     pin_memory = False if device == 'cpu' else True
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,

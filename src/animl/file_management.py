@@ -10,11 +10,13 @@ from shutil import copyfile
 from pathlib import Path, PosixPath
 from datetime import datetime, timedelta
 import pandas as pd
+import numpy as np
 import PIL
+import cv2
 from typing import Optional
 
 
-IMAGE_EXTENSIONS = {'.png', '.jpg', ',jpeg', ".tiff", '.tif"'}
+IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', ".tiff", '.tif"'}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
 VALID_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
@@ -91,11 +93,12 @@ def build_file_manifest(image_dir: str,
 
             elif row["extension"] in VIDEO_EXTENSIONS:
                 try:
-                    import cv2
                     vid = cv2.VideoCapture(row['filepath'])
                     if vid.isOpened():
                         files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
                         files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    else:
+                        invalid.append(i)
                     vid.release()
                 except Exception:
                     invalid.append(i)
@@ -104,9 +107,11 @@ def build_file_manifest(image_dir: str,
         files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
         files["filemodifydate"] = pd.to_datetime(files["filemodifydate"]) + timedelta(hours=offset)
         try:
-            # select createdate if exists, else choose filemodify date
+            # convert multiple string formats to datetime
             files['createdate'] = files['createdate'].replace(r'^\s*$', None, regex=True)
             files["createdate"] = files['createdate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
+            files["createdate"] = pd.to_datetime(files["createdate"])
+            # select createdate if exists, else choose filemodify date
             files["datetime"] = files['createdate'].fillna(files['filemodifydate'])
         except KeyError:
             files["datetime"] = files["filemodifydate"]
@@ -327,3 +332,65 @@ def active_times(manifest_dir,
     times = files.groupby("camera").agg({'filemodifydate': ['min', 'max']})
 
     return times
+
+
+def sequence_calculation(manifest,
+                         station_col: str,
+                         sort_columns: list[str] = None,
+                         file_col: str = "filepath",
+                         maxdiff: int = 60):
+    """
+    Simple sequence calculation based on time differences between consecutive images from the same station.
+    Unlike sequence_classification(), does not apply any classification or labeling to the sequences.
+
+    Args:
+        - manifest (pd.DataFrame): DataFrame containing image file information, including 'filepath' and 'datetime' columns
+        - station_col (str): column name in the DataFrame representing the station or camera
+        - sort_columns (list[str]): list of columns to sort by before calculating sequences. Defaults to None, which sorts by station_col and 'datetime'.
+        - file_col (str): column name representing the file path. Defaults to "filepath".
+        - maxdiff (int): maximum time difference in seconds between consecutive images to be considered part of the same sequence. Defaults to 60.
+    """
+    if not isinstance(station_col, str) or station_col == '':
+        raise Exception("'station_col' must be a non-empty string")
+
+    # Sanity check to verify that maxdiff is a positive number
+    if not isinstance(maxdiff, (int, float)) or maxdiff < 0:
+        raise Exception("'maxdiff' must be a number >= 0")
+
+    if not {file_col}.issubset(manifest.columns):
+        raise ValueError(f"DataFrame must contain '{file_col}' column.")
+
+    if not {"datetime"}.issubset(manifest.columns):
+        raise ValueError("DataFrame must contain 'datetime' column.")
+
+    if sort_columns is None:
+        sort_columns = [station_col, "datetime"]
+
+    manifest['datetime'] = pd.to_datetime(manifest['datetime'], format="%Y-%m-%d %H:%M:%S")
+
+    sort = manifest.sort_values(by=sort_columns).index
+    manifest_sort = manifest.loc[sort].reset_index(drop=True)
+
+    sequence_placeholder = np.zeros(len(manifest_sort))
+
+    i = 0
+    s = 0
+    while i < len(manifest_sort):
+        rows = [i]
+        last_index = i+1
+
+        while (last_index < len(manifest_sort) and not pd.isna(manifest_sort.loc[i, "datetime"]) and
+               not pd.isna(manifest_sort.loc[last_index, "datetime"]) and
+               manifest_sort.loc[last_index, station_col] == manifest_sort.loc[i, station_col] and
+               (manifest_sort.loc[last_index, "datetime"] - manifest_sort.loc[i, "datetime"]).total_seconds() <= maxdiff):
+            rows.append(last_index)
+            last_index += 1
+
+        sequence_placeholder[np.array(rows)] = int(s)
+
+        i = last_index
+        s += 1
+
+    manifest_sort['sequence'] = sequence_placeholder
+
+    return manifest_sort

@@ -32,6 +32,8 @@ def export_folders(manifest: pd.DataFrame,
         manifest (DataFrame): dataframe containing images and associated predictions
         out_dir (str): root directory for species folders
         out_file (Optional[str]): if provided, save the manifest to this file
+        label_col (str): column containing species labels, 
+                        'category' for MD categories or 'prediction' for species labels
         file_col (str): column containing source paths
         unique_name (str): column containing unique file name
         copy (bool): if true, hard copy
@@ -127,7 +129,7 @@ def update_labels_from_folders(manifest: pd.DataFrame,
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
         export_dir (str): root directory for species folders
-        unique_name (str): column to merge sorted labels onto manifest
+        unique_name (str): column containing unique file names
 
     Returns:
         manifest: dataframe with updated predictions
@@ -259,7 +261,6 @@ def export_camtrapR(manifest: pd.DataFrame,
         - unique_name (str): column containing unique file name
         - copy (bool): if true, hard copy
     """
-    
     expected_columns = (file_col, station_col, label_col)
     for s in expected_columns:
         assert s in manifest.columns, f'Expected column {s} not found in results DataFrame'
@@ -305,7 +306,8 @@ def export_camtrapR(manifest: pd.DataFrame,
 
     return manifest
 
-def export_timelapse(results: pd.DataFrame,
+
+def export_timelapse(manifest: pd.DataFrame,
                      out_dir: str,
                      only_animl: bool = True) -> Path:
     '''
@@ -314,7 +316,7 @@ def export_timelapse(results: pd.DataFrame,
     Credit: Sachin Gopal Wani
 
     Args:
-        results - a DataFrame that contains classifications
+        manifest - a DataFrame that contains classifications
         out_dir - location of directory where csv files will be saved
         only_animl - A bool that confirms whether we want only animal detctions or all (animal + non-animal detection from MegaDetector + classifier)
 
@@ -331,18 +333,18 @@ def export_timelapse(results: pd.DataFrame,
                         'bbox_h', 'prediction', 'confidence')
 
     for s in expected_columns:
-        assert s in results.columns, f'Expected column {s} not found in results DataFrame'
+        assert s in manifest.columns, f'Expected column {s} not found in manifest DataFrame'
 
     # Dropping unnecessary columns (Refer to columns numbers above for expected columns - 0 indexed).
-    results = results.drop(['filepath', 'filemodifydate', 'max_detection_conf'], axis=1)
+    manifest = manifest.drop(['filepath', 'filemodifydate', 'max_detection_conf'], axis=1)
 
     # Keep relative path only
-    results['file'] = results['filename']
+    manifest['file'] = manifest['filename']
 
     # Rename column names for clarity
-    results = results.rename(columns={'conf': 'detection_conf', 'prediction': 'class', 'confidence': 'classification_conf'})
+    manifest = manifest.rename(columns={'conf': 'detection_conf', 'prediction': 'class', 'confidence': 'classification_conf'})
     csv_loc = Path(out_dir / "timelapse_manifest.csv")
-    results.to_csv(csv_loc, index=False)
+    manifest.to_csv(csv_loc, index=False)
 
     if only_animl:
         animals = results[results['category'] == 1]
@@ -354,7 +356,7 @@ def export_timelapse(results: pd.DataFrame,
 
 def export_megadetector(manifest: pd.DataFrame,
                         out_file: Optional[str] = None,
-                        detector: str = 'MegaDetector v5a',
+                        detector: str = 'MegaDetector v5b',
                         prompt: bool = True):
     """
     Converts the .csv file [input_file] to the MD-formatted .json file [out_file].

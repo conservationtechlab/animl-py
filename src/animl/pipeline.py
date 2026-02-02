@@ -12,7 +12,7 @@ from pathlib import Path
 from animl import (classification, detection, export, file_management,
                    video_processing, split, model_architecture)
 from animl.utils import visualization
-from animl.utils.general import get_device, NUM_THREADS, get_device_onnx
+from animl.utils.general import NUM_THREADS
 
 
 def from_paths(image_dir: str,
@@ -61,18 +61,16 @@ def from_paths(image_dir: str,
     else:
         detector_ext = Path(detector_file).suffix.lower()
         if detector_ext == '.onnx':
-            detector_device = get_device_onnx()
-            detector = detection.load_detector(detector_file, "onnx", device=detector_device)
+            detector = detection.load_detector(detector_file, "onnx", device=None)
         else:
-            detector_device = get_device()
-            detector = detection.load_detector(detector_file, model_type="mdv5", device=detector_device)
+            detector = detection.load_detector(detector_file, model_type="mdv5", device=None)
         md_results = detection.detect(detector,
                                       all_frames,
                                       resize_height=model_architecture.MEGADETECTORv5_SIZE,
                                       resize_width=model_architecture.MEGADETECTORv5_SIZE,
                                       batch_size=batch_size,
                                       num_workers=NUM_THREADS,
-                                      device=detector_device,
+                                      device=None,
                                       checkpoint_path=working_dir.mdraw,
                                       checkpoint_frequency=1000)
         # Convert MD JSON to pandas dataframe, merge with manifest
@@ -90,15 +88,11 @@ def from_paths(image_dir: str,
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
 
-    classifier_ext = Path(classifier_file).suffix.lower()
-    if classifier_ext == '.onnx':
-        classifier_device = get_device_onnx()
-    else:
-        classifier_device = get_device()
-    classifier, class_list = classification.load_classifier(classifier_file, classlist_file, device=classifier_device)
+    classifier, class_list = classification.load_classifier(classifier_file, classlist_file, device=None)
 
-    predictions_raw = classification.classify(classifier, animals,
-                                              device=classifier_device,
+    predictions_raw = classification.classify(classifier,
+                                              animals,
+                                              device=None,
                                               resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
                                               resize_width=model_architecture.SDZWA_CLASSIFIER_SIZE,
                                               batch_size=batch_size,
@@ -114,7 +108,10 @@ def from_paths(image_dir: str,
                                                           maxdiff=60)
     else:
         print("Classifying individual frames...")
-        manifest = classification.single_classification(animals, empty, predictions_raw, class_list[class_label])
+        manifest = classification.single_classification(animals, empty, 
+                                                        predictions_raw, 
+                                                        class_list[class_label],
+                                                        best=True)
 
     if sort:
         print("Sorting...")
@@ -214,7 +211,11 @@ def from_config(config: str):
                                                           file_col=cfg.get('file_col_classification', 'frame'),
                                                           maxdiff=60)
     else:
-        manifest = classification.single_classification(animals, empty, predictions_raw, class_list[cfg.get('class_label_col', 'class')])
+        manifest = classification.single_classification(animals, empty, 
+                                                        predictions_raw, 
+                                                        class_list[cfg.get('class_label_col', 'class')],
+                                                        file_col=cfg.get('file_col_classification', 'filepath'),
+                                                        best=cfg.get('best_only', True))
 
     if cfg.get('sort', True):
         print("Sorting...")

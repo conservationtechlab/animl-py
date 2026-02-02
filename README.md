@@ -1,4 +1,4 @@
-# animl-py 3.1.1
+# animl-py 3.2.0
 AniML comprises a variety of machine learning tools for analyzing ecological data. This Python package includes a set of functions to classify subjects within camera trap field data and can handle both images and videos. 
 This package is also available in R: [animl](https://github.com/conservationtechlab/animl)
 
@@ -101,8 +101,8 @@ allframes = animl.extract_frames(files, frames=3, out_file=workingdir.imageframe
 ```python
 detector = animl.load_detector('/path/to/mdmodel.pt', model_type="mdv5", device='cuda:0')
 mdresults = animl.detect(detector, allframes, resize_width=animl.MEGADETECTORv5_SIZE, resize_height=animl.MEGADETECTORv5_SIZE, 
-                         letterbox=True, file_col="frame", checkpoint_path=working_dir.mdraw, quiet=True)
-detections = animl.parse_detections(mdresults, manifest=all_frames, out_file=workingdir.detections)
+                         letterbox=True, file_col="frame", device='cuda:0', checkpoint_path=working_dir.mdraw, quiet=True)
+detections = animl.parse_detections(mdresults, manifest=allframes, out_file=workingdir.detections)
 ```
 
 5. For speed and efficiency, extract the empty/human/vehicle detections before classification.
@@ -113,8 +113,7 @@ empty = animl.get_empty(detections)
 6. Classify using the appropriate species model. Merge the output with the rest of the detections
    if desired.
 ```python
-class_list = animl.load_class_list('/path/to/classlist.txt')
-classifier = animl.load_classifier('/path/to/model', len(class_list), device='cuda:0')
+classifier, class_list = animl.load_classifier('/path/to/model', '/path/to/classlist.txt', device='cuda:0')
 raw_predictions = animl.classify(classifier, animals, resize_width=480, resize_height=480, 
                                  file_col="filepath", batch_size=4, out_file=working_dir.predictions)
 ```
@@ -126,7 +125,8 @@ manifest = animl.single_classification(animals, empty, raw_predictions, class_li
 ```
 or, after defining a station column,
 ```python
-manifest = animl.sequence_classification(animals, empty, 
+manifest = animl.sequence_classification(animals,
+                                         empty, 
                                          raw_predictions,
                                          class_list['class'],
                                          station_col='station',

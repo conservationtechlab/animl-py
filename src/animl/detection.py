@@ -19,7 +19,8 @@ from ultralytics import YOLO
 from animl import file_management
 from animl.model_architecture import MEGADETECTORv5_SIZE
 from animl.generator import manifest_dataloader, image_to_tensor
-from animl.utils.general import normalize_boxes, xyxy2xywh, scale_letterbox, non_max_suppression, get_device
+from animl.utils.general import (normalize_boxes, xyxy2xywh, scale_letterbox,
+                                 non_max_suppression, get_torch_device, get_onnx_device)
 
 
 def load_detector(model_path: str,
@@ -39,11 +40,11 @@ def load_detector(model_path: str,
     if not Path(model_path).is_file():
         raise FileNotFoundError(f"Model file not found at {model_path}")
 
-    if device is None:
-        device = get_device()
-
     # YOLOv5/MDv5
     if model_type.lower() in {"mdv5", "yolov5"}:
+        # check to make sure GPU is available if chosen
+        device = get_torch_device(user_set=device)
+        # load checkpoint
         checkpoint = torch.load(model_path, map_location=device, weights_only=False)
         # Compatibility fix that allows older YOLOv5 models with
         # newer versions of YOLOv5/PT
@@ -58,6 +59,8 @@ def load_detector(model_path: str,
         return model
     # YOLOv6+
     elif model_type.lower() in {"yolo", "mdv6"}:
+        # check to make sure GPU is available if chosen
+        device = get_torch_device(user_set=device)
         model = YOLO(model_path, task='detect')
         model.model_type = "yolo"
         model.to(device)
@@ -65,7 +68,8 @@ def load_detector(model_path: str,
     # ONNX model
     elif model_type.lower() in {"onnx"}:
         import onnxruntime as ort
-        providers = ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        # check to make sure GPU is available if chosen
+        providers = get_onnx_device(user_set=device)
         model = ort.InferenceSession(model_path, providers=providers)
         model.model_type = "onnx"
         return model
@@ -110,10 +114,6 @@ def detect(detector,
     if checkpoint_frequency != -1:
         checkpoint_frequency = max(1, round(checkpoint_frequency/batch_size, None))
 
-    # check to make sure GPU is available if chosen
-    if device is None:
-        device = get_device()
-
     # Single image filepath
     if isinstance(image_file_names, str):
         # convert img path to tensor
@@ -126,6 +126,8 @@ def detect(detector,
         batch_frames = [0]  # single image, frame 0
 
         if detector.model_type == "yolov5":
+            # check to make sure GPU is available if chosen
+            device = get_torch_device(user_set=device)
             # letterboxing should be true
             prediction = detector(batch_tensors.to(device))
             pred: list = prediction[0]
@@ -134,10 +136,13 @@ def detect(detector,
                                               batch_sizes, letterbox, detector.model_type)
         elif detector.model_type == "onnx":
             input_name = detector.get_inputs()[0].name
-            if device == "cpu":
-                outputs = detector.run(None, {input_name: batch_tensors.cpu().numpy()})[0]
-            else:
+            providers = get_onnx_device(user_set=device)
+            if 'CUDAExecutionProvider' in providers:
                 outputs = detector.run(None, {input_name: batch_tensors.numpy()})[0]
+            # default to cpu
+            else:
+                outputs = detector.run(None, {input_name: batch_tensors.cpu().numpy()})[0]
+
             # Process outputs to match expected format
             results = convert_onnx_detections(outputs, batch_tensors, batch_paths,
                                               batch_frames, batch_sizes, letterbox)
@@ -191,6 +196,11 @@ def detect(detector,
         image_file_names = set(image_file_names)
 
     count = 0
+
+    if detector.model_type == "onnx":
+        device = get_onnx_device(user_set=device, quiet=True)
+    else:
+        device = get_torch_device(user_set=device, quiet=True)
 
     # create dataloader
     dataloader = manifest_dataloader(manifest, batch_size=batch_size,
@@ -491,11 +501,11 @@ if __name__ == '__main__':
     parser.add_argument('--file_col', nargs='?', help='Path to config file', default='frame')
     parser.add_argument('--batch_size', nargs='?', help='Path to config file', default=4)
     parser.add_argument('--num_workers', nargs='?', help='Path to config file', default=4)
-    parser.add_argument('--device', nargs='?', help='Path to config file', default=get_device())
+    parser.add_argument('--device', nargs='?', help='Path to config file', default=get_torch_device())
 
     args = parser.parse_args()
 
-    detector = load_detector(args.detector, args.model_type)
+    detector = load_detector(args.detector, args.model_type, device=args.device)
     manifest = file_management.load_data(args.manifest)
 
     mdresults = detect(detector, manifest, args.resize_width, args.resize_height, args.letterbox,

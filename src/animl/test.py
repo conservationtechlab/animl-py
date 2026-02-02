@@ -64,6 +64,9 @@ def test_main(cfg):
     '''
     Command line function
 
+    Args:
+        cfg: path to config file
+
     Example usage:
     > python test.py --config configs/exp_resnet18.yaml
     '''
