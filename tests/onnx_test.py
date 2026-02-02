@@ -57,7 +57,6 @@ def onnx_gpu_test():
     allframes = animl.load_data(workingdir.imageframes)
 
     model_cpu = animl.load_detector('models/md_v1000.0.0-sorrel.pt', model_type="yolo", device='cpu')
-
     results = animl.detect(model_cpu, allframes,
                            resize_width=960, resize_height=960,
                            batch_size=4, device='cpu')
@@ -67,14 +66,21 @@ def onnx_gpu_test():
     results_gpu = animl.detect(model_gpu, allframes,
                                resize_width=960, resize_height=960,
                                batch_size=4, device='cuda:0')
-    detections_gpu = animl.parse_detections(results_gpu, manifest=allframes)
+    onnx_gpu = animl.parse_detections(results_gpu, manifest=allframes)
+
+    model_gpu = animl.load_detector(cfg['detector_file'], model_type="onnx", device='cpu')
+    results_gpu = animl.detect(model_gpu, allframes,
+                               resize_width=960, resize_height=960,
+                               batch_size=4, device='cpu')
+    onnx_cpu = animl.parse_detections(results_gpu, manifest=allframes)
 
     print(detections)
-    print(detections_gpu)
-    print("GPU matches CPU:", detections.equals(detections_gpu))
+    print(onnx_gpu)
+    print("GPU matches CPU:", detections.equals(onnx_gpu))
+    print("CPU matches CPU:", onnx_gpu.equals(onnx_cpu))
 
     print(f"ONNX GPU Test completed in {time.time() - start_time:.2f} seconds")
 
-main()
-onnx_test()
+#main()
+#onnx_test()
 onnx_gpu_test()
