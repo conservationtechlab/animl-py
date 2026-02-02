@@ -108,7 +108,10 @@ def from_paths(image_dir: str,
                                                           maxdiff=60)
     else:
         print("Classifying individual frames...")
-        manifest = classification.single_classification(animals, empty, predictions_raw, class_list[class_label])
+        manifest = classification.single_classification(animals, empty, 
+                                                        predictions_raw, 
+                                                        class_list[class_label],
+                                                        best=True)
 
     if sort:
         print("Sorting...")
@@ -208,7 +211,11 @@ def from_config(config: str):
                                                           file_col=cfg.get('file_col_classification', 'frame'),
                                                           maxdiff=60)
     else:
-        manifest = classification.single_classification(animals, empty, predictions_raw, class_list[cfg.get('class_label_col', 'class')])
+        manifest = classification.single_classification(animals, empty, 
+                                                        predictions_raw, 
+                                                        class_list[cfg.get('class_label_col', 'class')],
+                                                        file_col=cfg.get('file_col_classification', 'filepath'),
+                                                        best=cfg.get('best_only', True))
 
     if cfg.get('sort', True):
         print("Sorting...")

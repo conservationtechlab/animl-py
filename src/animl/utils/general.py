@@ -89,8 +89,13 @@ def get_onnx_device(user_set=None, quiet=False):
     """
     providers = ort.get_available_providers()
     if 'CUDAExecutionProvider' in providers:
-        # user selects cuda device and is available
-        if user_set == 'cpu':
+        # no user input
+        if user_set is None:
+            if not quiet:
+                print('Using available CUDA device.')
+            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']     
+        # user selects cpu
+        elif user_set == 'cpu':
             if not quiet:
                 print('CUDA is available but set to cpu by user.')
                 providers = ['CPUExecutionProvider']
@@ -100,11 +105,6 @@ def get_onnx_device(user_set=None, quiet=False):
             providers = [('CUDAExecutionProvider', {'device_id': device_number}), 'CPUExecutionProvider']
             if not quiet:
                 print(f'Attempting to use CUDA device: {user_set}')
-        # no user input
-        elif user_set is None:
-            if not quiet:
-                print('Using available CUDA device.')
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']     
         # unknown user input
         else:
             if not quiet:
