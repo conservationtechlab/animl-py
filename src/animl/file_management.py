@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 import PIL
+import cv2
 from typing import Optional
 
 
@@ -92,11 +93,12 @@ def build_file_manifest(image_dir: str,
 
             elif row["extension"] in VIDEO_EXTENSIONS:
                 try:
-                    import cv2
                     vid = cv2.VideoCapture(row['filepath'])
                     if vid.isOpened():
                         files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
                         files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    else:
+                        invalid.append(i)
                     vid.release()
                 except Exception:
                     invalid.append(i)
