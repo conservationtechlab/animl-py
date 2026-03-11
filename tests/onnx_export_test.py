@@ -24,12 +24,14 @@ import json
 import onnxruntime as ort
 import ultralytics
 
+from animl.reid.inference import load_miew
+
 
 def export_model(model: str,
                  output_path: str,
                  input_names=("input",),
                  output_names=("output",),
-                 opset_version: int = 13,
+                 opset_version: int = 18,
                  resize_height: int = 299,
                  resize_width: int = 299,
                  do_constant_folding: bool = True,
@@ -122,21 +124,25 @@ def test_env_print():
     assert True
 
 
-@unittest.skip
+#@unittest.skip
 def main():
     # test_env_print()
 
     # megadetector
     # nms = False for v1000
-    export_onnx("models/md_v1000.0.0-sorrel.pt", img_size=960)
+    #export_onnx()
     #verify_with_onnxruntime("models/md_v1000.0.0-sorrel.onnx", 960)
 
     # classes = load_class_list("models/sdzwa_southwest_v3_classes.csv")
     # class_dict = {i: c['class'] for i, c in classes.iterrows()}
 
     # model = load_classifier("models/sdzwa_southwest_v3.pt", len(class_dict))
+    model = load_miew("models/miewid_v3.bin")
 
-    # export_model(model, "models/sdzwa_southwest_v3.onnx")
+    export_model(model, "/home/kyra/models/miewid_v3.onnx",                 
+                 resize_height = 440,
+                 resize_width = 440, 
+                 dynamic_batch_dim=False)
 
     # add class dict metadata
     # add_class_dict("models/sdzwa_southwest_v3.onnx", class_dict)
