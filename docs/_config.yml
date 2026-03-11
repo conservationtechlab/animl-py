@@ -1,0 +1,15 @@
+title: AniML Documentation
+email: tswanson@sdzwa.org
+description: Modular toolkit for ML-assisted camera trap data processing
+baseurl: ""
+url: /animl/
+
+# Build settings
+markdown: kramdown
+
+# Exclude from processing
+exclude:
+  - README.md
+  - .gitignore
+  - Gemfile
+  - Gemfile.lock
