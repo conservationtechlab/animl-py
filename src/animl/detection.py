@@ -206,6 +206,7 @@ def detect(detector,
     dataloader = manifest_dataloader(manifest, batch_size=batch_size,
                                      num_workers=num_workers, crop=False,
                                      normalize=True, letterbox=letterbox,
+                                     file_col=file_col,
                                      resize_width=resize_width,
                                      resize_height=resize_height)
 
