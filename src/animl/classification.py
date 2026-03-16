@@ -296,7 +296,7 @@ def classify(model,
     with torch.no_grad():
         for _, batch in tqdm(enumerate(dataset), total=len(dataset)):
             # pytorch
-            if model.framework == "pytorch" or model.framework == "EfficientNet":
+            if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
                 data = batch[0]
                 data = data.to(device)
                 output = model(data)
@@ -310,7 +310,7 @@ def classify(model,
                 raw_output.extend(softmax(output))
 
             else:
-                raise AssertionError("Model architechture not supported.")
+                raise AssertionError("Model architecture not supported.")
 
     raw_output = np.vstack(raw_output)
 
