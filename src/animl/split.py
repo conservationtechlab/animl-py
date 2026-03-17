@@ -21,8 +21,8 @@ def get_animals(manifest: pd.DataFrame):
     Returns:
         subset of manifest containing only animal detections
     """
-    manifest = manifest[manifest['category'].notna()].reset_index(drop=True)
-    return manifest[manifest['category'].astype(int) == 1]
+    manifest = manifest[manifest['category'].notna()]
+    return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
 
 
 def get_empty(manifest: pd.DataFrame):
@@ -37,8 +37,8 @@ def get_empty(manifest: pd.DataFrame):
         with added prediction and confidence columns
     """
     # Removes all images that MegaDetector gave no detection for
-    manifest = manifest[manifest['category'].notna()].reset_index(drop=True)
-    otherdf = manifest[manifest['category'].astype(int) != 1]
+    manifest = manifest[manifest['category'].notna()]
+    otherdf = manifest[manifest['category'].astype(int) != 1].reset_index(drop=True)
     otherdf['prediction'] = otherdf['category'].astype(int)
 
     # Numbers the class of the non-animals correctly
