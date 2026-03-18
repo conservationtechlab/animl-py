@@ -1,6 +1,9 @@
 """
 General utils
 
+
+TODO: decide what to make internal
+
 """
 import cv2
 import math

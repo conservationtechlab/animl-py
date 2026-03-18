@@ -9,8 +9,10 @@ import yaml
 import pandas as pd
 from pathlib import Path
 
-from animl import (classification, detection, export, file_management,
-                   video_processing, split, model_architecture)
+from animl import export, file_management, video_processing, split
+import animl.classification.inference as classification
+from animl.classification import model_architecture
+import animl.detection.inference as detection
 from animl.utils import visualization
 from animl.utils.general import NUM_THREADS
 
@@ -66,8 +68,8 @@ def from_paths(image_dir: str,
             detector = detection.load_detector(detector_file, model_type="mdv5", device=None)
         md_results = detection.detect(detector,
                                       all_frames,
-                                      resize_height=model_architecture.MEGADETECTORv5_SIZE,
-                                      resize_width=model_architecture.MEGADETECTORv5_SIZE,
+                                      resize_height=detection.MEGADETECTORv5_SIZE,
+                                      resize_width=detection.MEGADETECTORv5_SIZE,
                                       batch_size=batch_size,
                                       num_workers=NUM_THREADS,
                                       device=None,
@@ -170,8 +172,8 @@ def from_config(config: str):
         detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'mdv5'), device=device)
         md_results = detection.detect(detector,
                                       all_frames,
-                                      resize_height=model_architecture.MEGADETECTORv5_SIZE,
-                                      resize_width=model_architecture.MEGADETECTORv5_SIZE,
+                                      resize_height=detection.MEGADETECTORv5_SIZE,
+                                      resize_width=detection.MEGADETECTORv5_SIZE,
                                       letterbox=cfg.get('letterbox', True),
                                       file_col=cfg.get('file_col_detection', 'filepath'),
                                       batch_size=cfg.get('batch_size', 4),

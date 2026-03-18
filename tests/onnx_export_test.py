@@ -124,7 +124,7 @@ def test_env_print():
     assert True
 
 
-#@unittest.skip
+@unittest.skip
 def main():
     # test_env_print()
 

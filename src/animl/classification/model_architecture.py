@@ -8,8 +8,6 @@ import torch.nn as nn
 from torchvision.models import efficientnet, convnext_base, ConvNeXt_Base_Weights
 
 
-MEGADETECTORv5_SIZE = 1280
-MEGADETECTORv5_STRIDE = 64
 SDZWA_CLASSIFIER_SIZE = 480
 
 

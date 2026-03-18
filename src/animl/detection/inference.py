@@ -17,10 +17,12 @@ import torch
 from ultralytics import YOLO
 
 from animl import file_management
-from animl.model_architecture import MEGADETECTORv5_SIZE
 from animl.generator import manifest_dataloader, image_to_tensor
 from animl.utils.general import (normalize_boxes, xyxy2xywh, scale_letterbox,
                                  non_max_suppression, get_torch_device, get_onnx_device)
+
+MEGADETECTORv5_SIZE = 1280
+MEGADETECTORv5_STRIDE = 64
 
 
 def load_detector(model_path: str,
@@ -132,7 +134,7 @@ def detect(detector,
             prediction = detector(batch_tensors.to(device))
             pred: list = prediction[0]
             pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
-            results = convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+            results = _convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
                                               batch_sizes, letterbox, detector.model_type)
         elif detector.model_type == "onnx":
             input_name = detector.get_inputs()[0].name
@@ -144,11 +146,11 @@ def detect(detector,
                 outputs = detector.run(None, {input_name: batch_tensors.cpu().numpy()})[0]
 
             # Process outputs to match expected format
-            results = convert_onnx_detections(outputs, batch_tensors, batch_paths,
+            results = _convert_onnx_detections(outputs, batch_tensors, batch_paths,
                                               batch_frames, batch_sizes, letterbox)
         else:
             pred = detector.predict(source=batch_tensors.to(device), conf=confidence_threshold, verbose=False)
-            results = convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+            results = _convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
                                               batch_sizes, letterbox, detector.model_type)
         return results
 
@@ -226,7 +228,7 @@ def detect(detector,
             pred: list = prediction[0]
             pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
             # convert to normalized xywh
-            results.extend(convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+            results.extend(_convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
                                                    batch_sizes, letterbox, detector.model_type))
         elif detector.model_type == "onnx":
             input_name = detector.get_inputs()[0].name
@@ -236,13 +238,13 @@ def detect(detector,
                 outputs = detector.run(None, {input_name: batch_tensors.numpy()})[0]
 
             # Process outputs to match expected format
-            results.extend(convert_onnx_detections(outputs, batch_tensors, batch_paths, batch_frames,
+            results.extend(_convert_onnx_detections(outputs, batch_tensors, batch_paths, batch_frames,
                                                    batch_sizes, letterbox))
         # standard yolo model (v6+)
         else:
             pred = detector.predict(source=batch_tensors.to(device), conf=confidence_threshold, verbose=False)
             # convert to normalized xywh
-            results.extend(convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+            results.extend(_convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
                                                    batch_sizes, letterbox, detector.model_type))
 
         # Write a checkpoint if necessary
@@ -257,7 +259,7 @@ def detect(detector,
     return results
 
 
-def convert_onnx_detections(predictions: list,
+def _convert_onnx_detections(predictions: list,
                             image_tensors: list,
                             image_paths: list,
                             image_frames: list,
@@ -308,7 +310,7 @@ def convert_onnx_detections(predictions: list,
     return results
 
 
-def convert_yolo_detections(predictions: list,
+def _convert_yolo_detections(predictions: list,
                             image_tensors: list,
                             image_paths: list,
                             image_frames: list,

@@ -7,7 +7,7 @@ import yaml
 import shutil
 from pathlib import Path
 
-from animl import train, test
+import animl
 
 
 @unittest.skip
@@ -22,8 +22,8 @@ def model_training_test():
         shutil.rmtree(output)
     Path(output).mkdir(exist_ok=True)
 
-    train.train_main(config)
-    test.test_main(config)
+    animl.train_classifier(config)
+    animl.test_classifier(config)
 
 
 model_training_test()

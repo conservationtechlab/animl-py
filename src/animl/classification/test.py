@@ -15,11 +15,11 @@ from sklearn.metrics import confusion_matrix, precision_score, recall_score
 from torch.utils.data import DataLoader
 
 from animl.generator import train_dataloader
-from animl.classification import load_classifier
+from animl.classification.inference import load_classifier
 from animl.utils.general import NUM_THREADS
 
 
-def test_func(data_loader: DataLoader,
+def _test_func(data_loader: DataLoader,
               model: torch.nn.Module,
               device: Union[str, torch.device] = 'cpu') -> float:
     '''
@@ -30,7 +30,7 @@ def test_func(data_loader: DataLoader,
         model: trained model object
         device: run model on gpu or cpu, defaults to cpu
     '''
-    model.eval()  # put the model into training mode
+    model.eval()  # put the model into evaluation mode
 
     pred_labels = []
     true_labels = []
@@ -60,7 +60,7 @@ def test_func(data_loader: DataLoader,
     return pred_labels, true_labels, filepaths
 
 
-def test_main(cfg):
+def test_classifier(cfg):
     '''
     Command line function
 
@@ -102,7 +102,7 @@ def test_main(cfg):
                                crop=crop, augment=False,
                                cache_dir=cfg.get('cache_folder', None))
     # get predictions
-    pred, true, paths = test_func(dl_test, model, device)
+    pred, true, paths = _test_func(dl_test, model, device)
     # calculate precision and recall
     prec = precision_score(true, pred, average='weighted')
     recall = recall_score(true, pred, average='weighted')
@@ -132,4 +132,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f'Using config "{args.config}"')
-    test_main(args.config)
+    test_classifier(args.config)

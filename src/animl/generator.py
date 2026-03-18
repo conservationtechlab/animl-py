@@ -19,7 +19,7 @@ from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, R
                                        ColorJitter, GaussianBlur)
 
 
-from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
+from animl.classification.model_architecture import SDZWA_CLASSIFIER_SIZE
 from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
 from animl.utils import get_torch_device
 
@@ -451,7 +451,7 @@ def train_dataloader(manifest: pd.DataFrame,
                             num_workers=num_workers,
                             shuffle=True,
                             pin_memory=pin_memory,
-                            collate_fn=collate_fn)
+                            collate_fn=_collate_fn)
     return dataLoader
 
 
@@ -501,10 +501,10 @@ def manifest_dataloader(manifest: pd.DataFrame,
                             num_workers=num_workers,
                             shuffle=False,
                             pin_memory=pin_memory,
-                            collate_fn=collate_fn)
+                            collate_fn=_collate_fn)
     return dataLoader
 
 
-def collate_fn(batch):
+def _collate_fn(batch):
     batch = list(filter(lambda x: x is not None, batch))
     return torch.utils.data.dataloader.default_collate(batch)
