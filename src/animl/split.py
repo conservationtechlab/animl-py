@@ -19,9 +19,11 @@ def get_animals(manifest: pd.DataFrame):
         manifest (pd.DataFrame): DataFrame containing one row for every MD detection
 
     Returns:
-        subset of manifest containing only animal detections
+        subset of manifest containing only animal detections (NaN values removed)
     """
-    return manifest[manifest['category'].astype(int) == 1].reset_index(drop=True)
+    # Remove rows with NaN in category column, then filter for animals
+    manifest_clean = manifest.dropna(subset=['category'])
+    return manifest_clean[manifest_clean['category'].astype(int) == 1].reset_index(drop=True)
 
 
 def get_empty(manifest: pd.DataFrame):
@@ -33,10 +35,13 @@ def get_empty(manifest: pd.DataFrame):
 
     Returns:
         otherdf: subset of manifest containing empty, vehicle and human detections
-        with added prediction and confidence columns
+        with added prediction and confidence columns (NaN values in category removed)
     """
+    # Removes all rows with NaN in category column
+    manifest_clean = manifest.dropna(subset=['category'])
+
     # Removes all images that MegaDetector gave no detection for
-    otherdf = manifest[manifest['category'].astype(int) != 1].reset_index(drop=True)
+    otherdf = manifest_clean[manifest_clean['category'].astype(int) != 1].reset_index(drop=True)
     otherdf['prediction'] = otherdf['category'].astype(int)
 
     # Numbers the class of the non-animals correctly
