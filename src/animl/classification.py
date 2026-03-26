@@ -295,6 +295,8 @@ def classify(model,
     start_time = time()
     with torch.no_grad():
         for _, batch in tqdm(enumerate(dataset), total=len(dataset)):
+            if batch is None:  # entire batch was bad
+                continue
             # pytorch
             if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
                 data = batch[0]

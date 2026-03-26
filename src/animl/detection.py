@@ -119,6 +119,9 @@ def detect(detector,
         # convert img path to tensor
         batch_from_dataloader = image_to_tensor(image_file_names, letterbox=letterbox,
                                                 resize_width=resize_width, resize_height=resize_height)
+        if batch_from_dataloader is None:
+            print(f"Error loading image {image_file_names}. Skipping.")
+            return []
         batch_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
         batch_paths = batch_from_dataloader[1]  # List of image names for the current batch
         batch_sizes = batch_from_dataloader[2]  # List of original image sizes for the current batch
@@ -212,6 +215,8 @@ def detect(detector,
 
     start_time = time.time()
     for _, batch_from_dataloader in tqdm(enumerate(dataloader), total=len(dataloader)):
+        if batch_from_dataloader is None:  # entire batch was bad
+            continue
         count += 1
 
         batch_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch

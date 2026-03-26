@@ -64,6 +64,8 @@ def train_func(data_loader, model, optimizer, scheduler, device='cpu',
         scaler = GradScaler('cuda', enabled=True)
 
     for idx, batch in enumerate(data_loader):
+        if batch is None:  # entire batch was bad
+            continue
         # put data and labels on device
         data = batch[0]
         labels = batch[1]
@@ -156,6 +158,8 @@ def validate_func(data_loader, model, device="cpu", progress=True):
         progressBar = trange(len(data_loader))
     with torch.no_grad():  # gradients not necessary for validation
         for idx, batch in enumerate(data_loader):
+            if batch is None:  # entire batch was bad
+                continue
             data = batch[0]
             labels = batch[1]
             data, labels = data.to(device), labels.to(device)

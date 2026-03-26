@@ -180,71 +180,76 @@ class ManifestGenerator(Dataset):
         return len(self.x)
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, str, int, Tensor]:
-        filepath = self.x.loc[idx, self.file_col]
-        frame = self.x.loc[idx, 'frame']
-        ext = Path(filepath).suffix.lower()
+        try:
+            filepath = self.x.loc[idx, self.file_col]
+            frame = self.x.loc[idx, 'frame']
+            ext = Path(filepath).suffix.lower()
 
-        if ext in VIDEO_EXTENSIONS:
-            img = self.extract_frames(idx, filepath)
-            if img is None:
+            if ext in VIDEO_EXTENSIONS:
+                img = self.extract_frames(idx, filepath)
+                if img is None:
+                    return None
+
+            elif ext in IMAGE_EXTENSIONS:
+                try:
+                    img = Image.open(filepath).convert('RGB')
+                except OSError:
+                    print(f"Image {filepath} cannot be opened. Skipping.")
+                    return None
+
+            else:
+                print(f"File {filepath} is not a video or image. Skipping.")
                 return None
 
-        elif ext in IMAGE_EXTENSIONS:
-            try:
-                img = Image.open(filepath).convert('RGB')
-            except OSError:
-                print(f"Image {filepath} cannot be opened. Skipping.")
-                return None
+            width, height = img.size
 
-        else:
-            print(f"File {filepath} is not a video or image. Skipping.")
+            # maintain aspect ratio if one dimension is zero
+            if self.resize_width > 0 and self.resize_height <= 0:
+                self.height = int(width / height * self.resize_width)
+            elif self.resize_width <= 0 and self.resize_height > 0:
+                self.width = int(height / width * self.height)
+
+            if self.crop:
+                bbox_x = self.x['bbox_x'].iloc[idx]
+                bbox_y = self.x['bbox_y'].iloc[idx]
+                bbox_w = self.x['bbox_w'].iloc[idx]
+                bbox_h = self.x['bbox_h'].iloc[idx]
+
+                if self.crop_coord == 'relative':
+                    left = width * bbox_x
+                    top = height * bbox_y
+                    right = width * (bbox_x + bbox_w)
+                    bottom = height * (bbox_y + bbox_h)
+
+                    left = max(0, int(left) - self.buffer)
+                    top = max(0, int(top) - self.buffer)
+                    right = min(width, int(right) + self.buffer)
+                    bottom = min(height, int(bottom) + self.buffer)
+                    img = img.crop((left, top, right, bottom))
+
+                elif self.crop_coord == 'absolute':
+                    left = bbox_x
+                    top = bbox_y
+                    right = bbox_x + bbox_w
+                    bottom = bbox_y + bbox_h
+
+                    left = max(0, int(left) - self.buffer)
+                    top = max(0, int(top) - self.buffer)
+                    right = min(width, int(right) + self.buffer)
+                    bottom = min(height, int(bottom) + self.buffer)
+                    img = img.crop((left, top, right, bottom))
+
+            img_tensor = self.transform(img)
+            img.close()
+
+            if not self.normalize:  # un-normalize
+                img_tensor = img_tensor * 255
+
+            return img_tensor, str(filepath), int(frame), torch.tensor((height, width))
+        
+        except Exception as e:
+            print(f"Error processing file {filepath}. Exception: {e}")
             return None
-
-        width, height = img.size
-
-        # maintain aspect ratio if one dimension is zero
-        if self.resize_width > 0 and self.resize_height <= 0:
-            self.height = int(width / height * self.resize_width)
-        elif self.resize_width <= 0 and self.resize_height > 0:
-            self.width = int(height / width * self.height)
-
-        if self.crop:
-            bbox_x = self.x['bbox_x'].iloc[idx]
-            bbox_y = self.x['bbox_y'].iloc[idx]
-            bbox_w = self.x['bbox_w'].iloc[idx]
-            bbox_h = self.x['bbox_h'].iloc[idx]
-
-            if self.crop_coord == 'relative':
-                left = width * bbox_x
-                top = height * bbox_y
-                right = width * (bbox_x + bbox_w)
-                bottom = height * (bbox_y + bbox_h)
-
-                left = max(0, int(left) - self.buffer)
-                top = max(0, int(top) - self.buffer)
-                right = min(width, int(right) + self.buffer)
-                bottom = min(height, int(bottom) + self.buffer)
-                img = img.crop((left, top, right, bottom))
-
-            elif self.crop_coord == 'absolute':
-                left = bbox_x
-                top = bbox_y
-                right = bbox_x + bbox_w
-                bottom = bbox_y + bbox_h
-
-                left = max(0, int(left) - self.buffer)
-                top = max(0, int(top) - self.buffer)
-                right = min(width, int(right) + self.buffer)
-                bottom = min(height, int(bottom) + self.buffer)
-                img = img.crop((left, top, right, bottom))
-
-        img_tensor = self.transform(img)
-        img.close()
-
-        if not self.normalize:  # un-normalize
-            img_tensor = img_tensor * 255
-
-        return img_tensor, str(filepath), int(frame), torch.tensor((height, width))
 
     def extract_frames(self, idx, filepath):
         frame = self.x.loc[idx, 'frame']
@@ -350,58 +355,63 @@ class TrainGenerator(Dataset):
         return Path(self.cache_dir) / f"{hash_id}.jpg"
 
     def __getitem__(self, idx):
-        image_name = self.x.loc[idx, self.file_col]
-        label = self.categories[self.x.loc[idx, self.label_col]]
-        cache_path = self._get_cache_path(image_name)
+        try:
+            image_name = self.x.loc[idx, self.file_col]
+            label = self.categories[self.x.loc[idx, self.label_col]]
+            cache_path = self._get_cache_path(image_name)
 
-        if cache_path is not None and Path(cache_path).exists():
-            img = Image.open(cache_path).convert("RGB")
-            img_tensor = self.transform(img)
-            return img_tensor, label, image_name
-        else:
-            try:
-                img = Image.open(image_name).convert('RGB')
-            except OSError:
-                print(f"Image {image_name} cannot be opened. Skipping.")
-                return None
+            if cache_path is not None and Path(cache_path).exists():
+                img = Image.open(cache_path).convert("RGB")
+                img_tensor = self.transform(img)
+                return img_tensor, label, image_name
+            else:
+                try:
+                    img = Image.open(image_name).convert('RGB')
+                except OSError:
+                    print(f"Image {image_name} cannot be opened. Skipping.")
+                    return None
 
-            if self.crop:
-                width, height = img.size
+                if self.crop:
+                    width, height = img.size
 
-                bbox_x = self.x['bbox_x'].iloc[idx]
-                bbox_y = self.x['bbox_y'].iloc[idx]
-                bbox_w = self.x['bbox_w'].iloc[idx]
-                bbox_h = self.x['bbox_h'].iloc[idx]
+                    bbox_x = self.x['bbox_x'].iloc[idx]
+                    bbox_y = self.x['bbox_y'].iloc[idx]
+                    bbox_w = self.x['bbox_w'].iloc[idx]
+                    bbox_h = self.x['bbox_h'].iloc[idx]
 
-                if self.crop_coord == 'relative':
-                    left = width * bbox_x
-                    top = height * bbox_y
-                    right = width * (bbox_x + bbox_w)
-                    bottom = height * (bbox_y + bbox_h)
+                    if self.crop_coord == 'relative':
+                        left = width * bbox_x
+                        top = height * bbox_y
+                        right = width * (bbox_x + bbox_w)
+                        bottom = height * (bbox_y + bbox_h)
 
-                    left = max(0, int(left) - self.buffer)
-                    top = max(0, int(top) - self.buffer)
-                    right = min(width, int(right) + self.buffer)
-                    bottom = min(height, int(bottom) + self.buffer)
-                    img = img.crop((left, top, right, bottom))
-                elif self.crop_coord == 'absolute':
-                    left = bbox_x
-                    top = bbox_y
-                    right = bbox_x + bbox_w
-                    bottom = bbox_y + bbox_h
+                        left = max(0, int(left) - self.buffer)
+                        top = max(0, int(top) - self.buffer)
+                        right = min(width, int(right) + self.buffer)
+                        bottom = min(height, int(bottom) + self.buffer)
+                        img = img.crop((left, top, right, bottom))
+                    elif self.crop_coord == 'absolute':
+                        left = bbox_x
+                        top = bbox_y
+                        right = bbox_x + bbox_w
+                        bottom = bbox_y + bbox_h
 
-                    left = max(0, int(left) - self.buffer)
-                    top = max(0, int(top) - self.buffer)
-                    right = min(width, int(right) + self.buffer)
-                    bottom = min(height, int(bottom) + self.buffer)
-                    img = img.crop((left, top, right, bottom))
+                        left = max(0, int(left) - self.buffer)
+                        top = max(0, int(top) - self.buffer)
+                        right = min(width, int(right) + self.buffer)
+                        bottom = min(height, int(bottom) + self.buffer)
+                        img = img.crop((left, top, right, bottom))
 
-            img_tensor = self.transform(img)
-            if self.cache_dir is not None:
-                img.save(cache_path, format="JPEG")
-            img.close()
+                img_tensor = self.transform(img)
+                if self.cache_dir is not None:
+                    img.save(cache_path, format="JPEG")
+                img.close()
 
-        return img_tensor, label, str(image_name)
+            return img_tensor, label, str(image_name)
+
+        except Exception as e:
+            print(f"Error processing file {image_name}. Exception: {e}")
+            return None
 
 
 def train_dataloader(manifest: pd.DataFrame,
@@ -506,5 +516,8 @@ def manifest_dataloader(manifest: pd.DataFrame,
 
 
 def collate_fn(batch):
+    # Filter out None entries (failed image loads)
     batch = list(filter(lambda x: x is not None, batch))
+    if len(batch) == 0:  # entire batch was bad
+        return None
     return torch.utils.data.dataloader.default_collate(batch)
