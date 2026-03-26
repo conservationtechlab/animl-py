@@ -39,6 +39,8 @@ def test_func(data_loader: DataLoader,
     progressBar = trange(len(data_loader))
     with torch.no_grad():
         for idx, batch in enumerate(data_loader):
+            if batch is None:  # entire batch was bad
+                continue
             # forward pass
             data = batch[0]
             data = data.to(device)
