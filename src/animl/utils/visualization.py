@@ -58,8 +58,14 @@ def plot_box(rows,
     if isinstance(rows, pd.Series):
         rows = pd.DataFrame([rows])
         
-    if not {file_col, 'conf', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(rows.columns):
-        raise ValueError(f"DataFrame must contain {file_col}, 'conf', 'bbox_x', 'bbox_y', 'bbox_w', and 'bbox_h' columns.")
+    if not {file_col, 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(rows.columns):
+        raise ValueError(f"DataFrame must contain {file_col}, 'bbox_x', 'bbox_y', 'bbox_w', and 'bbox_h' columns.")
+    
+    if 'conf' not in rows.columns and 'confidence' not in rows.columns:
+        rows['conf'] = 1.0  # If no confidence column, assume all detections are confident (1.0)   
+
+    if label_col and label_col not in rows.columns: 
+        raise ValueError(f"Label column '{label_col}' not found in DataFrame.")
     
     if colors is None:
         colors = MD_COLORS
@@ -84,7 +90,7 @@ def plot_box(rows,
 
     for _, row in rows.iterrows():
         # Skipping the box if the confidence threshold is not met
-        if (row['conf']) < min_conf:
+        if row['conf'] < min_conf:
             continue
 
         # If any of the box isn't defined, jump to next one
@@ -94,14 +100,16 @@ def plot_box(rows,
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
 
-        color = colors[str(int(row['category']))]
+        category = str(int(row['category'])) if 'category' in row and not np.isnan(row['category']) else None
+
+        color = colors[category] if category else (0, 255, 0)
         thick = int((height + width) // 900)
         cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), color, thick)
 
         # Printing prediction if enabled
         if label_col:
             if label_col == "category":
-                label = detector_labels[str(int(row['category']))]
+                label = detector_labels[category] if category else "Unknown"
             else:
                 label = row[label_col]
 

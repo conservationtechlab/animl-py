@@ -433,6 +433,57 @@ def box_iou(box1, box2):
     return inter / (box_area(box1.T)[:, None] + box_area(box2.T) - inter)
 
 
+# for false positive detection
+def get_iou(bb1, bb2):
+    """
+    Calculates the intersection over union (IoU) of two bounding boxes.
+
+    Adapted from:
+
+    https://stackoverflow.com/questions/25349178/calculating-percentage-of-bounding-box-overlap-for-image-detector-evaluation
+
+    Args:
+        bb1 (list): [x_min, y_min, width_of_box, height_of_box]
+        bb2 (list): [x_min, y_min, width_of_box, height_of_box]
+
+    Returns:
+        float: intersection_over_union, a float in [0, 1]
+    """
+
+    bb1 = xywh2xyxy(bb1)
+    bb2 = xywh2xyxy(bb2)
+
+    assert bb1[0] < bb1[2], 'Malformed bounding box (x2 >= x1)'
+    assert bb1[1] < bb1[3], 'Malformed bounding box (y2 >= y1)'
+    assert bb2[0] < bb2[2], 'Malformed bounding box (x2 >= x1)'
+    assert bb2[1] < bb2[3], 'Malformed bounding box (y2 >= y1)'
+
+    # Determine the coordinates of the intersection rectangle
+    x_left = max(bb1[0], bb2[0])
+    y_top = max(bb1[1], bb2[1])
+    x_right = min(bb1[2], bb2[2])
+    y_bottom = min(bb1[3], bb2[3])
+
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+
+    # The intersection of two axis-aligned bounding boxes is always an
+    # axis-aligned bounding box
+    intersection_area = (x_right - x_left) * (y_bottom - y_top)
+
+    # Compute the area of both AABBs
+    bb1_area = (bb1[2] - bb1[0]) * (bb1[3] - bb1[1])
+    bb2_area = (bb2[2] - bb2[0]) * (bb2[3] - bb2[1])
+
+    # Compute the intersection over union by taking the intersection
+    # area and dividing it by the sum of prediction + ground-truth
+    # areas - the intersection area.
+    iou = intersection_area / float(bb1_area + bb2_area - intersection_area)
+    assert iou >= 0.0, 'Illegal IOU < 0'
+    assert iou <= 1.0, 'Illegal IOU > 1'
+    return iou
+
+
 def non_max_suppression(prediction,
                         conf_thres=0.25,
                         iou_thres=0.45,
