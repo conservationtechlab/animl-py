@@ -3,6 +3,7 @@ Forked from
 https://github.com/agentmorris/MegaDetector/blob/main/megadetector/postprocessing/repeat_detection_elimination/repeat_detections_core.py
 
 """
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 import copy
 from pathlib import Path
@@ -49,38 +50,6 @@ class RepeatDetectionOptions:
         self.includeFolders = None
         #: Exclude specific folders, mutually exclusive with [includeFolders]
         self.excludeFolders = None
-
-        #: Should we write the folder of images used to manually review repeat detections?
-        self.saveImages = True
-
-        #: Optionally show *other* detections (i.e., detections other than the
-        #: one the user is evaluating), typically in a light gray.
-        self.bRenderOtherDetections = False
-        self.otherDetectionsColors = [(105,105,105,100)]
-
-
-class RepeatDetectionResults:
-    """
-    The results of an entire repeat detection analysis
-    """
-    def __init__(self):
-        # original manifest, with an additional column for the original index in the manifest
-        self.manifest = None
-
-        #: An array of length nDirs, where each element is a list of DetectionLocation
-        #: objects for that directory that have been flagged as suspicious
-        self.suspicious_detections = None
-
-        #: A mapping from directory index to directory name, where the directory index 
-        #: is the index of the directory in the suspicious_detections array
-        self.dir_index_to_name = None
-
-        #: The data table after modification
-        self.manifest_filtered = None
-
-        #: The location of the .json file written with information about the RDE
-        #: review images (typically detectionIndex.json)
-        self.filterFile = None
 
 
 class IndexedDetection:
@@ -281,54 +250,33 @@ def _find_matches_in_directory(dir_name_and_rows, options):
     return candidate_detections
 
 
-def _render_sample_image_for_detection(detection, filtering_dir):
-    """
-    Render a sample image for one unique detection, possibly containing lightly-colored
-    high-confidence detections from elsewhere in the sample image.
-
-    "detections" is a DetectionLocation object.
-
-    Depends on having already sorted instances within this detection by confidence, and
-    having already generated an output file name for this sample image.
-    """
-    # get original filepath and output path
-    output_relative_path = detection.sampleImageOutputPath
-    assert len(output_relative_path) > 0
-    output_full_path = os.path.join(filtering_dir, output_relative_path)
-
-    im = plot_box(detection.sampleImageDetections, return_img=True)
-    cv2.imwrite(output_full_path, im)
-
-
-
 def find_repeat_detections(manifest, 
-                           options=RepeatDetectionOptions()):
+                           options=RepeatDetectionOptions(),
+                           output_dir=None,
+                           parallel=False):
     """
     Find detections in a MD results file that occur repeatedly and are likely to be
     rocks/sticks.
 
     Args:
-        input_filename (str): the MD results .json file to analyze
-        out_file (str, optional): the filename to which we should write results
-            with repeat detections removed, typically set to None during the first
-            part of the RDE process.
+        manifest (pd.DataFrame): the MD results .json file to analyze
         options (RepeatDetectionOptions, optional): all the interesting options controlling
             this process; see RepeatDetectionOptions for details.
+        save_images_for_review (bool, optional): whether to save images for manual review
+        parallel (bool, optional): whether to run the process in parallel across directories
 
     Returns:
-        RepeatDetectionResults: results of the RDE process; see RepeatDetectionResults
-        for details.
+        filtered_manifest (pd.DataFrame): a copy of the input manifest with false positives removed
+        filterFile (str): path to a .json file containing the suspicious detections
     """
-    manifest.reset_index(drop=True)
+    # save index as column to be able to remove false positives from manifest_filtered later
+    manifest = manifest.copy()
+    manifest.reset_index(drop=True, inplace=True)
     manifest['original_index'] = manifest.index
 
     # manifest must have station columm
     assert 'station' in manifest.columns, 'Manifest must have station column'
     manifest_by_stations = manifest.groupby('station')
-
-    # setup return struct
-    to_return = RepeatDetectionResults()
-    to_return.manifest = manifest
 
     dirs_to_search = list(manifest_by_stations.groups.keys())
     num_dirs = len(dirs_to_search)
@@ -347,29 +295,48 @@ def find_repeat_detections(manifest,
                  suspicious_detections_this_dir.append(candidate_location)
 
         return suspicious_detections_this_dir
+    
+    # parallel processing of directories
+    if parallel:
+        def _process_directory(args):
+            i_dir, dir_name, manifest_by_stations, options = args
+            rows_this_directory = manifest_by_stations.get_group(dir_name)
+            candidate_detections_this_dir = _find_matches_in_directory((dir_name, rows_this_directory), options)
+            suspicious = sorted(mark_suspicious(candidate_detections_this_dir),
+                                key=lambda x: (x.bbox[0]) + (x.bbox[2] / 2.0))
+            return i_dir, dir_name, candidate_detections_this_dir, suspicious
 
-    # get all candidate detections for each directory
-    for i_dir, dir_name in tqdm(enumerate(dirs_to_search)):
-        dir_index_to_name[i_dir] = dir_name
-        rows_this_directory = manifest_by_stations.get_group(dir_name)
-        print(f'Processing dir {i_dir} of {len(dirs_to_search)}: {dir_name}')
-        candidate_detections_this_dir = _find_matches_in_directory((dir_name, rows_this_directory), options)
-        all_candidate_detections[i_dir] = candidate_detections_this_dir
-        # mark suspicious detections
-        suspicious_detections[i_dir] = sorted(mark_suspicious(candidate_detections_this_dir),
-                                              key=lambda x: ((x.bbox[0]) + (x.bbox[2]/2.0) ))
-        print(f'Found {len(suspicious_detections[i_dir])} suspicious detections in station {dirs_to_search[i_dir]}')
+        args_list = [(i_dir, dir_name, manifest_by_stations, options)
+                     for i_dir, dir_name in enumerate(dirs_to_search)]
 
-    to_return.suspicious_detections = suspicious_detections
-    to_return.dir_index_to_name = dir_index_to_name
+        with ProcessPoolExecutor() as executor:
+            futures = {executor.submit(_process_directory, args): args[0] for args in args_list}
+            for future in tqdm(as_completed(futures), total=len(dirs_to_search)):
+                i_dir, dir_name, candidate_detections_this_dir, suspicious = future.result()
+                dir_index_to_name[i_dir] = dir_name
+                all_candidate_detections[i_dir] = candidate_detections_this_dir
+                suspicious_detections[i_dir] = suspicious
+                print(f'Found {len(suspicious_detections[i_dir])} suspicious detections in station {dir_name}')
+    
+    # sequential
+    else:
+        # get all candidate detections for each directory
+        for i_dir, dir_name in tqdm(enumerate(dirs_to_search)):
+            dir_index_to_name[i_dir] = dir_name
+            rows_this_directory = manifest_by_stations.get_group(dir_name)
+            candidate_detections_this_dir = _find_matches_in_directory((dir_name, rows_this_directory), options)
+            all_candidate_detections[i_dir] = candidate_detections_this_dir
+            # mark suspicious detections
+            suspicious_detections[i_dir] = sorted(mark_suspicious(candidate_detections_this_dir),
+                                                key=lambda x: ((x.bbox[0]) + (x.bbox[2]/2.0) ))
+            print(f'Found {len(suspicious_detections[i_dir])} suspicious detections in station {dirs_to_search[i_dir]}')
 
     ##%% Save images for manual review
-    if options.saveImages:
-        filtering_dir = os.path.join(options.outputBase, 'filtering')
+    if output_dir is not None and output_dir != '':
+        # output directory for images to review
+        filtering_dir = Path(output_dir) / 'filtering'
         print(f'Creating filtering folder: {filtering_dir}/')
         os.makedirs(filtering_dir, exist_ok=True)
-
-        all_suspicious_detections = []
         
         for i_dir, suspicious_detections_this_dir in enumerate(tqdm(suspicious_detections)):
             for i_detection, detection in enumerate(suspicious_detections_this_dir):
@@ -378,34 +345,31 @@ def find_repeat_detections(manifest,
 
                 # Choose the highest-confidence index
                 instance = detection.instances[0]
-                relative_path = instance.filename
+                filepath = instance.filepath
+                # get all detections for that image
+                all_detections = manifest[manifest['filepath'] == filepath]
+                # mark all detections as non-suspicious by default
+                all_detections['category'] = 0 
+                # mark the suspicious detection as category 0
+                all_detections.loc[instance.original_id, 'category'] = 1
 
                 # output path to save image with bbox
-                detection.sampleImageOutputPath = 'dir{:0>4d}_det{:0>4d}_n{:0>4d}.jpg'.format(
+                output_filename = 'dir{:0>4d}_det{:0>4d}_n{:0>4d}.jpg'.format(
                     i_dir, i_detection, len(detection.instances))
+                output_path = filtering_dir / output_filename
 
-                # get all detections for that image
-                print(manifest[manifest['filepath'] == relative_path])
-                detection.sampleImageDetections = manifest[manifest['filepath'] == relative_path]
+                im = plot_box(all_detections, colors={"0": (192, 192, 192), "1": (255, 0, 0)}, return_img=True)
+                cv2.imwrite(output_path, im)
 
-                all_suspicious_detections.append(detection)
-
-        # Serial loop over detections
-        for detection in all_suspicious_detections:
-            _render_sample_image_for_detection(detection, filtering_dir, options)
-            # Clear the sample image detections to save memory, since we won't need them anymore
-            detection.sampleImageDetections = None                                
-
-    # Write out the detection index
-    detection_index_file_name = os.path.join(filtering_dir, 'detectionIndex.json')
-    # Prepare the data we're going to write to the detection index file
-    detection_info = {}
-    detection_info['suspicious_detections'] = suspicious_detections
-    detection_info['dir_index_to_name'] = dir_index_to_name
-    detection_info['options'] = options
-    with open(detection_index_file_name, 'w') as f:
-        json.dump(detection_info, f)
-    to_return.filterFile = detection_index_file_name
+        # Write out the detection index
+        detection_index_file_name = filtering_dir / 'detectionIndex.json'
+        # Prepare the data we're going to write to the detection index file
+        detection_info = {}
+        detection_info['suspicious_detections'] = suspicious_detections
+        detection_info['dir_index_to_name'] = dir_index_to_name
+        detection_info['options'] = options
+        with open(detection_index_file_name, 'w') as f:
+            json.dump(detection_info, f)
 
     # remove false positives from manifest_filtered
     manifest_filtered = copy.deepcopy(manifest)
@@ -414,6 +378,6 @@ def find_repeat_detections(manifest,
         for detection_location in directory:
             false_positives = false_positives.union(set(match.original_id for match in detection_location.instances))
 
-    to_return.manifest_filtered = manifest_filtered[~manifest_filtered['original_index'].isin(false_positives)].reset_index(drop=True)
+    manifest_filtered = manifest_filtered[~manifest_filtered['original_index'].isin(false_positives)].reset_index(drop=True)
 
-    return to_return
+    return manifest_filtered
