@@ -18,7 +18,6 @@ from animl.file_management import IMAGE_EXTENSIONS
 from animl.video_processing import get_frame_as_image
 
 
-
 MD_COLORS = {"1": (0, 255, 0), "2": (0, 0, 255),  "3": (255, 0, 0)}
 MD_LABELS = {"1": "animal", "2": "human",  "3": "vehicle"}
 
@@ -92,7 +91,7 @@ def plot_box(rows,
             continue
 
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
-        xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
+        xyxy = general._xywh_to_absxyxy(bbox, width, height)
 
         color = colors[str(int(row['category']))]
         thick = int((height + width) // 900)

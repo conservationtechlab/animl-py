@@ -19,7 +19,7 @@ from ultralytics import YOLO
 from animl import file_management
 from animl.model_architecture import MEGADETECTORv5_SIZE
 from animl.generator import manifest_dataloader, image_to_tensor
-from animl.utils.general import (normalize_boxes, xyxy2xywh, scale_letterbox,
+from animl.utils.general import (normalize_bbox, _xyxy_to_xywh, scale_letterbox,
                                  non_max_suppression, get_torch_device, get_onnx_device)
 
 
@@ -287,8 +287,8 @@ def convert_onnx_detections(predictions: list,
         else:
             detections = []
             for j in range(len(conf)):
-                bbox = normalize_boxes(boxes[j], image_tensors[i].shape[1:])
-                bbox = xyxy2xywh(bbox)
+                bbox = normalize_bbox(boxes[j], image_tensors[i].shape[1:])
+                bbox = _xyxy_to_xywh(bbox)
                 if bbox.all() == 0:
                     continue
 
@@ -380,11 +380,11 @@ def convert_yolo_detections(predictions: list,
             for j in range(len(conf)):
                 # YOLOv5/MDv5
                 if model_type.lower() in {'mdv5', 'yolov5'}:  # xyxy absolute
-                    bbox = normalize_boxes(boxes[j], image_tensors[i].shape[1:])
-                    bbox = xyxy2xywh(bbox)
+                    bbox = normalize_bbox(boxes[j], image_tensors[i].shape[1:])
+                    bbox = _xyxy_to_xywh(bbox)
                 # YOLOv6+
                 elif model_type.lower() in {'yolo', "mdv6", "mdv1000"}:  # xyxy relative
-                    bbox = xyxy2xywh(boxes[j])
+                    bbox = _xyxy_to_xywh(boxes[j])
                 else:
                     print(f"Please chose a supported model. Version {model_type} is not supported.")
                     return None
