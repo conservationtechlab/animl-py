@@ -436,7 +436,8 @@ def sequence_classification(animals: pd.DataFrame,
     else:
         empty_col = None
 
-    if empty is not None or not empty.empty:
+    # prepare empty dataframe for concat
+    if empty is not None and not empty.empty:
         empty["ID"] = range(0, empty.shape[0])
         predempty = empty.pivot(index="ID", columns="prediction", values="confidence")
         # Replace NaN with 0
@@ -464,6 +465,13 @@ def sequence_classification(animals: pd.DataFrame,
                                  np.zeros((predictions_raw.shape[0], len(predempty.columns) - predictions_raw.shape[1]))))
         # concat
         predictions = np.vstack((predictions, np.array(predempty)))
+
+    # if no empty class, just use animal predictions
+    else:
+        animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
+        animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
+        animals_merged = animals
+        predictions = predictions_raw
 
     if sort_columns is None:
         sort_columns = [station_col, "datetime"]
