@@ -26,6 +26,8 @@ def build_file_manifest(image_dir: str,
                         exif: bool = True,
                         out_file: Optional[str] = None,
                         offset: int = 0,
+                        station_depth: Optional[int] = None,
+                        camera_depth: Optional[int] = None,
                         recursive: bool = True):
     """
     Find Image/Video Files and Gather exif Data.
@@ -35,6 +37,12 @@ def build_file_manifest(image_dir: str,
         exif (bool): returns date and time info from exif data, defaults to True
         out_file (str): file path to which the dataframe should be saved
         offset (int): add timezone offset in hours to datetime column
+        station_depth (int): depth of station directory from the image_dir root in file path, if applicable. 
+                             For example, if file paths are in the format "image_dir/station/date/file.jpg", 
+                             station_depth would be 1 (0 indexed). If None, station column will not be created.
+        camera_depth (int): depth of camera directory from the image_dir root in file path, if applicable.
+                            For example, if file paths are in the format "image_dir/station/camera/date/file.jpg",
+                            camera_depth would be 2 (0 indexed). If None, camera column will not be created.
         recursive (bool): recursively search through all child directories
 
     Returns:
@@ -58,6 +66,22 @@ def build_file_manifest(image_dir: str,
     files = pd.DataFrame(files, columns=["filepath"])
     files["filename"] = files["filepath"].apply(lambda x: Path(x).name)
     files["extension"] = files["filepath"].apply(lambda x: Path(x).suffix.lower())
+
+    if station_depth is not None:
+        assert station_depth >= 0, "station_depth must be a non-negative integer"
+        if recursive is False and station_depth >= 1:
+            raise ValueError("station_depth must be less than 1 if recursive is False")
+        root_depth = len(Path(image_dir).parts)
+        station_depth = root_depth + int(station_depth) 
+        files["station"] = files["filepath"].apply(lambda x: Path(x).parts[station_depth] if len(Path(x).parts) > station_depth else None)
+
+    if camera_depth is not None:
+        assert camera_depth >= 0, "camera_depth must be a non-negative integer"
+        if recursive is False and camera_depth >= 1:
+            raise ValueError("camera_depth must be less than 1 if recursive is False")
+        root_depth = len(Path(image_dir).parts)
+        camera_depth = root_depth + int(camera_depth) 
+        files["camera"] = files["filepath"].apply(lambda x: Path(x).parts[camera_depth] if len(Path(x).parts) > camera_depth else None)
 
     invalid = []
 
