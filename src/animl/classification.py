@@ -275,6 +275,8 @@ def classify(model,
         return file_management.load_data(out_file).to_numpy()
 
     # input checks
+    if resize_width <= 0 or resize_height <= 0:
+        raise ValueError("resize_width and resize_height must be positive integers")
     if num_workers <= 0:
         raise ValueError("num_workers must be a positive integer")
     if batch_size <= 0:
@@ -289,12 +291,13 @@ def classify(model,
 
     # initialize lists
     raw_output = []
+    failed_files = []
 
     # Manifest
     if isinstance(detections, pd.DataFrame):
         if detections.empty:
             print("No detections to classify.")
-            return np.array([])
+            return np.array(raw_output), failed_files
 
         if file_col not in detections.columns:
             raise ValueError(f"file_col {file_col} not found in manifest columns")
@@ -323,8 +326,6 @@ def classify(model,
 
     # Predict
     start_time = time()
-    failed_files = []
-
     with torch.no_grad():
         for _, batch in tqdm(enumerate(dataset), total=len(dataset)):
             collated, failed = batch
