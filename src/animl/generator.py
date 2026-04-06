@@ -139,6 +139,8 @@ class ManifestGenerator(Dataset):
         if self.file_col not in self.x.columns:
             raise ValueError(f"file_col '{self.file_col}' not found in dataframe columns")
         self.crop = crop
+        if not isinstance(self.crop, bool):
+            raise TypeError("crop must be a boolean value")
         if self.crop and not {'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(self.x.columns):
             raise ValueError("No bbox columns found for cropping")
         self.crop_coord = crop_coord
@@ -151,7 +153,11 @@ class ManifestGenerator(Dataset):
         self.resize_width = resize_width
         self.buffer = 0
         self.normalize = normalize
+        if not isinstance(self.normalize, bool):
+            raise TypeError("normalize must be a boolean value")
         self.letterbox = letterbox
+        if not isinstance(self.letterbox, bool):
+            raise TypeError("letterbox must be a boolean value")
 
         # letterbox and resize
         if self.letterbox:
@@ -188,18 +194,18 @@ class ManifestGenerator(Dataset):
             if ext in VIDEO_EXTENSIONS:
                 img = self.extract_frames(idx, filepath)
                 if img is None:
-                    return None
+                    return None, str(filepath), int(frame), None
 
             elif ext in IMAGE_EXTENSIONS:
                 try:
                     img = Image.open(filepath).convert('RGB')
                 except OSError:
                     print(f"Image {filepath} cannot be opened. Skipping.")
-                    return None
+                    return None, str(filepath), int(frame), None
 
             else:
                 print(f"File {filepath} is not a video or image. Skipping.")
-                return None
+                return None, str(filepath), int(frame), None
 
             width, height = img.size
 
@@ -246,10 +252,10 @@ class ManifestGenerator(Dataset):
                 img_tensor = img_tensor * 255
 
             return img_tensor, str(filepath), int(frame), torch.tensor((height, width))
-        
+
         except Exception as e:
             print(f"Error processing file {filepath}. Exception: {e}")
-            return None
+            return None, str(filepath), int(frame), None
 
     def extract_frames(self, idx, filepath):
         frame = self.x.loc[idx, 'frame']
@@ -369,7 +375,7 @@ class TrainGenerator(Dataset):
                     img = Image.open(image_name).convert('RGB')
                 except OSError:
                     print(f"Image {image_name} cannot be opened. Skipping.")
-                    return None
+                    return None, label, str(image_name)
 
                 if self.crop:
                     width, height = img.size
@@ -411,7 +417,7 @@ class TrainGenerator(Dataset):
 
         except Exception as e:
             print(f"Error processing file {image_name}. Exception: {e}")
-            return None
+            return None, label, str(image_name)
 
 
 def train_dataloader(manifest: pd.DataFrame,
@@ -497,9 +503,6 @@ def manifest_dataloader(manifest: pd.DataFrame,
     Returns:
         dataloader object
     '''
-    if crop is True and not any(manifest.columns.isin(["bbox_x"])):
-        crop = False
-
     dataset_instance = ManifestGenerator(manifest, file_col=file_col, crop=crop,
                                          crop_coord=crop_coord, normalize=normalize, letterbox=letterbox,
                                          resize_width=resize_width, resize_height=resize_height, transform=transform)
@@ -516,8 +519,11 @@ def manifest_dataloader(manifest: pd.DataFrame,
 
 
 def collate_fn(batch):
-    # Filter out None entries (failed image loads)
-    batch = list(filter(lambda x: x is not None, batch))
-    if len(batch) == 0:  # entire batch was bad
-        return None
-    return torch.utils.data.dataloader.default_collate(batch)
+    good = [x for x in batch if x[0] is not None]
+    failed = [x[1] for x in batch if x[0] is None]  # just the filepath strings
+
+    if len(good) == 0:
+        return None, failed
+
+    collated = torch.utils.data.dataloader.default_collate(good)
+    return collated, failed
