@@ -6,7 +6,7 @@ parse_detections() converts json output into a dataframe
 
 """
 import argparse
-from typing import Optional
+from typing import Optional, Union
 import time
 import numpy as np
 import pandas as pd
@@ -214,15 +214,21 @@ def detect(detector,
                                      resize_height=resize_height)
 
     start_time = time.time()
+    failed_files = []
+
     for _, batch_from_dataloader in tqdm(enumerate(dataloader), total=len(dataloader)):
-        if batch_from_dataloader is None:  # entire batch was bad
+        collated, failed = batch_from_dataloader
+        failed_files.extend(failed)
+
+        if collated is None:  # entire batch was bad
             continue
         count += 1
 
-        batch_tensors = batch_from_dataloader[0]  # Tensor of images for the current batch
-        batch_paths = batch_from_dataloader[1]  # List of image names for the current batch
-        batch_frames = batch_from_dataloader[2]  # List of frame numbers for the current batch
-        batch_sizes = batch_from_dataloader[3]  # List of original image sizes for the current batch
+        batch_tensors = collated[0]  # Tensor of images for the current batch
+        batch_paths = collated[1]  # List of image names for the current batch
+        batch_frames = collated[2]  # List of frame numbers for the current batch
+        batch_sizes = collated[3]  # List of original image sizes for the current batch
+
 
         # Run inference on the current batch of image_tensors
         if detector.model_type == "yolov5":
@@ -255,11 +261,12 @@ def detect(detector,
             print('Writing a new checkpoint after having processed {} images since last restart'.format(count*batch_size))
             file_management.save_detection_checkpoint(checkpoint_path, results)
 
+
     print(f"\nFinished detection. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
     if checkpoint_path:
         file_management.save_detection_checkpoint(checkpoint_path, results)
 
-    return results
+    return results, failed_files
 
 
 def convert_onnx_detections(predictions: list,
@@ -409,7 +416,7 @@ def convert_yolo_detections(predictions: list,
     return results
 
 
-def parse_detections(results: list,
+def parse_detections(results: Union[list, tuple],
                      manifest: Optional[pd.DataFrame] = None,
                      out_file: Optional[str] = None,
                      threshold: float = 0,
@@ -418,7 +425,7 @@ def parse_detections(results: list,
     Converts listed output from detector to DataFrame.
 
     Args:
-        results (list): md output dicts
+        results (Union[list, tuple]): md output dicts or tuple of (md output dicts, failed files)
         manifest (pd.DataFrame): full file manifest, if not None, merge md predictions automatically
         out_file (str): path to save dataframe
         threshold (float): parse only detections above given confidence threshold
@@ -427,6 +434,15 @@ def parse_detections(results: list,
     Returns:
         df (pd.DataFrame): formatted md outputs, one row per detection
     """
+
+    # unpack results
+    if isinstance(results, tuple):
+        results = results[0]
+        failed_files = results[1]
+        print(f"Warning: {len(failed_files)} files failed to load during detection and will be excluded from results.")
+    else:
+        failed_files = None
+
     # load checkpoint
     if file_management.check_file(out_file, output_type="Detections"):  # checkpoint comes back empty
         df = file_management.load_data(out_file)
@@ -514,7 +530,8 @@ if __name__ == '__main__':
     detector = load_detector(args.detector, args.model_type, device=args.device)
     manifest = file_management.load_data(args.manifest)
 
-    mdresults = detect(detector, manifest, args.resize_width, args.resize_height, args.letterbox,
-                       confidence_threshold=args.confidence_threshold, file_col=args.file_col,
-                       batch_size=args.batch_size, num_workers=args.num_workers, device=args.device)
+    mdresults, failed_files = detect(detector, manifest, args.resize_width, args.resize_height,
+                                     args.letterbox, confidence_threshold=args.confidence_threshold,
+                                     file_col=args.file_col, batch_size=args.batch_size,
+                                     num_workers=args.num_workers, device=args.device)
     results = parse_detections(mdresults, manifest=manifest, out_file=args.output_path)
