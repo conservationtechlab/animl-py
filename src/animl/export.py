@@ -15,7 +15,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from animl import file_management, __version__
-from animl.utils.general import convert_minxywh_to_absxyxy
+from animl.utils.general import _xywh_to_absxyxy
 
 
 def export_folders(manifest: pd.DataFrame,
@@ -213,7 +213,7 @@ def export_coco(manifest: pd.DataFrame,
         # skip annotation if bbox is NaN
         if pd.isna(bbox).any():
             continue
-        bbox = convert_minxywh_to_absxyxy(bbox, width, height)
+        bbox = _xywh_to_absxyxy(bbox, width, height)
         area = bbox[2] * bbox[3]
 
         # get category id
