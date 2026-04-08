@@ -216,6 +216,7 @@ def export_coco(manifest: pd.DataFrame,
         if pd.isna(bbox).any():
             continue
         bbox = _xywh_to_absxyxy(bbox, width, height)
+        bbox = _xywh_to_absxyxy(bbox, width, height)
         area = bbox[2] * bbox[3]
 
         # get category id

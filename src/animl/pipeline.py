@@ -87,10 +87,9 @@ def from_paths(image_dir: str,
 
     # Use the classifier model to predict the species of animal detections
     print("Predicting species of animal detections...")
-
     classifier, class_list = classification.load_classifier(classifier_file, classlist_file, device=None)
 
-    predictions_raw = classification.classify(classifier,
+    predictions_output = classification.classify(classifier,
                                               animals,
                                               device=None,
                                               resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
@@ -100,7 +99,8 @@ def from_paths(image_dir: str,
                                               out_file=working_dir.predictions)
     if sequence:
         print("Classifying sequences...")
-        manifest = classification.sequence_classification(animals, empty, predictions_raw,
+        manifest = classification.sequence_classification(animals, empty, 
+                                                          predictions_output,
                                                           class_list[class_label],
                                                           station_col='station',
                                                           empty_class="",
@@ -109,7 +109,7 @@ def from_paths(image_dir: str,
     else:
         print("Classifying individual frames...")
         manifest = classification.single_classification(animals, empty, 
-                                                        predictions_raw, 
+                                                        predictions_output, 
                                                         class_list[class_label],
                                                         best=True)
 
