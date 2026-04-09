@@ -459,14 +459,10 @@ def train_dataloader(manifest: pd.DataFrame,
                                       resize_height=resize_height, resize_width=resize_width,
                                       augment=augment, cache_dir=cache_dir)
 
-    device = get_torch_device(quiet=True)
-    pin_memory = False if device == 'cpu' else True
-
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
                             num_workers=num_workers,
                             shuffle=True,
-                            pin_memory=pin_memory,
                             collate_fn=collate_fn)
     return dataLoader
 
@@ -506,14 +502,11 @@ def manifest_dataloader(manifest: pd.DataFrame,
     dataset_instance = ManifestGenerator(manifest, file_col=file_col, crop=crop,
                                          crop_coord=crop_coord, normalize=normalize, letterbox=letterbox,
                                          resize_width=resize_width, resize_height=resize_height, transform=transform)
-    # set pin_memory based on device
-    device = get_torch_device(quiet=True)
-    pin_memory = False if device == 'cpu' else True
+
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
                             num_workers=num_workers,
                             shuffle=False,
-                            pin_memory=pin_memory,
                             collate_fn=collate_fn)
     return dataLoader
 
