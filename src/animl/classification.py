@@ -263,14 +263,12 @@ def classify(model,
         batch_size (int): data generator batch size
         num_workers (int): number of cores
         device (str): specify to run model on cpu or gpu, default to cpu
-        out_file (str): path to save prediction results to
+        out_file (Optional[str]): path to save prediction results to
 
     Returns:
         predictions (np.array): array of softmaxed logits for each class for each image
     """
     # load from file if out_file provided and exists
-    if out_file is not None and not isinstance(out_file, str):
-        raise ValueError("out_file must be a string or None")
     if file_management.check_file(out_file, output_type="Classification results"):
         return file_management.load_data(out_file).to_numpy()
 
