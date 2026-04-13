@@ -388,6 +388,7 @@ def sequence_calculation(manifest,
                          station_col: str,
                          sort_columns: list[str] = None,
                          file_col: str = "filepath",
+                         timestamp_col: str = "datetime",
                          maxdiff: int = 60):
     """
     Simple sequence calculation based on time differences between consecutive images from the same station.
@@ -396,8 +397,10 @@ def sequence_calculation(manifest,
     Args:
         - manifest (pd.DataFrame): DataFrame containing image file information, including 'filepath' and 'datetime' columns
         - station_col (str): column name in the DataFrame representing the station or camera
-        - sort_columns (list[str]): list of columns to sort by before calculating sequences. Defaults to None, which sorts by station_col and 'datetime'.
+        - sort_columns (list[str]): list of columns to sort by before calculating sequences. 
+                                    Defaults to None, which sorts by station_col and timestamp_col.
         - file_col (str): column name representing the file path. Defaults to "filepath".
+        - timestamp_col (str): column name representing the timestamp in format "%Y-%m-%d %H:%M:%S". Defaults to "datetime".
         - maxdiff (int): maximum time difference in seconds between consecutive images to be considered part of the same sequence. Defaults to 60.
     """
     if not isinstance(station_col, str) or station_col == '':
@@ -410,17 +413,20 @@ def sequence_calculation(manifest,
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
-    if not {"datetime"}.issubset(manifest.columns):
-        raise ValueError("DataFrame must contain 'datetime' column.")
+    if not {timestamp_col}.issubset(manifest.columns):
+        raise ValueError(f"DataFrame must contain '{timestamp_col}' column.")
 
     if sort_columns is None:
-        sort_columns = [station_col, "datetime"]
+        sort_columns = [station_col, timestamp_col]
 
-    manifest['datetime'] = pd.to_datetime(manifest['datetime'], format="%Y-%m-%d %H:%M:%S")
+    # convert timestamp column to datetime if it's not already
+    manifest[timestamp_col] = pd.to_datetime(manifest[timestamp_col], format="%Y-%m-%d %H:%M:%S")
 
+    # sort by station and timestamp to ensure correct sequence calculation
     sort = manifest.sort_values(by=sort_columns).index
     manifest_sort = manifest.loc[sort].reset_index(drop=True)
 
+    # Initialize sequence placeholder with zeros
     sequence_placeholder = np.zeros(len(manifest_sort))
 
     i = 0
@@ -429,10 +435,10 @@ def sequence_calculation(manifest,
         rows = [i]
         last_index = i+1
 
-        while (last_index < len(manifest_sort) and not pd.isna(manifest_sort.loc[i, "datetime"]) and
-               not pd.isna(manifest_sort.loc[last_index, "datetime"]) and
+        while (last_index < len(manifest_sort) and not pd.isna(manifest_sort.loc[i, timestamp_col]) and
+               not pd.isna(manifest_sort.loc[last_index, timestamp_col]) and
                manifest_sort.loc[last_index, station_col] == manifest_sort.loc[i, station_col] and
-               (manifest_sort.loc[last_index, "datetime"] - manifest_sort.loc[i, "datetime"]).total_seconds() <= maxdiff):
+               (manifest_sort.loc[last_index, timestamp_col] - manifest_sort.loc[i, timestamp_col]).total_seconds() <= maxdiff):
             rows.append(last_index)
             last_index += 1
 
