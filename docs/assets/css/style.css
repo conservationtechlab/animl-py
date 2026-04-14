@@ -19,7 +19,6 @@ header {
 }
 
 .container {
-    max-width: 100%;
     padding: 0 2rem;
 }
 
@@ -32,6 +31,26 @@ header h1 {
 header p {
     font-size: 1.2rem;
     opacity: 0.95;
+}
+
+
+
+
+
+
+/* Layout: sidebar left, main content right */
+.layout {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.page-content {
+    flex: 1;
+    min-width: 0;
+    padding: 2rem;
+    overflow: auto;
 }
 
 /** Sidebar */
@@ -86,20 +105,7 @@ header p {
     margin-top: 0.3em;
 }
 
-/* Layout: sidebar left, main content right */
-.layout {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    width: 100%;
-}
 
-.page-content {
-    flex: 1;
-    min-width: 0;
-    padding: 2rem;
-    overflow: auto;
-}
 
 /* Navigation Menu */
 .main-nav {
