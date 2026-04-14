@@ -35,21 +35,62 @@ header p {
     opacity: 0.95;
 }
 
-
 /** Sidebar */
 .sidebar {
-      width: 220px; background: #81a87c; color: #333;
-      padding: 2em 1em 1em 1em; box-sizing: border-box;
-      position: sticky; top: 0; min-height: 100vh;
-    }
+    width: 220px; background: #81a87c; color: #333;
+    padding: 2em 1em 1em 1em; box-sizing: border-box;
+    position: sticky; top: 0; min-height: 100vh;
+}
 .sidebar h2 { font-size: 1.2em; margin-bottom: 1em; }
 .sidebar nav a {
-  display: block; color: #333; text-decoration: none;
-  margin-bottom: 0.7em; padding: 0.3em 0.7em; border-radius: 4px;
-  transition: background 0.2s;
+    display: block; color: #333; text-decoration: none;
+    margin-bottom: 0.7em; padding: 0.3em 0.7em; border-radius: 4px;
+    transition: background 0.2s;
 }
 .sidebar nav a:hover { background: #6CB33F; }
 
+/* Collapsible sidebar nav */
+.sidebar details {
+    margin-bottom: 0.7em;
+}
+.sidebar summary {
+    cursor: pointer;
+    padding: 0.3em 0.7em;
+    border-radius: 4px;
+    font-weight: 600;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+    color: #333;
+}
+.sidebar summary::-webkit-details-marker { display: none; }
+.sidebar summary:hover { background: #6CB33F; }
+.sidebar summary::after {
+    content: '\25B8';
+    transition: transform 0.2s;
+    font-size: 0.8em;
+}
+.sidebar details[open] > summary::after {
+    transform: rotate(90deg);
+}
+.sidebar details nav {
+    padding-left: 1em;
+    margin-top: 0.3em;
+}
+
+/* Layout: sidebar left, main content right */
+.layout {
+    display: flex;
+    align-items: flex-start;
+}
+
+.page-content {
+    flex: 1;
+    padding: 2rem;
+    min-width: 0;
+}
 
 /* Navigation Menu */
 .main-nav {
@@ -95,7 +136,7 @@ header p {
 
 .hero {
     background: white;
-    padding: 3rem 0;
+    padding: 3rem 2rem;
     margin-bottom: 2rem;
 }
 
@@ -145,14 +186,14 @@ header p {
     font-size: 0.85rem;
 }
 
-.topics {
+topics {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
     margin-top: 0.5rem;
 }
 
-.topic-tag {
+topic-tag {
     background: #f0f0f0;
     color: #555;
     padding: 0.2rem 0.6rem;
@@ -229,5 +270,24 @@ footer a:hover {
     .opportunities-grid {
         grid-template-columns: 1fr;
     }
-}
 
+    .layout {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        min-height: unset;
+        position: static;
+    }
+
+    /* Additional mobile styles */
+    .layout {
+        flex-direction: column;
+    }
+    .sidebar {
+        width: 100%;
+        min-height: unset;
+        position: static;
+    }
+}
