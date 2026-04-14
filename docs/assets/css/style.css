@@ -65,16 +65,16 @@ header p {
 
 .sidebar h2 { font-size: 1.2em; margin-bottom: 1em; }
 .sidebar nav a {
-    display: block; color: #333; text-decoration: none;
-    margin-bottom: 0.7em; padding: 0.3em 0.7em; border-radius: 4px;
+    display: block;
+    color: #333;
+    text-decoration: none;
+    padding: 0.3em 0.7em;
+    border-radius: 4px;
     transition: background 0.2s;
 }
 .sidebar nav a:hover { background: #6CB33F; }
 
-/* Collapsible sidebar nav */
-.sidebar details {
-    margin-bottom: 0.7em;
-}
+
 .sidebar summary {
     cursor: pointer;
     padding: 0.3em 0.7em;
@@ -88,7 +88,7 @@ header p {
     color: #333;
 }
 .sidebar summary::-webkit-details-marker { display: none; }
-.sidebar summary:hover { background: #6CB33F; }
+.sidebar summary:hover { background: #c4dab7; }
 .sidebar summary::after {
     content: '\25B8';
     transition: transform 0.2s;
