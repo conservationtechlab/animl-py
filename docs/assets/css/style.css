@@ -19,8 +19,7 @@ header {
 }
 
 .container {
-    max-width: 1200px;
-    margin: 0 auto;
+    max-width: 100%;
     padding: 0 2rem;
 }
 
@@ -37,9 +36,16 @@ header p {
 
 /** Sidebar */
 .sidebar {
-    width: 220px; background: #81a87c; color: #333;
-    padding: 2em 1em 1em 1em; box-sizing: border-box;
-    position: sticky; top: 0; min-height: 100vh;
+    width: 220px;
+    flex-shrink: 0;
+    background: #81a87c;
+    color: #333;
+    padding: 2em 1em 1em 1em;
+    box-sizing: border-box;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    min-height: 100vh;
 }
 .sidebar h2 { font-size: 1.2em; margin-bottom: 1em; }
 .sidebar nav a {
@@ -83,13 +89,16 @@ header p {
 /* Layout: sidebar left, main content right */
 .layout {
     display: flex;
+    flex-direction: row;
     align-items: flex-start;
+    width: 100%;
 }
 
 .page-content {
     flex: 1;
-    padding: 2rem;
     min-width: 0;
+    padding: 2rem;
+    overflow: auto;
 }
 
 /* Navigation Menu */
@@ -106,7 +115,7 @@ header p {
     display: flex;
     justify-content: flex-end;
     gap: 2rem;
-    padding: 1rem 0;
+    padding: 1rem 2rem;
     margin: 0;
 }
 
@@ -136,8 +145,9 @@ header p {
 
 .hero {
     background: white;
-    padding: 3rem 2rem;
+    padding: 2rem;
     margin-bottom: 2rem;
+    border-radius: 6px;
 }
 
 .hero h2 {
@@ -184,6 +194,21 @@ header p {
     padding: 0.2rem 0.6rem;
     border-radius: 12px;
     font-size: 0.85rem;
+}
+
+.topics {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.topic-tag {
+    background: #f0f0f0;
+    color: #555;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
 }
 
 footer {
@@ -241,17 +266,17 @@ footer a:hover {
     .stats {
         gap: 2rem;
     }
-    
+
     .nav-menu {
         flex-direction: column;
         gap: 0.5rem;
         align-items: stretch;
     }
-    
+
     .nav-menu a {
         text-align: center;
     }
-    
+
     .opportunities-grid {
         grid-template-columns: 1fr;
     }
@@ -264,15 +289,6 @@ footer a:hover {
         width: 100%;
         min-height: unset;
         position: static;
-    }
-
-    /* Additional mobile styles */
-    .layout {
-        flex-direction: column;
-    }
-    .sidebar {
-        width: 100%;
-        min-height: unset;
-        position: static;
+        align-self: auto;
     }
 }
