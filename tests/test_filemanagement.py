@@ -236,9 +236,9 @@ class TestBuildFileManifest(unittest.TestCase):
             self.assertIsInstance(value, str)
             datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
 
-        local_tz = datetime.now().astimezone().tzinfo
+        system_tz = datetime.now().astimezone().tzinfo
         first_path = Path(result[result['filename'] == 'img1.jpg'].iloc[0]['filepath'])
-        expected = datetime.fromtimestamp(first_path.stat().st_mtime, tz=local_tz).astimezone(
+        expected = datetime.fromtimestamp(first_path.stat().st_mtime, tz=system_tz).astimezone(
             ZoneInfo("UTC")
         ).strftime("%Y-%m-%d %H:%M:%S")
         self.assertIn(expected, result['datetime'].tolist())
@@ -250,9 +250,9 @@ class TestBuildFileManifest(unittest.TestCase):
             self.assertIsNotNone(value)
             datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
 
-        local_tz = datetime.now().astimezone().tzinfo
+        system_tz = datetime.now().astimezone().tzinfo
         first_path = Path(result[result['filename'] == 'img1.jpg'].iloc[0]['filepath'])
-        expected = datetime.fromtimestamp(first_path.stat().st_mtime, tz=local_tz).strftime(
+        expected = datetime.fromtimestamp(first_path.stat().st_mtime, tz=system_tz).strftime(
             "%Y-%m-%d %H:%M:%S"
         )
         self.assertIn(expected, result['datetime'].tolist())
