@@ -106,8 +106,7 @@ header p {
 .page-content {
     flex: 1 1 0%;
     min-width: 0;
-    padding: 2rem;
-    overflow: auto;
+    padding: 2rem calc((100vw - 1200px) / 2 + 2rem) 2rem 2rem;
 }
 
 /* Navigation Menu */
