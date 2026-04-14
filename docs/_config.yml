@@ -2,8 +2,8 @@ title: AniML Documentation
 email: tswanson@sdzwa.org
 description: Modular toolkit for ML-assisted camera trap data processing
 domain: conservationtechlab.github.io/matchypatchy
-url: https://conservationtechlab.github.io 
-baseurl: /animl-py/ 
+url: "https://conservationtechlab.github.io"
+baseurl: "/animl-py/"
 github_username:  conservationtechlab
 
 # Build settings
