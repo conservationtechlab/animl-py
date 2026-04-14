@@ -186,21 +186,6 @@ header p {
     font-size: 0.85rem;
 }
 
-topics {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-top: 0.5rem;
-}
-
-topic-tag {
-    background: #f0f0f0;
-    color: #555;
-    padding: 0.2rem 0.6rem;
-    border-radius: 12px;
-    font-size: 0.8rem;
-}
-
 footer {
     background: #2c5f2d;
     color: white;
