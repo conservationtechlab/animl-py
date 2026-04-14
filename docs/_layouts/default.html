@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if page.title %}{{ page.title }} - {% endif %}{{ site.title }}</title>
     <meta name="description" content="{% if page.description %}{{ page.description }}{% else %}{{ site.description }}{% endif %}">
-    <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+    <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body>
     <header>
@@ -21,8 +21,8 @@
         <div class="container">
             <ul class="nav-menu">
                 <li><a href="https://conservationtechlab.github.io">CTL Home</a></li>
-                <li><a href="{{ '/' | relative_url }}" {% if page.url == '/' or page.url == '/' %}class="active"{% endif %}>About AniML (Python)</a></li>
-                <li><a href="https://conservationtechlab.github.io/animl-r" {% if page.url == '/' or page.url == '/' %}class="active"{% endif %}>About AniML (R)</a></li>
+                <li><a href="https://conservationtechlab.github.io/animl-py" {% if page.url == '/' or page.url == '/' %}class="active"{% endif %}>About AniML (Python)</a></li>
+                <li><a href="https://conservationtechlab.github.io/animl-r">About AniML (R)</a></li>
                 <li><a href="{{ '/models' | relative_url }}" {% if page.url == '/models' or page.url == '/models/' %}class="active"{% endif %}>Models</a></li>
             </ul>
         </div>
