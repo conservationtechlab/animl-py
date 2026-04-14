@@ -196,19 +196,23 @@ header p {
     font-size: 0.85rem;
 }
 
-.topics {
+/* Projects Section */
+.project-section {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
     display: flex;
-    gap: 0.5rem;
     flex-wrap: wrap;
-    margin-top: 0.5rem;
+    gap: 1.5rem;
+    align-items: flex-start;
+    margin-bottom: 2.5rem;
 }
 
-.topic-tag {
-    background: #f0f0f0;
-    color: #555;
-    padding: 0.2rem 0.6rem;
-    border-radius: 12px;
-    font-size: 0.8rem;
+.project-text {
+  flex: 1 1 50%;
+  min-width: 220px;
 }
 
 footer {
