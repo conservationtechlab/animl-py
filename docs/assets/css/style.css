@@ -46,17 +46,21 @@ header p {
 /** Sidebar */
 .sidebar {
     width: calc((100vw - 1200px) / 2 + 2rem);
-    min-width: 180px;
+    min-width: 240px;
     flex-shrink: 0;
     background: #81a87c;
     color: #333;
-    padding: 2em 1em 1em 2rem;
     box-sizing: border-box;
     position: sticky;
     top: 0;
     align-self: flex-start;
     min-height: 100vh;
 }
+
+.sidebar-inner {
+    padding: 2em 1em 1em 1em;
+}
+
 .sidebar h2 { font-size: 1.2em; margin-bottom: 1em; }
 .sidebar nav a {
     display: block; color: #333; text-decoration: none;
@@ -257,6 +261,12 @@ footer a:hover {
     font-size: 1rem;
 }
 
+@media (max-width: 1200px) {
+    .sidebar {
+        width: 180px;
+    }
+}
+
 @media (max-width: 768px) {
     .layout {
         flex-direction: column;
@@ -267,6 +277,9 @@ footer a:hover {
         min-height: unset;
         position: static;
         align-self: auto;
+    }
+
+    .sidebar-inner {
         padding: 1.5rem 2rem;
     }
 
