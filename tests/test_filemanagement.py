@@ -237,7 +237,7 @@ class TestBuildFileManifest(unittest.TestCase):
             datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
 
         local_tz = datetime.now().astimezone().tzinfo
-        first_path = Path(result.iloc[0]['filepath'])
+        first_path = Path(result[result['filename'] == 'img1.jpg'].iloc[0]['filepath'])
         expected = datetime.fromtimestamp(first_path.stat().st_mtime, tz=local_tz).astimezone(
             ZoneInfo("UTC")
         ).strftime("%Y-%m-%d %H:%M:%S")
@@ -251,7 +251,7 @@ class TestBuildFileManifest(unittest.TestCase):
             datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
 
         local_tz = datetime.now().astimezone().tzinfo
-        first_path = Path(result.iloc[0]['filepath'])
+        first_path = Path(result[result['filename'] == 'img1.jpg'].iloc[0]['filepath'])
         expected = datetime.fromtimestamp(first_path.stat().st_mtime, tz=local_tz).strftime(
             "%Y-%m-%d %H:%M:%S"
         )
@@ -272,6 +272,14 @@ class TestBuildFileManifest(unittest.TestCase):
             result = build_file_manifest(shallow_dir, exif=False, station_depth=2, recursive=True)
             shallow_row = result[result['filename'] == 'root_only.jpg'].iloc[0]
             self.assertIsNone(shallow_row['station'])
+
+    def test_camera_depth_returns_none_for_shallow_files(self):
+        with tempfile.TemporaryDirectory() as shallow_dir:
+            img = Image.fromarray(np.uint8(np.zeros((10, 10, 3))))
+            img.save(Path(shallow_dir) / 'root_only.jpg')
+            result = build_file_manifest(shallow_dir, exif=False, camera_depth=2, recursive=True)
+            shallow_row = result[result['filename'] == 'root_only.jpg'].iloc[0]
+            self.assertIsNone(shallow_row['camera'])
 
 
 class TestWorkingDirectory(unittest.TestCase):
