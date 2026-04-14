@@ -4,7 +4,7 @@ title: Home
 description: Developing open-source technology and machine learning tools for wildlife conservation and ecological research
 ---
 
-<section id="about" class="hero">
+<section id="about">
     <div class="container">
         <h2>About AniML</h2>
         <p>
