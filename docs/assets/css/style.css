@@ -35,13 +35,6 @@ header p {
     opacity: 0.95;
 }
 
-/* Layout wrapper: mirrors .container to align sidebar with header text */
-.layout-wrapper {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0;
-}
-
 /* Layout: sidebar left, main content right */
 .layout {
     display: flex;
@@ -52,7 +45,8 @@ header p {
 
 /** Sidebar */
 .sidebar {
-    width: 240px;
+    width: calc((100vw - 1200px) / 2 + 2rem);
+    min-width: 180px;
     flex-shrink: 0;
     background: #81a87c;
     color: #333;
