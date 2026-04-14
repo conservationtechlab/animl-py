@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 import PIL
 import cv2
-#import exiftool
+import exiftool
 from typing import Optional
 
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', ".tiff", '.tif"'}
@@ -73,7 +73,7 @@ def build_file_manifest(image_dir: str,
         if recursive is False and station_depth >= 1:
             raise ValueError("station_depth must be less than 1 if recursive is False")
         root_depth = len(Path(image_dir).parts) - 1
-        station_depth = root_depth + int(station_depth) 
+        station_depth = root_depth + int(station_depth)
         files["station"] = files["filepath"].apply(lambda x: Path(x).parts[station_depth] if len(Path(x).parts) > station_depth else None)
 
     if camera_depth is not None:
@@ -86,7 +86,6 @@ def build_file_manifest(image_dir: str,
     invalid = []
 
     if exif:
-        #et = exiftool.ExifToolHelper()
         for i, row in files.iterrows():
             if row["extension"] in IMAGE_EXTENSIONS:
                 try:
@@ -95,29 +94,32 @@ def build_file_manifest(image_dir: str,
                     files.loc[i, "height"] = img.size[1]
                     files.loc[i, "createdate"] = img.getexif().get(0x0132)
                 except PIL.UnidentifiedImageError:
+                    print(f"Error processing image file {row['filepath']}")
                     invalid.append(i)
 
             elif row["extension"] in VIDEO_EXTENSIONS:
                 try:
-
                     vid = cv2.VideoCapture(row['filepath'])
-                    if vid.isOpened():
-                        #metadata = et.get_metadata(row['filepath'])
-                        files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
-                        files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        #if "QuickTime:CreateDate" in metadata:
-                        #    files.loc[i, "createdate"] = metadata["QuickTime:CreateDate"]
-                        #elif "EXIF:DateTimeOriginal" in metadata:
-                        #    files.loc[i, "createdate"] = metadata["EXIF:DateTimeOriginal"]
-                        #else:
-                        #    files.loc[i, "createdate"] = None
-                    else:
-                        invalid.append(i)
-                    vid.release()
-                except Exception:
+                    files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                except Exception as e:
+                    print(f"Error processing file {row['filepath']}: {e}")
                     invalid.append(i)
-
+                # for videos try to get createdate from exiftool, but use filemodifydate as backup
+                try:
+                    with exiftool.ExifTool() as et:
+                        metadata = et.get_metadata(row['filepath'])[0]
+                        if "QuickTime:CreateDate" in metadata:
+                            files.loc[i, "createdate"] = metadata["QuickTime:CreateDate"]
+                        elif "EXIF:DateTimeOriginal" in metadata:
+                            files.loc[i, "createdate"] = metadata["EXIF:DateTimeOriginal"]
+                        else:
+                            files.loc[i, "createdate"] = None
+                except Exception as e:
+                    print(f"exiftool failed: {e}")
+                    files.loc[i, "createdate"] = None
     
+        # determine local timezone for conversion
         local_tz = datetime.now().astimezone().tzinfo
         if data_timezone is not None:
             try:
@@ -152,7 +154,6 @@ def build_file_manifest(image_dir: str,
                     continue
             # timestamp not recognized
             return None
-
         files["filemodifydate"] = files["filepath"].apply(get_modify_date)
 
         if "createdate" in files.columns:
@@ -163,11 +164,6 @@ def build_file_manifest(image_dir: str,
             files["datetime"] = files["createdate"].fillna(files["filemodifydate"])
         else:
             files["datetime"] = files["filemodifydate"]
-
-        # May depend on reticulate and R version?
-        #files["filemodifydate"] = pd.to_datetime(files["filemodifydate"], )
-        #files["createdate"] = pd.to_datetime(files["createdate"])
-        #files["datetime"] = pd.to_datetime(files["datetime"])
 
     files = files.drop(index=invalid).reset_index(drop=True)
 
