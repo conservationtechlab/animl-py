@@ -39,8 +39,9 @@ header p {
 .layout {
     display: flex;
     flex-direction: row;
-    align-items: flex-start;
+    align-items: stretch;
     width: 100%;
+    background: linear-gradient(to right, #81a87c calc((100vw - 1200px) / 2 + 2rem), #f5f5f5 calc((100vw - 1200px) / 2 + 2rem));
 }
 
 /** Sidebar */
@@ -48,13 +49,12 @@ header p {
     width: calc((100vw - 1200px) / 2 + 2rem);
     min-width: 240px;
     flex-shrink: 0;
-    background: #81a87c;
+    background: transparent;
     color: #333;
     box-sizing: border-box;
     position: sticky;
     top: 0;
     align-self: flex-start;
-    min-height: 100vh;
 }
 
 .sidebar-inner {
