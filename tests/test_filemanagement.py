@@ -168,7 +168,8 @@ class TestBuildFileManifest(unittest.TestCase):
 
     def test_station_depth_negative_uses_parent_path_part(self):
         result = build_file_manifest(self.tmp_dir, exif=False, station_depth=-1, recursive=True)
-        expected_station = Path(self.tmp_dir).parts[-2]
+        tmp_parts = Path(self.tmp_dir).parts
+        expected_station = tmp_parts[-2] if len(tmp_parts) >= 2 else tmp_parts[0]
         self.assertTrue((result['station'] == expected_station).all())
 
     def test_station_depth_zero_indexed(self):
@@ -198,7 +199,8 @@ class TestBuildFileManifest(unittest.TestCase):
 
     def test_camera_depth_negative_uses_parent_path_part(self):
         result = build_file_manifest(self.tmp_dir, exif=False, camera_depth=-1, recursive=True)
-        expected_camera = Path(self.tmp_dir).parts[-2]
+        tmp_parts = Path(self.tmp_dir).parts
+        expected_camera = tmp_parts[-2] if len(tmp_parts) >= 2 else tmp_parts[0]
         self.assertTrue((result['camera'] == expected_camera).all())
 
     def test_camera_depth_one_indexed(self):
@@ -247,6 +249,13 @@ class TestBuildFileManifest(unittest.TestCase):
         for value in result['datetime']:
             self.assertIsNotNone(value)
             datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+
+        local_tz = datetime.now().astimezone().tzinfo
+        first_path = Path(result.iloc[0]['filepath'])
+        expected = datetime.fromtimestamp(first_path.stat().st_mtime, tz=local_tz).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        self.assertIn(expected, result['datetime'].tolist())
 
     def test_station_depth_with_recursive_false_raises(self):
         with self.assertRaises(ValueError):
