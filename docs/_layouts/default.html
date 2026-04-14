@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body>
+    <!-- Site header -->
     <header>
         <div class="container">
             <h1 class="site-heading"><img src="/assets/images/owl_icon.png" alt="CTL Owl Icon", class="site-heading__img">
@@ -16,20 +17,40 @@
             <p>Developing open-source technology and machine learning tools for wildlife conservation</p>
         </div>
     </header>
-    
+    <!-- Main navigation -->
     <nav class="main-nav">
         <div class="container">
             <ul class="nav-menu">
                 <li><a href="https://conservationtechlab.github.io">CTL Home</a></li>
-                <li><a href="https://conservationtechlab.github.io/animl-py" {% if page.url == '/' or page.url == '/' %}class="active"{% endif %}>About AniML (Python)</a></li>
+                <li><a href="https://conservationtechlab.github.io/animl-py">About AniML (Python)</a></li>
                 <li><a href="https://conservationtechlab.github.io/animl-r">About AniML (R)</a></li>
-                <li><a href="{{ '/models' | relative_url }}" {% if page.url == '/models' or page.url == '/models/' %}class="active"{% endif %}>Models</a></li>
+                <li><a href="https://conservationtechlab.github.io/animl-py/models">Models</a></li>
             </ul>
         </div>
     </nav>
-    
-    {{ content }}
-    
+    <!-- Content -->
+    <div class="layout">
+        <!-- Sidebar navigation -->
+        <aside class="sidebar">
+        <h2>Navigation</h2>
+        <nav>
+        <a href="#installation">Installation</a>
+        <a href="#getting-started">Getting Started</a>
+        <a href="#usage">Using MatchyPatchy</a>
+        <a href="#quality-control">Quality Control</a>
+        <a href="#troubleshooting">Troubleshooting</a>
+        </nav>
+        </aside>
+        <!-- Main Content -->
+        <main class="page-content" aria-label="Content">
+            <div class="wrapper">
+                <div class="home">
+                    {{ content }}
+                </div>
+            </div>
+        </main>
+    </div>
+    <!-- Footer -->
     <footer>
         <div class="container">
             <p>

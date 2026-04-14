@@ -19,5 +19,16 @@ description: Developing open-source technology and machine learning tools for wi
 </section>
 
 <div class="container">
+    <h2 class="section-title">Installation</h2>
+    <h3>Requirements:</h3>
+    <p></p>
+    <h3>To Install:</h3>
+    <p></p>
+    <h3>Dependencies:</h3>
+    <p>ExifTool</p>
+</div>
+
+
+<div class="container">
     <h2 class="section-title">Research Focus Areas</h2>
 </div>
