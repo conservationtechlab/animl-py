@@ -8,16 +8,14 @@
     <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/style.css">
 </head>
 <body>
-    <!-- Site header -->
     <header>
         <div class="container">
-            <h1 class="site-heading"><img src="{{ site.baseurl }}/assets/images/owl_icon.png" alt="CTL Owl Icon", class="site-heading__img">
+            <h1 class="site-heading"><img src="{{ site.baseurl }}/assets/images/owl_icon.png" alt="CTL Owl Icon" class="site-heading__img">
                 SDZWA Conservation Technology Lab
             </h1>
             <p>Developing open-source technology and machine learning tools for wildlife conservation</p>
         </div>
     </header>
-    <!-- Main navigation -->
     <nav class="main-nav">
         <div class="container">
             <ul class="nav-menu">
@@ -28,53 +26,49 @@
             </ul>
         </div>
     </nav>
-    <!-- Content -->
-    <div class="layout">
-        <!-- Sidebar navigation -->
-        <aside class="sidebar">
-            <h2>Navigation</h2>
-            <nav>
-                <details open>
-                    <summary>Getting Started</summary>
-                    <nav>
-                        <a href="#about">About AniML</a>
-                        <a href="#installation">Installation</a>
-                        <a href="#requirements">Requirements</a>
-                        <a href="#dependencies">Dependencies</a>
-                    </nav>
-                </details>
-                <details>
-                    <summary>Usage</summary>
-                    <nav>
-                        <a href="#getting-started">Quick Start</a>
-                        <a href="#usage">Using AniML</a>
-                    </nav>
-                </details>
-                <details>
-                    <summary>Quality Control</summary>
-                    <nav>
-                        <a href="#quality-control">Overview</a>
-                    </nav>
-                </details>
-                <details>
-                    <summary>Troubleshooting</summary>
-                    <nav>
-                        <a href="#troubleshooting">Common Issues</a>
-                    </nav>
-                </details>
-            </nav>
-        </aside>
-        <!-- Main Content -->
-        <main class="page-content" aria-label="Content">
-            {{ content }}
-        </main>
+    <div class="layout-wrapper">
+        <div class="layout">
+            <aside class="sidebar">
+                <h2>Navigation</h2>
+                <nav>
+                    <details open>
+                        <summary>Getting Started</summary>
+                        <nav>
+                            <a href="#about">About AniML</a>
+                            <a href="#installation">Installation</a>
+                            <a href="#requirements">Requirements</a>
+                            <a href="#dependencies">Dependencies</a>
+                        </nav>
+                    </details>
+                    <details>
+                        <summary>Usage</summary>
+                        <nav>
+                            <a href="#getting-started">Quick Start</a>
+                            <a href="#usage">Using AniML</a>
+                        </nav>
+                    </details>
+                    <details>
+                        <summary>Quality Control</summary>
+                        <nav>
+                            <a href="#quality-control">Overview</a>
+                        </nav>
+                    </details>
+                    <details>
+                        <summary>Troubleshooting</summary>
+                        <nav>
+                            <a href="#troubleshooting">Common Issues</a>
+                        </nav>
+                    </details>
+                </nav>
+            </aside>
+            <main class="page-content" aria-label="Content">
+                {{ content }}
+            </main>
+        </div>
     </div>
-    <!-- Footer -->
     <footer>
         <div class="container">
-            <p>
-                <strong>Conservation Technology Lab</strong>
-            </p>
+            <p><strong>Conservation Technology Lab</strong></p>
             <p style="margin-top: 1rem;">
                 <a href="https://github.com/conservationtechlab" target="_blank" rel="noopener">GitHub</a> | 
                 All projects are open-source and available under their respective licenses. <br>
