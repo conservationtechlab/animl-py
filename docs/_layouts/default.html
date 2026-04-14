@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if page.title %}{{ page.title }} - {% endif %}{{ site.title }}</title>
     <meta name="description" content="{% if page.description %}{{ page.description }}{% else %}{{ site.description }}{% endif %}">
-    <link rel="stylesheet" href="{{ '/assets/main.css' | relative_url }}">
+    <link rel="stylesheet" href="{{ site.baseurl }}/assets/style.css">
 </head>
 <body>
     <!-- Site header -->
     <header>
         <div class="container">
-            <h1 class="site-heading"><img src="/assets/images/owl_icon.png" alt="CTL Owl Icon", class="site-heading__img">
+            <h1 class="site-heading"><img src="{{ site.baseurl }}/assets/images/owl_icon.png" alt="CTL Owl Icon", class="site-heading__img">
                 SDZWA Conservation Technology Lab
             </h1>
             <p>Developing open-source technology and machine learning tools for wildlife conservation</p>
