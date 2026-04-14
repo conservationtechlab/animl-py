@@ -41,7 +41,9 @@ header p {
     flex-direction: row;
     align-items: stretch;
     width: 100%;
-    background: linear-gradient(to right, #81a87c calc((100vw - 1200px) / 2 + 2rem), #f5f5f5 calc((100vw - 1200px) / 2 + 2rem));
+    background: linear-gradient(to right,
+      #81a87c calc((100vw - 1200px) / 2 + 2rem), 
+      #f5f5f5 calc((100vw - 1200px) / 2 + 2rem));
 }
 
 /** Sidebar */
