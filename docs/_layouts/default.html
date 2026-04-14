@@ -21,9 +21,8 @@
         <div class="container">
             <ul class="nav-menu">
                 <li><a href="https://conservationtechlab.github.io">CTL Home</a></li>
-                <li><a href="{{ '/' | relative_url }}" {% if page.url == '/' or page.url == '/' %}class="active"{% endif %}>About AniML</a></li>
-                <li><a href="{{ '/animl-py' | relative_url }}" {% if page.url == '/animl-py' or page.url == '/animl-py/' %}class="active"{% endif %}>Python Version</a></li>
-                <li><a href="{{ '/animl-r' | relative_url }}" {% if page.url == '/animl-r' or page.url == '/animl-r/' %}class="active"{% endif %}>R Version</a></li>
+                <li><a href="{{ '/' | relative_url }}" {% if page.url == '/' or page.url == '/' %}class="active"{% endif %}>About AniML (Python)</a></li>
+                <li><a href="https://conservationtechlab.github.io/animl-r" {% if page.url == '/' or page.url == '/' %}class="active"{% endif %}>About AniML (R)</a></li>
                 <li><a href="{{ '/models' | relative_url }}" {% if page.url == '/models' or page.url == '/models/' %}class="active"{% endif %}>Models</a></li>
             </ul>
         </div>
