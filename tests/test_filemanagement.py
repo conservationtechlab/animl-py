@@ -9,6 +9,7 @@ import unittest
 import tempfile
 from pathlib import Path
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -160,7 +161,7 @@ class TestBuildFileManifest(unittest.TestCase):
         self.assertNotIn('station', result.columns)
 
     def test_station_depth_correct_values(self):
-        # structure: tmp_dir/station1/cam1/subimg.jpg -> station_depth=1 -> 'station1'
+        # implementation computes root_depth + station_depth, so first child directory is depth=1
         result = build_file_manifest(self.tmp_dir, exif=False, station_depth=1, recursive=True)
         subdir_rows = result[result['filename'].isin(['subimg.jpg', 'subimg2.jpg'])]
         self.assertTrue(all(subdir_rows['station'].isin(['station1', 'station2'])))
@@ -171,7 +172,7 @@ class TestBuildFileManifest(unittest.TestCase):
         self.assertTrue((result['station'] == expected_station).all())
 
     def test_station_depth_zero_indexed(self):
-        # depth 1 should be the first directory below image_dir
+        # due root_depth offset in implementation, first directory below image_dir is depth=1
         result = build_file_manifest(self.tmp_dir, exif=False, station_depth=1, recursive=True)
         subdir_rows = result[result['filename'] == 'subimg.jpg']
         self.assertFalse(subdir_rows.empty)
@@ -233,9 +234,19 @@ class TestBuildFileManifest(unittest.TestCase):
             self.assertIsInstance(value, str)
             datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
 
+        local_tz = datetime.now().astimezone().tzinfo
+        first_path = Path(result.iloc[0]['filepath'])
+        expected = datetime.fromtimestamp(first_path.stat().st_mtime, tz=local_tz).astimezone(
+            ZoneInfo("UTC")
+        ).strftime("%Y-%m-%d %H:%M:%S")
+        self.assertIn(expected, result['datetime'].tolist())
+
     def test_data_timezone_invalid_falls_back(self):
         result = build_file_manifest(self.tmp_dir, exif=True, data_timezone="NotARealZone")
         self.assertIn('datetime', result.columns)
+        for value in result['datetime']:
+            self.assertIsNotNone(value)
+            datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
 
     def test_station_depth_with_recursive_false_raises(self):
         with self.assertRaises(ValueError):
