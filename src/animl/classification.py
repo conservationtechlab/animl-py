@@ -406,8 +406,13 @@ def single_classification(animals: pd.DataFrame,
         if file['extension'].iloc[0] in file_management.VIDEO_EXTENSIONS:
             predictions = file['prediction'].unique()
             if 'empty' in predictions and len(predictions) > 1:
-                real_prediction = predictions[predictions != 'empty'][0]
-                manifest.loc[manifest[file_col] == f, 'prediction'] = real_prediction
+                file = file[file['prediction'] != 'empty']
+                # replace empty predictions with most confident non-empty prediction
+                top = file.sort_values("confidence", ascending=False).iloc[0]
+                cols = ['prediction', 'confidence', 'frame', 'conf', 'max_detection_conf', 
+                        'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
+                mask = manifest[file_col] == f
+                manifest.loc[mask, cols] = top[cols].values
 
     # best guess
     if best:
