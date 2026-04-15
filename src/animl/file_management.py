@@ -6,7 +6,6 @@ This module provides functions and classes for managing files and directories.
 @ Kyra Swanson 2023
 """
 import json
-from shutil import copyfile
 from pathlib import Path, PosixPath
 from datetime import datetime, timedelta
 import pandas as pd
@@ -291,30 +290,6 @@ def check_file(file: str, output_type: str = None) -> bool:
         else:
             print("Invalid input, proceeding without loading file.")
     return False
-
-
-def save_detection_checkpoint(checkpoint_path: str, results: dict) -> None:
-    """
-    Save a checkpoint of the detection results to a JSON file.
-
-    Args:
-        checkpoint_path (str): the path to the checkpoint file
-        results (list): a list of detection results to save
-    """
-    assert checkpoint_path is not None
-    # Back up any previous checkpoints, to protect against crashes while we're writing
-    # the checkpoint file.
-    checkpoint_tmp_path = None
-    if Path(checkpoint_path).is_file():
-        checkpoint_tmp_path = str(checkpoint_path) + '_tmp'
-        copyfile(checkpoint_path, checkpoint_tmp_path)
-
-    # Write the new checkpoint
-    save_json({'images': results}, checkpoint_path, prompt=False)
-
-    # Remove the backup checkpoint if it exists
-    if checkpoint_tmp_path is not None:
-        Path(checkpoint_tmp_path).unlink()
 
 
 def active_times(manifest_dir,

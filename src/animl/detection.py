@@ -8,6 +8,7 @@ parse_detections() converts json output into a dataframe
 import argparse
 from typing import Optional, Union
 import time
+from shutil import copyfile
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -135,7 +136,7 @@ def detect(detector,
             prediction = detector(batch_tensors.to(device))
             pred: list = prediction[0]
             pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
-            results = convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+            results = _convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
                                               batch_sizes, letterbox, detector.model_type)
         elif detector.model_type == "onnx":
             input_name = detector.get_inputs()[0].name
@@ -147,11 +148,11 @@ def detect(detector,
                 outputs = detector.run(None, {input_name: batch_tensors.cpu().numpy()})[0]
 
             # Process outputs to match expected format
-            results = convert_onnx_detections(outputs, batch_tensors, batch_paths,
+            results = _convert_onnx_detections(outputs, batch_tensors, batch_paths,
                                               batch_frames, batch_sizes, letterbox)
         else:
             pred = detector.predict(source=batch_tensors.to(device), conf=confidence_threshold, verbose=False)
-            results = convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+            results = _convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
                                               batch_sizes, letterbox, detector.model_type)
         return results
 
@@ -237,7 +238,7 @@ def detect(detector,
             pred: list = prediction[0]
             pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
             # convert to normalized xywh
-            results.extend(convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+            results.extend(_convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
                                                    batch_sizes, letterbox, detector.model_type))
         elif detector.model_type == "onnx":
             input_name = detector.get_inputs()[0].name
@@ -247,29 +248,29 @@ def detect(detector,
                 outputs = detector.run(None, {input_name: batch_tensors.numpy()})[0]
 
             # Process outputs to match expected format
-            results.extend(convert_onnx_detections(outputs, batch_tensors, batch_paths, batch_frames,
+            results.extend(_convert_onnx_detections(outputs, batch_tensors, batch_paths, batch_frames,
                                                    batch_sizes, letterbox))
         # standard yolo model (v6+)
         else:
             pred = detector.predict(source=batch_tensors.to(device), conf=confidence_threshold, verbose=False)
             # convert to normalized xywh
-            results.extend(convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
+            results.extend(_convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
                                                    batch_sizes, letterbox, detector.model_type))
 
         # Write a checkpoint if necessary
         if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
             print('Writing a new checkpoint after having processed {} images since last restart'.format(count*batch_size))
-            file_management.save_detection_checkpoint(checkpoint_path, results)
+            _save_detection_checkpoint(checkpoint_path, results)
 
 
     print(f"\nFinished detection. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
     if checkpoint_path:
-        file_management.save_detection_checkpoint(checkpoint_path, results)
+        _save_detection_checkpoint(checkpoint_path, results)
 
     return results, failed_files
 
 
-def convert_onnx_detections(predictions: list,
+def _convert_onnx_detections(predictions: list,
                             image_tensors: list,
                             image_paths: list,
                             image_frames: list,
@@ -320,7 +321,7 @@ def convert_onnx_detections(predictions: list,
     return results
 
 
-def convert_yolo_detections(predictions: list,
+def _convert_yolo_detections(predictions: list,
                             image_tensors: list,
                             image_paths: list,
                             image_frames: list,
@@ -506,6 +507,31 @@ def parse_detections(results: Union[list, tuple],
         file_management.save_data(df, out_file)
 
     return df
+
+
+def _save_detection_checkpoint(checkpoint_path: str, results: dict) -> None:
+    """
+    Save a checkpoint of the detection results to a JSON file.
+
+    Args:
+        checkpoint_path (str): the path to the checkpoint file
+        results (list): a list of detection results to save
+    """
+    assert checkpoint_path is not None
+    # Back up any previous checkpoints, to protect against crashes while we're writing
+    # the checkpoint file.
+    checkpoint_tmp_path = None
+    if Path(checkpoint_path).is_file():
+        checkpoint_tmp_path = str(checkpoint_path) + '_tmp'
+        copyfile(checkpoint_path, checkpoint_tmp_path)
+
+    # Write the new checkpoint
+    file_management.save_json({'images': results}, checkpoint_path, prompt=False)
+
+    # Remove the backup checkpoint if it exists
+    if checkpoint_tmp_path is not None:
+        Path(checkpoint_tmp_path).unlink()
+
 
 
 if __name__ == '__main__':
