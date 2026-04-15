@@ -409,7 +409,6 @@ def single_classification(animals: pd.DataFrame,
                 file = file[file['prediction'] != 'empty']
                 # replace empty predictions with most confident non-empty prediction
                 top = file.sort_values("confidence", ascending=False).iloc[0]
-                print(top)
                 cols = ['prediction', 'confidence', 'frame', 'conf', 'max_detection_conf', 
                         'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
                 mask = manifest[file_col] == f
