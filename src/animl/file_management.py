@@ -7,13 +7,14 @@ This module provides functions and classes for managing files and directories.
 """
 import json
 from pathlib import Path, PosixPath
-from datetime import datetime, timedelta
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import pandas as pd
 import numpy as np
 import PIL
 import cv2
+import exiftool
 from typing import Optional
-
 
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', ".tiff", '.tif"'}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
@@ -24,7 +25,7 @@ VALID_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 def build_file_manifest(image_dir: str,
                         exif: bool = True,
                         out_file: Optional[str] = None,
-                        offset: int = 0,
+                        data_timezone: Optional[str] = None,
                         station_depth: Optional[int] = None,
                         camera_depth: Optional[int] = None,
                         recursive: bool = True):
@@ -35,7 +36,8 @@ def build_file_manifest(image_dir: str,
         image_dir (str): directory of files to analyze
         exif (bool): returns date and time info from exif data, defaults to True
         out_file (str): file path to which the dataframe should be saved
-        offset (int): add timezone offset in hours to datetime column
+        data_timezone (str): timezone of the data, e.g., 'UTC', 'America/New_York', defaults to local timezone if None
+                             if you are unsure of the timezone, you can list all with zoneinfo.available_timezones()
         station_depth (int): depth of station directory from the image_dir root in file path, if applicable. 
                              For example, if file paths are in the format "image_dir/station/date/file.jpg", 
                              station_depth would be 1 (0 indexed). If None, station column will not be created.
@@ -67,41 +69,20 @@ def build_file_manifest(image_dir: str,
     files["extension"] = files["filepath"].apply(lambda x: Path(x).suffix.lower())
 
     if station_depth is not None:
-        assert station_depth >= 0, "station_depth must be a non-negative integer"
         if recursive is False and station_depth >= 1:
             raise ValueError("station_depth must be less than 1 if recursive is False")
-        root_depth = len(Path(image_dir).parts)
-        station_depth = root_depth + int(station_depth) 
+        root_depth = len(Path(image_dir).parts) - 1
+        station_depth = root_depth + int(station_depth)
         files["station"] = files["filepath"].apply(lambda x: Path(x).parts[station_depth] if len(Path(x).parts) > station_depth else None)
 
     if camera_depth is not None:
-        assert camera_depth >= 0, "camera_depth must be a non-negative integer"
         if recursive is False and camera_depth >= 1:
             raise ValueError("camera_depth must be less than 1 if recursive is False")
-        root_depth = len(Path(image_dir).parts)
+        root_depth = len(Path(image_dir).parts) - 1
         camera_depth = root_depth + int(camera_depth) 
         files["camera"] = files["filepath"].apply(lambda x: Path(x).parts[camera_depth] if len(Path(x).parts) > camera_depth else None)
 
     invalid = []
-
-    def check_time(timestamp):
-        input_formats = ['%Y:%m:%d %H:%M:%S', "%d-%m-%Y %H:%M", "%Y/%m/%d %H:%M:%S"]
-        desired_format = '%Y-%m-%d %H:%M:%S'
-        try:
-            # If it already matches, return as is
-            if datetime.strptime(timestamp, desired_format).strftime(desired_format) == timestamp:
-                return timestamp
-        except ValueError:
-            pass
-        # Try other input formats
-        for fmt in input_formats:
-            try:
-                newtimestamp = datetime.strptime(timestamp, fmt)
-                return newtimestamp.strftime(desired_format)
-            except ValueError:
-                continue
-        # timestamp not recognized
-        return None
 
     if exif:
         for i, row in files.iterrows():
@@ -112,35 +93,76 @@ def build_file_manifest(image_dir: str,
                     files.loc[i, "height"] = img.size[1]
                     files.loc[i, "createdate"] = img.getexif().get(0x0132)
                 except PIL.UnidentifiedImageError:
+                    print(f"Error processing image file {row['filepath']}")
                     invalid.append(i)
 
             elif row["extension"] in VIDEO_EXTENSIONS:
                 try:
                     vid = cv2.VideoCapture(row['filepath'])
-                    if vid.isOpened():
-                        files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
-                        files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                    else:
-                        invalid.append(i)
-                    vid.release()
-                except Exception:
+                    files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                except Exception as e:
+                    print(f"Error processing file {row['filepath']}: {e}")
                     invalid.append(i)
+                # for videos try to get createdate from exiftool, but use filemodifydate as backup
+                try:
+                    with exiftool.ExifTool() as et:
+                        metadata = et.get_metadata(row['filepath'])[0]
+                        if "QuickTime:CreateDate" in metadata:
+                            files.loc[i, "createdate"] = metadata["QuickTime:CreateDate"]
+                        elif "EXIF:DateTimeOriginal" in metadata:
+                            files.loc[i, "createdate"] = metadata["EXIF:DateTimeOriginal"]
+                        else:
+                            files.loc[i, "createdate"] = None
+                except Exception as e:
+                    print(f"exiftool failed: {e}")
+                    files.loc[i, "createdate"] = None
+    
+        # determine local timezone for conversion
+        local_tz = datetime.now().astimezone().tzinfo
+        if data_timezone is not None:
+            try:
+                data_tz = ZoneInfo(data_timezone)
+            except Exception as e:
+                print(f"Error with timezone: {e}. Defaulting to local timezone.")
+                data_tz = local_tz
+        else:
+            data_tz = local_tz
 
         # get filemodifydate as backup (videos, etc)
-        files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
-        files["filemodifydate"] = pd.to_datetime(files["filemodifydate"]) + timedelta(hours=offset)
-        try:
+        def get_modify_date(x):
+            local = datetime.fromtimestamp(Path(x).stat().st_mtime, tz=local_tz)
+            adjusted = local.astimezone(data_tz)
+            return adjusted.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # function to convert multiple string formats to desired format, returns None if not recognized
+        def check_time(timestamp, tzinfo=data_tz):
+            input_formats = ['%Y:%m:%d %H:%M:%S', "%d-%m-%Y %H:%M", "%Y/%m/%d %H:%M:%S"]
+            desired_format = '%Y-%m-%d %H:%M:%S'
+            try:
+                timestamp = datetime.strptime(timestamp, desired_format).replace(tzinfo=tzinfo)
+                return timestamp.strftime(desired_format)
+            except ValueError:
+                pass
+            # Try other input formats
+            for fmt in input_formats:
+                try:
+                    newtimestamp = datetime.strptime(timestamp, fmt).replace(tzinfo=tzinfo)
+                    return newtimestamp.strftime(desired_format)
+                except ValueError:
+                    continue
+            # timestamp not recognized
+            return None
+        files["filemodifydate"] = files["filepath"].apply(get_modify_date)
+
+        if "createdate" in files.columns:
             # convert multiple string formats to datetime
             files['createdate'] = files['createdate'].replace(r'^\s*$', None, regex=True)
             files["createdate"] = files['createdate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
-            files["createdate"] = pd.to_datetime(files["createdate"])
-            # select createdate if exists, else choose filemodify date
-            files["datetime"] = files['createdate'].fillna(files['filemodifydate'])
-        except KeyError:
+            # select createdate if not none, else choose filemodify date
+            files["datetime"] = files["createdate"].fillna(files["filemodifydate"])
+        else:
             files["datetime"] = files["filemodifydate"]
-
-        # convert to datetime
-        files["datetime"] = pd.to_datetime(files["datetime"])
 
     files = files.drop(index=invalid).reset_index(drop=True)
 
@@ -337,6 +359,7 @@ def sequence_calculation(manifest,
                          station_col: str,
                          sort_columns: list[str] = None,
                          file_col: str = "filepath",
+                         timestamp_col: str = "datetime",
                          maxdiff: int = 60):
     """
     Simple sequence calculation based on time differences between consecutive images from the same station.
@@ -345,8 +368,10 @@ def sequence_calculation(manifest,
     Args:
         - manifest (pd.DataFrame): DataFrame containing image file information, including 'filepath' and 'datetime' columns
         - station_col (str): column name in the DataFrame representing the station or camera
-        - sort_columns (list[str]): list of columns to sort by before calculating sequences. Defaults to None, which sorts by station_col and 'datetime'.
+        - sort_columns (list[str]): list of columns to sort by before calculating sequences. 
+                                    Defaults to None, which sorts by station_col and timestamp_col.
         - file_col (str): column name representing the file path. Defaults to "filepath".
+        - timestamp_col (str): column name representing the timestamp in format "%Y-%m-%d %H:%M:%S". Defaults to "datetime".
         - maxdiff (int): maximum time difference in seconds between consecutive images to be considered part of the same sequence. Defaults to 60.
     """
     if not isinstance(station_col, str) or station_col == '':
@@ -359,17 +384,20 @@ def sequence_calculation(manifest,
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
-    if not {"datetime"}.issubset(manifest.columns):
-        raise ValueError("DataFrame must contain 'datetime' column.")
+    if not {timestamp_col}.issubset(manifest.columns):
+        raise ValueError(f"DataFrame must contain '{timestamp_col}' column.")
 
     if sort_columns is None:
-        sort_columns = [station_col, "datetime"]
+        sort_columns = [station_col, timestamp_col]
 
-    manifest['datetime'] = pd.to_datetime(manifest['datetime'], format="%Y-%m-%d %H:%M:%S")
+    # convert timestamp column to datetime if it's not already
+    manifest[timestamp_col] = pd.to_datetime(manifest[timestamp_col], format="%Y-%m-%d %H:%M:%S")
 
+    # sort by station and timestamp to ensure correct sequence calculation
     sort = manifest.sort_values(by=sort_columns).index
     manifest_sort = manifest.loc[sort].reset_index(drop=True)
 
+    # Initialize sequence placeholder with zeros
     sequence_placeholder = np.zeros(len(manifest_sort))
 
     i = 0
@@ -378,10 +406,10 @@ def sequence_calculation(manifest,
         rows = [i]
         last_index = i+1
 
-        while (last_index < len(manifest_sort) and not pd.isna(manifest_sort.loc[i, "datetime"]) and
-               not pd.isna(manifest_sort.loc[last_index, "datetime"]) and
+        while (last_index < len(manifest_sort) and not pd.isna(manifest_sort.loc[i, timestamp_col]) and
+               not pd.isna(manifest_sort.loc[last_index, timestamp_col]) and
                manifest_sort.loc[last_index, station_col] == manifest_sort.loc[i, station_col] and
-               (manifest_sort.loc[last_index, "datetime"] - manifest_sort.loc[i, "datetime"]).total_seconds() <= maxdiff):
+               (manifest_sort.loc[last_index, timestamp_col] - manifest_sort.loc[i, timestamp_col]).total_seconds() <= maxdiff):
             rows.append(last_index)
             last_index += 1
 

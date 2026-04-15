@@ -7,6 +7,7 @@ Provides functions for creating, removing, and updating sorted symlinks.
 """
 import json
 import os
+import shutil
 import pandas as pd
 from typing import Optional
 from shutil import copy2
@@ -25,6 +26,8 @@ def export_folders(manifest: pd.DataFrame,
                    out_file: Optional[str] = None,
                    label_col: str = 'prediction',
                    file_col: str = "filepath",
+                   timestamp_col: str = "datetime",
+                   station_col: str = 'station',
                    unique_name: str = 'uniquename',
                    copy: bool = False) -> pd.DataFrame:
     """
@@ -37,6 +40,8 @@ def export_folders(manifest: pd.DataFrame,
         label_col (str): column containing species labels,
                         'category' for MD categories or 'prediction' for species labels
         file_col (str): column containing source paths
+        timestamp_col (str): column containing timestamps in format "%Y-%m-%d %H:%M:%S"
+        station_col (str): column containing station names
         unique_name (str): column containing unique file name
         copy (bool): if true, hard copy
 
@@ -70,13 +75,13 @@ def export_folders(manifest: pd.DataFrame,
             extension = Path(row[file_col]).suffix
 
             # get datetime
-            if "datetime" in manifest.columns:
-                reformat_date = pd.to_datetime(row['datetime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+            if timestamp_col in manifest.columns:
+                reformat_date = pd.to_datetime(row[timestamp_col], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
             else:
                 reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
             # get station
-            if "station" in manifest.columns:
-                station = row['station']
+            if station_col in manifest.columns:
+                station = row[station_col]
                 name = "_".join([station, reformat_date, filename]) + extension
             else:
                 name = "_".join([reformat_date, filename]) + extension
@@ -245,11 +250,12 @@ def export_coco(manifest: pd.DataFrame,
 
 def export_yolo(train_manifest: pd.DataFrame,
                 val_manifest: pd.DataFrame,
-                test_manifest: Optional[pd.DataFrame],
+                test_manifest: pd.DataFrame,
                 class_list: pd.DataFrame,
                 out_dir: str,
                 label_col: str = 'prediction',
-                file_col: str = 'filepath'):
+                file_col: str = 'filepath',
+                hard_copy: bool = False):
     """
     Export a manifest to YOLO format for model training.
     Saves a .txt file for each image with bounding box coordinates and class labels.
@@ -261,6 +267,7 @@ def export_yolo(train_manifest: pd.DataFrame,
         label_col (str): column containing species labels,
                         'category' for MD categories or 'prediction' for species labels
         file_col (str): column containing source paths
+        hard_copy (bool): whether to copy images to the YOLO directory structure or create symlinks
     """
     expected_columns = (file_col, label_col, 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h')
     for s in expected_columns:
@@ -298,10 +305,13 @@ def export_yolo(train_manifest: pd.DataFrame,
 
     # symlink images to train/val/test folders
     for _, row in tqdm(train_manifest.iterrows()):
-        file = Path(row[file_col]).name
-        link = image_train_dir / file
-        if not link.is_file():
-            link.symlink_to(file)
+        file = Path(row[file_col])
+        link = image_train_dir / file.name
+        if file.is_file() and not link.is_file():
+            if hard_copy:
+                copy2(file, link)
+            else:
+                file.symlink_to(link)
 
         label = file.stem + '.txt'
         label_path = label_train_dir / label
@@ -313,8 +323,11 @@ def export_yolo(train_manifest: pd.DataFrame,
     for _, row in tqdm(val_manifest.iterrows()):
         file = Path(row[file_col])
         link = image_val_dir / file.name
-        if not link.is_file():
-            link.symlink_to(file)
+        if file.is_file() and not link.is_file():
+            if hard_copy:
+                copy2(file, link)
+            else:
+                file.symlink_to(link)
 
         label = file.stem + '.txt'
         label_path = label_val_dir / label
@@ -327,8 +340,11 @@ def export_yolo(train_manifest: pd.DataFrame,
         for _, row in tqdm(test_manifest.iterrows()):
             file = Path(row[file_col])
             link = image_test_dir / file.name
-            if not link.is_file():
-                link.symlink_to(file)
+            if file.is_file() and not link.is_file():
+                if hard_copy:
+                    copy2(file, link)
+                else:
+                    file.symlink_to(link)
 
             label = file.stem + '.txt'
             label_path = label_test_dir / label
@@ -439,6 +455,7 @@ def export_camtrapR(manifest: pd.DataFrame,
                     out_file: Optional[str] = None,
                     label_col: str = 'prediction',
                     file_col: str = "filepath",
+                    timestamp_col: str = "datetime",
                     station_col: str = 'station',
                     unique_name: str = 'uniquename',
                     copy: bool = False) -> pd.DataFrame:
@@ -451,6 +468,7 @@ def export_camtrapR(manifest: pd.DataFrame,
         - out_file (Optional[str]): if provided, save the manifest to this file
         - label_col (str): column containing species labels
         - file_col (str): column containing source paths
+        - timestamp_col (str): column containing timestamps in format "%Y-%m-%d %H:%M:%S"
         - station_col (str): column containing station names
         - unique_name (str): column containing unique file name
         - copy (bool): if true, hard copy
@@ -472,13 +490,13 @@ def export_camtrapR(manifest: pd.DataFrame,
                 extension = Path(row[file_col]).suffix
 
                 # get datetime
-                if "datetime" in manifest.columns:
-                    reformat_date = pd.to_datetime(row['datetime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+                if timestamp_col in manifest.columns:
+                    reformat_date = pd.to_datetime(row[timestamp_col], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
                 else:
                     reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
                 # get station
-                if "station" in manifest.columns:
-                    station = row['station']
+                if station_col in manifest.columns:
+                    station = row[station_col]
                     name = "_".join([station, reformat_date, filename]) + extension
                 else:
                     name = "_".join([reformat_date, filename]) + extension
