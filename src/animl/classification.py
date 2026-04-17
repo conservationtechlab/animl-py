@@ -351,6 +351,11 @@ def classify(model,
         if not Path(out_file).parent.is_dir():
             raise FileNotFoundError(f"Directory not found for out_file: {out_file}")
         file_management.save_data(pd.DataFrame(raw_output), out_file)
+        # save failed files if any
+        if len(failed_files) > 0:
+            with (Path(out_file).parent / "failed_files.txt").open("w") as f:
+                for item in failed_files:
+                    f.write(f"{item}\n")
 
     print(f"\nFinished classification. Total images processed: {len(raw_output)} at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
 
@@ -390,7 +395,7 @@ def single_classification(animals: pd.DataFrame,
         predictions_raw = predictions_output
 
     if not animals.empty:
-        if failed_files is not None:
+        if failed_files is not None and len(failed_files) > 0:
             print(f"Warning: {len(failed_files)} files failed to load during classification and will be excluded from results.")
             animals = animals[~animals[file_col].isin(failed_files)]
         animals = animals.reset_index(drop=True)
@@ -496,12 +501,12 @@ def sequence_classification(animals: pd.DataFrame,
         predictions_raw, failed_files = predictions_output
     else:
         predictions_raw = predictions_output
-        # failed_files is failed_files arg
 
     # remove failed files from animals dataframe
     if failed_files is not None:
         animals = animals[~animals[file_col].isin(failed_files)].reset_index(drop=True) 
-        assert len(animals) == predictions_raw.shape[0], "Number of predictions does not match number of animal detections after removing failed files."
+    
+    assert len(animals) == predictions_raw.shape[0], "Number of predictions does not match number of animal detections after removing failed files."
 
     # prepare empty dataframe for concat
     if empty is not None and not empty.empty:

@@ -106,7 +106,7 @@ def build_file_manifest(image_dir: str,
                     invalid.append(i)
                 # for videos try to get createdate from exiftool, but use filemodifydate as backup
                 try:
-                    with exiftool.ExifTool() as et:
+                    with exiftool.ExifToolHelper() as et:
                         metadata = et.get_metadata(row['filepath'])[0]
                         if "QuickTime:CreateDate" in metadata:
                             files.loc[i, "createdate"] = metadata["QuickTime:CreateDate"]
