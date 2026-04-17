@@ -227,7 +227,7 @@ class TestClassifyPytorch(unittest.TestCase):
             classify(self.model, self.detections[0:1].copy(), device='cpu', batch_size=1, num_workers='not_an_integer')
 
     def test_non_string_out_file_raises(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             classify(self.model, self.detections[0:1].copy(), device='cpu', batch_size=1, out_file=123)
 
     def test_nonexistent_out_file_directory_raises(self):
