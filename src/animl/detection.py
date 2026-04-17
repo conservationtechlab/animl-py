@@ -435,24 +435,23 @@ def parse_detections(results: Union[list, tuple],
     Returns:
         df (pd.DataFrame): formatted md outputs, one row per detection
     """
-
     # unpack results
     if isinstance(results, tuple):
         results = results[0]
         failed_files = results[1]
-        print(f"Warning: {len(failed_files)} files failed to load during detection and will be excluded from results.")
+        print(failed_files)
+        if len(failed_files) > 0:
+            print(f"Warning: {len(failed_files)} files failed to load during detection and will be excluded from results.")
+            if out_file is not None:
+                with (Path(out_file).parent / "failed_files.txt").open("w") as f:
+                    for item in failed_files:
+                        f.write(f"{item}\n")
     else:
         failed_files = None
 
     # load checkpoint
     if file_management.check_file(out_file, output_type="Detections"):  # checkpoint comes back empty
         df = file_management.load_data(out_file)
-        already_processed = set([row['filepath'] for row in df])
-
-    else:
-        df = pd.DataFrame(columns=('filepath', 'frame', 'max_detection_conf', 'category', 'conf',
-                                   'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'))
-        already_processed = set()
 
     if not isinstance(results, list):
         raise AssertionError("MD results input must be list")
@@ -463,11 +462,6 @@ def parse_detections(results: Union[list, tuple],
     lst = []
 
     for frame in tqdm(results):
-
-        # pass if already analyzed
-        if frame['filepath'] in already_processed:
-            continue
-
         try:
             detections = frame['detections']
         except KeyError:
