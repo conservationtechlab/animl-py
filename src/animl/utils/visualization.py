@@ -18,8 +18,8 @@ from animl.file_management import IMAGE_EXTENSIONS
 from animl.video_processing import get_frame_as_image
 
 
-MD_COLORS = {"1": (0, 255, 0), "2": (0, 0, 255),  "3": (255, 0, 0)}
-MD_LABELS = {"1": "animal", "2": "human",  "3": "vehicle"}
+MD_COLORS = {1: (0, 255, 0), 2: (0, 0, 255),  3: (255, 0, 0)}
+MD_LABELS = {1: "animal", 2: "human",  3: "vehicle"}
 
 def plot_box(rows,
              file_col: str = "filepath",
@@ -93,14 +93,14 @@ def plot_box(rows,
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         xyxy = general._xywh_to_absxyxy(bbox, width, height)
 
-        color = colors[str(int(row['category']))]
+        color = colors[int(row['category'])]
         thick = int((height + width) // 900)
         cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), color, thick)
 
         # Printing prediction if enabled
         if label_col:
             if label_col == "category":
-                label = detector_labels[str(int(row['category']))]
+                label = detector_labels[int(row['category'])]
             else:
                 label = row[label_col]
 
@@ -160,10 +160,15 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
     
+    # get values
     if colors is None:
         colors = MD_COLORS
     if detector_labels is None:
         detector_labels = MD_LABELS
+    if len(colors)!=len(detector_labels):
+        raise ValueError("Colors and detector_labels must have the same number of classes.")
+    if len(detector_labels) < max(manifest['category']):
+        raise ValueError("Detector labels must have a label for each category in the manifest.")
 
     # If the specified output directory does not exist, make it
     Path(out_dir).mkdir(exist_ok=True)
