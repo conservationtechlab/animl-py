@@ -457,7 +457,12 @@ def parse_detections(results: Union[list, tuple],
     if isinstance(results, tuple):
         results = results[0]
         failed_files = results[1]
-        print(f"Warning: {len(failed_files)} files failed to load during detection and will be excluded from results.")
+        if len(failed_files) > 0:
+            print(f"Warning: {len(failed_files)} files failed to load during detection and will be excluded from results.")
+            if out_file is not None:
+                with (Path(out_file).parent / "failed_files.txt").open("w") as f:
+                    for item in failed_files:
+                        f.write(f"{item}\n")
     else:
         failed_files = None
 

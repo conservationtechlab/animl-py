@@ -163,6 +163,7 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
     
+    # get values
     if colors is None:
         colors = MD_COLORS
     if detector_labels is None:

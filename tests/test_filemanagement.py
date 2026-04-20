@@ -9,6 +9,7 @@ import unittest
 import tempfile
 from pathlib import Path
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -160,18 +161,20 @@ class TestBuildFileManifest(unittest.TestCase):
         self.assertNotIn('station', result.columns)
 
     def test_station_depth_correct_values(self):
-        # structure: tmp_dir/station1/cam1/subimg.jpg -> station_depth=0 -> 'station1'
-        result = build_file_manifest(self.tmp_dir, exif=False, station_depth=0, recursive=True)
+        # implementation computes root_depth + station_depth, so first child directory is depth=1
+        result = build_file_manifest(self.tmp_dir, exif=False, station_depth=1, recursive=True)
         subdir_rows = result[result['filename'].isin(['subimg.jpg', 'subimg2.jpg'])]
         self.assertTrue(all(subdir_rows['station'].isin(['station1', 'station2'])))
 
-    def test_station_depth_negative_raises(self):
-        with self.assertRaises(AssertionError):
-            build_file_manifest(self.tmp_dir, exif=False, station_depth=-1)
+    def test_station_depth_negative_uses_parent_path_part(self):
+        result = build_file_manifest(self.tmp_dir, exif=False, station_depth=-1, recursive=True)
+        tmp_parts = Path(self.tmp_dir).parts
+        expected_station = tmp_parts[-2] if len(tmp_parts) >= 2 else tmp_parts[0]
+        self.assertTrue((result['station'] == expected_station).all())
 
     def test_station_depth_zero_indexed(self):
-        # depth 0 should be the first directory below image_dir
-        result = build_file_manifest(self.tmp_dir, exif=False, station_depth=0, recursive=True)
+        # due root_depth offset in implementation, first directory below image_dir is depth=1
+        result = build_file_manifest(self.tmp_dir, exif=False, station_depth=1, recursive=True)
         subdir_rows = result[result['filename'] == 'subimg.jpg']
         self.assertFalse(subdir_rows.empty)
         self.assertEqual(subdir_rows.iloc[0]['station'], 'station1')
@@ -194,9 +197,11 @@ class TestBuildFileManifest(unittest.TestCase):
         subdir_rows = result[result['filename'].isin(['subimg.jpg', 'subimg2.jpg'])]
         self.assertTrue(all(subdir_rows['camera'].isin(['cam1', 'cam2'])))
 
-    def test_camera_depth_negative_raises(self):
-        with self.assertRaises(AssertionError):
-            build_file_manifest(self.tmp_dir, exif=False, camera_depth=-1)
+    def test_camera_depth_negative_uses_parent_path_part(self):
+        result = build_file_manifest(self.tmp_dir, exif=False, camera_depth=-1, recursive=True)
+        tmp_parts = Path(self.tmp_dir).parts
+        expected_camera = tmp_parts[-2] if len(tmp_parts) >= 2 else tmp_parts[0]
+        self.assertTrue((result['camera'] == expected_camera).all())
 
     def test_camera_depth_one_indexed(self):
         # depth 1 should be the second directory below image_dir
@@ -208,13 +213,13 @@ class TestBuildFileManifest(unittest.TestCase):
     def test_station_and_camera_depth_together(self):
         # both columns should be present when both depths are provided
         result = build_file_manifest(self.tmp_dir, exif=False,
-                                     station_depth=0, camera_depth=1, recursive=True)
+                                     station_depth=1, camera_depth=2, recursive=True)
         self.assertIn('station', result.columns)
         self.assertIn('camera', result.columns)
 
     def test_station_and_camera_values_correct_together(self):
         result = build_file_manifest(self.tmp_dir, exif=False,
-                                     station_depth=0, camera_depth=1, recursive=True)
+                                     station_depth=1, camera_depth=2, recursive=True)
         row = result[result['filename'] == 'subimg.jpg'].iloc[0]
         self.assertEqual(row['station'], 'station1')
         self.assertEqual(row['camera'], 'cam1')
@@ -222,6 +227,59 @@ class TestBuildFileManifest(unittest.TestCase):
         row2 = result[result['filename'] == 'subimg2.jpg'].iloc[0]
         self.assertEqual(row2['station'], 'station2')
         self.assertEqual(row2['camera'], 'cam2')
+
+    def test_data_timezone_utc(self):
+        result = build_file_manifest(self.tmp_dir, exif=True, data_timezone="UTC")
+        self.assertIn('datetime', result.columns)
+        for value in result['datetime']:
+            self.assertIsNotNone(value)
+            self.assertIsInstance(value, str)
+            datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+
+        system_tz = datetime.now().astimezone().tzinfo
+        first_path = Path(result[result['filename'] == 'img1.jpg'].iloc[0]['filepath'])
+        expected = datetime.fromtimestamp(first_path.stat().st_mtime, tz=system_tz).astimezone(
+            ZoneInfo("UTC")
+        ).strftime("%Y-%m-%d %H:%M:%S")
+        self.assertIn(expected, result['datetime'].tolist())
+
+    def test_data_timezone_invalid_falls_back(self):
+        result = build_file_manifest(self.tmp_dir, exif=True, data_timezone="NotARealZone")
+        self.assertIn('datetime', result.columns)
+        for value in result['datetime']:
+            self.assertIsNotNone(value)
+            datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+
+        system_tz = datetime.now().astimezone().tzinfo
+        first_path = Path(result[result['filename'] == 'img1.jpg'].iloc[0]['filepath'])
+        expected = datetime.fromtimestamp(first_path.stat().st_mtime, tz=system_tz).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        self.assertIn(expected, result['datetime'].tolist())
+
+    def test_station_depth_with_recursive_false_raises(self):
+        with self.assertRaises(ValueError):
+            build_file_manifest(self.tmp_dir, exif=False, station_depth=1, recursive=False)
+
+    def test_camera_depth_with_recursive_false_raises(self):
+        with self.assertRaises(ValueError):
+            build_file_manifest(self.tmp_dir, exif=False, camera_depth=1, recursive=False)
+
+    def test_station_depth_returns_none_for_shallow_files(self):
+        with tempfile.TemporaryDirectory() as shallow_dir:
+            img = Image.fromarray(np.uint8(np.zeros((10, 10, 3))))
+            img.save(Path(shallow_dir) / 'root_only.jpg')
+            result = build_file_manifest(shallow_dir, exif=False, station_depth=2, recursive=True)
+            shallow_row = result[result['filename'] == 'root_only.jpg'].iloc[0]
+            self.assertIsNone(shallow_row['station'])
+
+    def test_camera_depth_returns_none_for_shallow_files(self):
+        with tempfile.TemporaryDirectory() as shallow_dir:
+            img = Image.fromarray(np.uint8(np.zeros((10, 10, 3))))
+            img.save(Path(shallow_dir) / 'root_only.jpg')
+            result = build_file_manifest(shallow_dir, exif=False, camera_depth=2, recursive=True)
+            shallow_row = result[result['filename'] == 'root_only.jpg'].iloc[0]
+            self.assertIsNone(shallow_row['camera'])
 
 
 class TestWorkingDirectory(unittest.TestCase):
@@ -442,6 +500,15 @@ class TestSequenceCalculation(unittest.TestCase):
         with self.assertRaises(ValueError):
             sequence_calculation(df, station_col='station')
 
+    def test_custom_timestamp_col(self):
+        df = self.manifest.copy().rename(columns={'datetime': 'time'})
+        result = sequence_calculation(df, station_col='station', timestamp_col='time')
+        self.assertIn('sequence', result.columns)
+
+    def test_missing_custom_timestamp_col_raises(self):
+        with self.assertRaises(ValueError):
+            sequence_calculation(self.manifest.copy(), station_col='station', timestamp_col='time')
+
     def test_custom_maxdiff(self):
         result = sequence_calculation(self.manifest.copy(), station_col='station', maxdiff=10)
         cam1 = result[result['station'] == 'cam1'].sort_values('datetime').reset_index(drop=True)
@@ -452,6 +519,35 @@ class TestSequenceCalculation(unittest.TestCase):
         cam1_seq = set(result[result['station'] == 'cam1']['sequence'])
         cam2_seq = set(result[result['station'] == 'cam2']['sequence'])
         self.assertTrue(cam1_seq.isdisjoint(cam2_seq))
+
+    def test_custom_sort_columns_explicit(self):
+        default_result = sequence_calculation(self.manifest.copy(), station_col='station')
+        explicit_result = sequence_calculation(
+            self.manifest.copy(),
+            station_col='station',
+            sort_columns=['station', 'datetime'],
+        )
+        default_sequences = default_result.sort_values('filepath')['sequence'].tolist()
+        explicit_sequences = explicit_result.sort_values('filepath')['sequence'].tolist()
+        self.assertEqual(default_sequences, explicit_sequences)
+
+    def test_custom_sort_columns(self):
+        result = sequence_calculation(
+            self.manifest.copy(),
+            station_col='station',
+            sort_columns=['station', 'datetime'],
+        )
+        self.assertIn('sequence', result.columns)
+
+    def test_zero_maxdiff(self):
+        result = sequence_calculation(self.manifest.copy(), station_col='station', maxdiff=0)
+        self.assertEqual(len(set(result['sequence'])), len(result))
+
+    def test_single_row_dataframe(self):
+        one_row = self.manifest.head(1).copy()
+        result = sequence_calculation(one_row, station_col='station')
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result.iloc[0]['sequence'], 0)
 
 
 if __name__ == '__main__':

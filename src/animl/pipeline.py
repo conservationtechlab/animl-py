@@ -48,8 +48,9 @@ def from_paths(image_dir: str,
     working_dir = file_management.WorkingDirectory(image_dir)
     files = file_management.build_file_manifest(image_dir,
                                                 out_file=working_dir.filemanifest,
+
                                                 exif=True)
-    # files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[-2])
+
     print(f"Found {len(files)} files.")
 
     # split out videos
@@ -150,18 +151,18 @@ def from_config(config: str):
     print("Searching directory...")
     # Create a working directory, default to image_dir
     working_dir = file_management.WorkingDirectory(cfg.get('working_dir', image_dir))
+
     files = file_management.build_file_manifest(image_dir,
+                                                exif=cfg.get('exif', True),
                                                 out_file=working_dir.filemanifest,
-                                                exif=cfg.get('exif', True))
+                                                data_timezone=cfg.get('data_timezone', None),
+                                                station_depth=cfg.get('station_depth', None),
+                                                camera_depth=cfg.get('camera_depth', None))
     print(f"Found {len(files)} files.")
 
-    # Station Col
-    station_dir = cfg.get('station_dir', None)
-    if station_dir:
-        files["station"] = files["filepath"].apply(lambda x: x.split(os.sep)[station_dir])
-
     # split out videos
-    all_frames = video_processing.extract_frames(files, frames=5, out_file=working_dir.imageframes)
+    all_frames = video_processing.extract_frames(files, frames=cfg.get('frames', 5), 
+                                                 fps=cfg.get('fps', None), out_file=working_dir.imageframes)
 
     print("Running images and video frames through detector...")
     if (file_management.check_file(working_dir.detections, output_type="Detections")):
@@ -170,15 +171,15 @@ def from_config(config: str):
         detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'mdv5'), device=device)
         md_results = detection.detect(detector,
                                       all_frames,
-                                      resize_height=model_architecture.MEGADETECTORv5_SIZE,
-                                      resize_width=model_architecture.MEGADETECTORv5_SIZE,
+                                      resize_height=cfg.get('detection_resize_height', model_architecture.MEGADETECTORv5_SIZE),
+                                      resize_width=cfg.get('detection_resize_width', model_architecture.MEGADETECTORv5_SIZE),
                                       letterbox=cfg.get('letterbox', True),
-                                      file_col=cfg.get('file_col_detection', 'filepath'),
+                                      file_col=cfg.get('detection_file_col', 'filepath'),
                                       batch_size=cfg.get('batch_size', 4),
                                       num_workers=cfg.get('num_workers', NUM_THREADS),
                                       device=device,
                                       checkpoint_path=working_dir.mdraw,
-                                      checkpoint_frequency=1000)
+                                      checkpoint_frequency=cfg.get('checkpoint_frequency', 1000))
         # Convert MD JSON to pandas dataframe, merge with manifest
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
@@ -192,29 +193,30 @@ def from_config(config: str):
     # Load classifier
     classifier, class_list = classification.load_classifier(cfg['classifier_file'], cfg.get('class_list', None), device=device)
 
-    predictions_raw = classification.classify(classifier, animals,
-                                              resize_height=cfg.get('classifier_resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
-                                              resize_width=cfg.get('classifier_resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
-                                              file_col=cfg.get('file_col_classification', 'filepath'),
+    predictions_output = classification.classify(classifier, animals,
+                                              resize_height=cfg.get('classification_resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
+                                              resize_width=cfg.get('classification_resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
+                                              file_col=cfg.get('classification_file_col', 'filepath'),
                                               batch_size=cfg.get('batch_size', 4),
                                               num_workers=cfg.get('num_workers', NUM_THREADS),
                                               device=device,
                                               out_file=working_dir.predictions)
 
     # Convert predictions to labels
-    if station_dir:
-        manifest = classification.sequence_classification(animals, empty, predictions_raw,
+    if 'station' in animals.columns and cfg.get('sequence', False):
+        manifest = classification.sequence_classification(animals, empty, 
+                                                          predictions_output,
                                                           class_list[cfg.get('class_label_col', 'class')],
                                                           station_col='station',
                                                           empty_class=cfg['empty_class'],
                                                           sort_columns=["station", "datetime", "frame"],
-                                                          file_col=cfg.get('file_col_classification', 'frame'),
+                                                          file_col=cfg.get('classification_file_col', 'frame'),
                                                           maxdiff=60)
     else:
         manifest = classification.single_classification(animals, empty, 
-                                                        predictions_raw, 
+                                                        predictions_output, 
                                                         class_list[cfg.get('class_label_col', 'class')],
-                                                        file_col=cfg.get('file_col_classification', 'filepath'),
+                                                        file_col=cfg.get('classification_file_col', 'filepath'),
                                                         best=cfg.get('best_only', True))
 
     if cfg.get('sort', True):
