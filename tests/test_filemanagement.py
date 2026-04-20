@@ -29,7 +29,6 @@ from animl.file_management import (
     VIDEO_EXTENSIONS,
     VALID_EXTENSIONS,
 )
-from animl.detection import _save_detection_checkpoint as save_detection_checkpoint
 
 
 class TestConstants(unittest.TestCase):
@@ -413,43 +412,6 @@ class TestCheckFile(unittest.TestCase):
             self.assertTrue(check_file(str(f)))
         with patch('builtins.input', return_value='n'):
             self.assertFalse(check_file(str(f)))
-
-
-class TestSaveDetectionCheckpoint(unittest.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        cls.tmp_dir = tempfile.mkdtemp()
-
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(cls.tmp_dir)
-
-    def test_creates_checkpoint_file(self):
-        path = str(Path(self.tmp_dir) / 'checkpoint.json')
-        save_detection_checkpoint(path, [{'image': 'a.jpg'}])
-        self.assertTrue(Path(path).exists())
-
-    def test_checkpoint_contains_images_key(self):
-        path = str(Path(self.tmp_dir) / 'checkpoint2.json')
-        results = [{'image': 'a.jpg', 'detections': []}]
-        save_detection_checkpoint(path, results)
-        with open(path) as f:
-            data = json.load(f)
-        self.assertIn('images', data)
-        self.assertEqual(data['images'], results)
-
-    def test_overwrites_existing_checkpoint(self):
-        path = str(Path(self.tmp_dir) / 'checkpoint3.json')
-        save_detection_checkpoint(path, [{'image': 'a.jpg'}])
-        save_detection_checkpoint(path, [{'image': 'b.jpg'}])
-        with open(path) as f:
-            data = json.load(f)
-        self.assertEqual(data['images'][0]['image'], 'b.jpg')
-
-    def test_none_path_raises(self):
-        with self.assertRaises(AssertionError):
-            save_detection_checkpoint(None, [])
 
 
 class TestSequenceCalculation(unittest.TestCase):

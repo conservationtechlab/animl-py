@@ -1,34 +1,34 @@
 # directories and model files
-image_dir:  "/path/to/image_dir"
-working_dir: "/path/to/working_dir"
-detector_file: "/path/to/detector.ext"
-detector_type: "yolo"
-classifier_file: "/path/to/classifier.ext"
-class_list: "/path/to/classlist.csv"
-# link_dir: "/path/to/image_dir" without this key, will save to working_dir/Sorted
+image_dir:  "examples/Southwest"
+working_dir: "examples/Southwest"
 
-# file metadata
+# data ingestion
 exif: True
-#station_dir: -1 
-
+data_timezone: Null
+station_depth: Null
+camera_depth: Null
 # video processing
 parallel: True
 frames: 1
-fps: None
+fps: Null
 
 # inference
 device: cuda:0
-checkpoint_frequency: 1000
 batch_size: 4
 num_workers: 4
-file_col_detection: filepath
-file_col_classification: filepath
-class_label_col: class
-empty_class: Empty # necessary for sequence classification
+# detection
+detector_file: "models/md_v5a.0.0.pt"
+detector_type: "mdv5"
+detection_resize_height: 640
+detection_resize_width: 640
+detection_file_col: filepath
+letterbox: True
+checkpoint_frequency: 1000
+detect_only: True
 
+# export
 # sort
-sort: False
-copy: False
-
+sort: True
+copy: True
 # visualization
 visualize: True

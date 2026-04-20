@@ -184,6 +184,10 @@ def from_config(config: str):
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
 
+    if cfg.get('detect_only', False):
+        print("Detection only flag set, skipping classification.")
+        return detections
+
     # Extract animal detections from the rest
     animals = split.get_animals(detections)
     empty = split.get_empty(detections)
