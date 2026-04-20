@@ -353,7 +353,7 @@ def classify(model,
         file_management.save_data(pd.DataFrame(raw_output), out_file)
         # save failed files if any
         if len(failed_files) > 0:
-            with (Path(out_file).parent / "failed_files.txt").open("w") as f:
+            with (Path(out_file).parent / "classification_failed_files.txt").open("w") as f:
                 for item in failed_files:
                     f.write(f"{item}\n")
 
@@ -416,7 +416,7 @@ def single_classification(animals: pd.DataFrame,
                 # replace empty predictions with most confident non-empty prediction
                 top = file.sort_values("confidence", ascending=False).iloc[0]
                 cols = ['prediction', 'confidence', 'frame', 'conf', 'max_detection_conf', 
-                        'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
+                        'category', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
                 mask = manifest[file_col] == f
                 manifest.loc[mask, cols] = top[cols].values
 

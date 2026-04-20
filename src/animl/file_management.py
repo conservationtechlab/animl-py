@@ -115,7 +115,8 @@ def build_file_manifest(image_dir: str,
                         else:
                             files.loc[i, "createdate"] = None
                 except Exception as e:
-                    print(f"exiftool failed: {e}")
+                    print("pyexiftool failed, is exiftool installed and in PATH? ",
+                          f"createdate cannot be determined for videos, falling back to filemodifydate. Error: {e}")
                     files.loc[i, "createdate"] = None
     
         # determine local timezone for conversion

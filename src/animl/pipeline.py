@@ -122,7 +122,7 @@ def from_paths(image_dir: str,
     # Plot boxes
     if visualize:
         working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, file_col='filepath', label_col='prediction')
+        visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, file_col='filepath', classifier_label_col='prediction')
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
@@ -231,7 +231,7 @@ def from_config(config: str):
     # Plot boxes
     if cfg.get('visualize', False):
         working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, file_col='filepath', label_col='prediction')
+        visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, file_col='filepath', classifier_label_col='prediction')
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
