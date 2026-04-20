@@ -40,9 +40,11 @@ def load_detector(model_path: str,
     """
     if not Path(model_path).is_file():
         raise FileNotFoundError(f"Model file not found at {model_path}")
+    
+    model_type = model_type.lower()
 
     # YOLOv5/MDv5
-    if model_type.lower() in {"mdv5", "yolov5"}:
+    if model_type in {"mdv5", "yolov5"}:
         # check to make sure GPU is available if chosen
         device = get_torch_device(user_set=device)
         # load checkpoint
@@ -55,24 +57,24 @@ def load_detector(model_path: str,
                 if t is torch.nn.Upsample and not hasattr(m, 'recompute_scale_factor'):
                     m.recompute_scale_factor = None
         model = checkpoint['model'].float().fuse().eval()  # FP32 model
-        model.model_type = "yolov5"
+        model.model_type = model_type
         model.to(device)
         return model
     # YOLOv6+
-    elif model_type.lower() in {"yolo", "mdv6"}:
+    elif model_type in {"yolo", "mdv6"}:
         # check to make sure GPU is available if chosen
         device = get_torch_device(user_set=device)
         model = YOLO(model_path, task='detect')
-        model.model_type = "yolo"
+        model.model_type = model_type
         model.to(device)
         return model
     # ONNX model
-    elif model_type.lower() in {"onnx"}:
+    elif model_type in {"onnx"}:
         import onnxruntime as ort
         # check to make sure GPU is available if chosen
         providers = get_onnx_device(user_set=device)
         model = ort.InferenceSession(model_path, providers=providers)
-        model.model_type = "onnx"
+        model.model_type = model_type
         return model
     else:
         print(f"Please chose a supported model. Version {model_type} is not supported.")
@@ -115,6 +117,10 @@ def detect(detector,
     if checkpoint_frequency != -1:
         checkpoint_frequency = max(1, round(checkpoint_frequency/batch_size, None))
 
+    # assume yolo model if not already specified
+    if 'model_type' not in detector.__dict__:
+        detector.model_type = "yolo"
+
     # Single image filepath
     if isinstance(image_file_names, str):
         # convert img path to tensor
@@ -129,7 +135,7 @@ def detect(detector,
 
         batch_frames = [0]  # single image, frame 0
 
-        if detector.model_type == "yolov5":
+        if detector.model_type in {"yolov5", "mdv5"}:
             # check to make sure GPU is available if chosen
             device = get_torch_device(user_set=device)
             # letterboxing should be true
@@ -232,7 +238,7 @@ def detect(detector,
 
 
         # Run inference on the current batch of image_tensors
-        if detector.model_type == "yolov5":
+        if detector.model_type in {"yolov5", "mdv5"}:
             # letterboxing should be true
             prediction = detector(batch_tensors.to(device))
             pred: list = prediction[0]
@@ -284,12 +290,12 @@ def _convert_onnx_detections(predictions: list,
         boxes = pred[:, :4]  # Bounding box coordinates
         conf = pred[:, 4]  # Confidence scores
         category = pred[:, 5]  # Class labels as integers
-        max_detection_conf = conf.max() if len(conf) > 0 else 0
+        max_detection_conf = float(round(conf.max(), 4)) if len(conf) > 0 else None
 
         if len(conf) == 0:
             data = {'filepath': str(image_paths[i]),
                     'frame': int(image_frames[i]),
-                    'max_detection_conf': float(round(max_detection_conf, 4)),
+                    'max_detection_conf': max_detection_conf,
                     'detections': []}
             results.append(data)
         else:
@@ -309,12 +315,12 @@ def _convert_onnx_detections(predictions: list,
                     'bbox_w': float(round(bbox[2], 4)),
                     'bbox_h': float(round(bbox[3], 4)),
                     'conf': float(round(conf[j], 4)),
-                    'category': int(category[j]+1)
+                    'category': int(category[j])
                 }
                 detections.append(detection)
             data = {'filepath': str(image_paths[i]),
                     'frame': int(image_frames[i]),
-                    'max_detection_conf': float(round(max_detection_conf, 4)),
+                    'max_detection_conf': max_detection_conf,
                     'detections': detections}
             results.append(data)
 
@@ -327,7 +333,7 @@ def _convert_yolo_detections(predictions: list,
                             image_frames: list,
                             image_sizes: list,
                             letterbox: bool,
-                            model_type: str,) -> pd.DataFrame:
+                            model_type: str) -> pd.DataFrame:
     """
     Converts YOLO output into a nested list.
 
@@ -335,6 +341,7 @@ def _convert_yolo_detections(predictions: list,
         predictions (list): YOLO detection output (list of dictionaries with detections for each file)
         image_tensors (list): array of image tensors from mdv6 output
         image_paths (list): List of image file paths corresponding to predictions
+        image_frames (list): List of frame numbers corresponding to predictions
         image_sizes (list): List of original image sizes corresponding to predictions
         letterbox (bool): whether letterboxing was used during preprocessing
         model_type (str): type of model expected ["MDV5", "MDV6", "YOLO"]
@@ -358,19 +365,19 @@ def _convert_yolo_detections(predictions: list,
 
         # extract boxes and conf
         # YOLOv5/MDv5
-        if model_type.lower() in {"mdv5", "yolov5"}:
+        if model_type in {"mdv5", "yolov5"}:
             if isinstance(pred, torch.Tensor):
                 pred = pred.cpu().numpy()
             boxes = pred[:, :4]  # Bounding box coordinates
             conf = pred[:, 4]  # Confidence scores
             category = pred[:, 5]  # Class labels as integers
-            max_detection_conf = conf.max() if len(conf) > 0 else 0
+            max_detection_conf = float(round(conf.max(), 4)) if len(conf) > 0 else None
         # YOLOv6+
-        elif model_type.lower() in {"yolo", "mdv6", "mdv1000"}:
+        elif model_type in {"yolo", "mdv6", "mdv1000"}:
             boxes = pred.boxes.xyxyn.cpu().numpy()  # Bounding box coordinates
             conf = pred.boxes.conf.cpu().numpy()  # Confidence scores
             category = pred.boxes.cls.cpu().numpy()  # Class labels as integers
-            max_detection_conf = conf.max() if len(conf) > 0 else 0
+            max_detection_conf = float(round(conf.max(), 4)) if len(conf) > 0 else None
         else:
             print(f"Please chose a supported model. Version {model_type} is not supported.")
             return None
@@ -379,7 +386,7 @@ def _convert_yolo_detections(predictions: list,
         if len(conf) == 0:
             data = {'filepath': str(file),
                     'frame': int(image_frames[i]),
-                    'max_detection_conf': float(round(max_detection_conf, 4)),
+                    'max_detection_conf': max_detection_conf,
                     'detections': []}
             results.append(data)
         # detections
@@ -387,30 +394,34 @@ def _convert_yolo_detections(predictions: list,
             detections = []
             for j in range(len(conf)):
                 # YOLOv5/MDv5
-                if model_type.lower() in {'mdv5', 'yolov5'}:  # xyxy absolute
+                if model_type in {'mdv5', 'yolov5'}:  # xyxy absolute
                     bbox = normalize_bbox(boxes[j], image_tensors[i].shape[1:])
                     bbox = _xyxy_to_xywh(bbox)
                 # YOLOv6+
-                elif model_type.lower() in {'yolo', "mdv6", "mdv1000"}:  # xyxy relative
+                elif model_type in {'yolo', "mdv6", "mdv1000"}:  # xyxy relative
                     bbox = _xyxy_to_xywh(boxes[j])
                 else:
                     print(f"Please chose a supported model. Version {model_type} is not supported.")
                     return None
+                
+                # increase md categories by 1
+                if model_type in {"mdv5", "mdv6", "mdv1000"}:
+                    category[j] += 1
 
                 if letterbox:
                     bbox = scale_letterbox(bbox, image_tensors[i].shape[1:], image_sizes[i, :])
 
-                data = {'category': int(category[j]+1),
-                        'conf': float(round(conf[j], 4)),
-                        'bbox_x': float(round(bbox[0], 4)),
-                        'bbox_y': float(round(bbox[1], 4)),
-                        'bbox_w': float(round(bbox[2], 4)),
-                        'bbox_h': float(round(bbox[3], 4))}
-                detections.append(data)
+                detection = {'category': int(category[j]),
+                             'conf': float(round(conf[j], 4)),
+                             'bbox_x': float(round(bbox[0], 4)),
+                             'bbox_y': float(round(bbox[1], 4)),
+                             'bbox_w': float(round(bbox[2], 4)),
+                             'bbox_h': float(round(bbox[3], 4))}
+                detections.append(detection)
 
             data = {'filepath': str(file),
                     'frame': int(image_frames[i]),
-                    'max_detection_conf': float(round(max_detection_conf, 4)),
+                    'max_detection_conf': max_detection_conf,
                     'detections': detections}
             results.append(data)
 
@@ -435,6 +446,13 @@ def parse_detections(results: Union[list, tuple],
     Returns:
         df (pd.DataFrame): formatted md outputs, one row per detection
     """
+    if manifest is not None and file_col not in manifest.columns:
+        raise ValueError(f"file_col '{file_col}' not found in manifest columns")
+    
+    if manifest is not None and 'frame' not in manifest.columns:
+        print("""Warning: 'frame' column not found in manifest columns. Defaulting to 0 for all rows.""")
+        manifest['frame'] = 0
+
     # unpack results
     if isinstance(results, tuple):
         results = results[0]
@@ -448,18 +466,17 @@ def parse_detections(results: Union[list, tuple],
     else:
         failed_files = None
 
-    # load checkpoint
-    if file_management.check_file(out_file, output_type="Detections"):  # checkpoint comes back empty
-        df = file_management.load_data(out_file)
-
+    # check results format
     if not isinstance(results, list):
-        raise AssertionError("MD results input must be list")
-
+        raise TypeError("MD results input must be list")
     if len(results) == 0:
         raise AssertionError("'results' contains no detections")
 
-    lst = []
+    # load results from file if they have already been parsed
+    if file_management.check_file(out_file, output_type="Detections"): 
+        return file_management.load_data(out_file)
 
+    lst = []
     for frame in tqdm(results):
         try:
             detections = frame['detections']
@@ -471,7 +488,7 @@ def parse_detections(results: Union[list, tuple],
             data = {'filepath': frame['filepath'],
                     'frame': frame['frame'],
                     'max_detection_conf': frame['max_detection_conf'],
-                    'category': 0, 'conf': None, 'bbox_x': None,
+                    'category': None, 'conf': None, 'bbox_x': None,
                     'bbox_y': None, 'bbox_w': None, 'bbox_h': None}
             lst.append(data)
 
