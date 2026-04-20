@@ -192,8 +192,8 @@ class TestBuildFileManifest(unittest.TestCase):
         self.assertNotIn('camera', result.columns)
 
     def test_camera_depth_correct_values(self):
-        # structure: tmp_dir/station1/cam1/subimg.jpg -> camera_depth=2 -> 'cam1'
-        # camera_depth is 1-indexed from image_dir, so depth 2 = second subdir = cam1
+        # structure: tmp_dir/station1/cam1/subimg.jpg
+        # camera_depth counts subdirectory levels: 1 = first subdir (station1), 2 = second subdir (cam1)
         result = build_file_manifest(self.tmp_dir, exif=False, camera_depth=2, recursive=True)
         subdir_rows = result[result['filename'].isin(['subimg.jpg', 'subimg2.jpg'])]
         self.assertTrue(all(subdir_rows['camera'].isin(['cam1', 'cam2'])))
@@ -205,7 +205,8 @@ class TestBuildFileManifest(unittest.TestCase):
         self.assertTrue((result['camera'] == expected_camera).all())
 
     def test_camera_depth_one_indexed(self):
-        # depth is 1-indexed from image_dir: depth 2 = second subdir = cam1
+        # camera_depth counts subdirectory levels below image_dir:
+        # depth 1 = first subdir (station1), depth 2 = second subdir (cam1)
         # structure: tmp_dir/station1/cam1/subimg.jpg -> camera_depth=2 -> 'cam1'
         result = build_file_manifest(self.tmp_dir, exif=False, camera_depth=2, recursive=True)
         subdir_rows = result[result['filename'] == 'subimg.jpg']
