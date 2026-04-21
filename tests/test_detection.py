@@ -15,8 +15,9 @@ import pandas as pd
 import torch
 
 from animl.detection import (
-    convert_onnx_detections,
-    convert_yolo_detections,
+    _convert_onnx_detections as convert_onnx_detections,
+    _convert_yolo_detections as convert_yolo_detections,
+    _save_detection_checkpoint as save_detection_checkpoint,
     parse_detections,
     load_detector,
 )
@@ -61,6 +62,43 @@ class TestLoadDetector(unittest.TestCase):
             result = load_detector(f.name, 'UNSUPPORTED')
             self.assertIsNone(result)
 
+
+
+class TestSaveDetectionCheckpoint(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp_dir = tempfile.mkdtemp()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp_dir)
+
+    def test_creates_checkpoint_file(self):
+        path = str(Path(self.tmp_dir) / 'checkpoint.json')
+        save_detection_checkpoint(path, [{'image': 'a.jpg'}])
+        self.assertTrue(Path(path).exists())
+
+    def test_checkpoint_contains_images_key(self):
+        path = str(Path(self.tmp_dir) / 'checkpoint2.json')
+        results = [{'image': 'a.jpg', 'detections': []}]
+        save_detection_checkpoint(path, results)
+        with open(path) as f:
+            data = json.load(f)
+        self.assertIn('images', data)
+        self.assertEqual(data['images'], results)
+
+    def test_overwrites_existing_checkpoint(self):
+        path = str(Path(self.tmp_dir) / 'checkpoint3.json')
+        save_detection_checkpoint(path, [{'image': 'a.jpg'}])
+        save_detection_checkpoint(path, [{'image': 'b.jpg'}])
+        with open(path) as f:
+            data = json.load(f)
+        self.assertEqual(data['images'][0]['image'], 'b.jpg')
+
+    def test_none_path_raises(self):
+        with self.assertRaises(AssertionError):
+            save_detection_checkpoint(None, [])
 
 # ---------------------------------------------------------------------------
 # convert_onnx_detections
@@ -108,7 +146,7 @@ class TestConvertOnnxDetections(unittest.TestCase):
         result = convert_onnx_detections(preds, self.image_tensors, self.image_paths,
                                          self.image_frames, self.image_sizes, letterbox=False)
         self.assertEqual(result[0]['detections'], [])
-        self.assertEqual(result[0]['max_detection_conf'], 0)
+        self.assertIsNone(result[0]['max_detection_conf'])
 
     def test_detection_keys_present(self):
         preds = [self._make_pred(num_detections=1)]
@@ -125,17 +163,17 @@ class TestConvertOnnxDetections(unittest.TestCase):
                                          self.image_frames, self.image_sizes, letterbox=False)
         self.assertEqual(result[0]['filepath'], 'my_image.jpg')
 
-    def test_category_is_one_indexed(self):
-        """Category should be class_id + 1."""
+    def test_category_is_zero_indexed(self):
+        """ONNX category is passed through as-is (0-indexed, not incremented)."""
         pred = np.zeros((1, 6), dtype=np.float32)
         pred[0, 2] = 0.5
         pred[0, 3] = 0.5
         pred[0, 4] = 0.9
-        pred[0, 5] = 0   # class 0 -> expected category 1
+        pred[0, 5] = 0   # class 0 -> expected category 0 (no offset applied)
         result = convert_onnx_detections([pred], self.image_tensors, self.image_paths,
                                          self.image_frames, self.image_sizes, letterbox=False)
         if result[0]['detections']:
-            self.assertEqual(result[0]['detections'][0]['category'], 1)
+            self.assertEqual(result[0]['detections'][0]['category'], 0)
 
     def test_multiple_images(self):
         tensors = _make_image_tensor(batch=2)
@@ -216,10 +254,11 @@ class TestConvertYoloDetections(unittest.TestCase):
                 self.assertIsInstance(det[key], float)
 
     def test_category_is_one_indexed(self):
+        """MegaDetector (mdv5) categories are incremented by 1; plain yolov5 is not."""
         preds = [self._make_yolov5_pred(num_detections=1)]
         result = convert_yolo_detections(preds, self.image_tensors, self.image_paths,
                                          self.image_frames, self.image_sizes,
-                                         letterbox=False, model_type='yolov5')
+                                         letterbox=False, model_type='mdv5')
         if result[0]['detections']:
             self.assertEqual(result[0]['detections'][0]['category'], 1)
 
@@ -276,7 +315,7 @@ class TestParseDetections(unittest.TestCase):
         self.assertEqual(len(result), 3)
 
     def test_non_list_input_raises(self):
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(TypeError):
             parse_detections("not a list")
 
     def test_empty_list_raises(self):

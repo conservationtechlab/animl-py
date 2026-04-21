@@ -351,6 +351,11 @@ def classify(model,
         if not Path(out_file).parent.is_dir():
             raise FileNotFoundError(f"Directory not found for out_file: {out_file}")
         file_management.save_data(pd.DataFrame(raw_output), out_file)
+        # save failed files if any
+        if len(failed_files) > 0:
+            with (Path(out_file).parent / "classification_failed_files.txt").open("w") as f:
+                for item in failed_files:
+                    f.write(f"{item}\n")
 
     print(f"\nFinished classification. Total images processed: {len(raw_output)} at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
 
@@ -390,7 +395,7 @@ def single_classification(animals: pd.DataFrame,
         predictions_raw = predictions_output
 
     if not animals.empty:
-        if failed_files is not None:
+        if failed_files is not None and len(failed_files) > 0:
             print(f"Warning: {len(failed_files)} files failed to load during classification and will be excluded from results.")
             animals = animals[~animals[file_col].isin(failed_files)]
         animals = animals.reset_index(drop=True)
@@ -403,11 +408,17 @@ def single_classification(animals: pd.DataFrame,
     files = manifest.groupby(file_col)
 
     for f, file in files:
+        # TODO: remove hardcoded video extensions and frame column name
         if file['extension'].iloc[0] in file_management.VIDEO_EXTENSIONS:
             predictions = file['prediction'].unique()
             if 'empty' in predictions and len(predictions) > 1:
-                real_prediction = predictions[predictions != 'empty'][0]
-                manifest.loc[manifest[file_col] == f, 'prediction'] = real_prediction
+                file = file[file['prediction'] != 'empty']
+                # replace empty predictions with most confident non-empty prediction
+                top = file.sort_values("confidence", ascending=False).iloc[0]
+                cols = ['prediction', 'confidence', 'frame', 'conf', 'max_detection_conf', 
+                        'category', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
+                mask = manifest[file_col] == f
+                manifest.loc[mask, cols] = top[cols].values
 
     # best guess
     if best:
@@ -427,6 +438,7 @@ def sequence_classification(animals: pd.DataFrame,
                             empty_class: str = "",
                             sort_columns: list[str] = None,
                             file_col: str = "filepath",
+                            timestamp_col: str = "datetime",
                             failed_files: Optional[list] = None,
                             maxdiff: int = 60):
     """
@@ -447,6 +459,7 @@ def sequence_classification(animals: pd.DataFrame,
         empty_class (str) (Optional): the name of class_list 'empty' label
         sort_columns (List of Strings): Defines sorting order for the DataFrame
         file_col (str): The name of the filepath column
+        timestamp_col (str): The name of the timestamp column
         failed_files (Optional[list]): list of files that failed to load during classification
         maxdiff (int): Maximum time difference in seconds between any two images in a sequence
 
@@ -473,8 +486,8 @@ def sequence_classification(animals: pd.DataFrame,
     if not {file_col}.issubset(animals.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
-    if not {"datetime"}.issubset(animals.columns):
-        raise ValueError("DataFrame must contain 'datetime' column.")
+    if not {timestamp_col}.issubset(animals.columns):
+        raise ValueError(f"DataFrame must contain '{timestamp_col}' column.")
 
     if "conf" not in animals.columns:
         animals["conf"] = 1
@@ -489,12 +502,12 @@ def sequence_classification(animals: pd.DataFrame,
         predictions_raw, failed_files = predictions_output
     else:
         predictions_raw = predictions_output
-        # failed_files is failed_files arg
 
     # remove failed files from animals dataframe
     if failed_files is not None:
         animals = animals[~animals[file_col].isin(failed_files)].reset_index(drop=True) 
-        assert len(animals) == predictions_raw.shape[0], "Number of predictions does not match number of animal detections after removing failed files."
+    
+    assert len(animals) == predictions_raw.shape[0], "Number of predictions does not match number of animal detections after removing failed files."
 
     # prepare empty dataframe for concat
     if empty is not None and not empty.empty:
@@ -534,9 +547,9 @@ def sequence_classification(animals: pd.DataFrame,
         predictions = predictions_raw
 
     if sort_columns is None:
-        sort_columns = [station_col, "datetime"]
+        sort_columns = [station_col, timestamp_col]
 
-    animals_merged['datetime'] = pd.to_datetime(animals_merged['datetime'], format="%Y-%m-%d %H:%M:%S")
+    animals_merged[timestamp_col] = pd.to_datetime(animals_merged[timestamp_col], format="%Y-%m-%d %H:%M:%S")
 
     sort = animals_merged.sort_values(by=sort_columns).index
     animals_sort = animals_merged.loc[sort].reset_index(drop=True)
@@ -552,10 +565,10 @@ def sequence_classification(animals: pd.DataFrame,
         rows = [i]
         last_index = i+1
 
-        while (last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, "datetime"]) and
-               not pd.isna(animals_sort.loc[last_index, "datetime"]) and
+        while (last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, timestamp_col]) and
+               not pd.isna(animals_sort.loc[last_index, timestamp_col]) and
                animals_sort.loc[last_index, station_col] == animals_sort.loc[i, station_col] and
-               (animals_sort.loc[last_index, "datetime"] - animals_sort.loc[i, "datetime"]).total_seconds() <= maxdiff):
+               (animals_sort.loc[last_index, timestamp_col] - animals_sort.loc[i, timestamp_col]).total_seconds() <= maxdiff):
             rows.append(last_index)
             last_index += 1
 

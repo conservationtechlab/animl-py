@@ -116,6 +116,11 @@ class TestLoadClassifier(unittest.TestCase):
         cls.model_path_pt = Path.cwd() / 'models/sdzwa_southwest_v3.pt'
         cls.model_path_onnx = Path.cwd() / 'models/sdzwa_southwest_v3.onnx'
         cls.class_list_path = Path.cwd() / 'models/sdzwa_southwest_v3_classes.csv'
+        if not cls.class_list_path.exists():
+            raise unittest.SkipTest(
+                f"Model class list not found at {cls.class_list_path}; "
+                "skipping TestLoadClassifier (requires downloaded model files)."
+            )
         cls.classes = load_class_list(cls.class_list_path)
 
     def test_nonexistent_file_raises(self):
@@ -159,9 +164,16 @@ class TestClassifyPytorch(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model_path_pt = Path.cwd() / 'models/sdzwa_southwest_v3.pt'
-        detections = pd.read_csv(Path(__file__).parent / 'GroundTruth/southwest/Detections.csv')
+        cls.detections_path = Path(__file__).parent / 'GroundTruth/southwest/Detections.csv'
+        cls.class_list_path = Path.cwd() / 'models/sdzwa_southwest_v3_classes.csv'
+        if not cls.model_path_pt.exists() or not cls.detections_path.exists() or not cls.class_list_path.exists():
+            raise unittest.SkipTest(
+                "Required model or ground-truth files not found; "
+                "skipping TestClassifyPytorch (requires downloaded model files and test data)."
+            )
+        detections = pd.read_csv(cls.detections_path)
         cls.detections = get_animals(detections)
-        cls.class_path = load_class_list(Path.cwd() / 'models/sdzwa_southwest_v3_classes.csv')
+        cls.class_path = load_class_list(cls.class_list_path)
         cls.model, cls.classes = load_classifier(cls.model_path_pt, cls.class_path, device='cpu', architecture='efficientnet_v2_m')
         cls.tmpdir = tempfile.mkdtemp()
 
@@ -227,7 +239,7 @@ class TestClassifyPytorch(unittest.TestCase):
             classify(self.model, self.detections[0:1].copy(), device='cpu', batch_size=1, num_workers='not_an_integer')
 
     def test_non_string_out_file_raises(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             classify(self.model, self.detections[0:1].copy(), device='cpu', batch_size=1, out_file=123)
 
     def test_nonexistent_out_file_directory_raises(self):
@@ -269,8 +281,15 @@ class TestClassifyOnnx(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model_path_onnx = Path.cwd() / 'models/sdzwa_southwest_v3.onnx'
-        cls.detections = pd.read_csv(Path(__file__).parent / 'GroundTruth/main/Detections.csv')
-        cls.classes = load_class_list(Path.cwd() / 'models/sdzwa_southwest_v3_classes.csv')
+        cls.detections_path = Path(__file__).parent / 'GroundTruth/main/Detections.csv'
+        cls.class_list_path = Path.cwd() / 'models/sdzwa_southwest_v3_classes.csv'
+        if not cls.model_path_onnx.exists() or not cls.detections_path.exists() or not cls.class_list_path.exists():
+            raise unittest.SkipTest(
+                "Required model or ground-truth files not found; "
+                "skipping TestClassifyOnnx (requires downloaded model files and test data)."
+            )
+        cls.detections = pd.read_csv(cls.detections_path)
+        cls.classes = load_class_list(cls.class_list_path)
         cls.model = load_classifier(cls.model_path_onnx, cls.classes, device='cpu')
 
 

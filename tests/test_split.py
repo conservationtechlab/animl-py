@@ -155,14 +155,16 @@ class TestGetEmpty(unittest.TestCase):
         result = get_empty(manifest)
         self.assertEqual(len(result), 0)
 
-    def test_nan_category_excluded(self):
+    def test_nan_category_treated_as_empty(self):
+        """NaN category is filled with 0 (empty) and included in get_empty results."""
         manifest = pd.DataFrame({
             'filepath': ['a.jpg', 'b.jpg', 'c.jpg'],
             'category': [2, np.nan, 0],
             'conf': [0.8, 0.5, 1.0],
         })
         result = get_empty(manifest)
-        self.assertEqual(len(result), 2)
+        # All three rows have category != 1: category 2 (human), NaN→0 (empty), 0 (empty)
+        self.assertEqual(len(result), 3)
 
     def test_index_is_reset(self):
         manifest = _make_manifest([1, 2, 1, 0])

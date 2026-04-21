@@ -11,20 +11,21 @@ import pandas as pd
 import math
 import numpy as np
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 from animl.utils import general
 from animl.file_management import IMAGE_EXTENSIONS
 from animl.video_processing import get_frame_as_image
 
 
-MD_COLORS = {"1": (0, 255, 0), "2": (0, 0, 255),  "3": (255, 0, 0)}
-MD_LABELS = {"1": "animal", "2": "human",  "3": "vehicle"}
+MD_COLORS = {0: (255,255,255), 1: (0, 255, 0), 2: (0, 0, 255),  3: (255, 0, 0)}
+MD_LABELS = {0: "empty", 1: "animal", 2: "human",  3: "vehicle"}
 
 def plot_box(rows,
              file_col: str = "filepath",
              min_conf: Union[int, float] = 0,
-             label_col=None,
+             classifier_label_col=None,
+             detector_category_col: str = "category",
              show_confidence=False,
              colors = MD_COLORS,
              detector_labels = MD_LABELS,
@@ -36,7 +37,6 @@ def plot_box(rows,
         rows (pandas.DataFrame): Row from the DataFrame containing bounding box coordinates and prediction.
             Expected columns:
             - file_col
-            - 'conf': Confidence score of the detection.
             - 'bbox_x': x-coordinate of the top-left corner of the bounding box.
             - 'bbox_y': y-coordinate of the top-left corner of the bounding box.
             - 'bbox_w': width of the bounding box.
@@ -44,7 +44,8 @@ def plot_box(rows,
             - 'prediction': Prediction label to be displayed alongside the bounding box (optional).
         file_col (str): filepath column name in the DataFrame
         min_conf (int or float): Minimum confidence threshold to plot the box
-        label_col (str or None): Column name containing class to print above the box. If None, no label is printed.
+        classifier_label_col (str or None): Column name containing class to print above the box. If None, no label is printed.
+        detector_category_col (str): Column name containing the detector category (e.g., 'category') to determine box color and label.
         show_confidence (bool): If true, show confidence score above the box.
         colors (dict): Dictionary mapping class labels to BGR color tuples for the bounding boxes.
         detector_labels (dict): Dictionary mapping detector categories to human-readable labels.
@@ -57,8 +58,8 @@ def plot_box(rows,
     if isinstance(rows, pd.Series):
         rows = pd.DataFrame([rows])
         
-    if not {file_col, 'conf', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(rows.columns):
-        raise ValueError(f"DataFrame must contain {file_col}, 'conf', 'bbox_x', 'bbox_y', 'bbox_w', and 'bbox_h' columns.")
+    if not {file_col, detector_category_col, 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(rows.columns):
+        raise ValueError(f"DataFrame must contain {file_col}, {detector_category_col}, 'bbox_x', 'bbox_y', 'bbox_w', and 'bbox_h' columns.")
     
     if colors is None:
         colors = MD_COLORS
@@ -83,7 +84,7 @@ def plot_box(rows,
 
     for _, row in rows.iterrows():
         # Skipping the box if the confidence threshold is not met
-        if (row['conf']) < min_conf:
+        if 'conf' in row and not np.isnan(row['conf']) and row['conf'] < min_conf:
             continue
 
         # If any of the box isn't defined, jump to next one
@@ -93,16 +94,16 @@ def plot_box(rows,
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         xyxy = general._xywh_to_absxyxy(bbox, width, height)
 
-        color = colors[str(int(row['category']))]
+        color = colors[int(row[detector_category_col])]
         thick = int((height + width) // 900)
         cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), color, thick)
 
         # Printing prediction if enabled
-        if label_col:
-            if label_col == "category":
-                label = detector_labels[str(int(row['category']))]
+        if classifier_label_col is not None and classifier_label_col in row and not pd.isna(row[classifier_label_col]):
+            if classifier_label_col == "category":
+                label = detector_labels[int(row[detector_category_col])]
             else:
-                label = row[label_col]
+                label = row[classifier_label_col]
 
             if show_confidence:
                 if 'confidence' in row and not np.isnan(row['confidence']):
@@ -135,11 +136,12 @@ def plot_box(rows,
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             out_dir: str,
                             file_col: str = 'filepath',
+                            classifier_label_col: Optional[str] = None,
+                            detector_category_col: str = "category",
                             min_conf: Union[int, float] = 0.1,
-                            label_col = False,
                             show_confidence: bool = False,
-                            colors = MD_COLORS,
-                            detector_labels = MD_LABELS):
+                            colors: Optional[dict] = None,
+                            detector_labels: Optional[dict] = None):
     """
     This function takes the parsed dataframe output from MegaDetector, makes a copy of each image,
     plots the boxes in the new image, and saves it the specified directory.
@@ -148,8 +150,9 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         manifest (Pandas DataFrame): manifest of detections
         out_dir (str): Name of the output directory
         file_col (str): Column name containing file paths
+        classifier_label_col (Optional) (str): Column name containing label to print on box
+        detector_category_col (str): Column name containing the detector category (e.g., 'category') to determine box color and label.
         min_conf (Optional) (Int or Float): Confidence threshold to plot the box
-        label_col (Optional) (str): Column name containing label to print on box
         show_confidence (Optional) (bool): If true, show confidence score on box
         colors (Optional) (dict): Dictionary mapping class labels to BGR color tuples for the bounding boxes.
         detector_labels (Optional) (dict): Dictionary mapping detector categories to human-readable labels.
@@ -160,10 +163,15 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
     
+    # get values
     if colors is None:
         colors = MD_COLORS
     if detector_labels is None:
         detector_labels = MD_LABELS
+    if len(colors)!=len(detector_labels):
+        raise ValueError("Colors and detector_labels must have the same number of classes.")
+    if len(detector_labels) < max(manifest[detector_category_col]):
+        raise ValueError("Detector labels must have a label for each category in the manifest.")
 
     # If the specified output directory does not exist, make it
     Path(out_dir).mkdir(exist_ok=True)
@@ -179,7 +187,9 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         if file_ext.lower() in IMAGE_EXTENSIONS:
 
             img = plot_box(detections, file_col=file_col, min_conf=min_conf, 
-                           label_col=label_col, show_confidence=show_confidence,
+                           classifier_label_col=classifier_label_col, 
+                           detector_category_col=detector_category_col, 
+                           show_confidence=show_confidence,
                            colors=colors, detector_labels=detector_labels, return_img=True)
 
                 # Saving the image
@@ -196,7 +206,9 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
             for f, frame_detections in frames:
 
                 img = plot_box(frame_detections, file_col=file_col, min_conf=min_conf,
-                               label_col=label_col, show_confidence=show_confidence,
+                               classifier_label_col=classifier_label_col, 
+                               detector_category_col=detector_category_col,
+                               show_confidence=show_confidence,
                                colors=colors, detector_labels=detector_labels, return_img=True)
 
                 # Saving the image

@@ -821,7 +821,8 @@ class TestFromConfig(unittest.TestCase):
     def test_station_dir_adds_station_column(self):
         config_path = _write_config(self.image_dir, self.detector_file,
                                     self.classifier_file,
-                                    overrides={'station_dir': -1, 'empty_class': ''})
+                                    overrides={'station_dir': -1, 'empty_class': '',
+                                               'sequence': True})
         with patch('animl.pipeline.file_management.WorkingDirectory') as mock_wd_cls, \
              patch('animl.pipeline.file_management.build_file_manifest') as mock_build, \
              patch('animl.pipeline.file_management.check_file') as mock_check, \
