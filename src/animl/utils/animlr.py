@@ -8,13 +8,29 @@ def get_version():
     """Returns the version of animl-r."""
     return __version__
 
-def check_installation():
-    """Checks if animl-py is installed correctly."""
-    # TODO: Implement more comprehensive checks, such as verifying that all 
-    # dependencies are installed and that the package can be imported without errors.
+def check_exiftool():
+    """Checks if exiftool is installed and accessible."""
+    import exiftool
     try:
-        version = get_version()
-        print(f"animl-py version {version} is installed correctly.")
+        with exiftool.ExifToolHelper() as et:
+            # This will fail if the exiftool executable is not in your PATH
+            return True
     except Exception as e:
-        print("Error: animl-py is not installed correctly.")
-        print(str(e))
+        return False
+
+def check_torch_cuda():
+    """Checks if CUDA is available for PyTorch."""
+    import torch
+    if torch.cuda.is_available():
+        return True
+    else:
+        return False
+
+def check_onnx_cuda():
+    """Checks if CUDA is available for ONNX Runtime."""
+    import onnxruntime as ort
+    providers = ort.get_available_providers()
+    if 'CUDAExecutionProvider' in providers:
+        return True
+    else:
+        return False
