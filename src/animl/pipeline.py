@@ -78,52 +78,67 @@ def from_paths(image_dir: str,
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
 
+    # Detection only option - skip classification and export results directly from detections
     if detect_only:
         print("Detection only flag set, skipping classification.")
-        return detections
+        manifest = detections
 
-    # Extract animal detections from the rest
-    animals = split.get_animals(detections)
-    empty = split.get_empty(detections)
+        # Sort
+        if sort:
+            print("Sorting...")
+            working_dir.activate_linkdir()
+            manifest = export.export_folders(manifest, working_dir.linkdir, label_col='category')
+        # Plot boxes
+        if visualize:
+            working_dir.activate_visdir()
+            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, 
+                                                  file_col='filepath', classifier_label_col=None)
 
-    # Use the classifier model to predict the species of animal detections
-    print("Predicting species of animal detections...")
-    classifier, class_list = classification.load_classifier(classifier_file, classlist_file, device=None)
-
-    predictions_output = classification.classify(classifier,
-                                              animals,
-                                              device=None,
-                                              resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
-                                              resize_width=model_architecture.SDZWA_CLASSIFIER_SIZE,
-                                              batch_size=batch_size,
-                                              num_workers=NUM_THREADS,
-                                              out_file=working_dir.predictions)
-    if sequence:
-        print("Classifying sequences...")
-        manifest = classification.sequence_classification(animals, empty, 
-                                                          predictions_output,
-                                                          class_list[class_label],
-                                                          station_col='station',
-                                                          empty_class="",
-                                                          sort_columns=["station", "datetime", "frame"],
-                                                          maxdiff=60)
     else:
-        print("Classifying individual frames...")
-        manifest = classification.single_classification(animals, empty, 
-                                                        predictions_output, 
-                                                        class_list[class_label],
-                                                        best=True)
+        # Extract animal detections from the rest
+        animals = split.get_animals(detections)
+        empty = split.get_empty(detections)
 
-    if sort:
-        print("Sorting...")
-        working_dir.activate_linkdir()
-        manifest = export.export_folders(manifest, working_dir.linkdir)
+        # Use the classifier model to predict the species of animal detections
+        print("Predicting species of animal detections...")
+        classifier, class_list = classification.load_classifier(classifier_file, classlist_file, device=None)
 
-    # Plot boxes
-    if visualize:
-        working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, file_col='filepath', classifier_label_col='prediction')
+        predictions_output = classification.classify(classifier,
+                                                animals,
+                                                device=None,
+                                                resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
+                                                resize_width=model_architecture.SDZWA_CLASSIFIER_SIZE,
+                                                batch_size=batch_size,
+                                                num_workers=NUM_THREADS,
+                                                out_file=working_dir.predictions)
+        if sequence:
+            print("Classifying sequences...")
+            manifest = classification.sequence_classification(animals, empty, 
+                                                            predictions_output,
+                                                            class_list[class_label],
+                                                            station_col='station',
+                                                            empty_class="",
+                                                            sort_columns=["station", "datetime", "frame"],
+                                                            maxdiff=60)
+        else:
+            print("Classifying individual frames...")
+            manifest = classification.single_classification(animals, empty, 
+                                                            predictions_output, 
+                                                            class_list[class_label],
+                                                            best=True)
 
+        if sort:
+            print("Sorting...")
+            working_dir.activate_linkdir()
+            manifest = export.export_folders(manifest, working_dir.linkdir, label_col='prediction')
+
+        # Plot boxes
+        if visualize:
+            working_dir.activate_visdir()
+            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, 
+                                                  file_col='filepath', classifier_label_col='prediction')
+
+    # Save final results to csv
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))
 
@@ -184,54 +199,68 @@ def from_config(config: str):
         print("Converting MD JSON to dataframe and merging with manifest...")
         detections = detection.parse_detections(md_results, manifest=all_frames, out_file=working_dir.detections)
 
+    # Detection only option - skip classification and export results directly from detections
     if cfg.get('detect_only', False):
         print("Detection only flag set, skipping classification.")
-        return detections
+        manifest = detections
 
-    # Extract animal detections from the rest
-    animals = split.get_animals(detections)
-    empty = split.get_empty(detections)
+        # Sort
+        if cfg.get('sort', True):
+            print("Sorting...")
+            working_dir.activate_linkdir()
+            manifest = export.export_folders(manifest, working_dir.linkdir, 
+                                             label_col='category', copy=cfg.get('copy', False))
+        # Plot boxes
+        if cfg.get('visualize', False):
+            working_dir.activate_visdir()
+            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, 
+                                                  file_col='filepath', classifier_label_col=None)
 
-    # Use the classifier model to predict the species of animal detections
-    print("Predicting species...")
-    # Load classifier
-    classifier, class_list = classification.load_classifier(cfg['classifier_file'], cfg.get('class_list', None), device=device)
-
-    predictions_output = classification.classify(classifier, animals,
-                                              resize_height=cfg.get('classification_resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
-                                              resize_width=cfg.get('classification_resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
-                                              file_col=cfg.get('classification_file_col', 'filepath'),
-                                              batch_size=cfg.get('batch_size', 4),
-                                              num_workers=cfg.get('num_workers', NUM_THREADS),
-                                              device=device,
-                                              out_file=working_dir.predictions)
-
-    # Convert predictions to labels
-    if 'station' in animals.columns and cfg.get('sequence', False):
-        manifest = classification.sequence_classification(animals, empty, 
-                                                          predictions_output,
-                                                          class_list[cfg.get('class_label_col', 'class')],
-                                                          station_col='station',
-                                                          empty_class=cfg['empty_class'],
-                                                          sort_columns=["station", "datetime", "frame"],
-                                                          file_col=cfg.get('classification_file_col', 'frame'),
-                                                          maxdiff=60)
     else:
-        manifest = classification.single_classification(animals, empty, 
-                                                        predictions_output, 
-                                                        class_list[cfg.get('class_label_col', 'class')],
-                                                        file_col=cfg.get('classification_file_col', 'filepath'),
-                                                        best=cfg.get('best_only', True))
+        # Extract animal detections from the rest
+        animals = split.get_animals(detections)
+        empty = split.get_empty(detections)
 
-    if cfg.get('sort', True):
-        print("Sorting...")
-        working_dir.activate_linkdir()
-        manifest = export.export_folders(manifest, working_dir.linkdir, copy=cfg.get('copy', False))
+        # Use the classifier model to predict the species of animal detections
+        print("Predicting species...")
+        # Load classifier
+        classifier, class_list = classification.load_classifier(cfg['classifier_file'], cfg.get('class_list', None), device=device)
 
-    # Plot boxes
-    if cfg.get('visualize', False):
-        working_dir.activate_visdir()
-        visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, file_col='filepath', classifier_label_col='prediction')
+        predictions_output = classification.classify(classifier, animals,
+                                                resize_height=cfg.get('classification_resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
+                                                resize_width=cfg.get('classification_resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
+                                                file_col=cfg.get('classification_file_col', 'filepath'),
+                                                batch_size=cfg.get('batch_size', 4),
+                                                num_workers=cfg.get('num_workers', NUM_THREADS),
+                                                device=device,
+                                                out_file=working_dir.predictions)
+
+        # Convert predictions to labels
+        if 'station' in animals.columns and cfg.get('sequence', False):
+            manifest = classification.sequence_classification(animals, empty, 
+                                                            predictions_output,
+                                                            class_list[cfg.get('class_label_col', 'class')],
+                                                            station_col='station',
+                                                            empty_class=cfg['empty_class'],
+                                                            sort_columns=["station", "datetime", "frame"],
+                                                            file_col=cfg.get('classification_file_col', 'frame'),
+                                                            maxdiff=60)
+        else:
+            manifest = classification.single_classification(animals, empty, 
+                                                            predictions_output, 
+                                                            class_list[cfg.get('class_label_col', 'class')],
+                                                            file_col=cfg.get('classification_file_col', 'filepath'),
+                                                            best=cfg.get('best_only', True))
+
+        if cfg.get('sort', True):
+            print("Sorting...")
+            working_dir.activate_linkdir()
+            manifest = export.export_folders(manifest, working_dir.linkdir, copy=cfg.get('copy', False))
+
+        # Plot boxes
+        if cfg.get('visualize', False):
+            working_dir.activate_visdir()
+            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, file_col='filepath', classifier_label_col='prediction')
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))

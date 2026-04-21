@@ -11,7 +11,7 @@ import pandas as pd
 import math
 import numpy as np
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 from animl.utils import general
 from animl.file_management import IMAGE_EXTENSIONS
@@ -99,7 +99,7 @@ def plot_box(rows,
         cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), color, thick)
 
         # Printing prediction if enabled
-        if classifier_label_col:
+        if classifier_label_col is not None and classifier_label_col in row and not pd.isna(row[classifier_label_col]):
             if classifier_label_col == "category":
                 label = detector_labels[int(row[detector_category_col])]
             else:
@@ -136,12 +136,12 @@ def plot_box(rows,
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             out_dir: str,
                             file_col: str = 'filepath',
-                            classifier_label_col: Union[str, bool] = False,
+                            classifier_label_col: Optional[str] = None,
                             detector_category_col: str = "category",
                             min_conf: Union[int, float] = 0.1,
                             show_confidence: bool = False,
-                            colors = MD_COLORS,
-                            detector_labels = MD_LABELS):
+                            colors: Optional[dict] = None,
+                            detector_labels: Optional[dict] = None):
     """
     This function takes the parsed dataframe output from MegaDetector, makes a copy of each image,
     plots the boxes in the new image, and saves it the specified directory.
