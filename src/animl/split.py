@@ -23,7 +23,7 @@ def get_animals(manifest: pd.DataFrame):
     """
     # Removes all images that MegaDetector gave no detection for
     manifest["category"] = manifest["category"].fillna(0)
-    # Pulls only the animal detections 
+    # Pulls only the animal detections
     return manifest[manifest["category"].astype(int) == 1].reset_index(drop=True)
 
 

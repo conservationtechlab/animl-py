@@ -40,7 +40,7 @@ def load_detector(model_path: str,
     """
     if not Path(model_path).is_file():
         raise FileNotFoundError(f"Model file not found at {model_path}")
-    
+
     model_type = model_type.lower()
 
     # YOLOv5/MDv5
@@ -143,7 +143,7 @@ def detect(detector,
             pred: list = prediction[0]
             pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
             results = _convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
-                                              batch_sizes, letterbox, detector.model_type)
+                                               batch_sizes, letterbox, detector.model_type)
         elif detector.model_type == "onnx":
             input_name = detector.get_inputs()[0].name
             providers = get_onnx_device(user_set=device)
@@ -155,11 +155,11 @@ def detect(detector,
 
             # Process outputs to match expected format
             results = _convert_onnx_detections(outputs, batch_tensors, batch_paths,
-                                              batch_frames, batch_sizes, letterbox)
+                                               batch_frames, batch_sizes, letterbox)
         else:
             pred = detector.predict(source=batch_tensors.to(device), conf=confidence_threshold, verbose=False)
             results = _convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
-                                              batch_sizes, letterbox, detector.model_type)
+                                               batch_sizes, letterbox, detector.model_type)
         return results
 
     # list of image filepaths
@@ -236,7 +236,6 @@ def detect(detector,
         batch_frames = collated[2]  # List of frame numbers for the current batch
         batch_sizes = collated[3]  # List of original image sizes for the current batch
 
-
         # Run inference on the current batch of image_tensors
         if detector.model_type in {"yolov5", "mdv5"}:
             # letterboxing should be true
@@ -245,7 +244,7 @@ def detect(detector,
             pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
             # convert to normalized xywh
             results.extend(_convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
-                                                   batch_sizes, letterbox, detector.model_type))
+                                                    batch_sizes, letterbox, detector.model_type))
         elif detector.model_type == "onnx":
             input_name = detector.get_inputs()[0].name
             if device == "cpu":
@@ -255,19 +254,18 @@ def detect(detector,
 
             # Process outputs to match expected format
             results.extend(_convert_onnx_detections(outputs, batch_tensors, batch_paths, batch_frames,
-                                                   batch_sizes, letterbox))
+                                                    batch_sizes, letterbox))
         # standard yolo model (v6+)
         else:
             pred = detector.predict(source=batch_tensors.to(device), conf=confidence_threshold, verbose=False)
             # convert to normalized xywh
             results.extend(_convert_yolo_detections(pred, batch_tensors, batch_paths, batch_frames,
-                                                   batch_sizes, letterbox, detector.model_type))
+                                                    batch_sizes, letterbox, detector.model_type))
 
         # Write a checkpoint if necessary
         if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
             print('Writing a new checkpoint after having processed {} images since last restart'.format(count*batch_size))
             _save_detection_checkpoint(checkpoint_path, results)
-
 
     print(f"\nFinished detection. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
     if checkpoint_path:
@@ -277,11 +275,11 @@ def detect(detector,
 
 
 def _convert_onnx_detections(predictions: list,
-                            image_tensors: list,
-                            image_paths: list,
-                            image_frames: list,
-                            image_sizes: list,
-                            letterbox: bool) -> pd.DataFrame:
+                             image_tensors: list,
+                             image_paths: list,
+                             image_frames: list,
+                             image_sizes: list,
+                             letterbox: bool) -> pd.DataFrame:
     # Process ONNX predictions
     results = []
 
@@ -328,12 +326,12 @@ def _convert_onnx_detections(predictions: list,
 
 
 def _convert_yolo_detections(predictions: list,
-                            image_tensors: list,
-                            image_paths: list,
-                            image_frames: list,
-                            image_sizes: list,
-                            letterbox: bool,
-                            model_type: str) -> pd.DataFrame:
+                             image_tensors: list,
+                             image_paths: list,
+                             image_frames: list,
+                             image_sizes: list,
+                             letterbox: bool,
+                             model_type: str) -> pd.DataFrame:
     """
     Converts YOLO output into a nested list.
 
@@ -403,7 +401,7 @@ def _convert_yolo_detections(predictions: list,
                 else:
                     print(f"Please chose a supported model. Version {model_type} is not supported.")
                     return None
-                
+
                 # increase md categories by 1
                 if model_type in {"mdv5", "mdv6", "mdv1000"}:
                     category[j] += 1
@@ -448,7 +446,7 @@ def parse_detections(results: Union[list, tuple],
     """
     if manifest is not None and file_col not in manifest.columns:
         raise ValueError(f"file_col '{file_col}' not found in manifest columns")
-    
+
     if manifest is not None and 'frame' not in manifest.columns:
         print("""Warning: 'frame' column not found in manifest columns. Defaulting to 0 for all rows.""")
         manifest['frame'] = 0
@@ -473,7 +471,7 @@ def parse_detections(results: Union[list, tuple],
         raise AssertionError("'results' contains no detections")
 
     # load results from file if they have already been parsed
-    if file_management.check_file(out_file, output_type="Detections"): 
+    if file_management.check_file(out_file, output_type="Detections"):
         return file_management.load_data(out_file)
 
     lst = []
@@ -541,7 +539,6 @@ def _save_detection_checkpoint(checkpoint_path: str, results: dict) -> None:
     # Remove the backup checkpoint if it exists
     if checkpoint_tmp_path is not None:
         Path(checkpoint_tmp_path).unlink()
-
 
 
 if __name__ == '__main__':

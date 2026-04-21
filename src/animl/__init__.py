@@ -67,8 +67,7 @@ from animl.utils import (MD_COLORS, MD_LABELS, NUM_THREADS, animlr, box_area,
                          normalize_bbox, plot_all_bounding_boxes, plot_box,
                          plot_from_file, scale_letterbox, softmax,
                          tensor_to_onnx, visualization,)
-from animl.video_processing import (count_frames, extract_frames,
-                                    get_frame_as_image,)
+from animl.video_processing import (extract_frames, get_frame_as_image,)
 
 __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'ArcMarginProduct', 'ArcMarginProduct_subcenter', 'AutoShape',
@@ -105,11 +104,10 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'normalize_bbox', 'parse_detections', 'parse_model', 'pipeline',
            'plot_all_bounding_boxes', 'plot_box', 'plot_from_file', 'pose',
            'predict_viewpoints', 'reid', 'remove_diagonal', 'remove_link',
-           'save_classifier', 'save_data', 'save_detection_checkpoint',
-           'save_json', 'scale_letterbox', 'sequence_calculation',
-           'sequence_classification', 'single_classification', 'softmax',
-           'split', 'tensor_to_onnx', 'test', 'test_func', 'test_main',
-           'train', 'train_dataloader', 'train_func', 'train_main',
-           'train_val_test', 'update_labels_from_folders', 'utils',
-           'validate_func', 'video_processing', 'viewpoint', 'visualization',
-           'yolo']
+           'save_classifier', 'save_data', 'save_json', 'scale_letterbox',
+           'sequence_calculation', 'sequence_classification',
+           'single_classification', 'softmax', 'split', 'tensor_to_onnx',
+           'test', 'test_func', 'test_main', 'train', 'train_dataloader',
+           'train_func', 'train_main', 'train_val_test',
+           'update_labels_from_folders', 'utils', 'validate_func',
+           'video_processing', 'viewpoint', 'visualization', 'yolo']

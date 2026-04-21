@@ -7,7 +7,6 @@ Provides functions for creating, removing, and updating sorted symlinks.
 """
 import json
 import os
-import shutil
 import pandas as pd
 from typing import Optional
 from shutil import copy2
@@ -551,7 +550,7 @@ def export_timelapse(manifest: pd.DataFrame,
     manifest = manifest.drop(['filemodifydate', 'frame' 'max_detection_conf'], axis=1)
 
     # Rename column names for clarity
-    manifest = manifest.rename(columns={'filename': 'file', 'conf': 'detection_conf', 
+    manifest = manifest.rename(columns={'filename': 'file', 'conf': 'detection_conf',
                                         'prediction': 'class', 'confidence': 'classification_conf'})
     csv_loc = Path(out_dir / "timelapse_manifest.csv")
     manifest.to_csv(csv_loc, index=False)
@@ -563,7 +562,6 @@ def export_timelapse(manifest: pd.DataFrame,
 
     if only_animal:
         animals.to_csv(Path(out_dir / "animals.csv"), index=False)
-    
     else:
         empty = manifest[manifest['category'] != 1]
         # Adding prediction as person and human

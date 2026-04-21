@@ -38,8 +38,8 @@ def build_file_manifest(image_dir: str,
         out_file (str): file path to which the dataframe should be saved
         data_timezone (str): timezone of the data, e.g., 'UTC', 'America/New_York', defaults to local timezone if None
                              if you are unsure of the timezone, you can list all with zoneinfo.available_timezones()
-        station_depth (int): depth of station directory from the image_dir root in file path, if applicable. 
-                             For example, if file paths are in the format "image_dir/station/date/file.jpg", 
+        station_depth (int): depth of station directory from the image_dir root in file path, if applicable.
+                             For example, if file paths are in the format "image_dir/station/date/file.jpg",
                              station_depth would be 1 (0 indexed). If None, station column will not be created.
         camera_depth (int): depth of camera directory from the image_dir root in file path, if applicable.
                             For example, if file paths are in the format "image_dir/station/camera/date/file.jpg",
@@ -79,7 +79,7 @@ def build_file_manifest(image_dir: str,
         if recursive is False and camera_depth >= 1:
             raise ValueError("camera_depth must be less than 1 if recursive is False")
         root_depth = len(Path(image_dir).parts) - 1
-        camera_depth = root_depth + int(camera_depth) 
+        camera_depth = root_depth + int(camera_depth)
         files["camera"] = files["filepath"].apply(lambda x: Path(x).parts[camera_depth] if len(Path(x).parts) > camera_depth else None)
 
     invalid = []
@@ -118,7 +118,7 @@ def build_file_manifest(image_dir: str,
                     print("pyexiftool failed, is exiftool installed and in PATH? ",
                           f"createdate cannot be determined for videos, falling back to filemodifydate. Error: {e}")
                     files.loc[i, "createdate"] = None
-    
+
         # determine local timezone for conversion
         local_tz = datetime.now().astimezone().tzinfo
         if data_timezone is not None:
@@ -135,7 +135,7 @@ def build_file_manifest(image_dir: str,
             local = datetime.fromtimestamp(Path(x).stat().st_mtime, tz=local_tz)
             adjusted = local.astimezone(data_tz)
             return adjusted.strftime('%Y-%m-%d %H:%M:%S')
-        
+
         # function to convert multiple string formats to desired format, returns None if not recognized
         def check_time(timestamp, tzinfo=data_tz):
             input_formats = ['%Y:%m:%d %H:%M:%S', "%d-%m-%Y %H:%M", "%Y/%m/%d %H:%M:%S"]
@@ -369,7 +369,7 @@ def sequence_calculation(manifest,
     Args:
         - manifest (pd.DataFrame): DataFrame containing image file information, including 'filepath' and 'datetime' columns
         - station_col (str): column name in the DataFrame representing the station or camera
-        - sort_columns (list[str]): list of columns to sort by before calculating sequences. 
+        - sort_columns (list[str]): list of columns to sort by before calculating sequences.
                                     Defaults to None, which sorts by station_col and timestamp_col.
         - file_col (str): column name representing the file path. Defaults to "filepath".
         - timestamp_col (str): column name representing the timestamp in format "%Y-%m-%d %H:%M:%S". Defaults to "datetime".

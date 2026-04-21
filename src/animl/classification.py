@@ -92,7 +92,7 @@ def load_classifier(model_path: str,
     if model_path.is_dir():
         supported_architectures = ["efficientnet_v2_m", "convnext_base", ]
         if architecture not in supported_architectures:
-            raise ValueError(f"""Unsupported architecture: {architecture}. 
+            raise ValueError(f"""Unsupported architecture: {architecture}.
                              Supported architectures are: {supported_architectures}""")
 
         # check to make sure GPU is available if chosen
@@ -115,7 +115,7 @@ def load_classifier(model_path: str,
         if model_path.suffix == '.pt':
             supported_architectures = ["efficientnet_v2_m", "convnext_base"]
             if architecture not in supported_architectures:
-                raise ValueError(f"""Unsupported architecture: {architecture}. 
+                raise ValueError(f"""Unsupported architecture: {architecture}.
                                  Supported architectures are: {supported_architectures}""")
             # check to make sure GPU is available if chosen
             device = get_torch_device(user_set=device, quiet=quiet)
@@ -327,7 +327,7 @@ def classify(model,
     with torch.no_grad():
         for _, batch in tqdm(enumerate(dataset), total=len(dataset)):
             collated, failed = batch
-            failed_files.extend(failed)  
+            failed_files.extend(failed)
             if collated is None:  # entire batch was bad
                 continue
             # pytorch
@@ -415,19 +415,18 @@ def single_classification(animals: pd.DataFrame,
                 file = file[file['prediction'] != 'empty']
                 # replace empty predictions with most confident non-empty prediction
                 top = file.sort_values("confidence", ascending=False).iloc[0]
-                cols = ['prediction', 'confidence', 'frame', 'conf', 'max_detection_conf', 
+                cols = ['prediction', 'confidence', 'frame', 'conf', 'max_detection_conf',
                         'category', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
                 mask = manifest[file_col] == f
                 manifest.loc[mask, cols] = top[cols].values
 
     # best guess
     if best:
-        # take most confident guess    
+        # take most confident guess
         manifest = manifest.sort_values("confidence", ascending=False)
         manifest = manifest.drop_duplicates(subset=file_col, keep="first")
 
     return manifest.reset_index(drop=True)
-
 
 
 def sequence_classification(animals: pd.DataFrame,
@@ -505,8 +504,8 @@ def sequence_classification(animals: pd.DataFrame,
 
     # remove failed files from animals dataframe
     if failed_files is not None:
-        animals = animals[~animals[file_col].isin(failed_files)].reset_index(drop=True) 
-    
+        animals = animals[~animals[file_col].isin(failed_files)].reset_index(drop=True)
+
     assert len(animals) == predictions_raw.shape[0], "Number of predictions does not match number of animal detections after removing failed files."
 
     # prepare empty dataframe for concat

@@ -21,7 +21,7 @@ from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, R
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
 from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
-from animl.utils import get_torch_device
+
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 

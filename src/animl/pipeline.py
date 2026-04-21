@@ -4,7 +4,6 @@ Automated Pipeline Functions
 @ Kyra Swanson 2023
 """
 
-import os
 import yaml
 import pandas as pd
 from pathlib import Path
@@ -91,7 +90,7 @@ def from_paths(image_dir: str,
         # Plot boxes
         if visualize:
             working_dir.activate_visdir()
-            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, 
+            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir,
                                                   file_col='filepath', classifier_label_col=None)
 
     else:
@@ -104,26 +103,26 @@ def from_paths(image_dir: str,
         classifier, class_list = classification.load_classifier(classifier_file, classlist_file, device=None)
 
         predictions_output = classification.classify(classifier,
-                                                animals,
-                                                device=None,
-                                                resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
-                                                resize_width=model_architecture.SDZWA_CLASSIFIER_SIZE,
-                                                batch_size=batch_size,
-                                                num_workers=NUM_THREADS,
-                                                out_file=working_dir.predictions)
+                                                     animals,
+                                                     device=None,
+                                                     resize_height=model_architecture.SDZWA_CLASSIFIER_SIZE,
+                                                     resize_width=model_architecture.SDZWA_CLASSIFIER_SIZE,
+                                                     batch_size=batch_size,
+                                                     num_workers=NUM_THREADS,
+                                                     out_file=working_dir.predictions)
         if sequence:
             print("Classifying sequences...")
-            manifest = classification.sequence_classification(animals, empty, 
-                                                            predictions_output,
-                                                            class_list[class_label],
-                                                            station_col='station',
-                                                            empty_class="",
-                                                            sort_columns=["station", "datetime", "frame"],
-                                                            maxdiff=60)
+            manifest = classification.sequence_classification(animals, empty,
+                                                              predictions_output,
+                                                              class_list[class_label],
+                                                              station_col='station',
+                                                              empty_class="",
+                                                              sort_columns=["station", "datetime", "frame"],
+                                                              maxdiff=60)
         else:
             print("Classifying individual frames...")
-            manifest = classification.single_classification(animals, empty, 
-                                                            predictions_output, 
+            manifest = classification.single_classification(animals, empty,
+                                                            predictions_output,
                                                             class_list[class_label],
                                                             best=True)
 
@@ -135,7 +134,7 @@ def from_paths(image_dir: str,
         # Plot boxes
         if visualize:
             working_dir.activate_visdir()
-            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, 
+            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir,
                                                   file_col='filepath', classifier_label_col='prediction')
 
     # Save final results to csv
@@ -176,8 +175,10 @@ def from_config(config: str):
     print(f"Found {len(files)} files.")
 
     # split out videos
-    all_frames = video_processing.extract_frames(files, frames=cfg.get('frames', 5), 
-                                                 fps=cfg.get('fps', None), out_file=working_dir.imageframes)
+    all_frames = video_processing.extract_frames(files,
+                                                 frames=cfg.get('frames', 5),
+                                                 fps=cfg.get('fps', None),
+                                                 out_file=working_dir.imageframes)
 
     print("Running images and video frames through detector...")
     if (file_management.check_file(working_dir.detections, output_type="Detections")):
@@ -208,12 +209,12 @@ def from_config(config: str):
         if cfg.get('sort', True):
             print("Sorting...")
             working_dir.activate_linkdir()
-            manifest = export.export_folders(manifest, working_dir.linkdir, 
+            manifest = export.export_folders(manifest, working_dir.linkdir,
                                              label_col='category', copy=cfg.get('copy', False))
         # Plot boxes
         if cfg.get('visualize', False):
             working_dir.activate_visdir()
-            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, 
+            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir,
                                                   file_col='filepath', classifier_label_col=None)
 
     else:
@@ -227,27 +228,27 @@ def from_config(config: str):
         classifier, class_list = classification.load_classifier(cfg['classifier_file'], cfg.get('class_list', None), device=device)
 
         predictions_output = classification.classify(classifier, animals,
-                                                resize_height=cfg.get('classification_resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
-                                                resize_width=cfg.get('classification_resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
-                                                file_col=cfg.get('classification_file_col', 'filepath'),
-                                                batch_size=cfg.get('batch_size', 4),
-                                                num_workers=cfg.get('num_workers', NUM_THREADS),
-                                                device=device,
-                                                out_file=working_dir.predictions)
+                                                     resize_height=cfg.get('classification_resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
+                                                     resize_width=cfg.get('classification_resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
+                                                     file_col=cfg.get('classification_file_col', 'filepath'),
+                                                     batch_size=cfg.get('batch_size', 4),
+                                                     num_workers=cfg.get('num_workers', NUM_THREADS),
+                                                     device=device,
+                                                     out_file=working_dir.predictions)
 
         # Convert predictions to labels
         if 'station' in animals.columns and cfg.get('sequence', False):
-            manifest = classification.sequence_classification(animals, empty, 
-                                                            predictions_output,
-                                                            class_list[cfg.get('class_label_col', 'class')],
-                                                            station_col='station',
-                                                            empty_class=cfg['empty_class'],
-                                                            sort_columns=["station", "datetime", "frame"],
-                                                            file_col=cfg.get('classification_file_col', 'frame'),
-                                                            maxdiff=60)
+            manifest = classification.sequence_classification(animals, empty,
+                                                              predictions_output,
+                                                              class_list[cfg.get('class_label_col', 'class')],
+                                                              station_col='station',
+                                                              empty_class=cfg['empty_class'],
+                                                              sort_columns=["station", "datetime", "frame"],
+                                                              file_col=cfg.get('classification_file_col', 'frame'),
+                                                              maxdiff=60)
         else:
-            manifest = classification.single_classification(animals, empty, 
-                                                            predictions_output, 
+            manifest = classification.single_classification(animals, empty,
+                                                            predictions_output,
                                                             class_list[cfg.get('class_label_col', 'class')],
                                                             file_col=cfg.get('classification_file_col', 'filepath'),
                                                             best=cfg.get('best_only', True))
