@@ -32,7 +32,10 @@ def load_detector(model_path: str,
 
     Args:
         model_path (str): path to model file
-        model_type (str): type of model expected ["MDV5", "MDV6", "YOLO", "ONNX"]
+        model_type (str): type of model expected ["mdv5", "mdv6", "mdv1000-cedar", "mdv1000-larch", "mdv1000-sorrel",
+                                                  "mdv1000-redwood", "mdv1000-spruce", "yolov5", "yolo", "onnx"]
+                          for yolo models v6+, use "yolo", for v5, use "yolov5".
+                          for mdv1000 models, specify the version (cedar, larch, sorrel, redwood, spruce)
         device (str): specify to run on cpu or gpu
 
     Returns:
@@ -44,7 +47,7 @@ def load_detector(model_path: str,
     model_type = model_type.lower()
 
     # YOLOv5/MDv5
-    if model_type in {"mdv5", "yolov5"}:
+    if model_type in {"mdv5", "yolov5", "mdv1000-redwood", "mdv1000-spruce"}:
         # check to make sure GPU is available if chosen
         device = get_torch_device(user_set=device)
         # load checkpoint
@@ -61,7 +64,7 @@ def load_detector(model_path: str,
         model.to(device)
         return model
     # YOLOv6+
-    elif model_type in {"yolo", "mdv6"}:
+    elif model_type in {"yolo", "mdv6", "mdv1000-cedar", "mdv1000-larch", "mdv1000-sorrel"}:
         # check to make sure GPU is available if chosen
         device = get_torch_device(user_set=device)
         model = YOLO(model_path, task='detect')
@@ -78,6 +81,8 @@ def load_detector(model_path: str,
         return model
     else:
         print(f"Please chose a supported model. Version {model_type} is not supported.")
+        print("Expected model_type to be one of ['mdv5', 'mdv6', 'mdv1000-cedar', 'mdv1000-larch', 'mdv1000-sorrel',",
+              "'mdv1000-redwood', 'mdv1000-spruce', 'yolov5', 'yolo', 'onnx']")
         return None
 
 
@@ -452,9 +457,8 @@ def parse_detections(results: Union[list, tuple],
         manifest['frame'] = 0
 
     # unpack results
-    if isinstance(results, tuple):
-        failed_files = results[1]
-        results = results[0]
+    if isinstance(results, (tuple, list)) and len(results) == 2 and isinstance(results[0], list):
+        detections, failed_files = results
         if len(failed_files) > 0:
             print(f"Warning: {len(failed_files)} files failed to load during detection and will be excluded from results.")
             if out_file is not None:
@@ -462,12 +466,12 @@ def parse_detections(results: Union[list, tuple],
                     for item in failed_files:
                         f.write(f"{item}\n")
     else:
-        failed_files = None
+        detections, failed_files = results, None
 
     # check results format
-    if not isinstance(results, list):
+    if not isinstance(detections, list):
         raise TypeError("MD results input must be list")
-    if len(results) == 0:
+    if len(detections) == 0:
         raise AssertionError("'results' contains no detections")
 
     # load results from file if they have already been parsed
@@ -475,14 +479,14 @@ def parse_detections(results: Union[list, tuple],
         return file_management.load_data(out_file)
 
     lst = []
-    for frame in tqdm(results):
+    for frame in tqdm(detections):
         try:
-            detections = frame['detections']
+            frame_detections = frame['detections']
         except KeyError:
             print('File error ', frame['filepath'])
             continue
 
-        if len(detections) == 0:
+        if len(frame_detections) == 0:
             data = {'filepath': frame['filepath'],
                     'frame': frame['frame'],
                     'max_detection_conf': frame['max_detection_conf'],
@@ -491,7 +495,7 @@ def parse_detections(results: Union[list, tuple],
             lst.append(data)
 
         else:
-            for detection in detections:
+            for detection in frame_detections:
                 if (detection['conf'] > threshold):
                     data = {'filepath': frame['filepath'],
                             'frame': frame['frame'],

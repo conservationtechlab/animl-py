@@ -45,7 +45,7 @@ def plot_box(rows,
         file_col (str): filepath column name in the DataFrame
         min_conf (int or float): Minimum confidence threshold to plot the box
         classifier_label_col (str or None): Column name containing class to print above the box. If None, no label is printed.
-        detector_category_col (str): Column name containing the detector category (e.g., 'category') to determine box color and label.
+        detector_category_col (str): Column name containing the detector category (e.g., 'category') to determine box color.
         show_confidence (bool): If true, show confidence score above the box.
         colors (dict): Dictionary mapping class labels to BGR color tuples for the bounding boxes.
         detector_labels (dict): Dictionary mapping detector categories to human-readable labels.
@@ -136,9 +136,9 @@ def plot_box(rows,
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             out_dir: str,
                             file_col: str = 'filepath',
+                            min_conf: Union[int, float] = 0.1,
                             classifier_label_col: Optional[str] = None,
                             detector_category_col: str = "category",
-                            min_conf: Union[int, float] = 0.1,
                             show_confidence: bool = False,
                             colors: Optional[dict] = None,
                             detector_labels: Optional[dict] = None):
@@ -150,9 +150,9 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         manifest (Pandas DataFrame): manifest of detections
         out_dir (str): Name of the output directory
         file_col (str): Column name containing file paths
-        classifier_label_col (Optional) (str): Column name containing label to print on box
-        detector_category_col (str): Column name containing the detector category (e.g., 'category') to determine box color and label.
         min_conf (Optional) (Int or Float): Confidence threshold to plot the box
+        classifier_label_col (Optional) (str): Column name containing label to print on box
+        detector_category_col (str): Column name containing the detector category (e.g., 'category') to determine box color.
         show_confidence (Optional) (bool): If true, show confidence score on box
         colors (Optional) (dict): Dictionary mapping class labels to BGR color tuples for the bounding boxes.
         detector_labels (Optional) (dict): Dictionary mapping detector categories to human-readable labels.

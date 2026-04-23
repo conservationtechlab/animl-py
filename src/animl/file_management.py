@@ -99,6 +99,11 @@ def build_file_manifest(image_dir: str,
             elif row["extension"] in VIDEO_EXTENSIONS:
                 try:
                     vid = cv2.VideoCapture(row['filepath'])
+                    # check if video opened successfully
+                    if not vid.isOpened():
+                        print(f"Error opening video file {row['filepath']}")
+                        invalid.append(i)
+                        continue
                     files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
                     files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
                 except Exception as e:
@@ -114,9 +119,9 @@ def build_file_manifest(image_dir: str,
                             files.loc[i, "createdate"] = metadata["EXIF:DateTimeOriginal"]
                         else:
                             files.loc[i, "createdate"] = None
-                except Exception as e:
-                    print("pyexiftool failed, is exiftool installed and in PATH? ",
-                          f"createdate cannot be determined for videos, falling back to filemodifydate. Error: {e}")
+                except Exception:
+                    print("pyexiftool failed, is exiftool installed and in PATH? \n",
+                          "createdate cannot be determined for videos, falling back to filemodifydate.")
                     files.loc[i, "createdate"] = None
 
         # determine local timezone for conversion
@@ -316,17 +321,21 @@ def check_file(file: str, output_type: str = None) -> bool:
 
 
 def active_times(manifest_dir,
-                 depth: int = 1,
+                 camera_depth: int = 0,
+                 file_col: str = "filepath",
+                 timestamp_col: str = "datetime",
                  recursive: bool = True,
-                 offset: int = 0) -> pd.DataFrame:
+                 data_timezone: Optional[str] = None) -> pd.DataFrame:
     """
     Get start and stop dates for each camera folder.
 
     Args:
         manifest_dir (str): either file manifest or directory of files to analyze
-        depth (int): directory depth from which to split cameras
+        camera_depth (int): directory depth from which to split cameras, with 0 being the root of the manifest_dir, defaults to 0
+        file_col (str): column in manifest to use for file paths, defaults to "filepath"
+        timestamp_col (str): column in manifest to use for datetime information, defaults to "datetime"
         recursive (bool): recursively search thhrough all child directories
-        offset (int): add timezone offset in hours to datetime column
+        data_timezone (str): timezone to apply to datetime column
 
     Returns:
         times (pd.DataFrame): list of files with or without file modify dates
@@ -335,23 +344,27 @@ def active_times(manifest_dir,
     if isinstance(manifest_dir, str):
         if check_file(manifest_dir):
             files = load_data(manifest_dir)  # load_data(outfile) load file manifest
-
     # from manifest dataframe
     elif isinstance(manifest_dir, pd.DataFrame):
-        # get time stamps if dne
-        if "filemodifydate" not in manifest_dir.columns:
-            files = manifest_dir
-            files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
-
+        files = manifest_dir
     # from scratch
     elif Path(manifest_dir).is_dir():
-        files = build_file_manifest(manifest_dir, exif=True, offset=offset, recursive=recursive)
+        files = build_file_manifest(manifest_dir, exif=True, data_timezone=data_timezone,
+                                    camera_depth=camera_depth, recursive=recursive)
     else:
         raise FileNotFoundError("Requires a file manifest or image directory.")
 
-    files["camera"] = files["filepath"].apply(lambda x: Path(x).parts[depth])
+    # get filemodifydate timestamps if dne
+    if timestamp_col not in files.columns:
+        files[timestamp_col] = files[file_col].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
 
-    times = files.groupby("camera").agg({'filemodifydate': ['min', 'max']})
+    # get camera names if dne
+    if "camera" not in files.columns:
+        root_depth = len(Path(files[file_col].iloc[0]).parts) - 1
+        camera_depth = root_depth + int(camera_depth)
+        files["camera"] = files[file_col].apply(lambda x: Path(x).parts[camera_depth])
+
+    times = files.groupby("camera").agg({timestamp_col: ['min', 'max']})
 
     return times
 

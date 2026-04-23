@@ -13,8 +13,7 @@ def check_exiftool():
     import exiftool
     try:
         with exiftool.ExifToolHelper() as et:
-            # This will fail if the exiftool executable is not in your PATH
-            return True
+            return et.version()
     except Exception as e:
         return False
 

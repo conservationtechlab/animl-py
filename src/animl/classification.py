@@ -365,7 +365,7 @@ def classify(model,
 def single_classification(animals: pd.DataFrame,
                           empty: Optional[pd.DataFrame],
                           predictions_output: Union[np.array, tuple],
-                          class_list: pd.Series,
+                          class_list: Union[list, pd.Series],
                           best: bool = False,
                           file_col: str = "filepath",
                           failed_files: Optional[list] = None):
@@ -375,8 +375,8 @@ def single_classification(animals: pd.DataFrame,
     Args:
         animals (pd.DataFrame): animal detections from manifest
         empty (Optional[pd.DataFrame]): empty detections from manifest
-        predictions_output (Union[np.array, tuple]): softmaxed logits from classify()
-        class_list (pd.Series): class list associated with model
+        predictions_output (Union[np.array, tuple]): softmaxed logits from classify() and optionally list of failed files from classify
+        class_list (Union[list, pd.Series]): class list associated with model
         best (bool): whether to return one prediction per file
         file_col (str): column name for file paths in the dataframe
         failed_files (Optional[list]): list of files that failed to load during classification
@@ -388,18 +388,21 @@ def single_classification(animals: pd.DataFrame,
     if empty is None:
         empty = pd.DataFrame()
 
+    if isinstance(class_list, pd.Series):
+        class_list = class_list.to_list()
+
     # handle tuple output from classify (predictions, failed_files)
-    if isinstance(predictions_output, tuple):
+    if isinstance(predictions_output, (list, tuple)) and len(predictions_output) == 2:
         predictions_raw, failed_files = predictions_output
     else:
-        predictions_raw = predictions_output
+        predictions_raw, failed_files = predictions_output, failed_files
 
     if not animals.empty:
         if failed_files is not None and len(failed_files) > 0:
             print(f"Warning: {len(failed_files)} files failed to load during classification and will be excluded from results.")
             animals = animals[~animals[file_col].isin(failed_files)]
         animals = animals.reset_index(drop=True)
-        animals["prediction"] = class_list.values[np.argmax(predictions_raw, axis=1)]
+        animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1)]
         animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
