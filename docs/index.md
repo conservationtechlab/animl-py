@@ -45,8 +45,8 @@ Runs the full detection + classification pipeline on a directory of images or vi
 | `visualize` | bool | False | Save bounding box visualizations |
 | `sequence` | bool | False | Use sequence-level classification |
 | `detect_only` | bool | False | Skip classification step |
-\
-\
+<br><br>
+
 ### `animl.from_config(config)`
 Runs the full detection + classification pipeline on a directory of images or videos.
 
