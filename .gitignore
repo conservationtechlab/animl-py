@@ -18,7 +18,6 @@ lib/
 lib64/
 parts/
 sdist/
-tests/
 var/
 wheels/
 pip-wheel-metadata/
@@ -134,3 +133,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .vscode/settings.json
+
+docs/

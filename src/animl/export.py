@@ -13,9 +13,11 @@ from shutil import copy2
 from random import randrange
 from pathlib import Path
 from tqdm import tqdm
+import yaml
+
 
 from animl import file_management, __version__
-from animl.utils.general import convert_minxywh_to_absxyxy
+from animl.utils.general import _xywh_to_xywhc, _xywh_to_absxyxy
 
 
 def export_folders(manifest: pd.DataFrame,
@@ -23,6 +25,8 @@ def export_folders(manifest: pd.DataFrame,
                    out_file: Optional[str] = None,
                    label_col: str = 'prediction',
                    file_col: str = "filepath",
+                   timestamp_col: str = "datetime",
+                   station_col: str = 'station',
                    unique_name: str = 'uniquename',
                    copy: bool = False) -> pd.DataFrame:
     """
@@ -32,9 +36,11 @@ def export_folders(manifest: pd.DataFrame,
         manifest (DataFrame): dataframe containing images and associated predictions
         out_dir (str): root directory for species folders
         out_file (Optional[str]): if provided, save the manifest to this file
-        label_col (str): column containing species labels, 
+        label_col (str): column containing species labels,
                         'category' for MD categories or 'prediction' for species labels
         file_col (str): column containing source paths
+        timestamp_col (str): column containing timestamps in format "%Y-%m-%d %H:%M:%S"
+        station_col (str): column containing station names
         unique_name (str): column containing unique file name
         copy (bool): if true, hard copy
 
@@ -68,13 +74,13 @@ def export_folders(manifest: pd.DataFrame,
             extension = Path(row[file_col]).suffix
 
             # get datetime
-            if "datetime" in manifest.columns:
-                reformat_date = pd.to_datetime(row['datetime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+            if timestamp_col in manifest.columns:
+                reformat_date = pd.to_datetime(row[timestamp_col], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
             else:
                 reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
             # get station
-            if "station" in manifest.columns:
-                station = row['station']
+            if station_col in manifest.columns:
+                station = row[station_col]
                 name = "_".join([station, reformat_date, filename]) + extension
             else:
                 name = "_".join([reformat_date, filename]) + extension
@@ -112,11 +118,14 @@ def remove_link(manifest: pd.DataFrame,
     Returns:
         manifest without link column
     """
+    if link_col not in manifest.columns:
+        raise AssertionError(f"Link column {link_col} not found in manifest.")
+
     # delete files
     for _, row in manifest.iterrows():
         Path(row[link_col]).unlink(missing_ok=True)
     # remove column
-    manifest.drop(columns=[link_col])
+    manifest = manifest.drop(columns=[link_col])
     return manifest
 
 
@@ -213,7 +222,8 @@ def export_coco(manifest: pd.DataFrame,
         # skip annotation if bbox is NaN
         if pd.isna(bbox).any():
             continue
-        bbox = convert_minxywh_to_absxyxy(bbox, width, height)
+        bbox = _xywh_to_absxyxy(bbox, width, height)
+        bbox = _xywh_to_absxyxy(bbox, width, height)
         area = bbox[2] * bbox[3]
 
         # get category id
@@ -240,11 +250,216 @@ def export_coco(manifest: pd.DataFrame,
     return coco_format
 
 
+def export_yolo(train_manifest: pd.DataFrame,
+                val_manifest: pd.DataFrame,
+                test_manifest: pd.DataFrame,
+                class_list: pd.DataFrame,
+                out_dir: str,
+                label_col: str = 'prediction',
+                file_col: str = 'filepath',
+                hard_copy: bool = False):
+    """
+    Export a manifest to YOLO format for model training.
+    Saves a .txt file for each image with bounding box coordinates and class labels.
+
+    Args:
+        train_manifest (pd.DataFrame): dataframe containing images and associated bounding boxes for training
+        val_manifest (pd.DataFrame): dataframe containing images and associated bounding boxes for validation
+        test_manifest (pd.DataFrame): dataframe containing images and associated bounding boxes for testing
+        class_list (pd.DataFrame): dataframe containing class names and their corresponding IDs
+        out_dir (str): directory to save YOLO formatted files
+        label_col (str): column containing species labels,
+                        'category' for MD categories or 'prediction' for species labels
+        file_col (str): column containing source paths
+        hard_copy (bool): whether to copy images to the YOLO directory structure or create symlinks
+    """
+    expected_columns = (file_col, label_col, 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h')
+    for s in expected_columns:
+        assert s in train_manifest.columns, f'Expected column {s} not found in train_manifest DataFrame'
+        assert s in val_manifest.columns, f'Expected column {s} not found in val_manifest DataFrame'
+        if test_manifest is not None:
+            assert s in test_manifest.columns, f'Expected column {s} not found in test_manifest DataFrame'
+
+    # create output directories
+    out_dir = Path(out_dir)
+    image_dir = out_dir / 'images'
+    image_train_dir = image_dir / 'train'
+    image_val_dir = image_dir / 'val'
+    image_test_dir = image_dir / 'test'
+
+    label_dir = out_dir / 'labels'
+    label_train_dir = label_dir / 'train'
+    label_val_dir = label_dir / 'val'
+    label_test_dir = label_dir / 'test'
+
+    for d in [image_train_dir, image_val_dir, image_test_dir,
+              label_train_dir, label_val_dir, label_test_dir]:
+        d.mkdir(parents=True, exist_ok=True)
+
+    def convert_to_yolo(row):
+        # convert bbox to abs coordinates
+        bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
+        # skip annotation if bbox is NaN
+        if pd.isna(bbox).any():
+            return None
+        bbox = _xywh_to_xywhc(bbox)
+        # get class id
+        class_id = class_list[class_list['class'] == row[label_col]]['id'].values[0]
+        return f"{class_id} {' '.join(map(str, bbox))}"
+
+    # symlink images to train/val/test folders
+    for _, row in tqdm(train_manifest.iterrows()):
+        file = Path(row[file_col])
+        link = image_train_dir / file.name
+        if file.is_file() and not link.is_file():
+            if hard_copy:
+                copy2(file, link)
+            else:
+                file.symlink_to(link)
+
+        label = file.stem + '.txt'
+        label_path = label_train_dir / label
+        yolo_annotation = convert_to_yolo(row)
+        if yolo_annotation is not None:
+            with open(label_path, 'w') as f:
+                f.write(yolo_annotation)
+
+    for _, row in tqdm(val_manifest.iterrows()):
+        file = Path(row[file_col])
+        link = image_val_dir / file.name
+        if file.is_file() and not link.is_file():
+            if hard_copy:
+                copy2(file, link)
+            else:
+                file.symlink_to(link)
+
+        label = file.stem + '.txt'
+        label_path = label_val_dir / label
+        yolo_annotation = convert_to_yolo(row)
+        if yolo_annotation is not None:
+            with open(label_path, 'w') as f:
+                f.write(yolo_annotation)
+
+    if test_manifest is not None:
+        for _, row in tqdm(test_manifest.iterrows()):
+            file = Path(row[file_col])
+            link = image_test_dir / file.name
+            if file.is_file() and not link.is_file():
+                if hard_copy:
+                    copy2(file, link)
+                else:
+                    file.symlink_to(link)
+
+            label = file.stem + '.txt'
+            label_path = label_test_dir / label
+            yolo_annotation = convert_to_yolo(row)
+            if yolo_annotation is not None:
+                with open(label_path, 'w') as f:
+                    f.write(yolo_annotation)
+
+    output_yml = {
+        'path': str(out_dir),
+        'train': str(image_train_dir),
+        'val': str(image_val_dir),
+        'test': str(image_test_dir) if test_manifest is not None else None,
+        'nc': len(class_list),
+        'names': class_list['class'].tolist()
+    }
+    output_yml_path = out_dir / 'dataset.yaml'
+    with open(output_yml_path, 'w') as f:
+        yaml.dump(output_yml, f)
+
+
+def export_camptrapdp(manifest: pd.DataFrame,
+                      out_dir: str,
+                      file_public: bool = False,
+                      classifier_name: str = None):
+    """
+    Export a manifest to camtrapdp format.
+    Requires scientific name for the species prediction label and bounding box coordinates for each detection.
+
+    Args:
+        manifest (pd.DataFrame): dataframe containing images and associated predictions
+        out_file (str): path to save the camtrapdp formatted file
+        file_public (bool): whether media files are publicly accessible
+        classifier_name (str): name of the classifier used for predictions
+    """
+    # convert MD categories to camtrapdp categories
+    category_conversion = {0: 'blank', 1: 'animal', 2: 'human', 3: 'vehicle'}
+    # reset index to ensure unique media and observation ids when creating media and observation tables
+    manifest = manifest.reset_index(drop=True)
+
+    datapackage = {
+        "name": "camtrapdp_export",
+        "profile": "tabular-data-package",
+        "resources": [
+            {
+                "name": "observations",
+                "schema": {
+                }
+            }
+
+        ]
+    }
+
+    # create media_id column based on filepath, which is required for media table
+    manifest["media_id"] = manifest["filepath"].factorize()[0]
+
+    def convert_media(row):
+        media = {'mediaID': row['media_id'] if 'media_id' in row else None,
+                 'deploymentID': row['deployment_id'] if 'deployment_id' in row else None,
+                 'filePublic': file_public,
+                 'timestamp': row['datetime'] if 'datetime' in row else None,
+                 'filePath': row['filepath'] if 'filepath' in row else None,
+                 'fileName': row['filename'] if 'filename' in row else None,
+                 'fileMediaType': row['extension'] if 'extension' in row else None}
+        return media
+    # create media table
+    media = [convert_media(row) for _, row in manifest.drop_duplicates(subset=['filepath']).iterrows()]
+
+    def convert_observation(id, row):
+        observation = {'observationID': id,
+                       'deploymentID': row['deployment_id'] if 'deployment_id' in row else None,
+                       'mediaID': row['media_id'] if 'media_id' in row else None,
+                       'eventStart': row['datetime'] if 'datetime' in row else None,
+                       'eventEnd': row['datetime'] if 'datetime' in row else None,
+                       'observationLevel': 'media',
+                       'observationType':  category_conversion.get(row['category'], 'unknown'),
+                       'scientificName': row['prediction'] if 'prediction' in row else None,
+                       'bboxX': row['bbox_x'] if 'bbox_x' in row else None,
+                       'bboxY': row['bbox_y'] if 'bbox_y' in row else None,
+                       'bboxWidth': row['bbox_w'] if 'bbox_w' in row else None,
+                       'bboxHeight': row['bbox_h'] if 'bbox_h' in row else None,
+                       'classificationMethod': 'machine',
+                       'classifiedBy': classifier_name,
+                       'classificationTimestamp': pd.Timestamp.now().strftime("%Y-%m-%d"),
+                       'classificationProbability': row['confidence'] if 'confidence' in row else None,
+                       }
+        return observation
+    # create observations table
+    observations = [convert_observation(id, row) for id, row in manifest.iterrows()]
+
+    # save media and observations to separate csv files
+    media_df = pd.DataFrame(media)
+    observations_df = pd.DataFrame(observations)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(exist_ok=True)
+    media_df.to_csv(out_dir / 'media.csv', index=False)
+    observations_df.to_csv(out_dir / 'observations.csv', index=False)
+
+    # create datapackage.json file
+    with open(out_dir / 'datapackage.json', 'w') as f:
+        json.dump(datapackage, f, indent=4)
+
+    return media_df, observations_df, datapackage
+
+
 def export_camtrapR(manifest: pd.DataFrame,
                     out_dir: str,
                     out_file: Optional[str] = None,
                     label_col: str = 'prediction',
                     file_col: str = "filepath",
+                    timestamp_col: str = "datetime",
                     station_col: str = 'station',
                     unique_name: str = 'uniquename',
                     copy: bool = False) -> pd.DataFrame:
@@ -257,6 +472,7 @@ def export_camtrapR(manifest: pd.DataFrame,
         - out_file (Optional[str]): if provided, save the manifest to this file
         - label_col (str): column containing species labels
         - file_col (str): column containing source paths
+        - timestamp_col (str): column containing timestamps in format "%Y-%m-%d %H:%M:%S"
         - station_col (str): column containing station names
         - unique_name (str): column containing unique file name
         - copy (bool): if true, hard copy
@@ -278,13 +494,13 @@ def export_camtrapR(manifest: pd.DataFrame,
                 extension = Path(row[file_col]).suffix
 
                 # get datetime
-                if "datetime" in manifest.columns:
-                    reformat_date = pd.to_datetime(row['datetime'], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+                if timestamp_col in manifest.columns:
+                    reformat_date = pd.to_datetime(row[timestamp_col], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
                 else:
                     reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
                 # get station
-                if "station" in manifest.columns:
-                    station = row['station']
+                if station_col in manifest.columns:
+                    station = row[station_col]
                     name = "_".join([station, reformat_date, filename]) + extension
                 else:
                     name = "_".join([reformat_date, filename]) + extension
@@ -309,7 +525,7 @@ def export_camtrapR(manifest: pd.DataFrame,
 
 def export_timelapse(manifest: pd.DataFrame,
                      out_dir: str,
-                     only_animl: bool = True) -> Path:
+                     only_animal: bool = True) -> Path:
     '''
     Converts the Pandas DataFrame created by running the animl classsifier to a csv file that contains columns needed for TimeLapse conversion in later step
 
@@ -331,25 +547,39 @@ def export_timelapse(manifest: pd.DataFrame,
     expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame',
                         'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
                         'bbox_h', 'prediction', 'confidence')
-
     for s in expected_columns:
         assert s in manifest.columns, f'Expected column {s} not found in manifest DataFrame'
 
     # Dropping unnecessary columns (Refer to columns numbers above for expected columns - 0 indexed).
-    manifest = manifest.drop(['filepath', 'filemodifydate', 'max_detection_conf'], axis=1)
-
-    # Keep relative path only
-    manifest['file'] = manifest['filename']
+    manifest = manifest.drop(['filemodifydate', 'frame', 'max_detection_conf'], axis=1)
 
     # Rename column names for clarity
-    manifest = manifest.rename(columns={'conf': 'detection_conf', 'prediction': 'class', 'confidence': 'classification_conf'})
-    csv_loc = Path(out_dir / "timelapse_manifest.csv")
+    manifest = manifest.rename(columns={'filename': 'file', 'conf': 'detection_conf',
+                                        'prediction': 'class', 'confidence': 'classification_conf'})
+    csv_loc = Path(out_dir) / "timelapse_manifest.csv"
     manifest.to_csv(csv_loc, index=False)
 
-    if only_animl:
-        animals = results[results['category'] == 1]
-        animals.to_csv(Path(out_dir / "animals.csv"), index=False)
+    # remove erroneous detections
+    manifest = manifest[manifest['category'].notna()]
 
+    animals = manifest[manifest['category'] == 1]
+
+    if only_animal:
+        output_path = Path(out_dir) / "animals.csv"
+        animals.to_csv(output_path, index=False)
+    else:
+        empty = manifest[manifest['category'] != 1]
+        # Adding prediction as person and human
+        empty['class'].replace({'0': 'empty', '2': 'person', '3': 'vehicle'}, inplace=True)
+        # Changing classification conf = detection_conf instead of max_detection_conf
+        empty['classification_conf'] = empty.loc[:, 'detection_conf']
+
+        # Combining DataFrames and saving it to csv file for further use
+        csv_loc = Path(out_dir) / "manifest.csv"
+        manifest = pd.concat([animals, empty])
+        manifest.to_csv(csv_loc, index=False)
+        animals.to_csv(Path(out_dir) / "animals.csv", index=False)
+        empty.to_csv(Path(out_dir) / "non-animals.csv", index=False)
     # Return the location of csv for json conversion
     return csv_loc
 

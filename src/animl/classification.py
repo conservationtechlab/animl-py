@@ -59,7 +59,8 @@ def save_classifier(model,
 def load_classifier(model_path: str,
                     classes: Union[int, str, Path, pd.DataFrame],
                     device: Optional[str] = None,
-                    architecture: str = "CTL"):
+                    architecture: str = "efficientnet_v2_m",
+                    quiet: bool = True):
     '''
     Creates a model instance and loads the latest model state weights.
 
@@ -87,14 +88,18 @@ def load_classifier(model_path: str,
         class_list = None
         num_classes = classes
 
-    # check to make sure GPU is available if chosen
-    device = get_torch_device(user_set=device)
-
-    # Create a new model instance for training
+    # Create a new model instance for training (pytorch only)
     if model_path.is_dir():
+        supported_architectures = ["efficientnet_v2_m", "convnext_base", ]
+        if architecture not in supported_architectures:
+            raise ValueError(f"""Unsupported architecture: {architecture}.
+                             Supported architectures are: {supported_architectures}""")
+
+        # check to make sure GPU is available if chosen
+        device = get_torch_device(user_set=device, quiet=quiet)
         model_path = str(model_path)
         start_epoch = 0
-        if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
+        if architecture == "efficientnet_v2_m":
             model = EfficientNet(num_classes, device=device)
         elif architecture == "convnext_base":
             model = ConvNeXtBase(num_classes)
@@ -108,7 +113,13 @@ def load_classifier(model_path: str,
         start_time = time()
         # PyTorch dict
         if model_path.suffix == '.pt':
-            if (architecture == "CTL") or (architecture == "efficientnet_v2_m"):
+            supported_architectures = ["efficientnet_v2_m", "convnext_base"]
+            if architecture not in supported_architectures:
+                raise ValueError(f"""Unsupported architecture: {architecture}.
+                                 Supported architectures are: {supported_architectures}""")
+            # check to make sure GPU is available if chosen
+            device = get_torch_device(user_set=device, quiet=quiet)
+            if architecture == "efficientnet_v2_m":
                 model = EfficientNet(num_classes, device=device, tune=False)
                 # TODO: torch 2.6 defaults to weights_only = True, revert on retrain
                 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
@@ -125,6 +136,8 @@ def load_classifier(model_path: str,
                 model.framework = "ConvNeXt-Base"
         # PyTorch full modelspeak
         elif model_path.suffix == '.pth':
+            # check to make sure GPU is available if chosen
+            device = get_torch_device(user_set=device, quiet=quiet)
             model = torch.load(model_path, map_location=device)
             model.to(device)
             model.eval()
@@ -151,7 +164,7 @@ def load_classifier(model_path: str,
 
     # no dir or file found
     else:
-        raise ValueError("Model not found at given path")
+        raise FileNotFoundError("Model not found at given path")
 
 
 def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
@@ -250,22 +263,40 @@ def classify(model,
         batch_size (int): data generator batch size
         num_workers (int): number of cores
         device (str): specify to run model on cpu or gpu, default to cpu
-        out_file (str): path to save prediction results to
+        out_file (Optional[str]): path to save prediction results to
 
     Returns:
-        detections (pd.DataFrame): MD detections with classifier prediction and confidence
+        predictions (np.array): array of softmaxed logits for each class for each image
     """
+    # load from file if out_file provided and exists
     if file_management.check_file(out_file, output_type="Classification results"):
         return file_management.load_data(out_file).to_numpy()
 
-    # set device
-    device = get_torch_device(user_set=device)
+    # input checks
+    if resize_width <= 0 or resize_height <= 0:
+        raise ValueError("resize_width and resize_height must be positive integers")
+    if num_workers <= 0:
+        raise ValueError("num_workers must be a positive integer")
+    if batch_size <= 0:
+        raise ValueError("batch_size must be a positive integer")
+    if not hasattr(model, "framework"):
+        raise AttributeError("Model object must have 'framework' attribute indicating model type (e.g. 'pytorch', 'onnx', etc.)")
+
+    # set model to device if pytorch
+    if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
+        device = get_torch_device(user_set=device)
+        model = model.to(device)  # move model to given device before inference
 
     # initialize lists
     raw_output = []
+    failed_files = []
 
     # Manifest
     if isinstance(detections, pd.DataFrame):
+        if detections.empty:
+            print("No detections to classify.")
+            return np.array(raw_output), failed_files
+
         if file_col not in detections.columns:
             raise ValueError(f"file_col {file_col} not found in manifest columns")
         # no frame column, assume all images and set to 0
@@ -295,90 +326,126 @@ def classify(model,
     start_time = time()
     with torch.no_grad():
         for _, batch in tqdm(enumerate(dataset), total=len(dataset)):
+            collated, failed = batch
+            failed_files.extend(failed)
+            if collated is None:  # entire batch was bad
+                continue
             # pytorch
-            if model.framework == "pytorch" or model.framework == "EfficientNet":
-                data = batch[0]
+            if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
+                data = collated[0]
                 data = data.to(device)
                 output = model(data)
                 raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
-
             # onnx
             elif model.framework == "onnx":
-                data = batch[0]
+                data = collated[0]
                 data = tensor_to_onnx(data)
                 output = model.run(None, {model.get_inputs()[0].name: data})[0]
                 raw_output.extend(softmax(output))
-
             else:
-                raise AssertionError("Model architechture not supported.")
+                raise AssertionError("Model architecture not supported.")
 
     raw_output = np.vstack(raw_output)
 
     if out_file:
+        if not Path(out_file).parent.is_dir():
+            raise FileNotFoundError(f"Directory not found for out_file: {out_file}")
         file_management.save_data(pd.DataFrame(raw_output), out_file)
+        # save failed files if any
+        if len(failed_files) > 0:
+            with (Path(out_file).parent / "classification_failed_files.txt").open("w") as f:
+                for item in failed_files:
+                    f.write(f"{item}\n")
 
     print(f"\nFinished classification. Total images processed: {len(raw_output)} at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
 
-    return raw_output
+    return raw_output, failed_files
 
 
 def single_classification(animals: pd.DataFrame,
                           empty: Optional[pd.DataFrame],
-                          predictions_raw: np.array,
-                          class_list: list,
-                          best: bool = False):
+                          predictions_output: Union[np.array, tuple],
+                          class_list: Union[list, pd.Series],
+                          best: bool = False,
+                          file_col: str = "filepath",
+                          failed_files: Optional[list] = None):
     """
     Get maximum likelihood prediction from softmaxed logits.
 
     Args:
         animals (pd.DataFrame): animal detections from manifest
-        empty (Optional) (pd.DataFrame): empty detections from manifest
-        predictions_raw (np.array): softmaxed logits from classify()
-        class_list (list): class list associated with model
+        empty (Optional[pd.DataFrame]): empty detections from manifest
+        predictions_output (Union[np.array, tuple]): softmaxed logits from classify() and optionally list of failed files from classify
+        class_list (Union[list, pd.Series]): class list associated with model
         best (bool): whether to return one prediction per file
+        file_col (str): column name for file paths in the dataframe
+        failed_files (Optional[list]): list of files that failed to load during classification
 
     Returns:
         animals dataframe with "prediction" label an "confidence" columns
     """
-    class_list = pd.Series(class_list)
-
     # convert None to empty dataframe fo concat
     if empty is None:
         empty = pd.DataFrame()
 
+    if isinstance(class_list, pd.Series):
+        class_list = class_list.to_list()
+
+    # handle tuple output from classify (predictions, failed_files)
+    if isinstance(predictions_output, (list, tuple)) and len(predictions_output) == 2:
+        predictions_raw, failed_files = predictions_output
+    else:
+        predictions_raw, failed_files = predictions_output, failed_files
+
     if not animals.empty:
+        if failed_files is not None and len(failed_files) > 0:
+            print(f"Warning: {len(failed_files)} files failed to load during classification and will be excluded from results.")
+            animals = animals[~animals[file_col].isin(failed_files)]
         animals = animals.reset_index(drop=True)
-        animals["prediction"] = class_list.values[np.argmax(predictions_raw, axis=1)]
+        animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1)]
         animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 
+    # add extension column if not present for video handling
+    if 'extension' not in manifest.columns:
+        manifest['extension'] = manifest[file_col].apply(lambda x: Path(x).suffix.lower())
+
     # remove empties from videos
-    files = manifest.groupby('filepath')
+    files = manifest.groupby(file_col)
+
     for f, file in files:
+        # TODO: remove hardcoded video extensions and frame column name
         if file['extension'].iloc[0] in file_management.VIDEO_EXTENSIONS:
             predictions = file['prediction'].unique()
             if 'empty' in predictions and len(predictions) > 1:
-                real_prediction = predictions[predictions != 'empty'][0]
-                manifest.loc[manifest['filepath'] == f, 'prediction'] = real_prediction
+                file = file[file['prediction'] != 'empty']
+                # replace empty predictions with most confident non-empty prediction
+                top = file.sort_values("confidence", ascending=False).iloc[0]
+                cols = ['prediction', 'confidence', 'frame', 'conf', 'max_detection_conf',
+                        'category', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
+                mask = manifest[file_col] == f
+                manifest.loc[mask, cols] = top[cols].values
 
     # best guess
     if best:
-        # take most confident guess    
+        # take most confident guess
         manifest = manifest.sort_values("confidence", ascending=False)
-        manifest = manifest.drop_duplicates(subset="filepath", keep="first")
-    
+        manifest = manifest.drop_duplicates(subset=file_col, keep="first")
+
     return manifest.reset_index(drop=True)
 
 
 def sequence_classification(animals: pd.DataFrame,
                             empty: Optional[pd.DataFrame],
-                            predictions_raw: np.array,
+                            predictions_output: Union[np.array, tuple],
                             class_list: pd.DataFrame,
                             station_col: str,
                             empty_class: str = "",
                             sort_columns: list[str] = None,
                             file_col: str = "filepath",
+                            timestamp_col: str = "datetime",
+                            failed_files: Optional[list] = None,
                             maxdiff: int = 60):
     """
     Applies class labels to images based on sequential information.
@@ -392,12 +459,14 @@ def sequence_classification(animals: pd.DataFrame,
     Args:
         animals (pd.DataFrame): Sub-selection of all images that contain animals
         empty (Optional) (pd.DataFrame): Sub-selection of all images that do not contain animals
-        predictions_raw (Numpy Array of Numpy Arrays): Logits of all entries in "animals"
+        predictions_output (Union[np.array, tuple]): Logits of all entries in "animals"
         class_list (pd.DataFrame): class list associated with classifier model
         station_col (str): The name of the station column
         empty_class (str) (Optional): the name of class_list 'empty' label
         sort_columns (List of Strings): Defines sorting order for the DataFrame
         file_col (str): The name of the filepath column
+        timestamp_col (str): The name of the timestamp column
+        failed_files (Optional[list]): list of files that failed to load during classification
         maxdiff (int): Maximum time difference in seconds between any two images in a sequence
 
     Returns:
@@ -413,7 +482,7 @@ def sequence_classification(animals: pd.DataFrame,
         raise Exception("'station_col' must be a non-empty string")
 
     # Sanity check to verify that empty is a Pandas DataFrame, if defined
-    if empty is not None and not isinstance(animals, pd.DataFrame):
+    if empty is not None and not isinstance(empty, pd.DataFrame):
         raise Exception("'empty' must be a DataFrame")
 
     # Sanity check to verify that maxdiff is a positive number
@@ -423,8 +492,8 @@ def sequence_classification(animals: pd.DataFrame,
     if not {file_col}.issubset(animals.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
-    if not {"datetime"}.issubset(animals.columns):
-        raise ValueError("DataFrame must contain 'datetime' column.")
+    if not {timestamp_col}.issubset(animals.columns):
+        raise ValueError(f"DataFrame must contain '{timestamp_col}' column.")
 
     if "conf" not in animals.columns:
         animals["conf"] = 1
@@ -434,7 +503,20 @@ def sequence_classification(animals: pd.DataFrame,
     else:
         empty_col = None
 
-    if empty is not None or not empty.empty:
+    # handle tuple output from classify (predictions, failed_files)
+    if isinstance(predictions_output, tuple):
+        predictions_raw, failed_files = predictions_output
+    else:
+        predictions_raw = predictions_output
+
+    # remove failed files from animals dataframe
+    if failed_files is not None:
+        animals = animals[~animals[file_col].isin(failed_files)].reset_index(drop=True)
+
+    assert len(animals) == predictions_raw.shape[0], "Number of predictions does not match number of animal detections after removing failed files."
+
+    # prepare empty dataframe for concat
+    if empty is not None and not empty.empty:
         empty["ID"] = range(0, empty.shape[0])
         predempty = empty.pivot(index="ID", columns="prediction", values="confidence")
         # Replace NaN with 0
@@ -463,10 +545,17 @@ def sequence_classification(animals: pd.DataFrame,
         # concat
         predictions = np.vstack((predictions, np.array(predempty)))
 
-    if sort_columns is None:
-        sort_columns = [station_col, "datetime"]
+    # if no empty class, just use animal predictions
+    else:
+        animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
+        animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
+        animals_merged = animals
+        predictions = predictions_raw
 
-    animals_merged['datetime'] = pd.to_datetime(animals_merged['datetime'], format="%Y-%m-%d %H:%M:%S")
+    if sort_columns is None:
+        sort_columns = [station_col, timestamp_col]
+
+    animals_merged[timestamp_col] = pd.to_datetime(animals_merged[timestamp_col], format="%Y-%m-%d %H:%M:%S")
 
     sort = animals_merged.sort_values(by=sort_columns).index
     animals_sort = animals_merged.loc[sort].reset_index(drop=True)
@@ -482,10 +571,10 @@ def sequence_classification(animals: pd.DataFrame,
         rows = [i]
         last_index = i+1
 
-        while (last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, "datetime"]) and
-               not pd.isna(animals_sort.loc[last_index, "datetime"]) and
+        while (last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, timestamp_col]) and
+               not pd.isna(animals_sort.loc[last_index, timestamp_col]) and
                animals_sort.loc[last_index, station_col] == animals_sort.loc[i, station_col] and
-               (animals_sort.loc[last_index, "datetime"] - animals_sort.loc[i, "datetime"]).total_seconds() <= maxdiff):
+               (animals_sort.loc[last_index, timestamp_col] - animals_sort.loc[i, timestamp_col]).total_seconds() <= maxdiff):
             rows.append(last_index)
             last_index += 1
 
