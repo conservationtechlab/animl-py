@@ -45,6 +45,7 @@ Runs the full detection + classification pipeline on a directory of images or vi
 | `visualize` | bool | False | Save bounding box visualizations |
 | `sequence` | bool | False | Use sequence-level classification |
 | `detect_only` | bool | False | Skip classification step |
+
 <br><br>
 
 ### `animl.from_config(config)`
@@ -55,8 +56,9 @@ Runs the full detection + classification pipeline on a directory of images or vi
 | `config` | str | required | Path to config yml file.
 
 The config yml must contain the following fields:
+<br><br>
   
-  
+---
 ## Data Ingestion and Processing
 {: #data-ingestion}
 ### class `animl.WorkingDirectory()`
@@ -72,7 +74,8 @@ Runs the full detection + classification pipeline on a directory of images or vi
 | `sequence` | bool | False | Use sequence-level classification |
 | `detect_only` | bool | False | Skip classification step |
   
-  
+<br><br>
+
 ### `animl.build_file_manifest()`
 Runs the full detection + classification pipeline on a directory of images or videos.
 
@@ -90,7 +93,7 @@ Runs the full detection + classification pipeline on a directory of images or vi
 
 Example manifest:
 
-  
+<br><br>
   
 ### class `animl.active_times()`
 Runs the full detection + classification pipeline on a directory of images or videos.
@@ -100,8 +103,7 @@ Runs the full detection + classification pipeline on a directory of images or vi
 | `image_dir` | str | required | Path to image/video directory |
 | `detector_file` | str | required | Path to MegaDetector model |
 
-
-  
+<br><br>
   
 ### class `animl.sequence_calculation()`
 Runs the full detection + classification pipeline on a directory of images or videos.
@@ -111,7 +113,8 @@ Runs the full detection + classification pipeline on a directory of images or vi
 | `image_dir` | str | required | Path to image/video directory |
 | `detector_file` | str | required | Path to MegaDetector model |
   
-  
+<br><br>  
+
 ### class `animl.extract_frames()`
 Runs the full detection + classification pipeline on a directory of images or videos.
 
@@ -125,7 +128,8 @@ Runs the full detection + classification pipeline on a directory of images or vi
 | `sequence` | bool | False | Use sequence-level classification |
 | `detect_only` | bool | False | Skip classification step |
   
-  
+<br><br>
+
 ---
 ## Detection
 {: #detection}
@@ -141,7 +145,8 @@ Loads a detector model from a file path.
 
 **Returns:** loaded model object
   
-  
+<br><br>
+
 ### `animl.detect(detector, image_file_names, resize_width, resize_height, ...)`
 Runs a detector model on batches of image files.
 
@@ -161,7 +166,8 @@ Runs a detector model on batches of image files.
 | `checkpoint_frequency` | int | -1 | Save checkpoint every N batches; -1 disables checkpointing |
 
 **Returns:** `list[dict]` — MegaDetector-format results, one dict per image
-  
+
+<br><br>
   
 ### `animl.parse_detections(results, manifest=None, out_file=None, threshold=0.1, file_col="filepath")`
 Converts detector output into a detections DataFrame.
@@ -175,8 +181,9 @@ Converts detector output into a detections DataFrame.
 | `file_col` | str | `"filepath"` | Column name containing file paths |
 
 **Returns:** `pd.DataFrame` — one row per detection with columns `filepath`, `category`, `conf`, `bbox_x`, `bbox_y`, `bbox_w`, `bbox_h`, `max_detection_conf`
-  
-  
+
+<br><br>
+
 ---
 ## Classification
 {: #classification}
@@ -194,8 +201,9 @@ Saves model state weights and optional optimizer/scheduler states to disk.
 | `scheduler` | torch.optim.lr_scheduler._LRScheduler | None      | (Optional) Scheduler state to save                          |
 
 **Returns:** `None`  
-  
-  
+
+<br><br>
+
 ### `load_classifier(model_path, classes, device=None, architecture="efficientnet_v2_m", quiet=True)`
 Creates and loads a classifier model of the given architecture from disk, with the associated class list.
 
@@ -208,8 +216,9 @@ Creates and loads a classifier model of the given architecture from disk, with t
 | `quiet`        | bool                                   | True                   | If `True`, suppresses device info messages                       |
 
 **Returns:** `(model, class_list)` — loaded model (of given architecture) and class list  
-  
-  
+
+<br><br>
+
 ### `load_classifier_checkpoint(model_path, model, optimizer, scheduler, device)`
 Loads the latest checkpoint to resume model training, restoring weights and optimizer/scheduler states.
 
@@ -222,7 +231,8 @@ Loads the latest checkpoint to resume model training, restoring weights and opti
 | `device`     | str                       | required  | Device to map tensors onto ("cpu" or "cuda")              |
 
 **Returns:** `int` — starting epoch restored from the latest checkpoint  
-  
+
+<br><br>
   
 ### `load_class_list(classlist_file)`
 Returns classlist file as DataFrame.
@@ -232,7 +242,8 @@ Returns classlist file as DataFrame.
 | `classlist_file`  | str    | required| File path to class list CSV |
 
 **Returns:** `pd.DataFrame` — the class list file data  
-  
+
+<br><br>
   
 ### `classify(model, detections, resize_width=480, resize_height=480, file_col="filepath", crop=True, normalize=True, batch_size=1, num_workers=NUM_THREADS, device=None, out_file=None)`
 Runs prediction for input detections using a preloaded classifier model, managing batching and output saving.
@@ -255,6 +266,8 @@ Runs prediction for input detections using a preloaded classifier model, managin
 - `predictions`: `np.array` of softmaxed logits for each class/image  
 - `failed_files`: list of files that failed during processing (if any)  
   
+<br><br>
+
 ### `single_classification(animals, empty, predictions_output, class_list, best=False, file_col="filepath", failed_files=None)`
 Assigns predicted class labels and confidences to each row in a detection DataFrame, handling failed files and "empty" detections.
 
@@ -269,7 +282,8 @@ Assigns predicted class labels and confidences to each row in a detection DataFr
 | `failed_files`     | list or None                  | None        | List of files that failed during classification                     |
 
 **Returns:** `pd.DataFrame` — DataFrame with columns `prediction`, `confidence`, and associated metadata  
-  
+
+<br><br>
   
 ### `sequence_classification(animals, empty, predictions_output, class_list, station_col, empty_class="", sort_columns=None, file_col="filepath", timestamp_col="datetime", failed_files=None, maxdiff=60)`
 Assigns class labels to detections at a sequence level (camera trap burst) using both spatial and temporal context, improving classification accuracy for image bursts.
@@ -289,7 +303,8 @@ Assigns class labels to detections at a sequence level (camera trap burst) using
 | `maxdiff`        | int                     | 60         | Maximum time (sec) separating images in the same burst/sequence            |
 
 **Returns:** `pd.DataFrame` — sequence-classified results with columns including `prediction`, `confidence`, `sequence`
-  
+
+<br><br>
   
 ---
 ## Re-Identification
