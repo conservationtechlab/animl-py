@@ -45,8 +45,8 @@ Runs the full detection + classification pipeline on a directory of images or vi
 | `visualize` | bool | False | Save bounding box visualizations |
 | `sequence` | bool | False | Use sequence-level classification |
 | `detect_only` | bool | False | Skip classification step |
-  
-  
+\
+\
 ### `animl.from_config(config)`
 Runs the full detection + classification pipeline on a directory of images or videos.
 
@@ -254,7 +254,6 @@ Runs prediction for input detections using a preloaded classifier model, managin
 **Returns:** `tuple` — (`predictions`, `failed_files`)  
 - `predictions`: `np.array` of softmaxed logits for each class/image  
 - `failed_files`: list of files that failed during processing (if any)  
-  
   
 ### `single_classification(animals, empty, predictions_output, class_list, best=False, file_col="filepath", failed_files=None)`
 Assigns predicted class labels and confidences to each row in a detection DataFrame, handling failed files and "empty" detections.
