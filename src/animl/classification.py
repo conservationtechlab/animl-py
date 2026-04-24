@@ -407,6 +407,10 @@ def single_classification(animals: pd.DataFrame,
 
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
 
+    # add extension column if not present for video handling
+    if 'extension' not in manifest.columns:
+        manifest['extension'] = manifest[file_col].apply(lambda x: Path(x).suffix.lower())
+
     # remove empties from videos
     files = manifest.groupby(file_col)
 

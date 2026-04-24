@@ -118,11 +118,14 @@ def remove_link(manifest: pd.DataFrame,
     Returns:
         manifest without link column
     """
+    if link_col not in manifest.columns:
+        raise AssertionError(f"Link column {link_col} not found in manifest.")
+
     # delete files
     for _, row in manifest.iterrows():
         Path(row[link_col]).unlink(missing_ok=True)
     # remove column
-    manifest.drop(columns=[link_col])
+    manifest = manifest.drop(columns=[link_col])
     return manifest
 
 
@@ -260,7 +263,9 @@ def export_yolo(train_manifest: pd.DataFrame,
     Saves a .txt file for each image with bounding box coordinates and class labels.
 
     Args:
-        manifest (pd.DataFrame): dataframe containing images and associated predictions
+        train_manifest (pd.DataFrame): dataframe containing images and associated bounding boxes for training
+        val_manifest (pd.DataFrame): dataframe containing images and associated bounding boxes for validation
+        test_manifest (pd.DataFrame): dataframe containing images and associated bounding boxes for testing
         class_list (pd.DataFrame): dataframe containing class names and their corresponding IDs
         out_dir (str): directory to save YOLO formatted files
         label_col (str): column containing species labels,
@@ -446,7 +451,7 @@ def export_camptrapdp(manifest: pd.DataFrame,
     with open(out_dir / 'datapackage.json', 'w') as f:
         json.dump(datapackage, f, indent=4)
 
-    return
+    return media_df, observations_df, datapackage
 
 
 def export_camtrapR(manifest: pd.DataFrame,
@@ -542,17 +547,16 @@ def export_timelapse(manifest: pd.DataFrame,
     expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame',
                         'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
                         'bbox_h', 'prediction', 'confidence')
-
     for s in expected_columns:
         assert s in manifest.columns, f'Expected column {s} not found in manifest DataFrame'
 
     # Dropping unnecessary columns (Refer to columns numbers above for expected columns - 0 indexed).
-    manifest = manifest.drop(['filemodifydate', 'frame' 'max_detection_conf'], axis=1)
+    manifest = manifest.drop(['filemodifydate', 'frame', 'max_detection_conf'], axis=1)
 
     # Rename column names for clarity
     manifest = manifest.rename(columns={'filename': 'file', 'conf': 'detection_conf',
                                         'prediction': 'class', 'confidence': 'classification_conf'})
-    csv_loc = Path(out_dir / "timelapse_manifest.csv")
+    csv_loc = Path(out_dir) / "timelapse_manifest.csv"
     manifest.to_csv(csv_loc, index=False)
 
     # remove erroneous detections
@@ -561,7 +565,8 @@ def export_timelapse(manifest: pd.DataFrame,
     animals = manifest[manifest['category'] == 1]
 
     if only_animal:
-        animals.to_csv(Path(out_dir / "animals.csv"), index=False)
+        output_path = Path(out_dir) / "animals.csv"
+        animals.to_csv(output_path, index=False)
     else:
         empty = manifest[manifest['category'] != 1]
         # Adding prediction as person and human
@@ -570,11 +575,11 @@ def export_timelapse(manifest: pd.DataFrame,
         empty['classification_conf'] = empty.loc[:, 'detection_conf']
 
         # Combining DataFrames and saving it to csv file for further use
-        csv_loc = Path(out_dir / "manifest.csv")
+        csv_loc = Path(out_dir) / "manifest.csv"
         manifest = pd.concat([animals, empty])
         manifest.to_csv(csv_loc, index=False)
-        animals.to_csv(Path(out_dir / "animals.csv"), index=False)
-        empty.to_csv(Path(out_dir / "non-animals.csv"), index=False)
+        animals.to_csv(Path(out_dir) / "animals.csv", index=False)
+        empty.to_csv(Path(out_dir) / "non-animals.csv", index=False)
     # Return the location of csv for json conversion
     return csv_loc
 
