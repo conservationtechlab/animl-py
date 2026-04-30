@@ -22,7 +22,7 @@ pip install animl
 
 ### Requirements
 {: #requirements}
-ExifTool, PyTorch, Ultralytics, ONNX Runtime, pandas</p>
+ExifTool, PyTorch, Ultralytics, ONNX Runtime, pandas
 
 
 # Examples
@@ -61,6 +61,8 @@ The config yml must contain the following fields:
 ---
 ## Data Ingestion and Processing
 {: #data-ingestion}
+<br>
+
 ### class `animl.WorkingDirectory()`
 Runs the full detection + classification pipeline on a directory of images or videos.
 
@@ -370,25 +372,3 @@ Runs the full detection + classification pipeline on a directory of images or vi
 |---|---|---|---|
 | `image_dir` | str | required | Path to image/video directory |
 | `detector_file` | str | required | Path to MegaDetector model |
-
-
-
-
-
-                        <nav>
-
-                            <a href="#getting-started">class WorkingDirectory</a>
-                            <a href="#build_file_manifest">build_file_manifest()</a>
-                            <a href="#usage">extract_frames()</a>
-                            <a href="#usage">load_detector()</a>
-                            <a href="#usage">detect()</a>
-                            <a href="#usage">parse_detections()</a>
-                            <a href="#usage">load_classifier()</a>
-                            <a href="#usage">load_class_list()</a>
-                            <a href="#getting-started">classify()</a>
-                            <a href="#getting-started">single_classification()</a>
-                            <a href="#getting-started">sequence_classification()</a>
-                            <a href="#usage">Re-ID</a>
-                            <a href="#usage">Training</a>
-                            <a href="#export">Export</a>
-                        </nav>
