@@ -605,8 +605,7 @@ def export_megadetector(manifest: pd.DataFrame,
     Returns:
         None, saves a json file in MD format
     """
-
-    detection_category_id_to_name = {'0': 'empty', '1': 'animal', '2': 'person', '3': 'vehicle'}
+    detection_category_id_to_name = {0: 'empty', 1: 'animal', 2: 'person', 3: 'vehicle'}
 
     if out_file is None:
         out_file = 'detections.json'
@@ -618,11 +617,9 @@ def export_megadetector(manifest: pd.DataFrame,
     classification_category_name_to_id = {}
     filename_to_results = {}
 
+    manifest['category'] = manifest['category'].fillna(0).astype(int)
+
     for i_row, row in manifest.iterrows():
-
-        if str(row['category']) == '0':
-            continue
-
         # Is this the first detection we've seen for this file?
         if row['filepath'] in filename_to_results:
             im = filename_to_results[row['filepath']]
@@ -633,10 +630,15 @@ def export_megadetector(manifest: pd.DataFrame,
             filename_to_results[im['file']] = im
 
         assert isinstance(row['category'], int), 'Invalid category identifier in row {}'.format(im['file'])
-        detection_category_id = str(row['category'])
+        detection_category_id = row['category']
         assert detection_category_id in detection_category_id_to_name, \
             'Unrecognized detection category ID {}'.format(detection_category_id)
 
+        # Skip rows with no detection (category 0)
+        if detection_category_id == 0:
+            continue
+
+        # add detection to image results
         detection = {}
         detection['category'] = detection_category_id
         detection['conf'] = row['conf']
@@ -659,7 +661,6 @@ def export_megadetector(manifest: pd.DataFrame,
 
         im['detections'].append(detection)
 
-    # ...for each row
 
     info = {}
     info['format_version'] = '3.0'
