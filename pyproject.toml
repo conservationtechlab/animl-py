@@ -1,7 +1,7 @@
 [project]
 name = "animl"  
 version = "3.2.1"
-description = "Tools for classifying camera trap images"  
+description = "A Collection of ML Tools for Species Detection and Classification in Camera Trap Images and Videos."  
 
 readme = "README.md" 
 license = {file = "LICENSE.txt"}
