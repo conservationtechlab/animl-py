@@ -69,6 +69,7 @@ def load_classifier(model_path: str,
         classes (int | str | Path | pd.DataFrame): number of classes, path to associated class list, or pd.DataFrame of class list
         device (str): specify to run on cpu or gpu
         architecture (str): expected model architecture
+        quiet (bool): whether to suppress GPU warnings
 
     Returns:
         model: model object of given architecture with loaded weights

@@ -5,7 +5,7 @@ Utils for animl-r
 from animl import __version__
 
 def get_version():
-    """Returns the version of animl-r."""
+    """Returns the version of animl-py."""
     return __version__
 
 def check_exiftool():

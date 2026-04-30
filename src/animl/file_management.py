@@ -320,51 +320,40 @@ def check_file(file: str, output_type: str = None) -> bool:
     return False
 
 
-def active_times(manifest_dir,
-                 camera_depth: int = 0,
+def active_times(manifest,
                  file_col: str = "filepath",
-                 timestamp_col: str = "datetime",
-                 recursive: bool = True,
-                 data_timezone: Optional[str] = None) -> pd.DataFrame:
+                 camera_depth: int = 0,
+                 timestamp_col: str = "datetime") -> pd.DataFrame:
     """
     Get start and stop dates for each camera folder.
 
     Args:
-        manifest_dir (str): either file manifest or directory of files to analyze
+        manifest (pd.DataFrame): file manifest dataframe with file paths and timestamps
         camera_depth (int): directory depth from which to split cameras, with 0 being the root of the manifest_dir, defaults to 0
         file_col (str): column in manifest to use for file paths, defaults to "filepath"
-        timestamp_col (str): column in manifest to use for datetime information, defaults to "datetime"
-        recursive (bool): recursively search thhrough all child directories
-        data_timezone (str): timezone to apply to datetime column
+        timestamp_col (str): column in manifest to use for timestamps, defaults to "datetime"
 
     Returns:
         times (pd.DataFrame): list of files with or without file modify dates
     """
     # from manifest file
-    if isinstance(manifest_dir, str):
-        if check_file(manifest_dir):
-            files = load_data(manifest_dir)  # load_data(outfile) load file manifest
-    # from manifest dataframe
-    elif isinstance(manifest_dir, pd.DataFrame):
-        files = manifest_dir
-    # from scratch
-    elif Path(manifest_dir).is_dir():
-        files = build_file_manifest(manifest_dir, exif=True, data_timezone=data_timezone,
-                                    camera_depth=camera_depth, recursive=recursive)
-    else:
-        raise FileNotFoundError("Requires a file manifest or image directory.")
+    if not isinstance(manifest, pd.DataFrame):
+        raise ValueError("Manifest must be a pandas DataFrame.")
+    
+    if not {file_col}.issubset(manifest.columns):
+        raise ValueError(f"DataFrame must contain '{file_col}' filepath column.")
 
     # get filemodifydate timestamps if dne
-    if timestamp_col not in files.columns:
-        files[timestamp_col] = files[file_col].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
+    if timestamp_col not in manifest.columns:
+        manifest[timestamp_col] = manifest[file_col].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
 
     # get camera names if dne
-    if "camera" not in files.columns:
-        root_depth = len(Path(files[file_col].iloc[0]).parts) - 1
+    if "camera" not in manifest.columns:
+        root_depth = len(Path(manifest[file_col].iloc[0]).parts) - 1
         camera_depth = root_depth + int(camera_depth)
-        files["camera"] = files[file_col].apply(lambda x: Path(x).parts[camera_depth])
+        manifest["camera"] = manifest[file_col].apply(lambda x: Path(x).parts[camera_depth])
 
-    times = files.groupby("camera").agg({timestamp_col: ['min', 'max']})
+    times = manifest.groupby("camera").agg({timestamp_col: ['min', 'max']})
 
     return times
 
