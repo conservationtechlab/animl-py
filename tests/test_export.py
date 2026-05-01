@@ -49,7 +49,7 @@ def _make_coco_manifest(n=2):
 
 def _make_class_list():
     """Return a minimal class_list DataFrame."""
-    return pd.DataFrame({'id': [0, 1], 'class': ['empty', 'deer']})
+    return {0: 'empty', 1: 'deer'}
 
 
 def _make_megadetector_manifest():

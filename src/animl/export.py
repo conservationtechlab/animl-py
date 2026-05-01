@@ -15,13 +15,13 @@ from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 
 from animl import __version__
-from animl.file_management import save_data, save_json, save_yaml
+from animl.file_management import build_file_manifest, save_data, save_json, save_yaml
 from animl.utils.general import _xywh_to_xywhc, _xywh_to_absxyxy
 
 
 def export_folders(manifest: pd.DataFrame,
-                   out_dir: str,
-                   out_file: Optional[str] = None,
+                   out_dir: Union[Path, str],
+                   out_file: Optional[Union[Path, str]] = None,
                    label_col: str = 'prediction',
                    file_col: str = "filepath",
                    timestamp_col: str = "datetime",
@@ -32,9 +32,9 @@ def export_folders(manifest: pd.DataFrame,
     Creates symbolic links of images into species folders.
 
     Args:
-        manifest (DataFrame): dataframe containing images and associated predictions
-        out_dir (str): root directory for species folders
-        out_file (Optional[str]): if provided, save the manifest to this file
+        manifest (pd.DataFrame): dataframe containing images and associated predictions
+        out_dir (Union[Path, str]): root directory for species folders
+        out_file (Optional[Union[Path, str]]): if provided, save the manifest to this file
         label_col (str): column containing species labels,
                         'category_label' for detection categories or 'prediction' for species labels
         file_col (str): column containing source paths
@@ -137,7 +137,7 @@ def update_labels_from_folders(manifest: pd.DataFrame,
         raise AssertionError("Manifest does not have unique names, cannot match to sorted directories.")
 
     print("Searching directory...")
-    ground_truth = file_management.build_file_manifest(export_dir, exif=False)
+    ground_truth = build_file_manifest(export_dir, exif=False)
 
     if len(ground_truth) != len(manifest):
         print(f"Warning, found {len(ground_truth)} files in link dir but {len(manifest)} files in manifest.")
@@ -211,7 +211,7 @@ def export_train_val_test(manifest: pd.DataFrame,
 
 def export_coco(manifest: pd.DataFrame,
                 class_dict: dict,
-                out_file: str,
+                out_file: Union[Path, str],
                 info: Optional[dict] = None,
                 licenses: Optional[list] = None):
     """
@@ -219,8 +219,8 @@ def export_coco(manifest: pd.DataFrame,
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
-        class_list (pd.DataFrame): dataframe containing class names and their corresponding IDs
-        out_file (str): path to save the COCO formatted file
+        class_dict (dict): dictionary containing class names and their corresponding IDs
+        out_file (Union[Path, str]): path to save the COCO formatted file
         info (Optional[dict]): info section of COCO file
         licenses (Optional[list]): licenses section of COCO file
 
@@ -245,8 +245,8 @@ def export_coco(manifest: pd.DataFrame,
     # build categories from class list
     categories = []
     for key, value in class_dict.items():
-        category = {'id': int(value),
-                    'name': key,
+        category = {'id': int(key),
+                    'name': value,
                     'supercategory': 'none'}
         categories.append(category)
 
