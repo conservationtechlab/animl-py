@@ -3,13 +3,11 @@ Automated Pipeline Functions
 
 @ Kyra Swanson 2023
 """
-
-import yaml
 import pandas as pd
 from pathlib import Path
 
 from animl import (classification, detection, export, file_management,
-                   video_processing, split, model_architecture)
+                   video_processing, model_architecture)
 from animl.utils import visualization
 from animl.utils.general import NUM_THREADS
 
@@ -95,8 +93,8 @@ def from_paths(image_dir: str,
 
     else:
         # Extract animal detections from the rest
-        animals = split.get_animals(detections)
-        empty = split.get_empty(detections)
+        animals = detections[detections["category_label"] == "animal"].reset_index(drop=True)
+        empty = detections[detections["category_label"] != "animal"].reset_index(drop=True)
 
         # Use the classifier model to predict the species of animal detections
         print("Predicting species of animal detections...")
@@ -156,7 +154,7 @@ def from_config(config: str):
         pandas.DataFrame: Concatenated dataframe of animal and empty detections
     """
     print(f'Using config "{config}"')
-    cfg = yaml.safe_load(open(config, 'r'))
+    cfg = file_management.load_yaml(config)
 
     # get image dir and cuda defaults
     image_dir = cfg['image_dir']
@@ -219,8 +217,8 @@ def from_config(config: str):
 
     else:
         # Extract animal detections from the rest
-        animals = split.get_animals(detections)
-        empty = split.get_empty(detections)
+        animals = detections[detections["category_label"] == "animal"].reset_index(drop=True)
+        empty = detections[detections["category_label"] != "animal"].reset_index(drop=True)
 
         # Use the classifier model to predict the species of animal detections
         print("Predicting species...")
