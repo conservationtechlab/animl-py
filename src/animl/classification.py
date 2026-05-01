@@ -66,7 +66,8 @@ def load_classifier(model_path: str,
 
     Args:
         model_path (str): file or directory path to model weights
-        classes (int | str | Path | pd.DataFrame): number of classes, path to associated class list, or pd.DataFrame of class list
+        classes (int | str | Path | pd.DataFrame): number of classes, path to associated class list,
+                                                   or pd.DataFrame of class list
         device (str): specify to run on cpu or gpu
         architecture (str): expected model architecture
         quiet (bool): whether to suppress GPU warnings
@@ -223,7 +224,7 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
         return 0
 
 
-def load_class_list(classlist_file):
+def load_class_list(classlist_file: str):
     """
     Return classlist file as pd.DataFrame.
 
@@ -281,7 +282,8 @@ def classify(model,
     if batch_size <= 0:
         raise ValueError("batch_size must be a positive integer")
     if not hasattr(model, "framework"):
-        raise AttributeError("Model object must have 'framework' attribute indicating model type (e.g. 'pytorch', 'onnx', etc.)")
+        raise AttributeError("""Model object must have 'framework' attribute indicating model type
+                              (e.g. 'pytorch', 'onnx', etc.)""")
 
     # set model to device if pytorch
     if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
@@ -358,7 +360,8 @@ def classify(model,
                 for item in failed_files:
                     f.write(f"{item}\n")
 
-    print(f"\nFinished classification. Total images processed: {len(raw_output)} at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
+    print(f"\nFinished classification. Total images processed: {len(raw_output)}",
+          f" at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
 
     return raw_output, failed_files
 
@@ -376,7 +379,8 @@ def single_classification(animals: pd.DataFrame,
     Args:
         animals (pd.DataFrame): animal detections from manifest
         empty (Optional[pd.DataFrame]): empty detections from manifest
-        predictions_output (Union[np.array, tuple]): softmaxed logits from classify() and optionally list of failed files from classify
+        predictions_output (Union[np.array, tuple]): softmaxed logits from classify()
+            and optionally list of failed files from classify
         class_list (Union[list, pd.Series]): class list associated with model
         best (bool): whether to return one prediction per file
         file_col (str): column name for file paths in the dataframe
@@ -405,7 +409,8 @@ def single_classification(animals: pd.DataFrame,
 
     if not animals.empty:
         if failed_files is not None and len(failed_files) > 0:
-            print(f"Warning: {len(failed_files)} files failed to load during classification and will be excluded from results.")
+            print(f"Warning: {len(failed_files)} files failed to load during classification",
+                  " and will be excluded from results.")
             animals = animals[~animals[file_col].isin(failed_files)]
         animals = animals.reset_index(drop=True)
         animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1)]
@@ -453,6 +458,7 @@ def sequence_classification(animals: pd.DataFrame,
                             timestamp_col: str = "datetime",
                             failed_files: Optional[list] = None,
                             maxdiff: int = 60):
+    # TODO: align with R version
     """
     Applies class labels to images based on sequential information.
 
@@ -519,7 +525,8 @@ def sequence_classification(animals: pd.DataFrame,
     if failed_files is not None:
         animals = animals[~animals[file_col].isin(failed_files)].reset_index(drop=True)
 
-    assert len(animals) == predictions_raw.shape[0], "Number of predictions does not match number of animal detections after removing failed files."
+    if len(animals) != predictions_raw.shape[0]:
+        raise ValueError("Number of predictions does not match number of animal detections.")
 
     # prepare empty dataframe for concat
     if empty is not None and not empty.empty:
@@ -543,7 +550,6 @@ def sequence_classification(animals: pd.DataFrame,
                 predempty = predempty.drop("empty", axis=1)
             class_list = pd.concat([class_list,
                                     pd.Series([x for x in empty["prediction"].unique() if x != "empty"])], ignore_index=True)
-
         else:
             class_list = pd.concat([class_list, pd.Series(empty["prediction"].unique())], ignore_index=True)
             empty_col = predempty.columns.get_loc("empty")
@@ -554,8 +560,8 @@ def sequence_classification(animals: pd.DataFrame,
 
         empty["conf"] = 1
         animals_merged = pd.concat([animals, empty.iloc[:, :-1]]).reset_index(drop=True)  # dont add ID column
-        predictions = np.hstack((predictions_raw,
-                                 np.zeros((predictions_raw.shape[0], len(predempty.columns) - predictions_raw.shape[1]))))
+        predictions = np.hstack((predictions_raw, np.zeros((predictions_raw.shape[0],
+                                                            len(predempty.columns) - predictions_raw.shape[1]))))
         # concat
         predictions = np.vstack((predictions, np.array(predempty)))
 

@@ -17,7 +17,8 @@ device: cuda:0
 batch_size: 4
 num_workers: 4
 # detection
-detector_file: "models/mani_buow_2025.pt"
+detector_file: "models/buow_2026.pt"
+detector_class_list: "models/buow_2026_classes.txt"
 detector_type: "yolo"
 detection_resize_height: 640
 detection_resize_width: 640

@@ -74,14 +74,16 @@ def build_file_manifest(image_dir: str,
             raise ValueError("station_depth must be less than 1 if recursive is False")
         root_depth = len(Path(image_dir).parts) - 1
         station_depth = root_depth + int(station_depth)
-        files["station"] = files["filepath"].apply(lambda x: Path(x).parts[station_depth] if len(Path(x).parts) > station_depth else None)
+        files["station"] = files["filepath"].apply(
+            lambda x: Path(x).parts[station_depth] if len(Path(x).parts) > station_depth else None)
 
     if camera_depth is not None:
         if recursive is False and camera_depth >= 1:
             raise ValueError("camera_depth must be less than 1 if recursive is False")
         root_depth = len(Path(image_dir).parts) - 1
         camera_depth = root_depth + int(camera_depth)
-        files["camera"] = files["filepath"].apply(lambda x: Path(x).parts[camera_depth] if len(Path(x).parts) > camera_depth else None)
+        files["camera"] = files["filepath"].apply(
+            lambda x: Path(x).parts[camera_depth] if len(Path(x).parts) > camera_depth else None)
 
     invalid = []
 
@@ -383,7 +385,8 @@ def active_times(manifest,
 
     Args:
         manifest (pd.DataFrame): file manifest dataframe with file paths and timestamps
-        camera_depth (int): directory depth from which to split cameras, with 0 being the root of the manifest_dir, defaults to 0
+        camera_depth (int): directory depth from which to split cameras,
+            with 0 being the root of the manifest_dir, defaults to 0
         file_col (str): column in manifest to use for file paths, defaults to "filepath"
         timestamp_col (str): column in manifest to use for timestamps, defaults to "datetime"
 
@@ -423,13 +426,15 @@ def sequence_calculation(manifest,
     Unlike sequence_classification(), does not apply any classification or labeling to the sequences.
 
     Args:
-        - manifest (pd.DataFrame): DataFrame containing image file information, including 'filepath' and 'datetime' columns
+        - manifest (pd.DataFrame): DataFrame containing image file information,
+            including 'file_col' and 'timestamp_col' columns
         - station_col (str): column name in the DataFrame representing the station or camera
         - sort_columns (list[str]): list of columns to sort by before calculating sequences.
                                     Defaults to None, which sorts by station_col and timestamp_col.
         - file_col (str): column name representing the file path. Defaults to "filepath".
-        - timestamp_col (str): column name representing the timestamp in format "%Y-%m-%d %H:%M:%S". Defaults to "datetime".
-        - maxdiff (int): maximum time difference in seconds between consecutive images to be considered part of the same sequence. Defaults to 60.
+        - timestamp_col (str): column name representing the timestamp in format "%Y-%m-%d %H:%M:%S", defaults to "datetime".
+        - maxdiff (int): maximum time difference in seconds between consecutive images to be
+            considered part of the same sequence. Defaults to 60.
     """
     if not isinstance(station_col, str) or station_col == '':
         raise Exception("'station_col' must be a non-empty string")

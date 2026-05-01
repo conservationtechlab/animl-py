@@ -68,7 +68,8 @@ def export_folders(manifest: pd.DataFrame,
 
             # get datetime
             if timestamp_col in manifest.columns:
-                reformat_date = pd.to_datetime(row[timestamp_col], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+                reformat_date = pd.to_datetime(row[timestamp_col],
+                                               format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
             else:
                 reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
             # get station
@@ -450,7 +451,6 @@ def export_camptrapdp(manifest: pd.DataFrame,
                 "schema": {
                 }
             }
-
         ]
     }
 
@@ -544,7 +544,8 @@ def export_camtrapR(manifest: pd.DataFrame,
 
                 # get datetime
                 if timestamp_col in manifest.columns:
-                    reformat_date = pd.to_datetime(row[timestamp_col], format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
+                    reformat_date = pd.to_datetime(row[timestamp_col],
+                                                   format="%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d_%H%M%S")
                 else:
                     reformat_date = '{:04}'.format(randrange(1, 10 ** 5))
                 # get station

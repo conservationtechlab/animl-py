@@ -10,6 +10,7 @@ from animl import (classification, detection, export, file_management,
                    video_processing, model_architecture)
 from animl.utils import visualization
 from animl.utils.general import NUM_THREADS
+from animl.model_architecture import MD_LABELS
 
 
 def from_paths(image_dir: str,
@@ -110,7 +111,8 @@ def from_paths(image_dir: str,
                                                      out_file=working_dir.predictions)
         if sequence:
             print("Classifying sequences...")
-            manifest = classification.sequence_classification(animals, empty,
+            manifest = classification.sequence_classification(animals,
+                                                              empty,
                                                               predictions_output,
                                                               class_list[class_label],
                                                               station_col='station',
@@ -119,7 +121,8 @@ def from_paths(image_dir: str,
                                                               maxdiff=60)
         else:
             print("Classifying individual frames...")
-            manifest = classification.single_classification(animals, empty,
+            manifest = classification.single_classification(animals,
+                                                            empty,
                                                             predictions_output,
                                                             class_list[class_label],
                                                             best=True)
@@ -183,11 +186,20 @@ def from_config(config: str):
         detections = file_management.load_data(working_dir.detections)
     else:
         detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'mdv5'), device=device)
+        categories = file_management.load_data(cfg.get('detector_class_list', MD_LABELS))
+        category_map = file_management.class_list_to_dict(categories, 
+                                                          id=cfg.get('detector_class_key_col', 'id'), 
+                                                          class_col=cfg.get('detector_class_value_col', 'class'))
+
+
         md_results = detection.detect(detector,
                                       all_frames,
-                                      resize_height=cfg.get('detection_resize_height', model_architecture.MEGADETECTORv5_SIZE),
-                                      resize_width=cfg.get('detection_resize_width', model_architecture.MEGADETECTORv5_SIZE),
+                                      resize_height=cfg.get('detection_resize_height',
+                                                            model_architecture.MEGADETECTORv5_SIZE),
+                                      resize_width=cfg.get('detection_resize_width',
+                                                           model_architecture.MEGADETECTORv5_SIZE),
                                       letterbox=cfg.get('letterbox', True),
+                                      category_map=category_map,
                                       file_col=cfg.get('detection_file_col', 'filepath'),
                                       batch_size=cfg.get('batch_size', 4),
                                       num_workers=cfg.get('num_workers', NUM_THREADS),
@@ -207,13 +219,17 @@ def from_config(config: str):
         if cfg.get('sort', True):
             print("Sorting...")
             working_dir.activate_linkdir()
-            manifest = export.export_folders(manifest, working_dir.linkdir,
-                                             label_col='category', copy=cfg.get('copy', False))
+            manifest = export.export_folders(manifest,
+                                             working_dir.linkdir,
+                                             label_col='category',
+                                             copy=cfg.get('copy', False))
         # Plot boxes
         if cfg.get('visualize', False):
             working_dir.activate_visdir()
-            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir,
-                                                  file_col='filepath', classifier_label_col=None)
+            visualization.plot_all_bounding_boxes(manifest,
+                                                  working_dir.visdir,
+                                                  file_col='filepath',
+                                                  classifier_label_col=None)
 
     else:
         # Extract animal detections from the rest
@@ -225,9 +241,12 @@ def from_config(config: str):
         # Load classifier
         classifier, class_list = classification.load_classifier(cfg['classifier_file'], cfg.get('class_list', None), device=device)
 
-        predictions_output = classification.classify(classifier, animals,
-                                                     resize_height=cfg.get('classification_resize_height', model_architecture.SDZWA_CLASSIFIER_SIZE),
-                                                     resize_width=cfg.get('classification_resize_width', model_architecture.SDZWA_CLASSIFIER_SIZE),
+        predictions_output = classification.classify(classifier,
+                                                     animals,
+                                                     resize_height=cfg.get('classification_resize_height',
+                                                                           model_architecture.SDZWA_CLASSIFIER_SIZE),
+                                                     resize_width=cfg.get('classification_resize_width',
+                                                                          model_architecture.SDZWA_CLASSIFIER_SIZE),
                                                      file_col=cfg.get('classification_file_col', 'filepath'),
                                                      batch_size=cfg.get('batch_size', 4),
                                                      num_workers=cfg.get('num_workers', NUM_THREADS),
@@ -236,7 +255,8 @@ def from_config(config: str):
 
         # Convert predictions to labels
         if 'station' in animals.columns and cfg.get('sequence', False):
-            manifest = classification.sequence_classification(animals, empty,
+            manifest = classification.sequence_classification(animals,
+                                                              empty,
                                                               predictions_output,
                                                               class_list[cfg.get('class_label_col', 'class')],
                                                               station_col='station',
@@ -245,7 +265,8 @@ def from_config(config: str):
                                                               file_col=cfg.get('classification_file_col', 'frame'),
                                                               maxdiff=60)
         else:
-            manifest = classification.single_classification(animals, empty,
+            manifest = classification.single_classification(animals,
+                                                            empty,
                                                             predictions_output,
                                                             class_list[cfg.get('class_label_col', 'class')],
                                                             file_col=cfg.get('classification_file_col', 'filepath'),
@@ -259,7 +280,10 @@ def from_config(config: str):
         # Plot boxes
         if cfg.get('visualize', False):
             working_dir.activate_visdir()
-            visualization.plot_all_bounding_boxes(manifest, working_dir.visdir, file_col='filepath', classifier_label_col='prediction')
+            visualization.plot_all_bounding_boxes(manifest,
+                                                  working_dir.visdir,
+                                                  file_col='filepath',
+                                                  classifier_label_col='prediction')
 
     file_management.save_data(manifest, working_dir.results)
     print("Final Results in " + str(working_dir.results))

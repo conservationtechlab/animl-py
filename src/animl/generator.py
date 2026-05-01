@@ -397,6 +397,7 @@ class TrainGenerator(Dataset):
                         right = min(width, int(right) + self.buffer)
                         bottom = min(height, int(bottom) + self.buffer)
                         img = img.crop((left, top, right, bottom))
+
                     elif self.crop_coord == 'absolute':
                         left = bbox_x
                         top = bbox_y
@@ -455,10 +456,16 @@ def train_dataloader(manifest: pd.DataFrame,
     Returns:
         dataloader object
     '''
-    dataset_instance = TrainGenerator(manifest, classes, file_col, label_col=label_col,
-                                      crop=crop, crop_coord=crop_coord,
-                                      resize_height=resize_height, resize_width=resize_width,
-                                      augment=augment, cache_dir=cache_dir)
+    dataset_instance = TrainGenerator(manifest,
+                                      classes,
+                                      file_col,
+                                      label_col=label_col,
+                                      crop=crop,
+                                      crop_coord=crop_coord,
+                                      resize_height=resize_height,
+                                      resize_width=resize_width,
+                                      augment=augment,
+                                      cache_dir=cache_dir)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
@@ -500,9 +507,15 @@ def manifest_dataloader(manifest: pd.DataFrame,
     Returns:
         dataloader object
     '''
-    dataset_instance = ManifestGenerator(manifest, file_col=file_col, crop=crop,
-                                         crop_coord=crop_coord, normalize=normalize, letterbox=letterbox,
-                                         resize_width=resize_width, resize_height=resize_height, transform=transform)
+    dataset_instance = ManifestGenerator(manifest,
+                                         file_col=file_col,
+                                         crop=crop,
+                                         crop_coord=crop_coord,
+                                         normalize=normalize,
+                                         letterbox=letterbox,
+                                         resize_width=resize_width,
+                                         resize_height=resize_height,
+                                         transform=transform)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,

@@ -155,7 +155,8 @@ def detect(detector,
                 pred = detector.run(None, {input_name: batch_from_dataloader[0].cpu().numpy()})[0]
         # standard yolo model (v6+)
         else:
-            pred = detector.predict(source=batch_from_dataloader[0].to(device), conf=confidence_threshold, verbose=False)
+            pred = detector.predict(source=batch_from_dataloader[0].to(device),
+                                    conf=confidence_threshold, verbose=False)
         # convert predictions to expected output format and append to results
         results = _convert_detections(pred, batch_from_dataloader, letterbox, detector.model_type, category_map)
         return results
@@ -250,12 +251,15 @@ def detect(detector,
 
         # Write a checkpoint if necessary
         if checkpoint_frequency != -1 and count % checkpoint_frequency == 0:
-            print('Writing a new checkpoint after having processed {} images since last restart'.format(count*batch_size))
+            print(f"Writing a new checkpoint after having processed {count*batch_size} images since last restart")
             _save_detection_checkpoint(checkpoint_path, results)
 
-    print(f"\nFinished detection. Total images processed: {len(results)} at {round(len(results)/(time.time() - start_time), 1)} img/s.")
+    # final checkpoint save
     if checkpoint_path:
         _save_detection_checkpoint(checkpoint_path, results)
+
+    print(f"\nFinished detection. Total images processed: {len(results)} at ",
+          f"{round(len(results)/(time.time() - start_time), 1)} img/s.")
 
     return results, failed_files
 
@@ -284,9 +288,13 @@ def _convert_detections(predictions: list,
         if isinstance(image_frames, torch.Tensor):
             image_frames = image_frames.cpu().numpy()
 
-    results = []
+    # if no category map provided, default to MD_LABELS
+    if category_map is None:
+        print("No category map provided, defaulting to MD_LABELS. ",
+              "This may lead to incorrect category labels if using a custom model.")
+        category_map = MD_LABELS
 
-    # loop over all predictions
+    results = []
     for i, pred in enumerate(predictions):
         # extract boxes and conf
         # YOLOv5/MDv5
@@ -332,14 +340,15 @@ def _convert_detections(predictions: list,
                 else:
                     print(f"Please chose a supported model. Version {model_type} is not supported.")
                     return None
+                # rescale bboxes if letterbox was used in preprocessing
+                if letterbox:
+                    bbox = scale_letterbox(bbox, image_tensors[i].shape[1:], image_sizes[i, :])
 
                 # increase md categories by 1
                 if model_type in MD_MODELS:
                     category[j] += 1
 
-                if letterbox:
-                    bbox = scale_letterbox(bbox, image_tensors[i].shape[1:], image_sizes[i, :])
-
+                # build detection dict
                 detection = {'category': int(category[j]),
                              'category_label': category_map.get(int(category[j]), "unknown"),
                              'conf': float(round(conf[j], 4)),
