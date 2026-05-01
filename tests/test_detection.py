@@ -108,10 +108,7 @@ class TestConvertOnnxDetections(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.image_tensors = _make_image_tensor()
-        cls.image_paths = ['a.jpg']
-        cls.image_frames = [0]
-        cls.image_sizes = np.array([[480, 640]])
+        cls.batch = [_make_image_tensor(), ['a.jpg'], [0], np.array([[480, 640]])]
 
     def _make_pred(self, num_detections=2, conf_val=0.9):
         """Build a fake ONNX prediction array (N x 6: x1,y1,x2,y2,conf,class)."""
@@ -124,34 +121,29 @@ class TestConvertOnnxDetections(unittest.TestCase):
 
     def test_returns_list(self):
         preds = [self._make_pred()]
-        result = convert_onnx_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes, letterbox=False)
+        result = convert_onnx_detections(preds, self.batch, letterbox=False)
         self.assertIsInstance(result, list)
 
     def test_result_length_matches_input(self):
         preds = [self._make_pred()]
-        result = convert_onnx_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes, letterbox=False)
+        result = convert_onnx_detections(preds, self.batch, letterbox=False)
         self.assertEqual(len(result), 1)
 
     def test_result_has_required_keys(self):
         preds = [self._make_pred()]
-        result = convert_onnx_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes, letterbox=False)
+        result = convert_onnx_detections(preds, self.batch, letterbox=False)
         for key in ('filepath', 'frame', 'max_detection_conf', 'detections'):
             self.assertIn(key, result[0])
 
     def test_no_detections_returns_empty_list(self):
         preds = [np.zeros((0, 6), dtype=np.float32)]
-        result = convert_onnx_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes, letterbox=False)
+        result = convert_onnx_detections(preds, self.batch, letterbox=False)
         self.assertEqual(result[0]['detections'], [])
         self.assertIsNone(result[0]['max_detection_conf'])
 
     def test_detection_keys_present(self):
         preds = [self._make_pred(num_detections=1)]
-        result = convert_onnx_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes, letterbox=False)
+        result = convert_onnx_detections(preds, self.batch, letterbox=False)
         detection = result[0]['detections']
         if len(detection) > 0:
             for key in ('bbox_x', 'bbox_y', 'bbox_w', 'bbox_h', 'conf', 'category'):
@@ -159,8 +151,7 @@ class TestConvertOnnxDetections(unittest.TestCase):
 
     def test_filepath_preserved(self):
         preds = [self._make_pred()]
-        result = convert_onnx_detections(preds, self.image_tensors, ['my_image.jpg'],
-                                         self.image_frames, self.image_sizes, letterbox=False)
+        result = convert_onnx_detections(preds, self.batch, letterbox=False)
         self.assertEqual(result[0]['filepath'], 'my_image.jpg')
 
     def test_category_is_zero_indexed(self):
@@ -170,8 +161,7 @@ class TestConvertOnnxDetections(unittest.TestCase):
         pred[0, 3] = 0.5
         pred[0, 4] = 0.9
         pred[0, 5] = 0   # class 0 -> expected category 0 (no offset applied)
-        result = convert_onnx_detections([pred], self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes, letterbox=False)
+        result = convert_onnx_detections([pred], self.batch, letterbox=False)
         if result[0]['detections']:
             self.assertEqual(result[0]['detections'][0]['category'], 0)
 

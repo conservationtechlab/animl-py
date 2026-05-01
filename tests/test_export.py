@@ -227,6 +227,7 @@ class TestExportMegadetector(unittest.TestCase):
         for key in ('info', 'detection_categories', 'classification_categories', 'images'):
             self.assertIn(key, data)
 
+    # TODO: rows with cat=0 should be included but have no detections
     def test_empty_category_rows_skipped(self):
         """Rows where category == 0 should not appear in images."""
         with tempfile.TemporaryDirectory() as tmp:
