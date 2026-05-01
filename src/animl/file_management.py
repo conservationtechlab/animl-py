@@ -14,7 +14,8 @@ import numpy as np
 import PIL
 import cv2
 import exiftool
-from typing import Optional
+import yaml
+from typing import Optional, Union
 
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', ".tiff", '.tif"'}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
@@ -214,14 +215,14 @@ class WorkingDirectory():
 
 
 def save_data(data: pd.DataFrame,
-              out_file: str,
+              out_file: Union[Path, str],
               prompt: bool = True) -> None:
     """
     Save data to given file.
 
     Args:
         data (pd.DataFrame): the dataframe to be saved
-        out_file (str): full path to save file to
+        out_file (Union[Path, str]): full path to save file to
         prompt (bool): prompts the user to confirm overwrite
 
     Returns:
@@ -238,12 +239,12 @@ def save_data(data: pd.DataFrame,
             raise AssertionError('Cannot save, directory does not exis.')
 
 
-def load_data(file: str) -> pd.DataFrame:
+def load_data(file: Union[Path, str]) -> pd.DataFrame:
     """
     Load .csv File.
 
     Args:
-        file (str): the full path of the file to load
+        file (Union[Path, str]): the full path of the file to load
 
     Returns:
         data extracted from the file. pd.dataframe form
@@ -255,14 +256,14 @@ def load_data(file: str) -> pd.DataFrame:
 
 
 def save_json(data: dict,
-              out_file: str,
+              out_file: Union[Path, str],
               prompt: bool = True) -> None:
     """
     Save data to a JSON file.
 
     Args:
         data (dict): the dictionary to be saved
-        out_file (str): full path to save file to
+        out_file (Union[Path, str]): full path to save file to
         prompt (bool): prompt user to confirm overwrite
 
     Returns:
@@ -276,12 +277,12 @@ def save_json(data: dict,
         json.dump(data, f, indent=4)
 
 
-def load_json(file: str) -> dict:
+def load_json(file: Union[Path, str]) -> dict:
     """
     Load data from a JSON file.
 
     Args:
-        file (str): the full path of the file to load
+        file (Union[Path, str]): the full path of the file to load
 
     Returns:
         data extracted from the file. dict form
@@ -293,13 +294,49 @@ def load_json(file: str) -> dict:
         raise AssertionError("Error. Expecting a .json file.")
 
 
-def check_file(file: str, output_type: str = None) -> bool:
+def save_yaml(data: dict,
+              out_file: Union[Path, str],
+              prompt: bool = True) -> None:
+    """Save data to a YAML file.
+
+    Args:
+        data (dict): the dictionary to be saved
+        out_file (Union[Path, str]): full path to save file to
+        prompt (bool): prompt user to confirm overwrite
+
+    Returns:
+        None
+    """
+    if Path(out_file).is_file() and (prompt is True):
+        prompt = "Output file exists, would you like to overwrite? y/n: "
+        if input(prompt).lower() != "y":
+            return
+    with open(out_file, 'w') as f:
+        yaml.dump(data, f)
+
+
+def load_yaml(file: Union[Path, str]) -> dict:
+    """Load data from a YAML file.
+
+    Args:
+        file (Union[Path, str]): the full path of the file to load
+    Returns:
+        data extracted from the file. dict form
+    """
+    if Path(file).suffix.lower() in {".yaml", ".yml"}:
+        with open(file, 'r') as f:
+            return yaml.safe_load(f)
+    else:
+        raise AssertionError("Error. Expecting a .yaml or .yml file.")
+
+
+def check_file(file: Union[Path, str], output_type: Union[Path, str] = None) -> bool:
     """
     Check for files existence and prompt user if they want to load.
 
     Args:
-        file (str): the full path of the file to check
-        output_type (str): type of output file (e.g., "Manifest", "Detections")
+        file (Union[Path, str]): the full path of the file to check
+        output_type (Union[Path, str]): type of output file (e.g., "Manifest", "Detections")
 
     Returns:
         a boolean indicating whether a file was found and the user wants to load or not
@@ -318,6 +355,23 @@ def check_file(file: str, output_type: str = None) -> bool:
         else:
             print("Invalid input, proceeding without loading file.")
     return False
+
+
+def class_list_to_dict(class_list: pd.DataFrame,
+                       id_col: str = 'id',
+                       class_col: str = 'class') -> dict:
+    """
+    Convert classification or detection class list dataframe to dictionary.
+
+    Args:
+        class_list (pd.DataFrame): dataframe with 'class' and 'id' columns
+
+    Returns:
+        class_dict (dict): dictionary mapping class names to ids
+    """
+    if not {class_col, id_col}.issubset(class_list.columns):
+        raise ValueError(f"DataFrame must contain '{class_col}' and '{id_col}' columns.")
+    return {int(row[id_col]): row[class_col] for _, row in class_list.iterrows()}
 
 
 def active_times(manifest,
@@ -339,7 +393,7 @@ def active_times(manifest,
     # from manifest file
     if not isinstance(manifest, pd.DataFrame):
         raise ValueError("Manifest must be a pandas DataFrame.")
-    
+
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' filepath column.")
 
