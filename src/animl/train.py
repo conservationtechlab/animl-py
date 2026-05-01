@@ -7,9 +7,9 @@ Original script from
 Modified by Peter van Lunteren 2024
 '''
 import argparse
-import yaml
 from tqdm import trange
-import pandas as pd
+
+from animl import file_management
 
 # mlops
 try:
@@ -29,8 +29,8 @@ from animl.classification import save_classifier, load_classifier, load_classifi
 from animl.utils.general import NUM_THREADS, init_seed
 
 
-def train_func(data_loader, model, optimizer, scheduler, device='cpu',
-               mixed_precision=False, progress=True):
+def _train_classifier_helper(data_loader, model, optimizer, scheduler, device='cpu',
+                             mixed_precision=False, progress=True):
     '''
     Main training loop.
 
@@ -123,7 +123,7 @@ def train_func(data_loader, model, optimizer, scheduler, device='cpu',
     return loss_total, oa_total
 
 
-def validate_func(data_loader, model, device="cpu", progress=True):
+def _validate_classifier_helper(data_loader, model, device="cpu", progress=True):
     '''
     Model validation function for each epoch.
 
@@ -207,7 +207,7 @@ def validate_func(data_loader, model, device="cpu", progress=True):
     return loss_total, oa_total, precision, recall
 
 
-def train_main(cfg):
+def train_classifier(cfg):
     '''
     Command line function
 
@@ -218,7 +218,7 @@ def train_main(cfg):
     > python train.py --config configs/exp_resnet18.yaml
     '''
     # load cfg file
-    cfg = yaml.safe_load(open(cfg, 'r'))
+    cfg = file_management.load_yaml(cfg)
 
     if comet_ml:
         api_key = cfg.get('comet_api_key', None)
@@ -246,23 +246,23 @@ def train_main(cfg):
     if device != 'cpu' and not torch.cuda.is_available():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
         device = 'cpu'
-    # get mixed precision
+    # get mixed precision flag
     mixed_precision = cfg.get('mixed_precision', False)
 
-    # initialize model and get class list
-    classes = pd.read_csv(cfg['class_file'])
     # model will be on CPU after this call if cfg['experiment_folder'] is a directory
-    model, current_epoch = load_classifier(cfg['experiment_folder'], len(classes), device=device, architecture=cfg['architecture'])
+    model, classes, current_epoch = load_classifier(cfg['experiment_folder'], cfg['class_file'],
+                                                    device=device, architecture=cfg['architecture'])
 
     # Move model to the target device BEFORE optimizer initialization
     model.to(device)
     print(f"Model moved to {device}")
 
-    categories = dict([[x[cfg.get('class_list_label', 'class')], x[cfg.get('class_list_index', 'id')]] for _, x in classes.iterrows()])
+    categories = file_management.class_list_to_dict(classes, index_col=cfg.get('class_list_index', 'id'),
+                                                    label_col=cfg.get('class_list_label', 'class'))
 
     # load datasets
-    train_dataset = pd.read_csv(cfg['training_set']).reset_index(drop=True)
-    validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
+    train_dataset = file_management.load_data(cfg['training_set'])
+    validate_dataset = file_management.load_data(cfg['validate_set'])
 
     # Initialize data loaders for training and validation set
     dl_train = train_dataloader(train_dataset, categories,
@@ -323,8 +323,9 @@ def train_main(cfg):
             for param in model.parameters():
                 param.requires_grad = True
 
-        loss_train, oa_train = train_func(dl_train, model, optim, scheduler, device, mixed_precision=mixed_precision, progress=progress)
-        loss_val, oa_val, precision, recall = validate_func(dl_val, model, device, progress=progress)
+        loss_train, oa_train = _train_classifier_helper(dl_train, model, optim, scheduler, device,
+                                                        mixed_precision=mixed_precision, progress=progress)
+        loss_val, oa_val, precision, recall = _validate_classifier_helper(dl_val, model, device, progress=progress)
 
         # combine stats and save
         stats = {
@@ -383,4 +384,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f'Using config "{args.config}"')
-    train_main(args.config)
+    train_classifier(args.config)
