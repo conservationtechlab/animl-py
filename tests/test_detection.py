@@ -468,7 +468,8 @@ class TestDetectCategoryMap(unittest.TestCase):
 
         mock_convert.assert_called_once()
         _, call_kwargs = mock_convert.call_args
-        # category_map is the 5th positional argument
+        # _convert_detections signature: (predictions, batch, letterbox, model_type, category_map)
+        # category_map is at index 4 (the 5th positional argument)
         call_args_pos = mock_convert.call_args[0]
         passed_map = call_args_pos[4] if len(call_args_pos) > 4 else call_kwargs.get('category_map')
         self.assertEqual(passed_map, custom_map)
