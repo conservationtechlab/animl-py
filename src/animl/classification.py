@@ -106,7 +106,7 @@ def load_classifier(model_path: str,
             model = ConvNeXtBase(num_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
-        return model, start_epoch
+        return model, class_list, start_epoch
 
     # load a specific model file
     elif model_path.is_file():
@@ -388,6 +388,11 @@ def single_classification(animals: pd.DataFrame,
     # convert None to empty dataframe fo concat
     if empty is None:
         empty = pd.DataFrame()
+    else:
+        empty = empty.reset_index(drop=True)
+        empty['prediction'] = empty['category_label']
+        empty['confidence'] = empty['conf']
+        empty['confidence'] = empty['confidence'].replace(np.nan, 1)
 
     if isinstance(class_list, pd.Series):
         class_list = class_list.to_list()
@@ -424,7 +429,7 @@ def single_classification(animals: pd.DataFrame,
                 # replace empty predictions with most confident non-empty prediction
                 top = file.sort_values("confidence", ascending=False).iloc[0]
                 cols = ['prediction', 'confidence', 'frame', 'conf', 'max_detection_conf',
-                        'category', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
+                        'category', 'category_label', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
                 mask = manifest[file_col] == f
                 manifest.loc[mask, cols] = top[cols].values
 
@@ -518,6 +523,14 @@ def sequence_classification(animals: pd.DataFrame,
 
     # prepare empty dataframe for concat
     if empty is not None and not empty.empty:
+        if not {'category_label', 'conf'}.issubset(empty.columns):
+            raise ValueError("Empty DataFrame must contain 'category_label' and 'conf' columns.")
+        # set confidence to 1 for empties if conf column is missing or all NaN
+        empty = empty.reset_index(drop=True)
+        empty['prediction'] = empty['category_label']
+        empty['confidence'] = empty['conf']
+        empty['confidence'] = empty['confidence'].replace(np.nan, 1)
+
         empty["ID"] = range(0, empty.shape[0])
         predempty = empty.pivot(index="ID", columns="prediction", values="confidence")
         # Replace NaN with 0

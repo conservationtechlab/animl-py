@@ -5,18 +5,17 @@ Provides functions for creating, removing, and updating sorted symlinks.
 
 @ Kyra Swanson 2023
 """
-import json
 import os
 import pandas as pd
-from typing import Optional
+from typing import Optional, Union
 from shutil import copy2
 from random import randrange
 from pathlib import Path
 from tqdm import tqdm
-import yaml
+from sklearn.model_selection import train_test_split
 
-
-from animl import file_management, __version__
+from animl import __version__
+from animl.file_management import save_data, save_json, save_yaml
 from animl.utils.general import _xywh_to_xywhc, _xywh_to_absxyxy
 
 
@@ -37,7 +36,7 @@ def export_folders(manifest: pd.DataFrame,
         out_dir (str): root directory for species folders
         out_file (Optional[str]): if provided, save the manifest to this file
         label_col (str): column containing species labels,
-                        'category' for MD categories or 'prediction' for species labels
+                        'category_label' for detection categories or 'prediction' for species labels
         file_col (str): column containing source paths
         timestamp_col (str): column containing timestamps in format "%Y-%m-%d %H:%M:%S"
         station_col (str): column containing station names
@@ -52,16 +51,10 @@ def export_folders(manifest: pd.DataFrame,
     if label_col not in manifest.columns:
         raise AssertionError(f"Label column {label_col} not found in manifest.")
 
-    if label_col == 'category':
-        classes = {"0": "empty", "1": "animal", "2": "human", "3": "vehicle"}
-        for i in classes.values():
-            path = out_dir / str(i)
-            path.mkdir(exist_ok=True)
-    else:
-        classes = manifest[label_col].unique()
-        for i in classes:
-            path = out_dir / str(i)
-            path.mkdir(exist_ok=True)
+    classes = manifest[label_col].unique()
+    for i in classes:
+        path = out_dir / str(i)
+        path.mkdir(exist_ok=True)
 
     # create new column
     manifest['link'] = out_dir
@@ -87,10 +80,7 @@ def export_folders(manifest: pd.DataFrame,
 
             manifest.loc[i, unique_name] = name
 
-        if label_col == 'category':
-            link = out_dir / str(classes[str(row['category'])]) / str(name)
-        else:
-            link = out_dir / str(row[label_col]) / str(name)
+        link = out_dir / str(row[label_col]) / str(name)
 
         manifest.loc[i, 'link'] = str(link)
 
@@ -101,7 +91,7 @@ def export_folders(manifest: pd.DataFrame,
                 os.link(row[file_col], link)
 
     if out_file:
-        manifest.to_csv(out_file, index=False)
+        save_data(manifest, out_file)
 
     return manifest
 
@@ -159,8 +149,68 @@ def update_labels_from_folders(manifest: pd.DataFrame,
     return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
 
 
+def export_train_val_test(manifest: pd.DataFrame,
+                          label_col: str = "class",
+                          file_col: str = 'filepath',
+                          conf_col: str = "confidence",
+                          out_dir: Optional[str] = None,
+                          val_size: float = 0.1,
+                          test_size: float = 0.1,
+                          seed: int = 42):
+    """
+    Returns train_df, val_df, test_df with label_col stratified.
+    test_size and val_size are fractions of the whole dataset (e.g., 0.2 -> 20%).
+
+    Args:
+        manifest (pd.DataFrame): DataFrame containing predictions
+        label_col (str): column containing species labels
+        file_col (str): column containing source paths
+        conf_col (str): column containing confidence scores
+        out_dir (Optional[str]): if provided, save the splits to this directory
+        val_size (float): fraction of data to use for validation
+        test_size (float): fraction of data to use for testing
+        seed (int): random seed for reproducibility
+    """
+    assert 0 <= test_size < 1
+    assert 0 <= val_size < 1
+    assert test_size + val_size < 1
+
+    if label_col not in manifest.columns:
+        raise ValueError(f"label_col '{label_col}' not found in dataframe columns")
+    if file_col not in manifest.columns:
+        raise ValueError(f"file_col '{file_col}' not found in dataframe columns")
+
+    # Keep only the highest confidence entry for each file, or one entry per file if no conf_col
+    if conf_col not in manifest.columns:
+        manifest = manifest.drop_duplicates(subset=[file_col])
+    else:
+        idx = manifest.groupby(file_col)[conf_col].idxmax()
+        manifest = manifest.loc[idx].reset_index(drop=True)
+
+    # Stage 1: split off test
+    trainval_df, test_df = train_test_split(manifest,
+                                            test_size=test_size,
+                                            stratify=manifest[label_col],
+                                            random_state=seed)
+
+    # Stage 2: split train/val from trainval (val_size is relative to the original dataset)
+    # Compute val fraction relative to trainval size
+    rel_val_size = val_size / (1.0 - test_size)
+    train_df, val_df = train_test_split(trainval_df,
+                                        test_size=rel_val_size,
+                                        stratify=trainval_df[label_col],
+                                        random_state=seed + 1)
+    # save to csv
+    if out_dir is not None:
+        save_data(train_df, out_dir + "/train_data.csv")
+        save_data(val_df, out_dir + "/validate_data.csv")
+        save_data(test_df, out_dir + "/test_data.csv")
+
+    return train_df.reset_index(drop=True), val_df.reset_index(drop=True), test_df.reset_index(drop=True)
+
+
 def export_coco(manifest: pd.DataFrame,
-                class_list: pd.DataFrame,
+                class_dict: dict,
                 out_file: str,
                 info: Optional[dict] = None,
                 licenses: Optional[list] = None):
@@ -193,11 +243,10 @@ def export_coco(manifest: pd.DataFrame,
         licenses = []
 
     # build categories from class list
-    class_dict = {row['class']: int(row['id']) for _, row in class_list.iterrows()}
     categories = []
-    for _, row in class_list.iterrows():
-        category = {'id': int(row['id']),
-                    'name': row['class'],
+    for key, value in class_dict.items():
+        category = {'id': int(value),
+                    'name': key,
                     'supercategory': 'none'}
         categories.append(category)
 
@@ -244,8 +293,7 @@ def export_coco(manifest: pd.DataFrame,
                    'annotations': annotations,
                    'categories': categories}
 
-    with open(out_file, 'w') as f:
-        json.dump(coco_format, f)
+    save_json(coco_format, out_file)
 
     return coco_format
 
@@ -272,6 +320,9 @@ def export_yolo(train_manifest: pd.DataFrame,
                         'category' for MD categories or 'prediction' for species labels
         file_col (str): column containing source paths
         hard_copy (bool): whether to copy images to the YOLO directory structure or create symlinks
+
+    Returns:
+        dict containing paths to train, val, and test directories and class names
     """
     expected_columns = (file_col, label_col, 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h')
     for s in expected_columns:
@@ -366,8 +417,9 @@ def export_yolo(train_manifest: pd.DataFrame,
         'names': class_list['class'].tolist()
     }
     output_yml_path = out_dir / 'dataset.yaml'
-    with open(output_yml_path, 'w') as f:
-        yaml.dump(output_yml, f)
+    save_yaml(output_yml, output_yml_path)
+
+    return output_yml
 
 
 def export_camptrapdp(manifest: pd.DataFrame,
@@ -444,12 +496,9 @@ def export_camptrapdp(manifest: pd.DataFrame,
     observations_df = pd.DataFrame(observations)
     out_dir = Path(out_dir)
     out_dir.mkdir(exist_ok=True)
-    media_df.to_csv(out_dir / 'media.csv', index=False)
-    observations_df.to_csv(out_dir / 'observations.csv', index=False)
-
-    # create datapackage.json file
-    with open(out_dir / 'datapackage.json', 'w') as f:
-        json.dump(datapackage, f, indent=4)
+    save_data(media_df, out_dir / 'media.csv')
+    save_data(observations_df, out_dir / 'observations.csv')
+    save_json(datapackage, out_dir / 'datapackage.json')
 
     return media_df, observations_df, datapackage
 
@@ -518,7 +567,7 @@ def export_camtrapR(manifest: pd.DataFrame,
                     os.link(row[file_col], link)
 
     if out_file:
-        manifest.to_csv(out_file, index=False)
+        save_data(manifest, out_file)
 
     return manifest
 
@@ -527,14 +576,16 @@ def export_timelapse(manifest: pd.DataFrame,
                      out_dir: str,
                      only_animal: bool = True) -> Path:
     '''
-    Converts the Pandas DataFrame created by running the animl classsifier to a csv file that contains columns needed for TimeLapse conversion in later step
+    Converts the Pandas DataFrame created by running the animl classsifier to a csv file
+    that contains columns needed for TimeLapse conversion in later step
 
     Credit: Sachin Gopal Wani
 
     Args:
         manifest - a DataFrame that contains classifications
         out_dir - location of directory where csv files will be saved
-        only_animl - A bool that confirms whether we want only animal detctions or all (animal + non-animal detection from MegaDetector + classifier)
+        only_animl - A bool that confirms whether we want only animal detctions or all
+                     (animal + non-animal detection from MegaDetector + classifier)
 
     Returns:
         animals.csv - A csv file containing all the detection and classification information for animal detections
@@ -556,36 +607,32 @@ def export_timelapse(manifest: pd.DataFrame,
     # Rename column names for clarity
     manifest = manifest.rename(columns={'filename': 'file', 'conf': 'detection_conf',
                                         'prediction': 'class', 'confidence': 'classification_conf'})
-    csv_loc = Path(out_dir) / "timelapse_manifest.csv"
-    manifest.to_csv(csv_loc, index=False)
 
-    # remove erroneous detections
-    manifest = manifest[manifest['category'].notna()]
-
-    animals = manifest[manifest['category'] == 1]
+    # get animal detections
+    animals = manifest[manifest['category_label'] == 'animal']
 
     if only_animal:
-        output_path = Path(out_dir) / "animals.csv"
-        animals.to_csv(output_path, index=False)
+        save_data(animals,  Path(out_dir) / "animals.csv")
     else:
-        empty = manifest[manifest['category'] != 1]
+        empty = manifest[manifest['category_label'] != 'animal']
         # Adding prediction as person and human
-        empty['class'].replace({'0': 'empty', '2': 'person', '3': 'vehicle'}, inplace=True)
+        empty['class'] = empty['category_label'].apply(lambda x: 'person' if x == 'human' else x)
         # Changing classification conf = detection_conf instead of max_detection_conf
         empty['classification_conf'] = empty.loc[:, 'detection_conf']
-
         # Combining DataFrames and saving it to csv file for further use
-        csv_loc = Path(out_dir) / "manifest.csv"
         manifest = pd.concat([animals, empty])
-        manifest.to_csv(csv_loc, index=False)
-        animals.to_csv(Path(out_dir) / "animals.csv", index=False)
-        empty.to_csv(Path(out_dir) / "non-animals.csv", index=False)
+        # save data
+        save_data(animals, Path(out_dir) / "animals.csv")
+        save_data(empty, Path(out_dir) / "non-animals.csv")
+
+    # save full manifest
+    save_data(manifest, Path(out_dir) / "manifest.csv")
     # Return the location of csv for json conversion
-    return csv_loc
+    return Path(out_dir) / "manifest.csv"
 
 
 def export_megadetector(manifest: pd.DataFrame,
-                        out_file: Optional[str] = None,
+                        out_file: Optional[Union[Path, str]] = None,
                         detector: str = 'MegaDetector v5b',
                         prompt: bool = True):
     """
@@ -598,7 +645,7 @@ def export_megadetector(manifest: pd.DataFrame,
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated detections
-        out_file (Optional[str]): path to save the MD formatted file
+        out_file (Optional[Union[Path, str]]): path to save the MD formatted file
         detector (str): name of the detector used
         prompt (bool): whether to prompt before overwriting existing file
 
@@ -661,7 +708,7 @@ def export_megadetector(manifest: pd.DataFrame,
 
         im['detections'].append(detection)
 
-
+    # setup info section of results
     info = {}
     info['format_version'] = '3.0'
     info['detector'] = detector
@@ -675,4 +722,4 @@ def export_megadetector(manifest: pd.DataFrame,
     results['images'] = list(filename_to_results.values())
 
     # Save the results to a JSON file
-    file_management.save_json(results, out_file, prompt=prompt)
+    save_json(results, out_file, prompt=prompt)

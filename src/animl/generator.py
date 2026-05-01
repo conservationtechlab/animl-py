@@ -108,7 +108,8 @@ def image_to_tensor(file_path, letterbox, resize_width, resize_height):
     img_tensor = tensor_transform(img)
     img_tensor = torch.unsqueeze(img_tensor, 0)  # add batch dimension
     img.close()
-    return img_tensor, [file_path], torch.tensor([(height, width)])
+    frame = 0  # default frame 0 for images
+    return img_tensor, [file_path], [frame], torch.tensor([(height, width)])
 
 
 class ManifestGenerator(Dataset):
