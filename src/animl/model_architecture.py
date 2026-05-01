@@ -10,6 +10,8 @@ from torchvision.models import efficientnet, convnext_base, ConvNeXt_Base_Weight
 
 MEGADETECTORv5_SIZE = 1280
 MEGADETECTORv5_STRIDE = 64
+MD_LABELS = {0: "empty", 1: "animal", 2: "human",  3: "vehicle"}
+MD_MODELS = {"mdv5", "mdv6", "mdv1000-redwood", "mdv1000-spruce", "mdv1000-cedar", "mdv1000-larch", "mdv1000-sorrel"}
 SDZWA_CLASSIFIER_SIZE = 480
 
 
