@@ -150,9 +150,10 @@ class TestConvertOnnxDetections(unittest.TestCase):
                 self.assertIn(key, detection[0])
 
     def test_filepath_preserved(self):
+        batch = [_make_image_tensor(), ['my_image.jpg'], [0], np.array([[480, 640]])]
         preds = [self._make_pred()]
-        result = _convert_detections(preds, self.batch, letterbox=False, model_type='onnx')
-        self.assertEqual(result[0]['filepath'], 'a.jpg')
+        result = _convert_detections(preds, batch, letterbox=False, model_type='onnx')
+        self.assertEqual(result[0]['filepath'], 'my_image.jpg')
 
     def test_category_is_zero_indexed(self):
         """ONNX category is passed through as-is (0-indexed, not incremented)."""
