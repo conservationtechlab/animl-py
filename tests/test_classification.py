@@ -11,8 +11,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from animl.split import get_animals
-
 from animl.classification import (
     classify,
     load_class_list,
@@ -172,7 +170,7 @@ class TestClassifyPytorch(unittest.TestCase):
                 "skipping TestClassifyPytorch (requires downloaded model files and test data)."
             )
         detections = pd.read_csv(cls.detections_path)
-        cls.detections = get_animals(detections)
+        cls.detections = detections[detections["category_label"] == "animal"].reset_index(drop=True)
         cls.class_path = load_class_list(cls.class_list_path)
         cls.model, cls.classes = load_classifier(cls.model_path_pt, cls.class_path, device='cpu', architecture='efficientnet_v2_m')
         cls.tmpdir = tempfile.mkdtemp()
@@ -207,8 +205,8 @@ class TestClassifyPytorch(unittest.TestCase):
             classify(self.model, self.detections.copy(), device='cpu', batch_size=-1)
 
     def test_non_dataframe_detections_raises(self):
-        with self.assertRaises(ValueError):
-            classify(self.model, "not_a_dataframe", device='cpu', batch_size=1)
+        with self.assertRaises(AssertionError):
+            classify(self.model, {"not": "a_dataframe"}, device='cpu', batch_size=1)
 
     def test_non_model_raises(self):
         with self.assertRaises(AttributeError):
@@ -338,8 +336,7 @@ class TestSingleClassification(unittest.TestCase):
             'filepath': ['d.jpg'],
             'extension': ['.jpg'],
             'conf': [1.0],
-            'prediction': ['empty'],
-            'confidence': [1.0],
+            'category_label': ['empty'],
         })
         result = single_classification(pd.DataFrame(), empty, np.array([]).reshape(0, 3), self.class_list)
         self.assertEqual(len(result), 1)
