@@ -129,7 +129,7 @@ class TestImageToTensor(unittest.TestCase):
     def test_frame_default_zero(self):
         _, _, frames, _ = image_to_tensor(self.img_path, letterbox=False,
                                       resize_width=64, resize_height=64)
-        self.assertEqual(frames[0].item(), 0)
+        self.assertEqual(frames[0], 0)
 
     def test_size_tensor_correct(self):
         _, _, _, sizes = image_to_tensor(self.img_path, letterbox=False,

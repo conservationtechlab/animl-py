@@ -308,7 +308,7 @@ class TestExtractMiewEmbeddings(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.model_path = Path.cwd() / 'models/miewid.bin'
+        cls.model_path = Path.cwd() / 'models/miewid_v3.bin'
         cls.detections_path = Path(__file__).parent / 'GroundTruth/southwest/Detections.csv'
         if not cls.model_path.exists() or not cls.detections_path.exists():
             raise unittest.SkipTest(
