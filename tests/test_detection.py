@@ -15,8 +15,7 @@ import pandas as pd
 import torch
 
 from animl.detection import (
-    _convert_onnx_detections as convert_onnx_detections,
-    _convert_yolo_detections as convert_yolo_detections,
+    _convert_detections,
     _save_detection_checkpoint as save_detection_checkpoint,
     parse_detections,
     load_detector,
@@ -37,7 +36,8 @@ def _make_detection_result(filepath='a.jpg', frame=0, max_conf=0.9, detections=N
         detections = [{
             'bbox_x': 0.1, 'bbox_y': 0.1,
             'bbox_w': 0.2, 'bbox_h': 0.3,
-            'conf': 0.9, 'category': 1
+            'conf': 0.9, 'category': 1,
+            'category_label': 'animal',
         }]
     return {
         'filepath': filepath,
@@ -101,7 +101,7 @@ class TestSaveDetectionCheckpoint(unittest.TestCase):
             save_detection_checkpoint(None, [])
 
 # ---------------------------------------------------------------------------
-# convert_onnx_detections
+# _convert_detections (ONNX model type)
 # ---------------------------------------------------------------------------
 
 class TestConvertOnnxDetections(unittest.TestCase):
@@ -121,37 +121,38 @@ class TestConvertOnnxDetections(unittest.TestCase):
 
     def test_returns_list(self):
         preds = [self._make_pred()]
-        result = convert_onnx_detections(preds, self.batch, letterbox=False)
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='onnx')
         self.assertIsInstance(result, list)
 
     def test_result_length_matches_input(self):
         preds = [self._make_pred()]
-        result = convert_onnx_detections(preds, self.batch, letterbox=False)
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='onnx')
         self.assertEqual(len(result), 1)
 
     def test_result_has_required_keys(self):
         preds = [self._make_pred()]
-        result = convert_onnx_detections(preds, self.batch, letterbox=False)
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='onnx')
         for key in ('filepath', 'frame', 'max_detection_conf', 'detections'):
             self.assertIn(key, result[0])
 
     def test_no_detections_returns_empty_list(self):
         preds = [np.zeros((0, 6), dtype=np.float32)]
-        result = convert_onnx_detections(preds, self.batch, letterbox=False)
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='onnx')
         self.assertEqual(result[0]['detections'], [])
         self.assertIsNone(result[0]['max_detection_conf'])
 
     def test_detection_keys_present(self):
         preds = [self._make_pred(num_detections=1)]
-        result = convert_onnx_detections(preds, self.batch, letterbox=False)
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='onnx')
         detection = result[0]['detections']
         if len(detection) > 0:
             for key in ('bbox_x', 'bbox_y', 'bbox_w', 'bbox_h', 'conf', 'category'):
                 self.assertIn(key, detection[0])
 
     def test_filepath_preserved(self):
+        batch = [_make_image_tensor(), ['my_image.jpg'], [0], np.array([[480, 640]])]
         preds = [self._make_pred()]
-        result = convert_onnx_detections(preds, self.batch, letterbox=False)
+        result = _convert_detections(preds, batch, letterbox=False, model_type='onnx')
         self.assertEqual(result[0]['filepath'], 'my_image.jpg')
 
     def test_category_is_zero_indexed(self):
@@ -161,7 +162,7 @@ class TestConvertOnnxDetections(unittest.TestCase):
         pred[0, 3] = 0.5
         pred[0, 4] = 0.9
         pred[0, 5] = 0   # class 0 -> expected category 0 (no offset applied)
-        result = convert_onnx_detections([pred], self.batch, letterbox=False)
+        result = _convert_detections([pred], self.batch, letterbox=False, model_type='onnx')
         if result[0]['detections']:
             self.assertEqual(result[0]['detections'][0]['category'], 0)
 
@@ -170,13 +171,14 @@ class TestConvertOnnxDetections(unittest.TestCase):
         paths = ['a.jpg', 'b.jpg']
         frames = [0, 0]
         sizes = np.array([[480, 640], [480, 640]])
+        batch = [tensors, paths, frames, sizes]
         preds = [self._make_pred(), self._make_pred()]
-        result = convert_onnx_detections(preds, tensors, paths, frames, sizes, letterbox=False)
+        result = _convert_detections(preds, batch, letterbox=False, model_type='onnx')
         self.assertEqual(len(result), 2)
 
 
 # ---------------------------------------------------------------------------
-# convert_yolo_detections
+# _convert_detections (YOLO model types)
 # ---------------------------------------------------------------------------
 
 class TestConvertYoloDetections(unittest.TestCase):
@@ -187,6 +189,7 @@ class TestConvertYoloDetections(unittest.TestCase):
         cls.image_paths = ['a.jpg']
         cls.image_frames = np.array([0])
         cls.image_sizes = np.array([[480, 640]])
+        cls.batch = [cls.image_tensors, cls.image_paths, cls.image_frames, cls.image_sizes]
 
     def _make_yolov5_pred(self, num_detections=2, conf_val=0.9):
         """Fake YOLOv5 prediction: (N, 6) numpy array [x1,y1,x2,y2,conf,class]."""
@@ -199,45 +202,34 @@ class TestConvertYoloDetections(unittest.TestCase):
 
     def test_returns_list(self):
         preds = [self._make_yolov5_pred()]
-        result = convert_yolo_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes,
-                                         letterbox=False, model_type='yolov5')
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='yolov5')
         self.assertIsInstance(result, list)
 
     def test_result_has_required_keys(self):
         preds = [self._make_yolov5_pred()]
-        result = convert_yolo_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes,
-                                         letterbox=False, model_type='yolov5')
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='yolov5')
         for key in ('filepath', 'frame', 'max_detection_conf', 'detections'):
             self.assertIn(key, result[0])
 
     def test_no_detections_returns_empty_list(self):
         preds = [np.zeros((0, 6), dtype=np.float32)]
-        result = convert_yolo_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes,
-                                         letterbox=False, model_type='yolov5')
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='yolov5')
         self.assertEqual(result[0]['detections'], [])
 
     def test_unsupported_model_type_returns_none(self):
-        preds = [self._make_yolov5_pred()] 
-        result = convert_yolo_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes,
-                                         letterbox=False, model_type='UNKNOWN')
+        preds = [self._make_yolov5_pred()]
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='UNKNOWN')
         self.assertIsNone(result)
 
     def test_filepath_preserved(self):
         preds = [self._make_yolov5_pred()]
-        result = convert_yolo_detections(preds, self.image_tensors, ['my_img.jpg'],
-                                         self.image_frames, self.image_sizes,
-                                         letterbox=False, model_type='yolov5')
+        batch = [self.image_tensors, ['my_img.jpg'], self.image_frames, self.image_sizes]
+        result = _convert_detections(preds, batch, letterbox=False, model_type='yolov5')
         self.assertEqual(result[0]['filepath'], 'my_img.jpg')
 
     def test_detection_bbox_values_are_floats(self):
         preds = [self._make_yolov5_pred(num_detections=1)]
-        result = convert_yolo_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes,
-                                         letterbox=False, model_type='yolov5')
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='yolov5')
         if result[0]['detections']:
             det = result[0]['detections'][0]
             for key in ('bbox_x', 'bbox_y', 'bbox_w', 'bbox_h', 'conf'):
@@ -246,17 +238,13 @@ class TestConvertYoloDetections(unittest.TestCase):
     def test_category_is_one_indexed(self):
         """MegaDetector (mdv5) categories are incremented by 1; plain yolov5 is not."""
         preds = [self._make_yolov5_pred(num_detections=1)]
-        result = convert_yolo_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes,
-                                         letterbox=False, model_type='mdv5')
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='mdv5')
         if result[0]['detections']:
             self.assertEqual(result[0]['detections'][0]['category'], 1)
 
     def test_mdv5_alias_works(self):
         preds = [self._make_yolov5_pred()]
-        result = convert_yolo_detections(preds, self.image_tensors, self.image_paths,
-                                         self.image_frames, self.image_sizes,
-                                         letterbox=False, model_type='mdv5')
+        result = _convert_detections(preds, self.batch, letterbox=False, model_type='mdv5')
         self.assertIsInstance(result, list)
 
 
@@ -270,10 +258,10 @@ class TestParseDetections(unittest.TestCase):
     def setUpClass(cls):
         cls.results_with_detections = [
             _make_detection_result('a.jpg', detections=[
-                {'bbox_x': 0.1, 'bbox_y': 0.1, 'bbox_w': 0.2, 'bbox_h': 0.3, 'conf': 0.9, 'category': 1}
+                {'bbox_x': 0.1, 'bbox_y': 0.1, 'bbox_w': 0.2, 'bbox_h': 0.3, 'conf': 0.9, 'category': 1, 'category_label': 'animal'}
             ]),
             _make_detection_result('b.jpg', detections=[
-                {'bbox_x': 0.2, 'bbox_y': 0.2, 'bbox_w': 0.1, 'bbox_h': 0.1, 'conf': 0.5, 'category': 1}
+                {'bbox_x': 0.2, 'bbox_y': 0.2, 'bbox_w': 0.1, 'bbox_h': 0.1, 'conf': 0.5, 'category': 1, 'category_label': 'animal'}
             ]),
         ]
         cls.results_no_detections = [
@@ -320,7 +308,7 @@ class TestParseDetections(unittest.TestCase):
 
     def test_bbox_values_clipped_between_0_and_1(self):
         results = [_make_detection_result('a.jpg', detections=[
-            {'bbox_x': -0.1, 'bbox_y': 1.5, 'bbox_w': 0.2, 'bbox_h': 0.3, 'conf': 0.9, 'category': 1}
+            {'bbox_x': -0.1, 'bbox_y': 1.5, 'bbox_w': 0.2, 'bbox_h': 0.3, 'conf': 0.9, 'category': 1, 'category_label': 'animal'}
         ])]
         result = parse_detections(results)
         self.assertGreaterEqual(result.iloc[0]['bbox_x'], 0.0)
