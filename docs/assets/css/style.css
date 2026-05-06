@@ -220,6 +220,35 @@ header p {
     font-size: 0.8rem;
 }
 
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #ffffff;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+}
+
+table th {
+    background-color: #3a6b41;
+    color: #ffffff;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid #c8dcc9;
+}
+
+table td {
+    padding: 0.5rem 0.9rem;
+    border: 1px solid #dde8de;
+    color: #333;
+    vertical-align: top;
+}
+
+table tr:nth-child(even) td {
+    background-color: #f5faf5;
+}
+
 footer {
     background: #2c5f2d;
     color: white;
