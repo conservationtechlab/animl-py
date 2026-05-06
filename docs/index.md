@@ -29,10 +29,14 @@ ExifTool, PyTorch, Ultralytics, ONNX Runtime, pandas
 {: #examples}
 
 
+
+---
 # Reference
 
 ## Full Pipeline
 {: #full-pipeline}
+<br><br>
+
 ### `animl.from_paths(image_dir, detector_file, classifier_file, classlist_file, ...)`
 Runs the full detection + classification pipeline on a directory of images or videos.
 
