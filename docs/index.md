@@ -8,25 +8,38 @@ description: Developing open-source technology and machine learning tools for wi
 
 ## About AniML
 {: #about}
-
+<br>  
+Version 3.3.0
+  
 The Conservation Tech Lab develops cutting-edge technology solutions for wildlife conservation and ecological research. 
 Our work spans machine learning for camera trap analysis, edge-AI field devices, bioacoustics tools, and animal tracking systems.
-
+  
 All of our projects are open-source, promoting collaboration and knowledge sharing within the conservation technology community.
 We focus on practical, field-deployable solutions that help researchers and conservationists better understand and protect wildlife.
 
+<br>
+
 ## Installation
 {: #installation}
+<br>
 To Install:
 pip install animl
+<br>
 
 ### Requirements
 {: #requirements}
+<br>
 ExifTool, PyTorch, Ultralytics, ONNX Runtime, pandas
 
+We recommend using AniML with a GPU. To use with an Nvidia GPU, be sure that to install the CUDA-compatible
+version of [PyTorch](https://pytorch.org/get-started/locally/)
 
+---
 # Examples
 {: #examples}
+<br>
+
+Command-line
 
 
 
@@ -37,7 +50,7 @@ ExifTool, PyTorch, Ultralytics, ONNX Runtime, pandas
 {: #full-pipeline}
 <br><br>
 
-### `animl.from_paths(image_dir, detector_file, classifier_file, classlist_file, ...)`
+### animl.from_paths(image_dir, detector_file, classifier_file, classlist_file, ...)
 Runs the full detection + classification pipeline on a directory of images or videos.
 
 | Parameter | Type | Default | Description |
@@ -52,7 +65,7 @@ Runs the full detection + classification pipeline on a directory of images or vi
 
 <br><br>
 
-### `animl.from_config(config)`
+### animl.from_config(config)
 Runs the full detection + classification pipeline on a directory of images or videos.
 
 | Parameter | Type | Default | Description |
@@ -60,6 +73,7 @@ Runs the full detection + classification pipeline on a directory of images or vi
 | `config` | str | required | Path to config yml file.
 
 The config yml must contain the following fields:
+
 <br><br>
   
 ---
@@ -67,8 +81,8 @@ The config yml must contain the following fields:
 {: #data-ingestion}
 <br>
 
-### class `animl.WorkingDirectory()`
-Runs the full detection + classification pipeline on a directory of images or videos.
+### class animl.WorkingDirectory()
+A WorkingDirectory object includes .
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
@@ -79,10 +93,10 @@ Runs the full detection + classification pipeline on a directory of images or vi
 | `visualize` | bool | False | Save bounding box visualizations |
 | `sequence` | bool | False | Use sequence-level classification |
 | `detect_only` | bool | False | Skip classification step |
-  
+
 <br><br>
 
-### `animl.build_file_manifest()`
+### animl.build_file_manifest()
 Runs the full detection + classification pipeline on a directory of images or videos.
 
 | Parameter | Type | Default | Description |
@@ -101,27 +115,31 @@ Example manifest:
 
 <br><br>
   
-### class `animl.active_times()`
+### animl.active_times()
 Runs the full detection + classification pipeline on a directory of images or videos.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `image_dir` | str | required | Path to image/video directory |
 | `detector_file` | str | required | Path to MegaDetector model |
+
+**Returns:**
 
 <br><br>
   
-### class `animl.sequence_calculation()`
+### animl.sequence_calculation()
 Runs the full detection + classification pipeline on a directory of images or videos.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `image_dir` | str | required | Path to image/video directory |
 | `detector_file` | str | required | Path to MegaDetector model |
-  
+
+**Returns:** 
+
 <br><br>  
 
-### class `animl.extract_frames()`
+### animl.extract_frames()
 Runs the full detection + classification pipeline on a directory of images or videos.
 
 | Parameter | Type | Default | Description |
@@ -139,8 +157,9 @@ Runs the full detection + classification pipeline on a directory of images or vi
 ---
 ## Detection
 {: #detection}
+<br>
 
-### `animl.load_detector(model_path, model_type, device=None)`
+### animl.load_detector(model_path, model_type, device=None)
 Loads a detector model from a file path.
 
 | Parameter | Type | Default | Description |
@@ -153,7 +172,7 @@ Loads a detector model from a file path.
   
 <br><br>
 
-### `animl.detect(detector, image_file_names, resize_width, resize_height, ...)`
+### animl.detect(detector, image_file_names, resize_width, resize_height, ...)
 Runs a detector model on batches of image files.
 
 | Parameter | Type | Default | Description |
@@ -175,7 +194,7 @@ Runs a detector model on batches of image files.
 
 <br><br>
   
-### `animl.parse_detections(results, manifest=None, out_file=None, threshold=0.1, file_col="filepath")`
+### animl.parse_detections(results, manifest=None, out_file=None, threshold=0.1, file_col="filepath")
 Converts detector output into a detections DataFrame.
 
 | Parameter | Type | Default | Description |
@@ -193,8 +212,9 @@ Converts detector output into a detections DataFrame.
 ---
 ## Classification
 {: #classification}
+<br>
 
-### `save_classifier(model, out_dir, epoch, stats, optimizer=None, scheduler=None)`
+### animl.save_classifier(model, out_dir, epoch, stats, optimizer=None, scheduler=None)
 Saves model state weights and optional optimizer/scheduler states to disk.
 
 | Parameter   | Type             | Default   | Description                                                  |
@@ -203,14 +223,14 @@ Saves model state weights and optional optimizer/scheduler states to disk.
 | `out_dir`   | str              | required  | Directory path where model weights will be saved             |
 | `epoch`     | int              | required  | Current training epoch (used as filename)                    |
 | `stats`     | dict             | required  | Training/validation stats/metrics to save with the model     |
-| `optimizer` | torch.optim.Optimizer | None      | (Optional) Optimizer state to save                           |
-| `scheduler` | torch.optim.lr_scheduler._LRScheduler | None      | (Optional) Scheduler state to save                          |
+| `optimizer` | torch.optim.Optimizer | None      | (Optional) Optimizer state to save                      |
+| `scheduler` | torch.optim.lr_scheduler._LRScheduler | None      | (Optional) Scheduler state to save      |
 
 **Returns:** `None`  
 
 <br><br>
 
-### `load_classifier(model_path, classes, device=None, architecture="efficientnet_v2_m", quiet=True)`
+### animl.load_classifier(model_path, classes, device=None, architecture="efficientnet_v2_m", quiet=True)
 Creates and loads a classifier model of the given architecture from disk, with the associated class list.
 
 | Parameter      | Type                                   | Default                | Description                                                      |
@@ -225,7 +245,7 @@ Creates and loads a classifier model of the given architecture from disk, with t
 
 <br><br>
 
-### `load_classifier_checkpoint(model_path, model, optimizer, scheduler, device)`
+### animl.load_classifier_checkpoint(model_path, model, optimizer, scheduler, device)
 Loads the latest checkpoint to resume model training, restoring weights and optimizer/scheduler states.
 
 | Parameter    | Type                      | Default   | Description                                               |
@@ -240,7 +260,7 @@ Loads the latest checkpoint to resume model training, restoring weights and opti
 
 <br><br>
   
-### `load_class_list(classlist_file)`
+### animl.load_class_list(classlist_file)
 Returns classlist file as DataFrame.
 
 | Parameter         | Type   | Default | Description                 |
@@ -251,7 +271,7 @@ Returns classlist file as DataFrame.
 
 <br><br>
   
-### `classify(model, detections, resize_width=480, resize_height=480, file_col="filepath", crop=True, normalize=True, batch_size=1, num_workers=NUM_THREADS, device=None, out_file=None)`
+### animl.classify(model, detections, resize_width=480, resize_height=480, file_col="filepath", crop=True, normalize=True, batch_size=1, num_workers=NUM_THREADS, device=None, out_file=None)
 Runs prediction for input detections using a preloaded classifier model, managing batching and output saving.
 
 | Parameter      | Type            | Default      | Description                                                  |
@@ -265,7 +285,7 @@ Runs prediction for input detections using a preloaded classifier model, managin
 | `normalize`    | bool            | True         | Normalize tensors before inference                           |
 | `batch_size`   | int             | 1            | Data generator batch size                                    |
 | `num_workers`  | int             | NUM_THREADS  | Number of workers (CPU threads or processes)                 |
-| `device`       | str             | None         | Device for inference ("cpu" or "cuda")                      |
+| `device`       | str             | None         | Device for inference ("cpu" or "cuda")                       |
 | `out_file`     | str             | None         | Output file path to save prediction results                  |
 
 **Returns:** `tuple` — (`predictions`, `failed_files`)  
@@ -274,7 +294,7 @@ Runs prediction for input detections using a preloaded classifier model, managin
   
 <br><br>
 
-### `single_classification(animals, empty, predictions_output, class_list, best=False, file_col="filepath", failed_files=None)`
+### animl.single_classification(animals, empty, predictions_output, class_list, best=False, file_col="filepath", failed_files=None)
 Assigns predicted class labels and confidences to each row in a detection DataFrame, handling failed files and "empty" detections.
 
 | Parameter          | Type                          | Default     | Description                                                         |
@@ -291,7 +311,7 @@ Assigns predicted class labels and confidences to each row in a detection DataFr
 
 <br><br>
   
-### `sequence_classification(animals, empty, predictions_output, class_list, station_col, empty_class="", sort_columns=None, file_col="filepath", timestamp_col="datetime", failed_files=None, maxdiff=60)`
+### animl.sequence_classification(animals, empty, predictions_output, class_list, station_col, empty_class="", sort_columns=None, file_col="filepath", timestamp_col="datetime", failed_files=None, maxdiff=60)
 Assigns class labels to detections at a sequence level (camera trap burst) using both spatial and temporal context, improving classification accuracy for image bursts.
 
 | Parameter        | Type                    | Default    | Description                                                                |
@@ -315,16 +335,107 @@ Assigns class labels to detections at a sequence level (camera trap burst) using
 ---
 ## Re-Identification
 {: #re-id}
+<br>
 
+### animl.load_miew(file_path, device)
+| Parameter      | Type            | Default      | Description                                                  |
+|----------------|-----------------|--------------|--------------------------------------------------------------|
+| `file_path`    | str             | required     | file path to model file                                      |
+| `device`       | str             | None         | Device for inference ("cpu" or "cuda")                       |
 
+**Returns:** MiewID model object 
+
+<br><br>
+
+### animl.extract_miew_embeddings(miew_model, manifest, file_col="filepath", batch_size=1, num_workers=1, device=None)
+| Parameter      | Type            | Default      | Description                                                  |
+|----------------|-----------------|--------------|--------------------------------------------------------------|
+|`miew_model`    | model object    | required     | MiewID model object                                          |
+| `animals`      | pd.DataFrame    | required     | Detections with animals                                      |
+| `file_col`     | str             | "filepath"   | Column indicating image file paths                           |
+| `batch_size`   | int             | 1            | Data generator batch size                                    |
+| `num_workers`  | int             | 1            | Number of workers (CPU threads or processes)                 |
+| `device`       | str             | None         | Device for inference ("cpu" or "cuda")                       |
+
+**Returns:** `np.ndarray` — array of extracted embeddings
+
+<br><br>
+
+### animl.remove_diagonal(A)
+| Parameter      | Type            | Default      | Description                                                  |
+|----------------|-----------------|--------------|--------------------------------------------------------------|
+| `A`            | torch.Tensor    | required     | Input square matrix                                          |
+
+**Returns:** torch.Tensor - Matrix with diagonal elements removed
+
+<br><br>
+
+### animl.euclidean_squared_distance(input1, input2)
+| Parameter      | Type            | Default      | Description                                                  |
+|----------------|-----------------|--------------|--------------------------------------------------------------|
+| `input1`       | torch.Tensor    | required     | 2-D feature matrix                                           |
+| `input2`       | torch.Tensor    | required     | 2-D feature matrix                                           |
+
+**Returns:** torch.Tensor - Euclidean squared distance matrix
+
+<br><br>
+
+### animl.cosine_distance(input1, input2)
+| Parameter      | Type            | Default      | Description                                                  |
+|----------------|-----------------|--------------|--------------------------------------------------------------|
+| `input1`       | torch.Tensor    | required     | 2-D feature matrix                                           |
+| `input2`       | torch.Tensor    | required     | 2-D feature matrix                                           |
+
+**Returns:** torch.Tensor - Cosine distance matrix
+
+<br><br>
+
+### animl.compute_distance_matrix(input1, input2, metric='euclidean')
+| Parameter      | Type            | Default      | Description                                                  |
+|----------------|-----------------|--------------|------------------------------------------------------|
+| `input1`       | torch.Tensor or np.ndarray | required | 2-D feature matrix                                           |
+| `input2`       | torch.Tensor or np.ndarray | required | 2-D feature matrix                                           |
+| `metric`       | str             | 'euclidean'  | Distance metric: "euclidean" or "cosine"                   |
+
+**Returns:** np.ndarray - Distance matrix
+
+<br><br>
+
+### animl.compute_batched_distance_matrix(input1, input2, metric='cosine', batch_size=10)
+| Parameter      | Type            | Default      | Description                                                  |
+|----------------|-----------------|--------------|--------------------------------------------------------------|
+| `input1`       | np.ndarray or torch.Tensor | required | 2-D array of query features                                  |
+| `input2`       | np.ndarray or torch.Tensor | required | 2-D array of database features                               |
+| `metric`       | str             | 'cosine'     | Distance metric (e.g., 'euclidean', 'cosine')               |
+| `batch_size`   | int             | 10           | Number of rows from input1 to process at a time              |
+
+**Returns:** np.ndarray - Computed distance matrix
+
+<br><br>
 
 ---
 ## Model Training
 {: #training}
+<br>
+
+### animl.train_classifier(config)
+
+<br><br>
+
+### animl.test_classifier(config)
+
+
+<br><br>
 
 ---
 ## Visualization
 {: #visualization}
+<br>
+
+<br><br>
+
+---
+## Export
 {: #export}
 
 ### class `animl.save_data()`
