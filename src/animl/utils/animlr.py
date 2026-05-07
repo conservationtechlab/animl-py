@@ -15,13 +15,8 @@ def check_exiftool():
     import exiftool
     try:
         with exiftool.ExifToolHelper() as et:
-<<<<<<< detect_include_categories
-            return et.version()
-    except Exception:
-=======
             return et.version
     except Exception as e:
->>>>>>> dev
         return False
 
 
