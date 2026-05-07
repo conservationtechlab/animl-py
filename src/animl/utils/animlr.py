@@ -13,7 +13,7 @@ def check_exiftool():
     import exiftool
     try:
         with exiftool.ExifToolHelper() as et:
-            return et.version()
+            return et.version
     except Exception as e:
         return False
 
