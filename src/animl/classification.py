@@ -368,6 +368,7 @@ def single_classification(animals: pd.DataFrame,
                           predictions_output: Union[np.array, tuple],
                           class_list: Union[list, pd.Series],
                           best: bool = False,
+                          count: bool = False,
                           file_col: str = "filepath",
                           failed_files: Optional[list] = None):
     """
@@ -379,6 +380,7 @@ def single_classification(animals: pd.DataFrame,
         predictions_output (Union[np.array, tuple]): softmaxed logits from classify() and optionally list of failed files from classify
         class_list (Union[list, pd.Series]): class list associated with model
         best (bool): whether to return one prediction per file
+        count (bool): whether to add a count column with number of detections of each species per file
         file_col (str): column name for file paths in the dataframe
         failed_files (Optional[list]): list of files that failed to load during classification
 
@@ -427,6 +429,11 @@ def single_classification(animals: pd.DataFrame,
                         'category', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
                 mask = manifest[file_col] == f
                 manifest.loc[mask, cols] = top[cols].values
+
+         # get counts of each prediction for the file if count = True
+        if count:
+            file['count'] = file['prediction'].map(file['prediction'].value_counts())
+            manifest.loc[manifest[file_col] == f, 'count'] = file['count'].values
 
     # best guess
     if best:
