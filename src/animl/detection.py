@@ -129,7 +129,7 @@ def detect(detector,
         detector.model_type = "yolo"
 
     # convert map keys to int if they are string (ie from reticulate)
-    category_map = {int(k) if k.isdigit() else k: v for k, v in category_map.items()}
+    category_map = {int(k) if isinstance(k, str) and k.isdigit() else k: v for k, v in category_map.items()}
 
     # Single image filepath
     if isinstance(image_file_names, str):
