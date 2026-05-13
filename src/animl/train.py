@@ -7,6 +7,7 @@ Original script from
 Modified by Peter van Lunteren 2024
 '''
 import argparse
+from pathlib import Path
 from tqdm import trange
 
 from animl import file_management
@@ -27,6 +28,97 @@ from torch.amp import autocast, GradScaler
 from animl.generator import train_dataloader
 from animl.classification import save_classifier, load_classifier, load_classifier_checkpoint
 from animl.utils.general import NUM_THREADS, init_seed
+
+
+def save_classifier(model,
+                    out_dir: str,
+                    epoch: int,
+                    stats: dict,
+                    optimizer=None,
+                    scheduler=None):
+    '''
+    Saves model state weights.
+
+    Args:
+        model: pytorch model
+        out_dir (str): directory to save model to
+        epoch (int): current training epoch
+        stats (dict): performance metrics of current epoch
+        optimizer: pytorch optimizer (optional)
+        scheduler: pytorch scheduler (optional)
+
+    Returns:
+        None
+    '''
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    # get model parameters and add to stats
+    checkpoint = {'model': model.state_dict(),
+                  'stats': stats}
+    # save optimizer and scheduler state dicts if they are provided
+    if optimizer is not None or scheduler is not None:
+        checkpoint['epoch'] = epoch
+    if optimizer is not None:
+        checkpoint['optimizer'] = optimizer.state_dict()
+    if scheduler is not None:
+        checkpoint['scheduler'] = scheduler.state_dict()
+
+    torch.save(checkpoint, open(f'{out_dir}/{epoch}.pt', 'wb'))
+
+
+def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
+    '''
+    Load checkpoint model weights to resume training.
+
+    Args:
+        model_path: path to saved weights
+        model: loaded model object
+        optimizer: optimizer object
+        scheduler: learning rate scheduler
+        device (str): device to load model and data to
+
+    Returns:
+        starting epoch (int)
+    '''
+    model_states = []
+    for file in Path.iterdir(Path(model_path)):
+        if Path(file).suffix.lower() == ".pt":
+            model_states.append(file)
+
+    if len(model_states):
+        # at least one save state found; get latest
+        savepoints = [m.stem for m in model_states]
+        model_epochs = [int(sp) for sp in savepoints if sp.isdigit()]
+        start_epoch = max(model_epochs)
+
+        # load state dict and apply weights to model
+        print(f'Resuming from epoch {start_epoch}')
+        checkpoint = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'), map_location=device)
+        model.load_state_dict(checkpoint['model'])
+        # Model is assumed to be on the correct device already (moved in main before optimizer creation)
+
+        # load optimzier state if available
+        if 'optimizer' in checkpoint:
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            # Ensure optimizer's state tensors are on the correct device
+            for state in optimizer.state.values():
+                for k, v in state.items():
+                    if isinstance(v, torch.Tensor) and v.device != device:
+                        state[k] = v.to(device)
+
+        # load scheduler state if available
+        if 'scheduler' in checkpoint:
+            scheduler.load_state_dict(checkpoint['scheduler'])
+
+        # get last epoch from model if avialble
+        if 'epoch' in checkpoint:
+            return checkpoint['epoch']
+        else:
+            return start_epoch
+    else:
+        # no save state found; stasrt anew
+        print('No model state found, starting new model')
+        return 0
 
 
 def _train_classifier_helper(data_loader, model, optimizer, scheduler, device='cpu',
