@@ -463,6 +463,54 @@ def parse_detections(results: Union[list, tuple],
     return df
 
 
+def get_animals(manifest: pd.DataFrame):
+    """
+    Pulls MD animal detections for classification
+
+    Args:
+        manifest (pd.DataFrame): DataFrame containing one row for every MD detection
+
+    Returns:
+        subset of manifest containing only animal detections
+    """
+    if "category_label" in manifest.columns:
+        return manifest[manifest["category_label"] == "animal"].reset_index(drop=True)
+    # Removes all images that MegaDetector gave no detection for
+    else:
+        # make sure category column is int and fill NaN with 0 (empty)
+        manifest["category"] = manifest["category"].fillna(0)
+        # Pulls only the animal detections
+        return manifest[manifest["category"].astype(int) == 1].reset_index(drop=True)
+
+
+def get_empty(manifest: pd.DataFrame):
+    """
+    Pulls MD non-animal detections
+
+    Args:
+        manifest (pd.DataFrame): DataFrame containing one row for every MD detection
+
+    Returns:
+        otherdf: subset of manifest containing empty, vehicle and human detections
+        with added prediction and confidence columns
+    """
+    if "category_label" in manifest.columns:
+        otherdf = manifest[manifest["category_label"] != "animal"].reset_index(drop=True)
+    
+    else:
+        # Convert category column to int and fill NaN with 0 (empty) if necessary
+        manifest["category"] = manifest["category"].fillna(0)
+        manifest["category"] = manifest["category"].astype(int)
+        manifest["category_label"] = manifest["category"].replace(MD_LABELS)  
+        otherdf = manifest[manifest["category"] != 1].reset_index(drop=True)
+
+    if not otherdf.empty:
+        otherdf['prediction'] = otherdf["category_label"]
+        otherdf['confidence'] = otherdf['conf'].fillna(1)  # correct empty conf
+
+    return otherdf
+
+
 def _save_detection_checkpoint(checkpoint_path: str, results: dict) -> None:
     """
     Save a checkpoint of the detection results to a JSON file.
