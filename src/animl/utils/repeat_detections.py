@@ -9,6 +9,7 @@ import copy
 from pathlib import Path
 import cv2
 import json
+from dataclasses import dataclass
 
 from tqdm import tqdm
 from operator import attrgetter
@@ -18,65 +19,57 @@ from animl.utils.general import get_iou
 from animl.utils.visualization import plot_box
 
 
+@dataclass
 class RepeatDetectionOptions:
     """
     Options that control the behavior of repeat detection elimination
     """
-    def __init__(self):
-        self.outputBase = ''
+    # Location to save images for manual review; if empty, don't save any images for review
+    outputBase: str = ''
+    #: Don't consider detections with confidence lower than this as suspicious
+    confidenceMin: float = 0.1
+    #: Don't consider detections with confidence higher than this as suspicious
+    confidenceMax: float = 1.0
 
-        #: Don't consider detections with confidence lower than this as suspicious
-        self.confidenceMin = 0.1
-        #: Don't consider detections with confidence higher than this as suspicious
-        self.confidenceMax = 1.0
+    #: What's the IOU threshold for considering two boxes the same?
+    iouThreshold: float = 0.9
+    #: How many occurrences of a single location before we declare it suspicious?
+    occurrenceThreshold: int = 20
 
-        #: What's the IOU threshold for considering two boxes the same?
-        self.iouThreshold = 0.9
-        #: How many occurrences of a single location before we declare it suspicious?
-        self.occurrenceThreshold = 10
+    #: Ignore "suspicious" detections smaller than some size
+    minSuspiciousDetectionSize: float = 0.0
+    #: Ignore "suspicious" detections larger than some size; these are often animals
+    #: taking up the whole image.  This is expressed as a fraction of the image size.
+    maxSuspiciousDetectionSize: float = 0.5
 
-        #: Ignore "suspicious" detections smaller than some size
-        self.minSuspiciousDetectionSize = 0.0
-        #: Ignore "suspicious" detections larger than some size; these are often animals
-        #: taking up the whole image.  This is expressed as a fraction of the image size.
-        self.maxSuspiciousDetectionSize = 0.5
+    #: A list of category IDs (ints) that we don't want consider as candidate repeat detections.
+    #: Typically used to say, e.g., "don't bother analyzing people or vehicles for repeat
+    #: detections", which you could do by saying excludeClasses = [2,3].
+    excludeClasses: list = []
 
-        #: A list of category IDs (ints) that we don't want consider as candidate repeat detections.
-        #: Typically used to say, e.g., "don't bother analyzing people or vehicles for repeat
-        #: detections", which you could do by saying excludeClasses = [2,3].
-        self.excludeClasses = []
-
-        #: Include only specific folders, mutually exclusive with [excludeFolders]
-        self.includeFolders = None
-        #: Exclude specific folders, mutually exclusive with [includeFolders]
-        self.excludeFolders = None
+    #: Include only specific folders, mutually exclusive with [excludeFolders]
+    includeFolders: list = []
+    #: Exclude specific folders, mutually exclusive with [includeFolders]
+    excludeFolders: list = []
 
 
+@dataclass
 class IndexedDetection:
     """
     A single detection event on a single image
     """
-    def __init__(self, i_detection=-1, original_id=-1, filepath='', bbox=None, confidence=-1, category=0):
-
-        if bbox is None:
-            bbox = []
-        assert isinstance(i_detection,int)
-        assert isinstance(filepath,str)
-        assert isinstance(bbox,list)
-        assert isinstance(category,int)
-
-        #: index of this detection within all detections for this filepath
-        self.i_detection = i_detection
-        #: original index from full manifest
-        self.original_id = original_id
-        #: path to the image corresponding to this detection
-        self.filepath = filepath
-        #: [x_min, y_min, width_of_box, height_of_box]
-        self.bbox = bbox
-        #: confidence value of this detection
-        self.confidence = confidence
-        #: category ID (not name) of this detection
-        self.category = category
+    #: index of this detection within all detections for this filepath
+    i_detection: int = -1
+    #: original index from full manifest
+    original_id: int = -1
+    #: path to the image corresponding to this detection
+    filepath: str = ''
+    #: [x_min, y_min, width_of_box, height_of_box]
+    bbox: list = []
+    #: confidence value of this detection
+    confidence: float = -1
+    #: category ID (not name) of this detection
+    category: int = 0
 
 
 class DetectionLocation:
@@ -371,13 +364,15 @@ def find_repeat_detections(manifest,
         with open(detection_index_file_name, 'w') as f:
             json.dump(detection_info, f)
 
-    # remove false positives from manifest_filtered
-    manifest_filtered = copy.deepcopy(manifest)
+    # get all original indices of suspicious detections
     false_positives = set()
     for directory in suspicious_detections:
         for detection_location in directory:
             false_positives = false_positives.union(set(match.original_id for match in detection_location.instances))
 
-    manifest_filtered = manifest_filtered[~manifest_filtered['original_index'].isin(false_positives)].reset_index(drop=True)
+    # mark false positives in manifest
+    manifest_marked = copy.deepcopy(manifest)
+    manifest_marked['false_positive'] = 0
+    manifest_marked.loc[manifest_marked['original_index'].isin(false_positives), 'false_positive'] = 1
 
-    return manifest_filtered
+    return manifest_marked
