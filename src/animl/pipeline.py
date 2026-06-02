@@ -186,10 +186,14 @@ def from_config(config: str):
         detections = file_management.load_data(working_dir.detections)
     else:
         detector = detection.load_detector(cfg['detector_file'], model_type=cfg.get('detector_type', 'mdv5'), device=device)
-        categories = file_management.load_data(cfg.get('detector_class_list', MD_LABELS))
-        category_map = file_management.class_list_to_dict(categories, 
-                                                          id=cfg.get('detector_class_key_col', 'id'), 
-                                                          class_col=cfg.get('detector_class_value_col', 'class'))
+        categories = cfg.get('detector_class_list', None)
+        if categories is None:
+            category_map = MD_LABELS
+        else:
+            categories = file_management.load_data(categories)
+            category_map = file_management.class_list_to_dict(categories, 
+                                                              id=cfg.get('detector_class_key_col', 'id'),
+                                                              class_col=cfg.get('detector_class_value_col', 'class'))
 
 
         md_results = detection.detect(detector,
