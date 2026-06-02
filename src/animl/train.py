@@ -26,7 +26,7 @@ from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR  # , ReduceLROn
 from torch.amp import autocast, GradScaler
 
 from animl.generator import train_dataloader
-from animl.classification import save_classifier, load_classifier, load_classifier_checkpoint
+from animl.classification import load_classifier
 from animl.utils.general import NUM_THREADS, init_seed
 
 
