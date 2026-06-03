@@ -6,6 +6,7 @@
     <title>{% if page.title %}{{ page.title }} - {% endif %}{{ site.title }}</title>
     <meta name="description" content="{% if page.description %}{{ page.description }}{% else %}{{ site.description }}{% endif %}">
     <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/style.css">
+    <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/syntax.css">
 </head>
 <body>
     <header>
@@ -41,7 +42,7 @@
                         </nav>
                     </details>
                     <details>
-                        <summary>Examples</summary>
+                        <summary>Examples and Usage</summary>
                         <nav>
                             <a href="#full-pipeline">Full Pipeline</a>
                             <a href="#data-ingestion">Data Ingestion</a>

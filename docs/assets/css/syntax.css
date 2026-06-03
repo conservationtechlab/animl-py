@@ -77,6 +77,6 @@
   line-height: 1.45;
 }
 
-code {
-  font-family: ui-monospace, SFMono-Regular, SF Mono, Consolas, "Liberation Mono", Menlo*
+code {  
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Consolas, "Liberation Mono", Menlo;
 }
