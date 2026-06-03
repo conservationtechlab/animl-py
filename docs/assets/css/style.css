@@ -11,6 +11,17 @@ body {
     background-color: #f5f5f5;
 }
 
+p {
+    margin-bottom: 1.5rem;
+}
+
+ul,
+ol {
+  margin: 1rem 0 1rem 1.5rem;
+  padding-left: 1.25rem;
+}
+
+
 header {
     background: linear-gradient(135deg, #215732 0%, #6CB33F 100%);
     color: white;
@@ -38,6 +49,45 @@ header h3 {
 header p {
     font-size: 1.2rem;
     opacity: 0.95;
+}
+
+pre,
+code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+/* Base fallback */
+pre {
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  border: 1px solid #30363d;
+}
+
+/* Don't let inner code override */
+pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+/* Bash / shell */
+div.language-bash pre,
+div.language-shell pre,
+.highlighter-rouge.language-bash pre,
+.highlighter-rouge.language-shell pre {
+  background: #dad9d9;
+  color: #141414;
+  border: 1px solid #30363d;
+}
+
+/* Python */
+div.language-python pre,
+div.language-py pre,
+.highlighter-rouge.language-python pre,
+.highlighter-rouge.language-py pre {
+  background: #9aa598;
+  border: 1px solid #4a5f52;
 }
 
 /* Layout: sidebar left, main content right */

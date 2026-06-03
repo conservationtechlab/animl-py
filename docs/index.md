@@ -84,16 +84,16 @@ The functionality of animl can be parcelated into its individual functions to su
 
 1. It is recommended that you use the AniML Working Directory for storing intermediate steps.
 
-```python
-import animl
-workingdir = animl.WorkingDirectory('/path/to/save/data')
-```
+    ```python
+    import animl
+    workingdir = animl.WorkingDirectory('/path/to/save/data')
+    ```
 
 2. Build the file manifest of your given directory. This will find both images and videos.
 
-```python
-files = animl.build_file_manifest('/path/to/images', out_file=workingdir.filemanifest, exif=True)
-```
+    ```python
+    files = animl.build_file_manifest('/path/to/images', out_file=workingdir.filemanifest, exif=True)
+    ```
 
 3. If there are videos, extract individual frames for processing.
    Select either the number of frames or fps using the argumments.
