@@ -6,42 +6,197 @@ description: Developing open-source technology and machine learning tools for wi
 
 # Getting Started
 
+<br>
+
 ## About AniML
 {: #about}
-<br>  
-Version 3.3.0
-  
-The Conservation Tech Lab develops cutting-edge technology solutions for wildlife conservation and ecological research. 
-Our work spans machine learning for camera trap analysis, edge-AI field devices, bioacoustics tools, and animal tracking systems.
-  
-All of our projects are open-source, promoting collaboration and knowledge sharing within the conservation technology community.
-We focus on practical, field-deployable solutions that help researchers and conservationists better understand and protect wildlife.
+
+
+**Version 3.3.0**
+[GitHub Repository](https://github.com/conservationtechlab/animl-py)
+
+The AniML package is available in Python and R for AI-assisted camera trap image processing.
+
+The AniML package provides functions for ingesting raw image and video files and outputs predictions for species using region-specific species classifier models. We provide several species models including for the African Savanna, the Peruvian Amazon, the Andes mountains, and the Western US. AniML provides the results in a number of export formats, including TimeLapse and CamTrapDP. The package also includes AI-based re-indentification tools and custom species model training. 
+
 
 <br>
 
-## Installation
+### Installation
 {: #installation}
-<br>
-To Install:
+  
+Install via the command line:
+
+```bash
 pip install animl
+```
+
 <br>
 
 ### Requirements
 {: #requirements}
-<br>
-ExifTool, PyTorch, Ultralytics, ONNX Runtime, pandas
+
+<ins>Required dependencies</ins>:
+* pytorch
+* ultralytics
+* onnx-runtime
+* pandas
+
+__Recommended__:
+* [ExifTool](https://exiftool.org/)
+* [CUDA/cuDNN](https://developer.nvidia.com/cuda/toolkit) (for GPU)
+
 
 We recommend using AniML with a GPU. To use with an Nvidia GPU, be sure that to install the CUDA-compatible
 version of [PyTorch](https://pytorch.org/get-started/locally/)
 
+<br><br>
+
 ---
-# Examples
+# Examples and Usage
 {: #examples}
 <br>
 
-Command-line
+### Command-line Execution
+{: #command-line}
+
+Once installed, AniML can be run from the command line:
+
+```bash
+> python -m animl /path/to/data/folder --detector /path/to/megadetector --classifier /path/to/classifier --classlist /path/to/classlist.txt
+```
+
+You can use animl in this fashion on any image directory.
+
+If you want more fine-tuned control of certain parameters, you can use the animl.yml config file to specify parameters:
+
+```bash
+> python -m animl /path/to/animl.yml
+```
+
+An example configuration .yml file can be found [here](https://github.com/conservationtechlab/animl-py/blob/main/src/animl/config/animl.yml).
 
 
+### Species Classification Inference
+{: #inference}
+
+The functionality of animl can be parcelated into its individual functions to suit your data and scripting needs.
+
+1. It is recommended that you use the AniML Working Directory for storing intermediate steps.
+
+```python
+import animl
+workingdir = animl.WorkingDirectory('/path/to/save/data')
+```
+
+2. Build the file manifest of your given directory. This will find both images and videos.
+
+```python
+files = animl.build_file_manifest('/path/to/images', out_file=workingdir.filemanifest, exif=True)
+```
+
+3. If there are videos, extract individual frames for processing.
+   Select either the number of frames or fps using the argumments.
+   The other option can be set to None or removed.
+
+```python
+allframes = animl.extract_frames(files, frames=3, out_file=workingdir.imageframes, parallel=True)
+```
+
+4. Pass all images into MegaDetector. We recommend [MDv5a](https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt).
+   The function parse_MD will convert the json to a pandas DataFrame and merge detections with the original file manifest, if provided.
+
+```python
+detector = animl.load_detector('/path/to/mdmodel.pt', model_type="mdv5", device='cuda:0')
+mdresults = animl.detect(detector, allframes, resize_width=animl.MEGADETECTORv5_SIZE, resize_height=animl.MEGADETECTORv5_SIZE, 
+                         letterbox=True, file_col="frame", device='cuda:0', checkpoint_path=working_dir.mdraw, quiet=True)
+detections = animl.parse_detections(mdresults, manifest=allframes, out_file=workingdir.detections)
+```
+
+5. For speed and efficiency, extract the empty/human/vehicle detections before classification.
+
+```python
+animals = animl.get_animals(detections)
+empty = animl.get_empty(detections)
+```
+
+6. Classify using the appropriate species model. Merge the output with the rest of the detections
+   if desired.
+
+```python
+classifier, class_list = animl.load_classifier('/path/to/model', '/path/to/classlist.txt', device='cuda:0')
+raw_predictions = animl.classify(classifier, animals, resize_width=480, resize_height=480, 
+                                 file_col="filepath", batch_size=4, out_file=working_dir.predictions)
+```
+
+7. Apply labels from class list with or without utilizing timestamp-based sequences.
+
+```python
+manifest = animl.single_classification(animals, empty, raw_predictions, class_list['class'])
+
+```
+or, after defining a station column,
+
+```python
+manifest = animl.sequence_classification(animals,
+                                         empty, 
+                                         raw_predictions,
+                                         class_list['class'],
+                                         station_col='station',
+                                         empty_class="",
+                                         sort_columns=None,
+                                         file_col="filepath",
+                                         maxdiff=60)
+```
+
+8. (OPTIONAL) Save the Pandas DataFrame's required columns to csv and then use it to create json for TimeLapse compatibility
+
+```python
+csv_loc = animl.export_timelapse(manifest, imagedir, only_animal = True)
+animl.export_megadetector(manifest, out_file ="final_result.json", detector = 'MegaDetector v5a')
+```
+
+9. (OPTIONAL) Create symlinks within a given directory for file browser access.
+```python
+manifest = animl.export_folders(manifest, out_dir=working_dir.linkdir, out_file=working_dir.results)
+```
+
+---
+### Training
+
+Training workflows are still under development. Please submit Issues as you come upon them.
+
+1. Assuming a file manifest of training data with species labels, first split the data into training, validation and test splits.
+   This function splits each label proportionally by the given percentages, by default 0.7 training, 0.2 validation, 0.1 Test.
+```python
+
+train, val, test, stats = animl.train_val_test(manifest,
+                                                out_dir='path/to/save/data/', 
+                                                label_col="species",
+                                                val_size: float = 0.2,
+                                                test_size: float = 0.1,
+                                                random_state: int = 42)
+```
+
+2. Set up training configuration file. Specify the paths to the data splits from the previous step. See [config README]()
+
+3. (Optional) Update train.py to include MLOPS connection. 
+
+4. Using the config file, begin training
+```bash
+python -m animl.train --config /path/to/config.yaml
+```
+Every 10 epochs (or define custom 'checkpoint_frequency'), the model will be checkpointed to the 'experiment_folder' parameter in the config file, and will contain performance metrics for selection.
+
+
+5. Testing of a model checkpoint can be done with the "test.py" module.  Add an 'active_model' parameter to the config file that contains the path of the checkpoint to test.
+   This will produce a confusion matrix of the test dataset as well as a csv containing predicted and ground truth labels for each image.
+
+```bash
+python -m animl.test --config /path/to/config.yaml
+```
+
+<br><br>
 
 ---
 # Reference
@@ -338,6 +493,7 @@ Assigns class labels to detections at a sequence level (camera trap burst) using
 <br>
 
 ### animl.load_miew(file_path, device)
+
 | Parameter      | Type            | Default      | Description                                                  |
 |----------------|-----------------|--------------|--------------------------------------------------------------|
 | `file_path`    | str             | required     | file path to model file                                      |
@@ -348,6 +504,7 @@ Assigns class labels to detections at a sequence level (camera trap burst) using
 <br><br>
 
 ### animl.extract_miew_embeddings(miew_model, manifest, file_col="filepath", batch_size=1, num_workers=1, device=None)
+
 | Parameter      | Type            | Default      | Description                                                  |
 |----------------|-----------------|--------------|--------------------------------------------------------------|
 |`miew_model`    | model object    | required     | MiewID model object                                          |
@@ -362,6 +519,7 @@ Assigns class labels to detections at a sequence level (camera trap burst) using
 <br><br>
 
 ### animl.remove_diagonal(A)
+
 | Parameter      | Type            | Default      | Description                                                  |
 |----------------|-----------------|--------------|--------------------------------------------------------------|
 | `A`            | torch.Tensor    | required     | Input square matrix                                          |
@@ -371,6 +529,7 @@ Assigns class labels to detections at a sequence level (camera trap burst) using
 <br><br>
 
 ### animl.euclidean_squared_distance(input1, input2)
+
 | Parameter      | Type            | Default      | Description                                                  |
 |----------------|-----------------|--------------|--------------------------------------------------------------|
 | `input1`       | torch.Tensor    | required     | 2-D feature matrix                                           |
@@ -381,6 +540,7 @@ Assigns class labels to detections at a sequence level (camera trap burst) using
 <br><br>
 
 ### animl.cosine_distance(input1, input2)
+
 | Parameter      | Type            | Default      | Description                                                  |
 |----------------|-----------------|--------------|--------------------------------------------------------------|
 | `input1`       | torch.Tensor    | required     | 2-D feature matrix                                           |
@@ -391,6 +551,7 @@ Assigns class labels to detections at a sequence level (camera trap burst) using
 <br><br>
 
 ### animl.compute_distance_matrix(input1, input2, metric='euclidean')
+
 | Parameter      | Type            | Default      | Description                                                  |
 |----------------|-----------------|--------------|------------------------------------------------------|
 | `input1`       | torch.Tensor or np.ndarray | required | 2-D feature matrix                                           |
@@ -402,6 +563,7 @@ Assigns class labels to detections at a sequence level (camera trap burst) using
 <br><br>
 
 ### animl.compute_batched_distance_matrix(input1, input2, metric='cosine', batch_size=10)
+
 | Parameter      | Type            | Default      | Description                                                  |
 |----------------|-----------------|--------------|--------------------------------------------------------------|
 | `input1`       | np.ndarray or torch.Tensor | required | 2-D array of query features                                  |
