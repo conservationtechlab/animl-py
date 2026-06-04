@@ -5,6 +5,7 @@ Original script from
 2022 Benjamin Kellenberger
 '''
 import argparse
+import yaml
 from tqdm import trange
 import pandas as pd
 import torch
@@ -13,15 +14,14 @@ from typing import Union
 from sklearn.metrics import confusion_matrix, precision_score, recall_score
 from torch.utils.data import DataLoader
 
-from animl import file_management
 from animl.generator import train_dataloader
 from animl.classification import load_classifier
 from animl.utils.general import NUM_THREADS
 
 
-def _test_classifer_helper(data_loader: DataLoader,
-                           model: torch.nn.Module,
-                           device: Union[str, torch.device] = 'cpu') -> float:
+def test_func(data_loader: DataLoader,
+              model: torch.nn.Module,
+              device: Union[str, torch.device] = 'cpu') -> float:
     '''
     Run trained model on test split
 
@@ -30,7 +30,7 @@ def _test_classifer_helper(data_loader: DataLoader,
         model: trained model object
         device: run model on gpu or cpu, defaults to cpu
     '''
-    model.eval()  # put the model into evaluation mode
+    model.eval()  # put the model into training mode
 
     pred_labels = []
     true_labels = []
@@ -62,7 +62,7 @@ def _test_classifer_helper(data_loader: DataLoader,
     return pred_labels, true_labels, filepaths
 
 
-def test_classifier(cfg):
+def test_main(cfg):
     '''
     Command line function
 
@@ -73,7 +73,7 @@ def test_classifier(cfg):
     > python test.py --config configs/exp_resnet18.yaml
     '''
     # load cfg file
-    cfg = file_management.load_yaml(cfg)
+    cfg = yaml.safe_load(open(cfg, 'r'))
 
     crop = cfg.get('crop', False)
 
@@ -92,10 +92,10 @@ def test_classifier(cfg):
     class_list_label = cfg.get('class_list_label', 'class')
     class_list_index = cfg.get('class_list_index', 'id')
 
-    categories = file_management.class_list_to_dict(classes, index_col=class_list_index, label_col=class_list_label)
+    categories = dict([[x[class_list_label], x[class_list_index]] for _, x in classes.iterrows()])
 
     # initialize data loaders for training and validation set
-    test_dataset = file_management.load_data(cfg['test_set'])
+    test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
     dl_test = train_dataloader(test_dataset, categories,
                                batch_size=cfg['batch_size'],
                                num_workers=cfg.get('num_workers', NUM_THREADS),
@@ -104,7 +104,7 @@ def test_classifier(cfg):
                                crop=crop, augment=False,
                                cache_dir=cfg.get('cache_folder', None))
     # get predictions
-    pred, true, paths = _test_classifer_helper(dl_test, model, device)
+    pred, true, paths = test_func(dl_test, model, device)
     # calculate precision and recall
     prec = precision_score(true, pred, average='weighted')
     recall = recall_score(true, pred, average='weighted')
@@ -121,11 +121,11 @@ def test_classifier(cfg):
                             'Accuracy': oa,
                             'Precision': prec,
                             'Recall': recall})
-    file_management.save_data(results, cfg['experiment_folder'] + "/test_results.csv")
+    results.to_csv(cfg['experiment_folder'] + "/test_results.csv")
 
     cm = confusion_matrix(true, pred)
     confuse = pd.DataFrame(cm, columns=classes[class_list_label], index=classes[class_list_label])
-    file_management.save_data(confuse, cfg['experiment_folder'] + "/confusion_matrix.csv")
+    confuse.to_csv(cfg['experiment_folder'] + "/confusion_matrix.csv")
 
 
 if __name__ == '__main__':
@@ -134,4 +134,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f'Using config "{args.config}"')
-    test_classifier(args.config)
+    test_main(args.config)
