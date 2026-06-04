@@ -12,15 +12,18 @@ body {
 }
 
 p {
-    margin-bottom: 1.5rem;
+    margin: 1rem 0;
 }
 
-ul,
-ol {
+ul{
   margin: 1rem 0 1rem 1.5rem;
   padding-left: 1.25rem;
 }
 
+ol {
+  margin: 1rem 0;
+  padding-left: 1rem;
+}
 
 header {
     background: linear-gradient(135deg, #215732 0%, #6CB33F 100%);
@@ -78,7 +81,7 @@ div.language-shell pre,
 .highlighter-rouge.language-shell pre {
   background: #dad9d9;
   color: #141414;
-  border: 1px solid #30363d;
+  border: 1px solid #acacac;
 }
 
 /* Python */
@@ -89,6 +92,13 @@ div.language-py pre,
   background: #9aa598;
   border: 1px solid #4a5f52;
 }
+
+
+li pre,
+li .highlight {
+  margin: 1rem 0;
+}
+
 
 /* Layout: sidebar left, main content right */
 .layout {
