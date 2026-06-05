@@ -351,8 +351,8 @@ def train_classifier(cfg):
     model.to(device)
     print(f"Model moved to {device}")
 
-    categories = file_management.class_list_to_dict(classes, index_col=cfg.get('class_list_index', 'id'),
-                                                    label_col=cfg.get('class_list_label', 'class'))
+    categories = file_management.class_list_to_dict(classes, id_col=cfg.get('class_list_index', 'id'),
+                                                    class_col=cfg.get('class_list_label', 'class'))
 
     # load datasets
     train_dataset = file_management.load_data(cfg['training_set'])

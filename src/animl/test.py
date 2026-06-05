@@ -93,7 +93,7 @@ def test_classifier(cfg):
     class_list_label = cfg.get('class_list_label', 'class')
     class_list_index = cfg.get('class_list_index', 'id')
 
-    categories = file_management.class_list_to_dict(classes, index_col=class_list_index, label_col=class_list_label)
+    categories = file_management.class_list_to_dict(classes, id_col=class_list_index, class_col=class_list_label)
 
     # initialize data loaders for training and validation set
     test_dataset = file_management.load_data(cfg['test_set'])
