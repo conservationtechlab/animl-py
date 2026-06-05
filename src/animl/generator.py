@@ -345,7 +345,7 @@ class TrainGenerator(Dataset):
             self.transform = Compose([Resize((self.resize_height, self.resize_width)),
                                       ToImage(),
                                       ToDtype(torch.float32, scale=True),])
-        self.categories = dict([[c, idx] for idx, c in list(enumerate(classes))])
+        self.categories = {c: idx for idx, c in classes.items()}
 
     def __len__(self):
         return len(self.x)
