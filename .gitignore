@@ -29,6 +29,7 @@ share/python-wheels/
 MANIFEST
 notebooks/
 models/
+docs/
 *.pt
 *.csv
 *.ipynb
