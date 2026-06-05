@@ -39,10 +39,13 @@ def _test_classifer_helper(data_loader: DataLoader,
     progressBar = trange(len(data_loader))
     with torch.no_grad():
         for idx, batch in enumerate(data_loader):
-            if batch is None:  # entire batch was bad
+            collated, failed = batch
+            if collated is None:  # entire batch was bad
                 continue
             # forward pass
-            data = batch[0]
+            data = collated[0]
+            labels = collated[1]
+            paths = collated[2]
             data = data.to(device)
             prediction = model(data)
             # add predicted labels to the predicted labels list
@@ -50,11 +53,9 @@ def _test_classifer_helper(data_loader: DataLoader,
             pred_label_np = pred_label.cpu().detach().numpy()
             pred_labels.extend(pred_label_np)
             # get ground truth labels
-            labels = batch[1]
             labels_np = labels.numpy()
             true_labels.extend(labels_np)
             # get file paths
-            paths = batch[2]
             filepaths.extend(paths)
 
             progressBar.update(1)
