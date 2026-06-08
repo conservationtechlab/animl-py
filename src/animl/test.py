@@ -5,7 +5,6 @@ Original script from
 2022 Benjamin Kellenberger
 '''
 import argparse
-import yaml
 from tqdm import trange
 import pandas as pd
 import torch
@@ -14,14 +13,15 @@ from typing import Union
 from sklearn.metrics import confusion_matrix, precision_score, recall_score
 from torch.utils.data import DataLoader
 
+from animl import file_management
 from animl.generator import train_dataloader
 from animl.classification import load_classifier
 from animl.utils.general import NUM_THREADS
 
 
-def test_func(data_loader: DataLoader,
-              model: torch.nn.Module,
-              device: Union[str, torch.device] = 'cpu') -> float:
+def _test_classifer_helper(data_loader: DataLoader,
+                           model: torch.nn.Module,
+                           device: Union[str, torch.device] = 'cpu') -> float:
     '''
     Run trained model on test split
 
@@ -30,7 +30,7 @@ def test_func(data_loader: DataLoader,
         model: trained model object
         device: run model on gpu or cpu, defaults to cpu
     '''
-    model.eval()  # put the model into training mode
+    model.eval()  # put the model into evaluation mode
 
     pred_labels = []
     true_labels = []
@@ -39,10 +39,13 @@ def test_func(data_loader: DataLoader,
     progressBar = trange(len(data_loader))
     with torch.no_grad():
         for idx, batch in enumerate(data_loader):
-            if batch is None:  # entire batch was bad
+            collated, failed = batch
+            if collated is None:  # entire batch was bad
                 continue
             # forward pass
-            data = batch[0]
+            data = collated[0]
+            labels = collated[1]
+            paths = collated[2]
             data = data.to(device)
             prediction = model(data)
             # add predicted labels to the predicted labels list
@@ -50,11 +53,9 @@ def test_func(data_loader: DataLoader,
             pred_label_np = pred_label.cpu().detach().numpy()
             pred_labels.extend(pred_label_np)
             # get ground truth labels
-            labels = batch[1]
             labels_np = labels.numpy()
             true_labels.extend(labels_np)
             # get file paths
-            paths = batch[2]
             filepaths.extend(paths)
 
             progressBar.update(1)
@@ -62,7 +63,7 @@ def test_func(data_loader: DataLoader,
     return pred_labels, true_labels, filepaths
 
 
-def test_main(cfg):
+def test_classifier(cfg):
     '''
     Command line function
 
@@ -73,7 +74,7 @@ def test_main(cfg):
     > python test.py --config configs/exp_resnet18.yaml
     '''
     # load cfg file
-    cfg = yaml.safe_load(open(cfg, 'r'))
+    cfg = file_management.load_yaml(cfg)
 
     crop = cfg.get('crop', False)
 
@@ -92,10 +93,10 @@ def test_main(cfg):
     class_list_label = cfg.get('class_list_label', 'class')
     class_list_index = cfg.get('class_list_index', 'id')
 
-    categories = dict([[x[class_list_label], x[class_list_index]] for _, x in classes.iterrows()])
+    categories = file_management.class_list_to_dict(classes, id_col=class_list_index, class_col=class_list_label)
 
     # initialize data loaders for training and validation set
-    test_dataset = pd.read_csv(cfg['test_set']).reset_index(drop=True)
+    test_dataset = file_management.load_data(cfg['test_set'])
     dl_test = train_dataloader(test_dataset, categories,
                                batch_size=cfg['batch_size'],
                                num_workers=cfg.get('num_workers', NUM_THREADS),
@@ -104,7 +105,7 @@ def test_main(cfg):
                                crop=crop, augment=False,
                                cache_dir=cfg.get('cache_folder', None))
     # get predictions
-    pred, true, paths = test_func(dl_test, model, device)
+    pred, true, paths = _test_classifer_helper(dl_test, model, device)
     # calculate precision and recall
     prec = precision_score(true, pred, average='weighted')
     recall = recall_score(true, pred, average='weighted')
@@ -121,11 +122,11 @@ def test_main(cfg):
                             'Accuracy': oa,
                             'Precision': prec,
                             'Recall': recall})
-    results.to_csv(cfg['experiment_folder'] + "/test_results.csv")
+    file_management.save_data(results, cfg['experiment_folder'] + "/test_results.csv")
 
     cm = confusion_matrix(true, pred)
     confuse = pd.DataFrame(cm, columns=classes[class_list_label], index=classes[class_list_label])
-    confuse.to_csv(cfg['experiment_folder'] + "/confusion_matrix.csv")
+    file_management.save_data(confuse, cfg['experiment_folder'] + "/confusion_matrix.csv")
 
 
 if __name__ == '__main__':
@@ -134,4 +135,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f'Using config "{args.config}"')
-    test_main(args.config)
+    test_classifier(args.config)

@@ -1,6 +1,6 @@
 [project]
 name = "animl"  
-version = "3.2.1"
+version = "3.3.0"
 description = "A Collection of ML Tools for Species Detection and Classification in Camera Trap Images and Videos."  
 
 readme = "README.md" 

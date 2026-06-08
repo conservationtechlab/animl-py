@@ -271,11 +271,11 @@ class TestLoadMiew(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.model_path_pt = Path.cwd() / 'models/miewid.pt'
-        cls.model_path_onnx = Path.cwd() / 'models/miewid.onnx'
+        cls.model_path_pt = Path.cwd() / 'models/miewid_v3.bin'
+        cls.model_path_onnx = Path.cwd() / 'models/miewid_v3.onnx'
         if not cls.model_path_pt.exists() and not cls.model_path_onnx.exists():
             raise unittest.SkipTest(
-                "No MiewID model file found at models/miewid.pt or models/miewid.onnx; "
+                "No MiewID model file found at models/miewid_v3.bin or models/miewid_v3.onnx; "
                 "skipping TestLoadMiew (requires downloaded model weights)."
             )
 
@@ -308,7 +308,7 @@ class TestExtractMiewEmbeddings(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.model_path = Path.cwd() / 'models/miewid.pt'
+        cls.model_path = Path.cwd() / 'models/miewid_v3.bin'
         cls.detections_path = Path(__file__).parent / 'GroundTruth/southwest/Detections.csv'
         if not cls.model_path.exists() or not cls.detections_path.exists():
             raise unittest.SkipTest(

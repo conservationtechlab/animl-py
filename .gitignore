@@ -29,7 +29,6 @@ MANIFEST
 notebooks/
 models/
 *.pt
-*.csv
 *.ipynb
 
 # PyInstaller

@@ -20,42 +20,6 @@ from animl.utils.general import (get_torch_device, get_onnx_device, softmax,
                                  tensor_to_onnx, NUM_THREADS)
 
 
-def save_classifier(model,
-                    out_dir: str,
-                    epoch: int,
-                    stats: dict,
-                    optimizer=None,
-                    scheduler=None):
-    '''
-    Saves model state weights.
-
-    Args:
-        model: pytorch model
-        out_dir (str): directory to save model to
-        epoch (int): current training epoch
-        stats (dict): performance metrics of current epoch
-        optimizer: pytorch optimizer (optional)
-        scheduler: pytorch scheduler (optional)
-
-    Returns:
-        None
-    '''
-    Path(out_dir).mkdir(parents=True, exist_ok=True)
-
-    # get model parameters and add to stats
-    checkpoint = {'model': model.state_dict(),
-                  'stats': stats}
-    # save optimizer and scheduler state dicts if they are provided
-    if optimizer is not None or scheduler is not None:
-        checkpoint['epoch'] = epoch
-    if optimizer is not None:
-        checkpoint['optimizer'] = optimizer.state_dict()
-    if scheduler is not None:
-        checkpoint['scheduler'] = scheduler.state_dict()
-
-    torch.save(checkpoint, open(f'{out_dir}/{epoch}.pt', 'wb'))
-
-
 def load_classifier(model_path: str,
                     classes: Union[int, str, Path, pd.DataFrame],
                     device: Optional[str] = None,
@@ -66,7 +30,8 @@ def load_classifier(model_path: str,
 
     Args:
         model_path (str): file or directory path to model weights
-        classes (int | str | Path | pd.DataFrame): number of classes, path to associated class list, or pd.DataFrame of class list
+        classes (int | str | Path | pd.DataFrame): number of classes, path to associated class list,
+                                                   or pd.DataFrame of class list
         device (str): specify to run on cpu or gpu
         architecture (str): expected model architecture
         quiet (bool): whether to suppress GPU warnings
@@ -106,7 +71,7 @@ def load_classifier(model_path: str,
             model = ConvNeXtBase(num_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
-        return model, start_epoch
+        return model, class_list, start_epoch
 
     # load a specific model file
     elif model_path.is_file():
@@ -168,62 +133,7 @@ def load_classifier(model_path: str,
         raise FileNotFoundError("Model not found at given path")
 
 
-def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
-    '''
-    Load checkpoint model weights to resume training.
-
-    Args:
-        model_path: path to saved weights
-        model: loaded model object
-        optimizer: optimizer object
-        scheduler: learning rate scheduler
-        device (str): device to load model and data to
-
-    Returns:
-        starting epoch (int)
-    '''
-    model_states = []
-    for file in Path.iterdir(Path(model_path)):
-        if Path(file).suffix.lower() == ".pt":
-            model_states.append(file)
-
-    if len(model_states):
-        # at least one save state found; get latest
-        savepoints = [m.stem for m in model_states]
-        model_epochs = [int(sp) for sp in savepoints if sp.isdigit()]
-        start_epoch = max(model_epochs)
-
-        # load state dict and apply weights to model
-        print(f'Resuming from epoch {start_epoch}')
-        checkpoint = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'), map_location=device)
-        model.load_state_dict(checkpoint['model'])
-        # Model is assumed to be on the correct device already (moved in main before optimizer creation)
-
-        # load optimzier state if available
-        if 'optimizer' in checkpoint:
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            # Ensure optimizer's state tensors are on the correct device
-            for state in optimizer.state.values():
-                for k, v in state.items():
-                    if isinstance(v, torch.Tensor) and v.device != device:
-                        state[k] = v.to(device)
-
-        # load scheduler state if available
-        if 'scheduler' in checkpoint:
-            scheduler.load_state_dict(checkpoint['scheduler'])
-
-        # get last epoch from model if avialble
-        if 'epoch' in checkpoint:
-            return checkpoint['epoch']
-        else:
-            return start_epoch
-    else:
-        # no save state found; stasrt anew
-        print('No model state found, starting new model')
-        return 0
-
-
-def load_class_list(classlist_file):
+def load_class_list(classlist_file: str):
     """
     Return classlist file as pd.DataFrame.
 
@@ -281,7 +191,8 @@ def classify(model,
     if batch_size <= 0:
         raise ValueError("batch_size must be a positive integer")
     if not hasattr(model, "framework"):
-        raise AttributeError("Model object must have 'framework' attribute indicating model type (e.g. 'pytorch', 'onnx', etc.)")
+        raise AttributeError("""Model object must have 'framework' attribute indicating model type
+                              (e.g. 'pytorch', 'onnx', etc.)""")
 
     # set model to device if pytorch
     if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
@@ -358,7 +269,8 @@ def classify(model,
                 for item in failed_files:
                     f.write(f"{item}\n")
 
-    print(f"\nFinished classification. Total images processed: {len(raw_output)} at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
+    print(f"\nFinished classification. Total images processed: {len(raw_output)}",
+          f" at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
 
     return raw_output, failed_files
 
@@ -377,7 +289,8 @@ def single_classification(animals: pd.DataFrame,
     Args:
         animals (pd.DataFrame): animal detections from manifest
         empty (Optional[pd.DataFrame]): empty detections from manifest
-        predictions_output (Union[np.array, tuple]): softmaxed logits from classify() and optionally list of failed files from classify
+        predictions_output (Union[np.array, tuple]): softmaxed logits from classify()
+            and optionally list of failed files from classify
         class_list (Union[list, pd.Series]): class list associated with model
         best (bool): whether to return one prediction per file
         count (bool): whether to add a count column with number of detections of each species per file
@@ -390,6 +303,11 @@ def single_classification(animals: pd.DataFrame,
     # convert None to empty dataframe fo concat
     if empty is None:
         empty = pd.DataFrame()
+    else:
+        empty = empty.reset_index(drop=True)
+        empty['prediction'] = empty['category_label']
+        empty['confidence'] = empty['conf']
+        empty['confidence'] = empty['confidence'].replace(np.nan, 1)
 
     if isinstance(class_list, pd.Series):
         class_list = class_list.to_list()
@@ -402,7 +320,8 @@ def single_classification(animals: pd.DataFrame,
 
     if not animals.empty:
         if failed_files is not None and len(failed_files) > 0:
-            print(f"Warning: {len(failed_files)} files failed to load during classification and will be excluded from results.")
+            print(f"Warning: {len(failed_files)} files failed to load during classification",
+                  " and will be excluded from results.")
             animals = animals[~animals[file_col].isin(failed_files)]
         animals = animals.reset_index(drop=True)
         animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1)]
@@ -426,7 +345,7 @@ def single_classification(animals: pd.DataFrame,
                 # replace empty predictions with most confident non-empty prediction
                 top = file.sort_values("confidence", ascending=False).iloc[0]
                 cols = ['prediction', 'confidence', 'frame', 'conf', 'max_detection_conf',
-                        'category', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
+                        'category', 'category_label', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
                 mask = manifest[file_col] == f
                 manifest.loc[mask, cols] = top[cols].values
 
@@ -455,6 +374,7 @@ def sequence_classification(animals: pd.DataFrame,
                             timestamp_col: str = "datetime",
                             failed_files: Optional[list] = None,
                             maxdiff: int = 60):
+    # TODO: align with R version
     """
     Applies class labels to images based on sequential information.
 
@@ -521,10 +441,19 @@ def sequence_classification(animals: pd.DataFrame,
     if failed_files is not None:
         animals = animals[~animals[file_col].isin(failed_files)].reset_index(drop=True)
 
-    assert len(animals) == predictions_raw.shape[0], "Number of predictions does not match number of animal detections after removing failed files."
+    if len(animals) != predictions_raw.shape[0]:
+        raise ValueError("Number of predictions does not match number of animal detections.")
 
     # prepare empty dataframe for concat
     if empty is not None and not empty.empty:
+        if not {'category_label', 'conf'}.issubset(empty.columns):
+            raise ValueError("Empty DataFrame must contain 'category_label' and 'conf' columns.")
+        # set confidence to 1 for empties if conf column is missing or all NaN
+        empty = empty.reset_index(drop=True)
+        empty['prediction'] = empty['category_label']
+        empty['confidence'] = empty['conf']
+        empty['confidence'] = empty['confidence'].replace(np.nan, 1)
+
         empty["ID"] = range(0, empty.shape[0])
         predempty = empty.pivot(index="ID", columns="prediction", values="confidence")
         # Replace NaN with 0
@@ -537,7 +466,6 @@ def sequence_classification(animals: pd.DataFrame,
                 predempty = predempty.drop("empty", axis=1)
             class_list = pd.concat([class_list,
                                     pd.Series([x for x in empty["prediction"].unique() if x != "empty"])], ignore_index=True)
-
         else:
             class_list = pd.concat([class_list, pd.Series(empty["prediction"].unique())], ignore_index=True)
             empty_col = predempty.columns.get_loc("empty")
@@ -548,8 +476,8 @@ def sequence_classification(animals: pd.DataFrame,
 
         empty["conf"] = 1
         animals_merged = pd.concat([animals, empty.iloc[:, :-1]]).reset_index(drop=True)  # dont add ID column
-        predictions = np.hstack((predictions_raw,
-                                 np.zeros((predictions_raw.shape[0], len(predempty.columns) - predictions_raw.shape[1]))))
+        predictions = np.hstack((predictions_raw, np.zeros((predictions_raw.shape[0],
+                                                            len(predempty.columns) - predictions_raw.shape[1]))))
         # concat
         predictions = np.vstack((predictions, np.array(predempty)))
 
