@@ -133,8 +133,6 @@ def load_classifier(model_path: str,
         raise FileNotFoundError("Model not found at given path")
 
 
-
-
 def load_class_list(classlist_file: str):
     """
     Return classlist file as pd.DataFrame.

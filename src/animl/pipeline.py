@@ -94,8 +94,8 @@ def from_paths(image_dir: str,
 
     else:
         # Extract animal detections from the rest
-        animals = detections[detections["category_label"] == "animal"].reset_index(drop=True)
-        empty = detections[detections["category_label"] != "animal"].reset_index(drop=True)
+        animals = detection.get_animals(detections)
+        empty = detection.get_empty(detections)
 
         # Use the classifier model to predict the species of animal detections
         print("Predicting species of animal detections...")
@@ -237,8 +237,8 @@ def from_config(config: str):
 
     else:
         # Extract animal detections from the rest
-        animals = detections[detections["category_label"] == "animal"].reset_index(drop=True)
-        empty = detections[detections["category_label"] != "animal"].reset_index(drop=True)
+        animals = detection.get_animals(detections)
+        empty = detection.get_empty(detections)
 
         # Use the classifier model to predict the species of animal detections
         print("Predicting species...")
