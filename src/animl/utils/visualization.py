@@ -241,6 +241,34 @@ def plot_from_file(csv_file: str, out_dir: str, file_col: str = 'filepath'):
         cv2.imwrite(new_file_path, img)
 
 
+def show_image(manifest_row):
+    """
+    Show an image from a manifest row without boxes.
+
+    Args:
+        manifest_row (pandas.Series): Row from the DataFrame containing the file path.
+
+    Returns:
+        None
+    """
+    if 'filepath' not in manifest_row:
+        raise ValueError("DataFrame must contain 'filepath' column.")
+    
+    path = manifest_row['filepath']
+    if not Path(path).is_file():
+        raise FileNotFoundError(f"The file {path} does not exist.")
+
+    if Path(path).suffix.lower() in IMAGE_EXTENSIONS:
+        img = cv2.imread(path)
+    else:
+        frame = manifest_row['frame'] if 'frame' in manifest_row else 0
+        img = get_frame_as_image(path, frame)
+
+    cv2.imshow(str(path), img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
 if __name__ == '__main__':
     # Create an argument parser
     parser = argparse.ArgumentParser(description='Plot boxes images-csv')

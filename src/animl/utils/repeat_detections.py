@@ -11,10 +11,12 @@ import cv2
 import json
 from dataclasses import dataclass
 
+from numpy import save
 from tqdm import tqdm
 from operator import attrgetter
 import fastquadtree.pyqtree as pyqtree
 
+#from animl.model_architecture import MD_LABELS
 from animl.utils.general import get_iou
 from animl.utils.visualization import plot_box
 
@@ -34,7 +36,7 @@ class RepeatDetectionOptions:
     #: What's the IOU threshold for considering two boxes the same?
     iouThreshold: float = 0.9
     #: How many occurrences of a single location before we declare it suspicious?
-    occurrenceThreshold: int = 20
+    occurrenceThreshold: int = 50
 
     #: Ignore "suspicious" detections smaller than some size
     minSuspiciousDetectionSize: float = 0.0
@@ -51,6 +53,19 @@ class RepeatDetectionOptions:
     includeFolders: list = []
     #: Exclude specific folders, mutually exclusive with [includeFolders]
     excludeFolders: list = []
+
+    categoryMap: dict = {0: 'empty', 1: 'animal', 2: 'person', 3: 'vehicle'}
+
+
+def set_detection_options(options, **kwargs):
+    """
+    Set options for repeat detection elimination.  See RepeatDetectionOptions for details on the options.
+    """
+    for key, value in kwargs.items():
+        if hasattr(options, key):
+            setattr(options, key, value)
+        else:
+            raise ValueError(f'Invalid option {key} for repeat detection elimination')
 
 
 @dataclass
@@ -245,6 +260,7 @@ def _find_matches_in_directory(dir_name_and_rows, options):
 
 def find_repeat_detections(manifest, 
                            options=RepeatDetectionOptions(),
+                           manual_review=False,
                            output_dir=None,
                            parallel=False):
     """
@@ -255,7 +271,8 @@ def find_repeat_detections(manifest,
         manifest (pd.DataFrame): the MD results .json file to analyze
         options (RepeatDetectionOptions, optional): all the interesting options controlling
             this process; see RepeatDetectionOptions for details.
-        save_images_for_review (bool, optional): whether to save images for manual review
+        manual_review (bool, optional): whether to immediately display images for manual review
+        output_dir (str, optional): if specified, save images for manual review to this directory;
         parallel (bool, optional): whether to run the process in parallel across directories
 
     Returns:
@@ -324,13 +341,30 @@ def find_repeat_detections(manifest,
                                                 key=lambda x: ((x.bbox[0]) + (x.bbox[2]/2.0) ))
             print(f'Found {len(suspicious_detections[i_dir])} suspicious detections in station {dirs_to_search[i_dir]}')
 
-    ##%% Save images for manual review
+
+    # if output directory is specified, save images for manual review of suspicious detections
     if output_dir is not None and output_dir != '':
-        # output directory for images to review
         filtering_dir = Path(output_dir) / 'filtering'
         print(f'Creating filtering folder: {filtering_dir}/')
         os.makedirs(filtering_dir, exist_ok=True)
-        
+
+        detection_index_file_name = filtering_dir / 'detectionIndex.json'
+        # Prepare the data we're going to write to the detection index file
+        detection_info = {
+            'suspicious_detections': suspicious_detections,
+            'dir_index_to_name': dir_index_to_name,
+            'options': options
+        }
+        # file_manifest.save_json(detection_info, detection_index_file_name)
+    else:
+        filtering_dir = None
+
+    # sets to keep track of true positives and false positives, as marked by the user during manual review
+    true_positives = set()
+    false_positives = set()
+
+    # if manual review is enabled, display images for review and allow user to mark true positives and false positives
+    if manual_review:
         for i_dir, suspicious_detections_this_dir in enumerate(tqdm(suspicious_detections)):
             for i_detection, detection in enumerate(suspicious_detections_this_dir):
                 # Sort instances in descending order by confidence
@@ -346,33 +380,68 @@ def find_repeat_detections(manifest,
                 # mark the suspicious detection as category 0
                 all_detections.loc[instance.original_id, 'category'] = 1
 
-                # output path to save image with bbox
-                output_filename = 'dir{:0>4d}_det{:0>4d}_n{:0>4d}.jpg'.format(
-                    i_dir, i_detection, len(detection.instances))
-                output_path = filtering_dir / output_filename
-
+                # plot the image with the suspicious detection highlighted, and all other detections in gray
                 im = plot_box(all_detections, colors={"0": (192, 192, 192), "1": (255, 0, 0)}, return_img=True)
-                cv2.imwrite(output_path, im)
 
-        # Write out the detection index
-        detection_index_file_name = filtering_dir / 'detectionIndex.json'
-        # Prepare the data we're going to write to the detection index file
-        detection_info = {}
-        detection_info['suspicious_detections'] = suspicious_detections
-        detection_info['dir_index_to_name'] = dir_index_to_name
-        detection_info['options'] = options
-        with open(detection_index_file_name, 'w') as f:
-            json.dump(detection_info, f)
+                 # output path to save image with bbox
+                if filtering_dir is not None:
+                    output_filename = 'dir{:0>4d}_det{:0>4d}_n{:0>4d}.jpg'.format(
+                        i_dir, i_detection, len(detection.instances))
+                    output_path = filtering_dir / output_filename
+                    cv2.imwrite(output_path, im)
 
-    # get all original indices of suspicious detections
-    false_positives = set()
-    for directory in suspicious_detections:
-        for detection_location in directory:
-            false_positives = false_positives.union(set(match.original_id for match in detection_location.instances))
+                # display the image for review
+                cv2.imshow('Suspicious Detection: ' + filepath, im)
+                print(f'Displaying {output_filename} with {len(detection.instances)} instances. \
+                      Press T to mark as a true positive, F to mark as a false positive, or Esc to exit.')
+                while True:
+                    key = cv2.waitKey(0) & 0xFF
+
+                    if key == ord("t"):
+                        # Mark this detection as a true positive
+                        true_positives = true_positives.union(set(match.original_id for match in detection_location.instances))
+                        break
+                    elif key == ord("f"):
+                        # Mark all instances of this detection as false positives
+                        false_positives = false_positives.union(set(match.original_id for match in detection_location.instances))
+                        break
+                    elif key == 27:  # Esc
+                        print("Pressed Esc, image ignored.")
+                        break
+
+                cv2.destroyAllWindows()
+
+    # if manual review is not enabled, get all original indices of suspicious detections and mark them as false positives
+    else:
+        print('Manual review not enabled, skipping image display and manual marking of true positives and false positives.')
+        # get all original indices of suspicious detections
+        for directory in suspicious_detections:
+            for detection_location in directory:
+                false_positives = false_positives.union(set(match.original_id for match in detection_location.instances))
+
 
     # mark false positives in manifest
     manifest_marked = copy.deepcopy(manifest)
-    manifest_marked['false_positive'] = 0
-    manifest_marked.loc[manifest_marked['original_index'].isin(false_positives), 'false_positive'] = 1
 
-    return manifest_marked
+    fp_category_id = max(options.categoryMap.keys()) + 1
+
+    manifest_marked.loc[manifest_marked['original_index'].isin(false_positives), 'category'] = fp_category_id
+    manifest_marked.loc[manifest_marked['original_index'].isin(false_positives), 'category_label'] = 'false_positive'
+
+    return manifest_marked, true_positives, false_positives
+
+
+def remove_false_positives(manifest_marked):
+    """
+    Remove false positives from the manifest, based on the 'false_positive' column added by find_repeat_detections.
+
+    Args:
+        manifest_marked (pd.DataFrame): the manifest with a 'false_positive' column indicating which detections are false positives
+
+    Returns:
+        filtered_manifest (pd.DataFrame): a copy of the input manifest with false positives removed
+    """
+    filtered_manifest = manifest_marked[manifest_marked['category_label'] != 'false_positive'].copy()
+    filtered_manifest.drop(columns=['category_label'], inplace=True)
+    return filtered_manifest
+
