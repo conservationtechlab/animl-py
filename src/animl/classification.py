@@ -160,7 +160,6 @@ def classify(model,
              device: Optional[str] = None,
              out_file: Optional[str] = None):
     """
-    TODO: align with R version
     Predict species using classifier model.
 
     Args:
