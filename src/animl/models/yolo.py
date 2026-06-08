@@ -18,9 +18,7 @@ from animl.models.common import (Bottleneck, BottleneckCSP, C3,
                                  C3Ghost, C3SPP, C3TR, C3x,
                                  Contract, Conv, CrossConv, DWConv,
                                  DWConvTranspose2d, Expand, Focus, GhostBottleneck,
-                                 GhostConv, SPP, SPPF)
-from animl.utils.general import (make_divisible, fuse_conv_and_bn, initialize_weights, 
-                                 scale_img, time_sync)
+                                 GhostConv, SPP, SPPF, _make_divisible, _time_sync)
 
 try:
     import thop  # for FLOPs computation
@@ -37,8 +35,54 @@ if platform.system() != 'Windows':
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 
-# FROM autoanchor.py
-def check_anchor_order(m):
+def _initialize_weights(model):
+    for m in model.modules():
+        t = type(m)
+        if t is nn.Conv2d:
+            pass  # nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+        elif t is nn.BatchNorm2d:
+            m.eps = 1e-3
+            m.momentum = 0.03
+        elif t in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU]:
+            m.inplace = True
+
+
+def _fuse_conv_and_bn(conv, bn):
+    # Fuse Conv2d() and BatchNorm2d() layers https://tehnokv.com/posts/fusing-batchnorm-and-conv/
+    fusedconv = nn.Conv2d(conv.in_channels,
+                          conv.out_channels,
+                          kernel_size=conv.kernel_size,
+                          stride=conv.stride,
+                          padding=conv.padding,
+                          groups=conv.groups,
+                          bias=True).requires_grad_(False).to(conv.weight.device)
+
+    # Prepare filters
+    w_conv = conv.weight.clone().view(conv.out_channels, -1)
+    w_bn = torch.diag(bn.weight.div(torch.sqrt(bn.eps + bn.running_var)))
+    fusedconv.weight.copy_(torch.mm(w_bn, w_conv).view(fusedconv.weight.shape))
+
+    # Prepare spatial bias
+    b_conv = torch.zeros(conv.weight.size(0), device=conv.weight.device) if conv.bias is None else conv.bias
+    b_bn = bn.bias - bn.weight.mul(bn.running_mean).div(torch.sqrt(bn.running_var + bn.eps))
+    fusedconv.bias.copy_(torch.mm(w_bn, b_conv.reshape(-1, 1)).reshape(-1) + b_bn)
+
+    return fusedconv
+
+
+def _scale_img(img, ratio=1.0, same_shape=False, gs=32):  # img(16,3,256,416)
+    # Scales img(bs,3,y,x) by ratio constrained to gs-multiple
+    if ratio == 1.0:
+        return img
+    h, w = img.shape[2:]
+    s = (int(h * ratio), int(w * ratio))  # new size
+    img = F.interpolate(img, size=s, mode='bilinear', align_corners=False)  # resize
+    if not same_shape:  # pad/crop img
+        h, w = (math.ceil(x * ratio / gs) * gs for x in (h, w))
+    return F.pad(img, [0, w - s[1], 0, h - s[0]], value=0.447)  # value = imagenet mean
+
+
+def _check_anchor_order(m):
     # Check anchor order against stride order for YOLOv5 Detect() module m, and correct if necessary
     a = m.anchors.prod(-1).mean(-1).view(-1)  # mean anchor area per output layer
     da = a[-1] - a[0]  # delta a
@@ -104,6 +148,7 @@ class Detect(nn.Module):
         anchor_grid = (self.anchors[i] * self.stride[i]).view((1, self.na, 1, 1, 2)).expand(shape)
         return grid, anchor_grid
 
+
 class Segment(Detect):
     """YOLOv5 Segment head for segmentation models, extending Detect with mask and prototype layers."""
 
@@ -125,6 +170,7 @@ class Segment(Detect):
         x = self.detect(self, x)
         return (x, p) if self.training else (x[0], p) if self.export else (x[0], p, x[1])
 
+
 class BaseModel(nn.Module):
     """YOLOv5 base model."""
 
@@ -145,24 +191,24 @@ class BaseModel(nn.Module):
             x = m(x)  # run
             y.append(x if m.i in self.save else None)  # save output
             if visualize:
-                feature_visualization(x, m.type, m.i, save_dir=visualize)
+                print(f"{m.type} layer output shape: {x.shape}")
         return x
 
     def _profile_one_layer(self, m, x, dt):
         """Profiles a single layer's performance by computing GFLOPs, execution time, and parameters."""
         c = m == self.model[-1]  # is final layer, copy input as inplace fix
         o = thop.profile(m, inputs=(x.copy() if c else x,), verbose=False)[0] / 1e9 * 2 if thop else 0  # FLOPs
-        t = time_sync()
+        t = _time_sync()
         for _ in range(10):
             m(x.copy() if c else x)
-        dt.append((time_sync() - t) * 100)
+        dt.append((_time_sync() - t) * 100)
 
 
     def fuse(self):
         """Fuses Conv2d() and BatchNorm2d() layers in the model to improve inference speed."""
         for m in self.model.modules():
             if isinstance(m, (Conv, DWConv)) and hasattr(m, "bn"):
-                m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
+                m.conv = _fuse_conv_and_bn(m.conv, m.bn)  # update conv
                 delattr(m, "bn")  # remove batchnorm
                 m.forward = m.forward_fuse  # update forward
         return self
@@ -218,13 +264,13 @@ class DetectionModel(BaseModel):
             s = 256  # 2x min stride
             m.inplace = self.inplace
             m.stride = torch.tensor([s / x.shape[-2] for x in _forward(torch.zeros(1, ch, s, s))])  # forward
-            check_anchor_order(m)
+            _check_anchor_order(m)
             m.anchors /= m.stride.view(-1, 1, 1)
             self.stride = m.stride
             self._initialize_biases()  # only run once
 
         # Init weights, biases
-        initialize_weights(self)
+        _initialize_weights(self)
 
     def forward(self, x, augment=False, profile=False, visualize=False):
         """Performs single-scale or augmented inference and may include profiling or visualization."""
@@ -239,7 +285,7 @@ class DetectionModel(BaseModel):
         f = [None, 3, None]  # flips (2-ud, 3-lr)
         y = []  # outputs
         for si, fi in zip(s, f):
-            xi = scale_img(x.flip(fi) if fi else x, si, gs=int(self.stride.max()))
+            xi = _scale_img(x.flip(fi) if fi else x, si, gs=int(self.stride.max()))
             yi = self._forward_once(xi)[0]  # forward
             # cv2.imwrite(f'img_{si}.jpg', 255 * xi[0].cpu().numpy().transpose((1, 2, 0))[:, :, ::-1])  # save
             yi = self._descale_pred(yi, fi, si, img_size)
@@ -330,7 +376,6 @@ def parse_model(d, ch):
             SPP,
             SPPF,
             DWConv,
-            MixConv2d,
             Focus,
             CrossConv,
             BottleneckCSP,
@@ -344,7 +389,7 @@ def parse_model(d, ch):
         }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
-                c2 = make_divisible(c2 * gw, ch_mul)
+                c2 = _make_divisible(c2 * gw, ch_mul)
 
             args = [c1, c2, *args[1:]]
             if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x}:
@@ -359,7 +404,7 @@ def parse_model(d, ch):
             if isinstance(args[1], int):  # number of anchors
                 args[1] = [list(range(args[1] * 2))] * len(f)
             if m is Segment:
-                args[3] = make_divisible(args[3] * gw, ch_mul)
+                args[3] = _make_divisible(args[3] * gw, ch_mul)
         elif m is Contract:
             c2 = ch[f] * args[0] ** 2
         elif m is Expand:

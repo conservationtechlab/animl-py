@@ -4,7 +4,6 @@ exclude =
     .git,
     __pycache__,
     docs/source/conf.py,
-    ./src/animl/utils
     ./src/animl/models
     ./build/
     ./src/animl/future

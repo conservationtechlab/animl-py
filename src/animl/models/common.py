@@ -6,6 +6,7 @@ Required for MDv5
 
 """
 import math
+from time import time
 import warnings
 from copy import copy
 from pathlib import Path
@@ -20,19 +21,59 @@ from PIL import Image
 from torch.cuda import amp
 
 
-from animl.utils.general import (increment_path, make_divisible, non_max_suppression, 
-                                 scale_coords, xywhc2xyxy, xyxyc2xywh, exif_transpose, letterbox,
-                                 copy_attr, time_sync)
+from animl.utils.general import (non_max_suppression, _scale_coords,
+                                 _xywhc_to_xyxy, _xyxy_to_xywhc,
+                                 exif_transpose, letterbox,)
 
 
-def autopad(k, p=None):  # kernel, padding
+def _time_sync():
+    # PyTorch-accurate time
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    return time.time()
+
+
+def _copy_attr(a, b, include=(), exclude=()):
+    # Copy attributes from b to a, options to only include [...] and to exclude [...]
+    for k, v in b.__dict__.items():
+        if (len(include) and k not in include) or k.startswith('_') or k in exclude:
+            continue
+        else:
+            setattr(a, k, v)
+
+def _make_divisible(x, divisor):
+    # Returns nearest x divisible by divisor
+    if isinstance(divisor, torch.Tensor):
+        divisor = int(divisor.max())  # to int
+    return math.ceil(x / divisor) * divisor
+
+
+def _increment_path(path, exist_ok=False, sep='', mkdir=False):
+    # Increment file or directory path, i.e. runs/exp --> runs/exp{sep}2, runs/exp{sep}3, ... etc.
+    path = Path(path)  # os-agnostic
+    if path.exists() and not exist_ok:
+        path, suffix = (path.with_suffix(''), path.suffix) if path.is_file() else (path, '')
+
+        # Method 1
+        for n in range(2, 9999):
+            p = f'{path}{sep}{n}{suffix}'  # increment path
+            if not Path(p).exists():  #
+                break
+        path = Path(p)
+
+    if mkdir:
+        path.mkdir(parents=True, exist_ok=True)  # make directory
+
+    return path
+
+def _autopad(k, p=None):  # kernel, padding
     # Pad to 'same'
     if p is None:
         p = k // 2 if isinstance(k, int) else [x // 2 for x in k]  # auto-pad
     return p
 
 
-def check_suffix(file='yolov5s.pt', suffix=('.pt',), msg=''):
+def _check_suffix(file='yolov5s.pt', suffix=('.pt',), msg=''):
     # Check file(s) for acceptable suffix
     if file and suffix:
         if isinstance(suffix, str):
@@ -47,7 +88,7 @@ class Conv(nn.Module):
     # Standard convolution
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):  # ch_in, ch_out, kernel, stride, padding, groups
         super().__init__()
-        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
+        self.conv = nn.Conv2d(c1, c2, k, s, _autopad(k, p), groups=g, bias=False)
         self.bn = nn.BatchNorm2d(c2)
         self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
 
@@ -376,7 +417,7 @@ class DetectMultiBackend(nn.Module):
             # im = im.resize((192, 320), Image.ANTIALIAS)
             y = self.model.predict({'image': im})  # coordinates are xywh normalized
             if 'confidence' in y:
-                box = xywhc2xyxy(y['coordinates'] * [[w, h, w, h]])  # xyxy pixels
+                box = _xywhc_to_xyxy(y['coordinates'] * [[w, h, w, h]])  # xyxy pixels
                 conf, cls = y['confidence'].max(1), y['confidence'].argmax(1).astype(np.float)
                 y = np.concatenate((box, conf.reshape(-1, 1), cls.reshape(-1, 1)), 1)
             else:
@@ -419,7 +460,7 @@ class DetectMultiBackend(nn.Module):
         # Return model type from model path, i.e. path='path/to/model.onnx' -> type=onnx
         from export import export_formats
         suffixes = list(export_formats().Suffix) + ['.xml']  # export suffixes
-        check_suffix(p, suffixes)  # checks
+        _check_suffix(p, suffixes)  # checks
         p = Path(p).name  # eliminate trailing separators
         pt, jit, onnx, xml, engine, coreml, saved_model, pb, tflite, edgetpu, tfjs, xml2 = (s in p for s in suffixes)
         xml |= xml2  # *_openvino_model or *.xml
@@ -448,7 +489,7 @@ class AutoShape(nn.Module):
         super().__init__()
         if verbose:
             print('Adding AutoShape... ')
-        copy_attr(self, model, include=('yaml', 'nc', 'hyp', 'names', 'stride', 'abc'), exclude=())  # copy attributes
+        _copy_attr(self, model, include=('yaml', 'nc', 'hyp', 'names', 'stride', 'abc'), exclude=())  # copy attributes
         self.dmb = isinstance(model, DetectMultiBackend)  # DetectMultiBackend() instance
         self.pt = not self.dmb or model.pt  # PyTorch model
         self.model = model.eval()
@@ -475,7 +516,7 @@ class AutoShape(nn.Module):
         #   torch:           = torch.zeros(16,3,320,640)  # BCHW (scaled to size=640, 0-1 values)
         #   multiple:        = [Image.open('image1.jpg'), Image.open('image2.jpg'), ...]  # list of images
 
-        t = [time_sync()]
+        t = [_time_sync()]
         p = next(self.model.parameters()) if self.pt else torch.zeros(1, device=self.model.device)  # for device, type
         autocast = self.amp and (p.device.type != 'cpu')  # Automatic Mixed Precision (AMP) inference
         if isinstance(imgs, torch.Tensor):  # torch
@@ -501,16 +542,16 @@ class AutoShape(nn.Module):
             g = (size / max(s))  # gain
             shape1.append([y * g for y in s])
             imgs[i] = im if im.data.contiguous else np.ascontiguousarray(im)  # update
-        shape1 = [make_divisible(x, self.stride) if self.pt else size for x in np.array(shape1).max(0)]  # inf shape
+        shape1 = [_make_divisible(x, self.stride) if self.pt else size for x in np.array(shape1).max(0)]  # inf shape
         x = [letterbox(im, shape1, auto=False)[0] for im in imgs]  # pad
         x = np.ascontiguousarray(np.array(x).transpose((0, 3, 1, 2)))  # stack and BHWC to BCHW
         x = torch.from_numpy(x).to(p.device).type_as(p) / 255  # uint8 to fp16/32
-        t.append(time_sync())
+        t.append(_time_sync())
 
         with amp.autocast(autocast):
             # Inference
             y = self.model(x, augment, profile)  # forward
-            t.append(time_sync())
+            t.append(_time_sync())
 
             # Post-process
             y = non_max_suppression(y if self.dmb else y[0],
@@ -521,9 +562,9 @@ class AutoShape(nn.Module):
                                     self.multi_label,
                                     max_det=self.max_det)  # NMS
             for i in range(n):
-                scale_coords(shape1, y[i][:, :4], shape0[i])
+                _scale_coords(shape1, y[i][:, :4], shape0[i])
 
-            t.append(time_sync())
+            t.append(_time_sync())
             return Detections(imgs, y, files, t, self.names, x.shape)
 
 
@@ -539,7 +580,7 @@ class Detections:
         self.files = files  # image filenames
         self.times = times  # profiling times
         self.xyxy = pred  # xyxy pixels
-        self.xywh = [xyxyc2xywh(x) for x in pred]  # xywh pixels
+        self.xywh = [_xyxy_to_xywhc(x) for x in pred]  # xywh pixels
         self.xyxyn = [x / g for x, g in zip(self.xyxy, gn)]  # xyxy normalized
         self.xywhn = [x / g for x, g in zip(self.xywh, gn)]  # xywh normalized
         self.n = len(self.pred)  # number of images (batch size)
@@ -554,11 +595,11 @@ class Detections:
         self.display(show=True, labels=labels)  # show results
 
     def save(self, labels=True, save_dir='runs/detect/exp'):
-        save_dir = increment_path(save_dir, exist_ok=save_dir != 'runs/detect/exp', mkdir=True)  # increment save_dir
+        save_dir = _increment_path(save_dir, exist_ok=save_dir != 'runs/detect/exp', mkdir=True)  # increment save_dir
         self.display(save=True, labels=labels, save_dir=save_dir)  # save results
 
     def crop(self, save=True, save_dir='runs/detect/exp'):
-        save_dir = increment_path(save_dir, exist_ok=save_dir != 'runs/detect/exp', mkdir=True) if save else None
+        save_dir = _increment_path(save_dir, exist_ok=save_dir != 'runs/detect/exp', mkdir=True) if save else None
         return self.display(crop=True, save=save, save_dir=save_dir)  # crop results
 
     def render(self, labels=True):
@@ -597,7 +638,7 @@ class Classify(nn.Module):
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1):  # ch_in, ch_out, kernel, stride, padding, groups
         super().__init__()
         self.aap = nn.AdaptiveAvgPool2d(1)  # to x(b,c1,1,1)
-        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g)  # to x(b,c2,1,1)
+        self.conv = nn.Conv2d(c1, c2, k, s, _autopad(k, p), groups=g)  # to x(b,c2,1,1)
         self.flat = nn.Flatten()
 
     def forward(self, x):

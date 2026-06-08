@@ -10,14 +10,16 @@ from torchvision.models import efficientnet, convnext_base, ConvNeXt_Base_Weight
 
 MEGADETECTORv5_SIZE = 1280
 MEGADETECTORv5_STRIDE = 64
+MD_LABELS = {0: "empty", 1: "animal", 2: "human",  3: "vehicle"}
+MD_MODELS = {"mdv5", "mdv6", "mdv1000-redwood", "mdv1000-spruce", "mdv1000-cedar", "mdv1000-larch", "mdv1000-sorrel"}
 SDZWA_CLASSIFIER_SIZE = 480
 
 
 class EfficientNet(nn.Module):
+    '''
+    Construct the EfficientNet model architecture.
+    '''
     def __init__(self, num_classes, device=None, tune=False):
-        '''
-        Construct the EfficientNet model architecture.
-        '''
         super(EfficientNet, self).__init__()
         self.device = device
         self.avgpool = nn.AdaptiveAvgPool2d(1)
@@ -49,10 +51,10 @@ class EfficientNet(nn.Module):
 
 
 class ConvNeXtBase(nn.Module):
+    '''
+    Construct the ConvNeXt-Base model architecture.
+    '''
     def __init__(self, num_classes, tune=True):
-        '''
-        Construct the ConvNeXt-Base model architecture.
-        '''
         super(ConvNeXtBase, self).__init__()
         # load the ConvNeXt-Base model pre-trained on ImageNet 1K
         self.model = convnext_base(weights=ConvNeXt_Base_Weights.DEFAULT)

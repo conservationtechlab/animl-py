@@ -7,9 +7,10 @@ Original script from
 Modified by Peter van Lunteren 2024
 '''
 import argparse
-import yaml
+from pathlib import Path
 from tqdm import trange
-import pandas as pd
+
+from animl import file_management
 
 # mlops
 try:
@@ -25,12 +26,103 @@ from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR  # , ReduceLROn
 from torch.amp import autocast, GradScaler
 
 from animl.generator import train_dataloader
-from animl.classification import save_classifier, load_classifier, load_classifier_checkpoint
+from animl.classification import load_classifier
 from animl.utils.general import NUM_THREADS, init_seed
 
 
-def train_func(data_loader, model, optimizer, scheduler, device='cpu',
-               mixed_precision=False, progress=True):
+def save_classifier(model,
+                    out_dir: str,
+                    epoch: int,
+                    stats: dict,
+                    optimizer=None,
+                    scheduler=None):
+    '''
+    Saves model state weights.
+
+    Args:
+        model: pytorch model
+        out_dir (str): directory to save model to
+        epoch (int): current training epoch
+        stats (dict): performance metrics of current epoch
+        optimizer: pytorch optimizer (optional)
+        scheduler: pytorch scheduler (optional)
+
+    Returns:
+        None
+    '''
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    # get model parameters and add to stats
+    checkpoint = {'model': model.state_dict(),
+                  'stats': stats}
+    # save optimizer and scheduler state dicts if they are provided
+    if optimizer is not None or scheduler is not None:
+        checkpoint['epoch'] = epoch
+    if optimizer is not None:
+        checkpoint['optimizer'] = optimizer.state_dict()
+    if scheduler is not None:
+        checkpoint['scheduler'] = scheduler.state_dict()
+
+    torch.save(checkpoint, open(f'{out_dir}/{epoch}.pt', 'wb'))
+
+
+def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
+    '''
+    Load checkpoint model weights to resume training.
+
+    Args:
+        model_path: path to saved weights
+        model: loaded model object
+        optimizer: optimizer object
+        scheduler: learning rate scheduler
+        device (str): device to load model and data to
+
+    Returns:
+        starting epoch (int)
+    '''
+    model_states = []
+    for file in Path.iterdir(Path(model_path)):
+        if Path(file).suffix.lower() == ".pt":
+            model_states.append(file)
+
+    if len(model_states):
+        # at least one save state found; get latest
+        savepoints = [m.stem for m in model_states]
+        model_epochs = [int(sp) for sp in savepoints if sp.isdigit()]
+        start_epoch = max(model_epochs)
+
+        # load state dict and apply weights to model
+        print(f'Resuming from epoch {start_epoch}')
+        checkpoint = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'), map_location=device)
+        model.load_state_dict(checkpoint['model'])
+        # Model is assumed to be on the correct device already (moved in main before optimizer creation)
+
+        # load optimzier state if available
+        if 'optimizer' in checkpoint:
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            # Ensure optimizer's state tensors are on the correct device
+            for state in optimizer.state.values():
+                for k, v in state.items():
+                    if isinstance(v, torch.Tensor) and v.device != device:
+                        state[k] = v.to(device)
+
+        # load scheduler state if available
+        if 'scheduler' in checkpoint:
+            scheduler.load_state_dict(checkpoint['scheduler'])
+
+        # get last epoch from model if avialble
+        if 'epoch' in checkpoint:
+            return checkpoint['epoch']
+        else:
+            return start_epoch
+    else:
+        # no save state found; stasrt anew
+        print('No model state found, starting new model')
+        return 0
+
+
+def _train_classifier_helper(data_loader, model, optimizer, scheduler, device='cpu',
+                             mixed_precision=False, progress=True):
     '''
     Main training loop.
 
@@ -64,9 +156,12 @@ def train_func(data_loader, model, optimizer, scheduler, device='cpu',
         scaler = GradScaler('cuda', enabled=True)
 
     for idx, batch in enumerate(data_loader):
+        collated, failed = batch
+        if collated is None:  # entire batch was bad
+            continue
         # put data and labels on device
-        data = batch[0]
-        labels = batch[1]
+        data = collated[0]
+        labels = collated[1]
         data, labels = data.to(device), labels.to(device)
         # reset gradients to zero
         optimizer.zero_grad()
@@ -121,7 +216,7 @@ def train_func(data_loader, model, optimizer, scheduler, device='cpu',
     return loss_total, oa_total
 
 
-def validate_func(data_loader, model, device="cpu", progress=True):
+def _validate_classifier_helper(data_loader, model, device="cpu", progress=True):
     '''
     Model validation function for each epoch.
 
@@ -156,8 +251,11 @@ def validate_func(data_loader, model, device="cpu", progress=True):
         progressBar = trange(len(data_loader))
     with torch.no_grad():  # gradients not necessary for validation
         for idx, batch in enumerate(data_loader):
-            data = batch[0]
-            labels = batch[1]
+            collated, failed = batch
+            if collated is None:  # entire batch was bad
+                continue
+            data = collated[0]
+            labels = collated[1]
             data, labels = data.to(device), labels.to(device)
 
             # add true labels to the true labels list
@@ -203,7 +301,7 @@ def validate_func(data_loader, model, device="cpu", progress=True):
     return loss_total, oa_total, precision, recall
 
 
-def train_main(cfg):
+def train_classifier(cfg):
     '''
     Command line function
 
@@ -214,7 +312,7 @@ def train_main(cfg):
     > python train.py --config configs/exp_resnet18.yaml
     '''
     # load cfg file
-    cfg = yaml.safe_load(open(cfg, 'r'))
+    cfg = file_management.load_yaml(cfg)
 
     if comet_ml:
         api_key = cfg.get('comet_api_key', None)
@@ -242,23 +340,23 @@ def train_main(cfg):
     if device != 'cpu' and not torch.cuda.is_available():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
         device = 'cpu'
-    # get mixed precision
+    # get mixed precision flag
     mixed_precision = cfg.get('mixed_precision', False)
 
-    # initialize model and get class list
-    classes = pd.read_csv(cfg['class_file'])
     # model will be on CPU after this call if cfg['experiment_folder'] is a directory
-    model, current_epoch = load_classifier(cfg['experiment_folder'], len(classes), device=device, architecture=cfg['architecture'])
+    model, classes, current_epoch = load_classifier(cfg['experiment_folder'], cfg['class_file'],
+                                                    device=device, architecture=cfg['architecture'])
 
     # Move model to the target device BEFORE optimizer initialization
     model.to(device)
     print(f"Model moved to {device}")
 
-    categories = dict([[x[cfg.get('class_list_label', 'class')], x[cfg.get('class_list_index', 'id')]] for _, x in classes.iterrows()])
+    categories = file_management.class_list_to_dict(classes, id_col=cfg.get('class_list_index', 'id'),
+                                                    class_col=cfg.get('class_list_label', 'class'))
 
     # load datasets
-    train_dataset = pd.read_csv(cfg['training_set']).reset_index(drop=True)
-    validate_dataset = pd.read_csv(cfg['validate_set']).reset_index(drop=True)
+    train_dataset = file_management.load_data(cfg['training_set'])
+    validate_dataset = file_management.load_data(cfg['validate_set'])
 
     # Initialize data loaders for training and validation set
     dl_train = train_dataloader(train_dataset, categories,
@@ -319,8 +417,9 @@ def train_main(cfg):
             for param in model.parameters():
                 param.requires_grad = True
 
-        loss_train, oa_train = train_func(dl_train, model, optim, scheduler, device, mixed_precision=mixed_precision, progress=progress)
-        loss_val, oa_val, precision, recall = validate_func(dl_val, model, device, progress=progress)
+        loss_train, oa_train = _train_classifier_helper(dl_train, model, optim, scheduler, device,
+                                                        mixed_precision=mixed_precision, progress=progress)
+        loss_val, oa_val, precision, recall = _validate_classifier_helper(dl_val, model, device, progress=progress)
 
         # combine stats and save
         stats = {
@@ -379,4 +478,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f'Using config "{args.config}"')
-    train_main(args.config)
+    train_classifier(args.config)

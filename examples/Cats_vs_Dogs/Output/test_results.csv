@@ -1,0 +1,21 @@
+,FilePath,Ground Truth,Predicted,Accuracy,Precision,Recall
+0,/home/kyra/animl-py/examples/Cats_vs_Dogs/Dog/82.jpg,1,1,0.95,0.9545454545454545,0.95
+1,/home/kyra/animl-py/examples/Cats_vs_Dogs/Dog/3.jpg,1,1,0.95,0.9545454545454545,0.95
+2,/home/kyra/animl-py/examples/Cats_vs_Dogs/Cat/44.jpg,0,1,0.95,0.9545454545454545,0.95
+3,/home/kyra/animl-py/examples/Cats_vs_Dogs/Cat/102.jpg,0,0,0.95,0.9545454545454545,0.95
+4,/home/kyra/animl-py/examples/Cats_vs_Dogs/Dog/6.jpg,1,1,0.95,0.9545454545454545,0.95
+5,/home/kyra/animl-py/examples/Cats_vs_Dogs/Dog/114.jpg,1,1,0.95,0.9545454545454545,0.95
+6,/home/kyra/animl-py/examples/Cats_vs_Dogs/Cat/29.jpg,0,0,0.95,0.9545454545454545,0.95
+7,/home/kyra/animl-py/examples/Cats_vs_Dogs/Dog/84.jpg,1,1,0.95,0.9545454545454545,0.95
+8,/home/kyra/animl-py/examples/Cats_vs_Dogs/Dog/35.jpg,1,1,0.95,0.9545454545454545,0.95
+9,/home/kyra/animl-py/examples/Cats_vs_Dogs/Cat/87.jpg,0,0,0.95,0.9545454545454545,0.95
+10,/home/kyra/animl-py/examples/Cats_vs_Dogs/Dog/109.jpg,1,1,0.95,0.9545454545454545,0.95
+11,/home/kyra/animl-py/examples/Cats_vs_Dogs/Cat/57.jpg,0,0,0.95,0.9545454545454545,0.95
+12,/home/kyra/animl-py/examples/Cats_vs_Dogs/Cat/98.jpg,0,0,0.95,0.9545454545454545,0.95
+13,/home/kyra/animl-py/examples/Cats_vs_Dogs/Cat/117.jpg,0,0,0.95,0.9545454545454545,0.95
+14,/home/kyra/animl-py/examples/Cats_vs_Dogs/Cat/113.jpg,0,0,0.95,0.9545454545454545,0.95
+15,/home/kyra/animl-py/examples/Cats_vs_Dogs/Cat/34.jpg,0,0,0.95,0.9545454545454545,0.95
+16,/home/kyra/animl-py/examples/Cats_vs_Dogs/Dog/157.jpg,1,1,0.95,0.9545454545454545,0.95
+17,/home/kyra/animl-py/examples/Cats_vs_Dogs/Dog/156.jpg,1,1,0.95,0.9545454545454545,0.95
+18,/home/kyra/animl-py/examples/Cats_vs_Dogs/Cat/77.jpg,0,0,0.95,0.9545454545454545,0.95
+19,/home/kyra/animl-py/examples/Cats_vs_Dogs/Dog/61.jpg,1,1,0.95,0.9545454545454545,0.95

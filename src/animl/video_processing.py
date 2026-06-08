@@ -65,7 +65,7 @@ def extract_frames(files,
         video_frames = []
         if parallel:
             pool = mp.Pool(num_workers)
-            output = [pool.apply(count_frames, args=(video, frames, fps)) for video in tqdm(videos[file_col])]
+            output = [pool.apply(_count_frames, args=(video, frames, fps)) for video in tqdm(videos[file_col])]
             output = list(filter(None, output))
             video_frames = vstack(output)
             video_frames = pd.DataFrame(video_frames, columns=[file_col, "frame"])
@@ -74,7 +74,7 @@ def extract_frames(files,
 
         else:
             for i, video in tqdm(enumerate(videos[file_col])):
-                output = count_frames(video, frames=frames, fps=fps)
+                output = _count_frames(video, frames=frames, fps=fps)
                 if output is not None:
                     video_frames.extend(output)
 
@@ -96,7 +96,7 @@ def extract_frames(files,
     return allframes
 
 
-def count_frames(filepath, frames=5, fps=None) -> int:
+def _count_frames(filepath, frames=5, fps=None) -> int:
     """
     Count number of frames in a video
 

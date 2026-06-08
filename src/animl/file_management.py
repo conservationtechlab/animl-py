@@ -6,15 +6,16 @@ This module provides functions and classes for managing files and directories.
 @ Kyra Swanson 2023
 """
 import json
-from shutil import copyfile
 from pathlib import Path, PosixPath
-from datetime import datetime, timedelta
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import pandas as pd
 import numpy as np
 import PIL
 import cv2
-from typing import Optional
-
+import exiftool
+import yaml
+from typing import Optional, Union
 
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', ".tiff", '.tif"'}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
@@ -25,7 +26,9 @@ VALID_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 def build_file_manifest(image_dir: str,
                         exif: bool = True,
                         out_file: Optional[str] = None,
-                        offset: int = 0,
+                        data_timezone: Optional[str] = None,
+                        station_depth: Optional[int] = None,
+                        camera_depth: Optional[int] = None,
                         recursive: bool = True):
     """
     Find Image/Video Files and Gather exif Data.
@@ -34,7 +37,14 @@ def build_file_manifest(image_dir: str,
         image_dir (str): directory of files to analyze
         exif (bool): returns date and time info from exif data, defaults to True
         out_file (str): file path to which the dataframe should be saved
-        offset (int): add timezone offset in hours to datetime column
+        data_timezone (str): timezone of the data, e.g., 'UTC', 'America/New_York', defaults to local timezone if None
+                             if you are unsure of the timezone, you can list all with zoneinfo.available_timezones()
+        station_depth (int): depth of station directory from the image_dir root in file path, if applicable.
+                             For example, if file paths are in the format "image_dir/station/date/file.jpg",
+                             station_depth would be 1 (0 indexed). If None, station column will not be created.
+        camera_depth (int): depth of camera directory from the image_dir root in file path, if applicable.
+                            For example, if file paths are in the format "image_dir/station/camera/date/file.jpg",
+                            camera_depth would be 2 (0 indexed). If None, camera column will not be created.
         recursive (bool): recursively search through all child directories
 
     Returns:
@@ -59,26 +69,23 @@ def build_file_manifest(image_dir: str,
     files["filename"] = files["filepath"].apply(lambda x: Path(x).name)
     files["extension"] = files["filepath"].apply(lambda x: Path(x).suffix.lower())
 
-    invalid = []
+    if station_depth is not None:
+        if recursive is False and station_depth >= 1:
+            raise ValueError("station_depth must be less than 1 if recursive is False")
+        root_depth = len(Path(image_dir).parts) - 1
+        station_depth = root_depth + int(station_depth)
+        files["station"] = files["filepath"].apply(
+            lambda x: Path(x).parts[station_depth] if len(Path(x).parts) > station_depth else None)
 
-    def check_time(timestamp):
-        input_formats = ['%Y:%m:%d %H:%M:%S', "%d-%m-%Y %H:%M", "%Y/%m/%d %H:%M:%S"]
-        desired_format = '%Y-%m-%d %H:%M:%S'
-        try:
-            # If it already matches, return as is
-            if datetime.strptime(timestamp, desired_format).strftime(desired_format) == timestamp:
-                return timestamp
-        except ValueError:
-            pass
-        # Try other input formats
-        for fmt in input_formats:
-            try:
-                newtimestamp = datetime.strptime(timestamp, fmt)
-                return newtimestamp.strftime(desired_format)
-            except ValueError:
-                continue
-        # timestamp not recognized
-        return None
+    if camera_depth is not None:
+        if recursive is False and camera_depth >= 1:
+            raise ValueError("camera_depth must be less than 1 if recursive is False")
+        root_depth = len(Path(image_dir).parts) - 1
+        camera_depth = root_depth + int(camera_depth)
+        files["camera"] = files["filepath"].apply(
+            lambda x: Path(x).parts[camera_depth] if len(Path(x).parts) > camera_depth else None)
+
+    invalid = []
 
     if exif:
         for i, row in files.iterrows():
@@ -89,35 +96,82 @@ def build_file_manifest(image_dir: str,
                     files.loc[i, "height"] = img.size[1]
                     files.loc[i, "createdate"] = img.getexif().get(0x0132)
                 except PIL.UnidentifiedImageError:
+                    print(f"Error processing image file {row['filepath']}")
                     invalid.append(i)
 
             elif row["extension"] in VIDEO_EXTENSIONS:
                 try:
                     vid = cv2.VideoCapture(row['filepath'])
-                    if vid.isOpened():
-                        files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
-                        files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                    else:
+                    # check if video opened successfully
+                    if not vid.isOpened():
+                        print(f"Error opening video file {row['filepath']}")
                         invalid.append(i)
-                    vid.release()
-                except Exception:
+                        continue
+                    files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                except Exception as e:
+                    print(f"Error processing file {row['filepath']}: {e}")
                     invalid.append(i)
+                # for videos try to get createdate from exiftool, but use filemodifydate as backup
+                try:
+                    with exiftool.ExifToolHelper() as et:
+                        metadata = et.get_metadata(row['filepath'])[0]
+                        if "QuickTime:CreateDate" in metadata:
+                            files.loc[i, "createdate"] = metadata["QuickTime:CreateDate"]
+                        elif "EXIF:DateTimeOriginal" in metadata:
+                            files.loc[i, "createdate"] = metadata["EXIF:DateTimeOriginal"]
+                        else:
+                            files.loc[i, "createdate"] = None
+                except Exception:
+                    print("pyexiftool failed, is exiftool installed and in PATH? \n",
+                          "createdate cannot be determined for videos, falling back to filemodifydate.")
+                    files.loc[i, "createdate"] = None
+
+        # determine local timezone for conversion
+        local_tz = datetime.now().astimezone().tzinfo
+        if data_timezone is not None:
+            try:
+                data_tz = ZoneInfo(data_timezone)
+            except Exception as e:
+                print(f"Error with timezone: {e}. Defaulting to local timezone.")
+                data_tz = local_tz
+        else:
+            data_tz = local_tz
 
         # get filemodifydate as backup (videos, etc)
-        files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
-        files["filemodifydate"] = pd.to_datetime(files["filemodifydate"]) + timedelta(hours=offset)
-        try:
+        def get_modify_date(x):
+            local = datetime.fromtimestamp(Path(x).stat().st_mtime, tz=local_tz)
+            adjusted = local.astimezone(data_tz)
+            return adjusted.strftime('%Y-%m-%d %H:%M:%S')
+
+        # function to convert multiple string formats to desired format, returns None if not recognized
+        def check_time(timestamp, tzinfo=data_tz):
+            input_formats = ['%Y:%m:%d %H:%M:%S', "%d-%m-%Y %H:%M", "%Y/%m/%d %H:%M:%S"]
+            desired_format = '%Y-%m-%d %H:%M:%S'
+            try:
+                timestamp = datetime.strptime(timestamp, desired_format).replace(tzinfo=tzinfo)
+                return timestamp.strftime(desired_format)
+            except ValueError:
+                pass
+            # Try other input formats
+            for fmt in input_formats:
+                try:
+                    newtimestamp = datetime.strptime(timestamp, fmt).replace(tzinfo=tzinfo)
+                    return newtimestamp.strftime(desired_format)
+                except ValueError:
+                    continue
+            # timestamp not recognized
+            return None
+        files["filemodifydate"] = files["filepath"].apply(get_modify_date)
+
+        if "createdate" in files.columns:
             # convert multiple string formats to datetime
             files['createdate'] = files['createdate'].replace(r'^\s*$', None, regex=True)
             files["createdate"] = files['createdate'].apply(lambda x: check_time(x) if isinstance(x, str) else x)
-            files["createdate"] = pd.to_datetime(files["createdate"])
-            # select createdate if exists, else choose filemodify date
-            files["datetime"] = files['createdate'].fillna(files['filemodifydate'])
-        except KeyError:
+            # select createdate if not none, else choose filemodify date
+            files["datetime"] = files["createdate"].fillna(files["filemodifydate"])
+        else:
             files["datetime"] = files["filemodifydate"]
-
-        # convert to datetime
-        files["datetime"] = pd.to_datetime(files["datetime"])
 
     files = files.drop(index=invalid).reset_index(drop=True)
 
@@ -163,14 +217,14 @@ class WorkingDirectory():
 
 
 def save_data(data: pd.DataFrame,
-              out_file: str,
+              out_file: Union[Path, str],
               prompt: bool = True) -> None:
     """
     Save data to given file.
 
     Args:
         data (pd.DataFrame): the dataframe to be saved
-        out_file (str): full path to save file to
+        out_file (Union[Path, str]): full path to save file to
         prompt (bool): prompts the user to confirm overwrite
 
     Returns:
@@ -187,12 +241,12 @@ def save_data(data: pd.DataFrame,
             raise AssertionError('Cannot save, directory does not exis.')
 
 
-def load_data(file: str) -> pd.DataFrame:
+def load_data(file: Union[Path, str]) -> pd.DataFrame:
     """
     Load .csv File.
 
     Args:
-        file (str): the full path of the file to load
+        file (Union[Path, str]): the full path of the file to load
 
     Returns:
         data extracted from the file. pd.dataframe form
@@ -204,14 +258,14 @@ def load_data(file: str) -> pd.DataFrame:
 
 
 def save_json(data: dict,
-              out_file: str,
+              out_file: Union[Path, str],
               prompt: bool = True) -> None:
     """
     Save data to a JSON file.
 
     Args:
         data (dict): the dictionary to be saved
-        out_file (str): full path to save file to
+        out_file (Union[Path, str]): full path to save file to
         prompt (bool): prompt user to confirm overwrite
 
     Returns:
@@ -225,12 +279,12 @@ def save_json(data: dict,
         json.dump(data, f, indent=4)
 
 
-def load_json(file: str) -> dict:
+def load_json(file: Union[Path, str]) -> dict:
     """
     Load data from a JSON file.
 
     Args:
-        file (str): the full path of the file to load
+        file (Union[Path, str]): the full path of the file to load
 
     Returns:
         data extracted from the file. dict form
@@ -242,13 +296,49 @@ def load_json(file: str) -> dict:
         raise AssertionError("Error. Expecting a .json file.")
 
 
-def check_file(file: str, output_type: str = None) -> bool:
+def save_yaml(data: dict,
+              out_file: Union[Path, str],
+              prompt: bool = True) -> None:
+    """Save data to a YAML file.
+
+    Args:
+        data (dict): the dictionary to be saved
+        out_file (Union[Path, str]): full path to save file to
+        prompt (bool): prompt user to confirm overwrite
+
+    Returns:
+        None
+    """
+    if Path(out_file).is_file() and (prompt is True):
+        prompt = "Output file exists, would you like to overwrite? y/n: "
+        if input(prompt).lower() != "y":
+            return
+    with open(out_file, 'w') as f:
+        yaml.dump(data, f)
+
+
+def load_yaml(file: Union[Path, str]) -> dict:
+    """Load data from a YAML file.
+
+    Args:
+        file (Union[Path, str]): the full path of the file to load
+    Returns:
+        data extracted from the file. dict form
+    """
+    if Path(file).suffix.lower() in {".yaml", ".yml"}:
+        with open(file, 'r') as f:
+            return yaml.safe_load(f)
+    else:
+        raise AssertionError("Error. Expecting a .yaml or .yml file.")
+
+
+def check_file(file: Union[Path, str], output_type: Union[Path, str] = None) -> bool:
     """
     Check for files existence and prompt user if they want to load.
 
     Args:
-        file (str): the full path of the file to check
-        output_type (str): type of output file (e.g., "Manifest", "Detections")
+        file (Union[Path, str]): the full path of the file to check
+        output_type (Union[Path, str]): type of output file (e.g., "Manifest", "Detections")
 
     Returns:
         a boolean indicating whether a file was found and the user wants to load or not
@@ -269,67 +359,58 @@ def check_file(file: str, output_type: str = None) -> bool:
     return False
 
 
-def save_detection_checkpoint(checkpoint_path: str, results: dict) -> None:
+def class_list_to_dict(class_list: pd.DataFrame,
+                       id_col: str = 'id',
+                       class_col: str = 'class') -> dict:
     """
-    Save a checkpoint of the detection results to a JSON file.
+    Convert classification or detection class list dataframe to dictionary.
 
     Args:
-        checkpoint_path (str): the path to the checkpoint file
-        results (list): a list of detection results to save
+        class_list (pd.DataFrame): dataframe with 'class' and 'id' columns
+
+    Returns:
+        class_dict (dict): dictionary mapping ids to class names
     """
-    assert checkpoint_path is not None
-    # Back up any previous checkpoints, to protect against crashes while we're writing
-    # the checkpoint file.
-    checkpoint_tmp_path = None
-    if Path(checkpoint_path).is_file():
-        checkpoint_tmp_path = str(checkpoint_path) + '_tmp'
-        copyfile(checkpoint_path, checkpoint_tmp_path)
-
-    # Write the new checkpoint
-    save_json({'images': results}, checkpoint_path, prompt=False)
-
-    # Remove the backup checkpoint if it exists
-    if checkpoint_tmp_path is not None:
-        Path(checkpoint_tmp_path).unlink()
+    if not {class_col, id_col}.issubset(class_list.columns):
+        raise ValueError(f"DataFrame must contain '{class_col}' and '{id_col}' columns.")
+    return {int(row[id_col]): row[class_col] for _, row in class_list.iterrows()}
 
 
-def active_times(manifest_dir,
-                 depth: int = 1,
-                 recursive: bool = True,
-                 offset: int = 0) -> pd.DataFrame:
+def active_times(manifest,
+                 file_col: str = "filepath",
+                 camera_depth: int = 0,
+                 timestamp_col: str = "datetime") -> pd.DataFrame:
     """
     Get start and stop dates for each camera folder.
 
     Args:
-        manifest_dir (str): either file manifest or directory of files to analyze
-        depth (int): directory depth from which to split cameras
-        recursive (bool): recursively search thhrough all child directories
-        offset (int): add timezone offset in hours to datetime column
+        manifest (pd.DataFrame): file manifest dataframe with file paths and timestamps
+        camera_depth (int): directory depth from which to split cameras,
+            with 0 being the root of the manifest_dir, defaults to 0
+        file_col (str): column in manifest to use for file paths, defaults to "filepath"
+        timestamp_col (str): column in manifest to use for timestamps, defaults to "datetime"
 
     Returns:
         times (pd.DataFrame): list of files with or without file modify dates
     """
     # from manifest file
-    if isinstance(manifest_dir, str):
-        if check_file(manifest_dir):
-            files = load_data(manifest_dir)  # load_data(outfile) load file manifest
+    if not isinstance(manifest, pd.DataFrame):
+        raise ValueError("Manifest must be a pandas DataFrame.")
 
-    # from manifest dataframe
-    elif isinstance(manifest_dir, pd.DataFrame):
-        # get time stamps if dne
-        if "filemodifydate" not in manifest_dir.columns:
-            files = manifest_dir
-            files["filemodifydate"] = files["filepath"].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
+    if not {file_col}.issubset(manifest.columns):
+        raise ValueError(f"DataFrame must contain '{file_col}' filepath column.")
 
-    # from scratch
-    elif Path(manifest_dir).is_dir():
-        files = build_file_manifest(manifest_dir, exif=True, offset=offset, recursive=recursive)
-    else:
-        raise FileNotFoundError("Requires a file manifest or image directory.")
+    # get filemodifydate timestamps if dne
+    if timestamp_col not in manifest.columns:
+        manifest[timestamp_col] = manifest[file_col].apply(lambda x: datetime.fromtimestamp(Path(x).stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'))
 
-    files["camera"] = files["filepath"].apply(lambda x: Path(x).parts[depth])
+    # get camera names if dne
+    if "camera" not in manifest.columns:
+        root_depth = len(Path(manifest[file_col].iloc[0]).parts) - 1
+        camera_depth = root_depth + int(camera_depth)
+        manifest["camera"] = manifest[file_col].apply(lambda x: Path(x).parts[camera_depth])
 
-    times = files.groupby("camera").agg({'filemodifydate': ['min', 'max']})
+    times = manifest.groupby("camera").agg({timestamp_col: ['min', 'max']})
 
     return times
 
@@ -338,17 +419,22 @@ def sequence_calculation(manifest,
                          station_col: str,
                          sort_columns: list[str] = None,
                          file_col: str = "filepath",
+                         timestamp_col: str = "datetime",
                          maxdiff: int = 60):
     """
     Simple sequence calculation based on time differences between consecutive images from the same station.
     Unlike sequence_classification(), does not apply any classification or labeling to the sequences.
 
     Args:
-        - manifest (pd.DataFrame): DataFrame containing image file information, including 'filepath' and 'datetime' columns
+        - manifest (pd.DataFrame): DataFrame containing image file information,
+            including 'file_col' and 'timestamp_col' columns
         - station_col (str): column name in the DataFrame representing the station or camera
-        - sort_columns (list[str]): list of columns to sort by before calculating sequences. Defaults to None, which sorts by station_col and 'datetime'.
+        - sort_columns (list[str]): list of columns to sort by before calculating sequences.
+                                    Defaults to None, which sorts by station_col and timestamp_col.
         - file_col (str): column name representing the file path. Defaults to "filepath".
-        - maxdiff (int): maximum time difference in seconds between consecutive images to be considered part of the same sequence. Defaults to 60.
+        - timestamp_col (str): column name representing the timestamp in format "%Y-%m-%d %H:%M:%S", defaults to "datetime".
+        - maxdiff (int): maximum time difference in seconds between consecutive images to be
+            considered part of the same sequence. Defaults to 60.
     """
     if not isinstance(station_col, str) or station_col == '':
         raise Exception("'station_col' must be a non-empty string")
@@ -360,17 +446,20 @@ def sequence_calculation(manifest,
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
-    if not {"datetime"}.issubset(manifest.columns):
-        raise ValueError("DataFrame must contain 'datetime' column.")
+    if not {timestamp_col}.issubset(manifest.columns):
+        raise ValueError(f"DataFrame must contain '{timestamp_col}' column.")
 
     if sort_columns is None:
-        sort_columns = [station_col, "datetime"]
+        sort_columns = [station_col, timestamp_col]
 
-    manifest['datetime'] = pd.to_datetime(manifest['datetime'], format="%Y-%m-%d %H:%M:%S")
+    # convert timestamp column to datetime if it's not already
+    manifest[timestamp_col] = pd.to_datetime(manifest[timestamp_col], format="%Y-%m-%d %H:%M:%S")
 
+    # sort by station and timestamp to ensure correct sequence calculation
     sort = manifest.sort_values(by=sort_columns).index
     manifest_sort = manifest.loc[sort].reset_index(drop=True)
 
+    # Initialize sequence placeholder with zeros
     sequence_placeholder = np.zeros(len(manifest_sort))
 
     i = 0
@@ -379,10 +468,10 @@ def sequence_calculation(manifest,
         rows = [i]
         last_index = i+1
 
-        while (last_index < len(manifest_sort) and not pd.isna(manifest_sort.loc[i, "datetime"]) and
-               not pd.isna(manifest_sort.loc[last_index, "datetime"]) and
+        while (last_index < len(manifest_sort) and not pd.isna(manifest_sort.loc[i, timestamp_col]) and
+               not pd.isna(manifest_sort.loc[last_index, timestamp_col]) and
                manifest_sort.loc[last_index, station_col] == manifest_sort.loc[i, station_col] and
-               (manifest_sort.loc[last_index, "datetime"] - manifest_sort.loc[i, "datetime"]).total_seconds() <= maxdiff):
+               (manifest_sort.loc[last_index, timestamp_col] - manifest_sort.loc[i, timestamp_col]).total_seconds() <= maxdiff):
             rows.append(last_index)
             last_index += 1
 

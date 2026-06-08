@@ -18,7 +18,6 @@ lib/
 lib64/
 parts/
 sdist/
-tests/
 var/
 wheels/
 pip-wheel-metadata/
@@ -30,7 +29,6 @@ MANIFEST
 notebooks/
 models/
 *.pt
-*.csv
 *.ipynb
 
 # PyInstaller
@@ -134,3 +132,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .vscode/settings.json
+
+docs/
