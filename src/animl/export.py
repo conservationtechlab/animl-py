@@ -634,7 +634,7 @@ def export_timelapse(manifest: pd.DataFrame,
 
 def export_megadetector(manifest: pd.DataFrame,
                         out_file: Optional[Union[Path, str]] = None,
-                        detector: str = 'MegaDetector v5b',
+                        detector: str = 'MegaDetector v5a',
                         prompt: bool = True):
     """
     Converts the .csv file [input_file] to the MD-formatted .json file [out_file].
