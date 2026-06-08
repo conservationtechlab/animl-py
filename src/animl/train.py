@@ -156,11 +156,12 @@ def _train_classifier_helper(data_loader, model, optimizer, scheduler, device='c
         scaler = GradScaler('cuda', enabled=True)
 
     for idx, batch in enumerate(data_loader):
-        if batch is None:  # entire batch was bad
+        collated, failed = batch
+        if collated is None:  # entire batch was bad
             continue
         # put data and labels on device
-        data = batch[0]
-        labels = batch[1]
+        data = collated[0]
+        labels = collated[1]
         data, labels = data.to(device), labels.to(device)
         # reset gradients to zero
         optimizer.zero_grad()
@@ -250,10 +251,11 @@ def _validate_classifier_helper(data_loader, model, device="cpu", progress=True)
         progressBar = trange(len(data_loader))
     with torch.no_grad():  # gradients not necessary for validation
         for idx, batch in enumerate(data_loader):
-            if batch is None:  # entire batch was bad
+            collated, failed = batch
+            if collated is None:  # entire batch was bad
                 continue
-            data = batch[0]
-            labels = batch[1]
+            data = collated[0]
+            labels = collated[1]
             data, labels = data.to(device), labels.to(device)
 
             # add true labels to the true labels list
@@ -349,8 +351,8 @@ def train_classifier(cfg):
     model.to(device)
     print(f"Model moved to {device}")
 
-    categories = file_management.class_list_to_dict(classes, index_col=cfg.get('class_list_index', 'id'),
-                                                    label_col=cfg.get('class_list_label', 'class'))
+    categories = file_management.class_list_to_dict(classes, id_col=cfg.get('class_list_index', 'id'),
+                                                    class_col=cfg.get('class_list_label', 'class'))
 
     # load datasets
     train_dataset = file_management.load_data(cfg['training_set'])

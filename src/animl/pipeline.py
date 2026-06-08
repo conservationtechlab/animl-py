@@ -192,7 +192,7 @@ def from_config(config: str):
         else:
             categories = file_management.load_data(categories)
             category_map = file_management.class_list_to_dict(categories, 
-                                                              id=cfg.get('detector_class_key_col', 'id'),
+                                                              id_col=cfg.get('detector_class_key_col', 'id'),
                                                               class_col=cfg.get('detector_class_value_col', 'class'))
 
 

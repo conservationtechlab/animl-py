@@ -369,7 +369,7 @@ def class_list_to_dict(class_list: pd.DataFrame,
         class_list (pd.DataFrame): dataframe with 'class' and 'id' columns
 
     Returns:
-        class_dict (dict): dictionary mapping class names to ids
+        class_dict (dict): dictionary mapping ids to class names
     """
     if not {class_col, id_col}.issubset(class_list.columns):
         raise ValueError(f"DataFrame must contain '{class_col}' and '{id_col}' columns.")
