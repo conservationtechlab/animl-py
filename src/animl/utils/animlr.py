@@ -17,6 +17,7 @@ def check_exiftool():
         with exiftool.ExifToolHelper() as et:
             return et.version
     except Exception as e:
+        print(f"Error checking exiftool: {e}")
         return False
 
 

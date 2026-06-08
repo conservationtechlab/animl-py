@@ -496,12 +496,12 @@ def get_empty(manifest: pd.DataFrame):
     """
     if "category_label" in manifest.columns:
         otherdf = manifest[manifest["category_label"] != "animal"].reset_index(drop=True)
-    
+
     else:
         # Convert category column to int and fill NaN with 0 (empty) if necessary
         manifest["category"] = manifest["category"].fillna(0)
         manifest["category"] = manifest["category"].astype(int)
-        manifest["category_label"] = manifest["category"].replace(MD_LABELS)  
+        manifest["category_label"] = manifest["category"].replace(MD_LABELS)
         otherdf = manifest[manifest["category"] != 1].reset_index(drop=True)
 
     if not otherdf.empty:

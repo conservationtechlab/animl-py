@@ -191,10 +191,9 @@ def from_config(config: str):
             category_map = MD_LABELS
         else:
             categories = file_management.load_data(categories)
-            category_map = file_management.class_list_to_dict(categories, 
+            category_map = file_management.class_list_to_dict(categories,
                                                               id_col=cfg.get('detector_class_key_col', 'id'),
                                                               class_col=cfg.get('detector_class_value_col', 'class'))
-
 
         md_results = detection.detect(detector,
                                       all_frames,

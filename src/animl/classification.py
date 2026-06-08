@@ -349,7 +349,7 @@ def single_classification(animals: pd.DataFrame,
                 mask = manifest[file_col] == f
                 manifest.loc[mask, cols] = top[cols].values
 
-         # get counts of each prediction for the file if count = True
+        # get counts of each prediction for the file if count = True
         if count:
             file['count'] = file['prediction'].map(file['prediction'].value_counts())
             manifest.loc[manifest[file_col] == f, 'count'] = file['count'].values
