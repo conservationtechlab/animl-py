@@ -188,8 +188,9 @@ class ManifestGenerator(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, str, int, Tensor]:
         try:
-            filepath = self.x.loc[idx, self.file_col]
-            frame = self.x.loc[idx, 'frame']
+            file_row=self.x.iloc[idx]
+            filepath = file_row[self.file_col]
+            frame = file_row['frame']
             ext = Path(filepath).suffix.lower()
 
             if ext in VIDEO_EXTENSIONS:
@@ -217,10 +218,10 @@ class ManifestGenerator(Dataset):
                 self.width = int(height / width * self.height)
 
             if self.crop:
-                bbox_x = self.x['bbox_x'].iloc[idx]
-                bbox_y = self.x['bbox_y'].iloc[idx]
-                bbox_w = self.x['bbox_w'].iloc[idx]
-                bbox_h = self.x['bbox_h'].iloc[idx]
+                bbox_x = file_row['bbox_x']
+                bbox_y = file_row['bbox_y']
+                bbox_w = file_row['bbox_w']
+                bbox_h = file_row['bbox_h']
 
                 if self.crop_coord == 'relative':
                     left = width * bbox_x
@@ -350,11 +351,10 @@ class TrainGenerator(Dataset):
     def __len__(self):
         return len(self.x)
 
-    def _get_cache_path(self, idx):
+    def _get_cache_path(self, img_row):
         if self.cache_dir is None:
             return None
 
-        img_row=self.x.iloc[idx]
         img_path=img_row[self.file_col]
 
         if self.crop:
@@ -362,7 +362,7 @@ class TrainGenerator(Dataset):
             bbox_y = img_row['bbox_y']
             bbox_w = img_row['bbox_w']
             bbox_h = img_row['bbox_h']
-            
+
             identifier = f"{img_path}_{bbox_x}_{bbox_y}_{bbox_w}_{bbox_h}"
         else:
             identifier = f"{img_path}"
@@ -371,9 +371,10 @@ class TrainGenerator(Dataset):
 
     def __getitem__(self, idx):
         try:
-            image_name = self.x.loc[idx, self.file_col]
-            label = self.categories[self.x.loc[idx, self.label_col]]
-            cache_path = self._get_cache_path(idx)
+            img_row=self.x.iloc[idx]
+            image_name = img_row[self.file_col]
+            label = self.categories[img_row[self.label_col]]
+            cache_path = self._get_cache_path(img_row)
 
             if cache_path is not None and Path(cache_path).exists():
                 img = Image.open(cache_path).convert("RGB")
@@ -389,10 +390,10 @@ class TrainGenerator(Dataset):
                 if self.crop:
                     width, height = img.size
 
-                    bbox_x = self.x['bbox_x'].iloc[idx]
-                    bbox_y = self.x['bbox_y'].iloc[idx]
-                    bbox_w = self.x['bbox_w'].iloc[idx]
-                    bbox_h = self.x['bbox_h'].iloc[idx]
+                    bbox_x = img_row['bbox_x']
+                    bbox_y = img_row['bbox_y']
+                    bbox_w = img_row['bbox_w']
+                    bbox_h = img_row['bbox_h']
 
                     if self.crop_coord == 'relative':
                         left = width * bbox_x
