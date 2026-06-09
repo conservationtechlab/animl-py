@@ -301,7 +301,7 @@ class TrainGenerator(Dataset):
                  crop_coord: str = 'relative',
                  augment: bool = False,
                  cache_dir: str = None):
-        self.x = x
+        self.x = x.reset_index(drop=True)
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
         self.file_col = file_col
