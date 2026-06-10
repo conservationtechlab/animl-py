@@ -8,9 +8,8 @@ description: Developing open-source technology and machine learning tools for wi
 
 <br>
 
-## About AniML
 {: #about}
-
+## About AniML
 
 **Version 3.3.0**
 
@@ -23,8 +22,9 @@ The AniML package provides functions for ingesting raw image and video files and
 
 <br>
 
-### Installation
 {: #installation}
+### Installation
+
   
 Install via the command line:
 
@@ -34,8 +34,8 @@ $ pip install animl
 
 <br>
 
-### Requirements
 {: #requirements}
+### Requirements
 
 <ins>Required dependencies</ins>:
 * pytorch
@@ -54,11 +54,11 @@ version of [PyTorch](https://pytorch.org/get-started/locally/)
 <br><br>
 
 ---
-# Examples and Usage
 {: #examples}
+# Examples and Usage
 
-### Command-line Execution
 {: #command-line}
+### Command-line Execution
 
 Once installed, AniML can be run from the command line:
 
