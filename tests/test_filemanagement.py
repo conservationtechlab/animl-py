@@ -479,6 +479,78 @@ class TestSequenceCalculation(unittest.TestCase):
         cam1 = result[result['station'] == 'cam1'].sort_values('datetime').reset_index(drop=True)
         self.assertNotEqual(cam1.iloc[0]['sequence'], cam1.iloc[1]['sequence'])
 
+
+# ------------------------------------------------------------------
+# active_times tests
+# ------------------------------------------------------------------
+import pytest
+from animl.file_management import active_times
+
+class TestActiveTimes(unittest.TestCase):
+    def setUp(self):
+        # Create a simple manifest DataFrame
+        self.df = pd.DataFrame({
+            'filepath': [
+                'root/cam1/img1.jpg',
+                'root/cam1/img2.jpg',
+                'root/cam2/img3.jpg',
+                'root/cam2/img4.jpg',
+            ],
+            'datetime': [
+                '2023-01-01 10:00:00',
+                '2023-01-01 12:00:00',
+                '2023-01-02 09:00:00',
+                '2023-01-02 11:00:00',
+            ]
+        })
+
+    def test_returns_dataframe(self):
+        result = active_times(self.df)
+        self.assertIsInstance(result, pd.DataFrame)
+
+    def test_min_max_times_per_camera(self):
+        result = active_times(self.df)
+        self.assertIn('min', result['datetime'].columns)
+        self.assertIn('max', result['datetime'].columns)
+        # cam1
+        self.assertEqual(result.loc['cam1', ('datetime', 'min')], '2023-01-01 10:00:00')
+        self.assertEqual(result.loc['cam1', ('datetime', 'max')], '2023-01-01 12:00:00')
+        # cam2
+        self.assertEqual(result.loc['cam2', ('datetime', 'min')], '2023-01-02 09:00:00')
+        self.assertEqual(result.loc['cam2', ('datetime', 'max')], '2023-01-02 11:00:00')
+
+    def test_raises_on_non_dataframe(self):
+        with self.assertRaises(ValueError):
+            active_times([1, 2, 3])
+
+    def test_raises_on_missing_file_col(self):
+        df = self.df.drop(columns=['filepath'])
+        with self.assertRaises(ValueError):
+            active_times(df)
+
+    def test_adds_camera_column_if_missing(self):
+        df = self.df.drop(columns=['filepath'])
+        df['path'] = [
+            'root/cam1/img1.jpg',
+            'root/cam1/img2.jpg',
+            'root/cam2/img3.jpg',
+            'root/cam2/img4.jpg',
+        ]
+        df['datetime'] = self.df['datetime']
+        # Should raise because file_col defaults to 'filepath', but if we specify file_col='path', it should work
+        result = active_times(df, file_col='path')
+        self.assertIn('camera', result.index.names or result.columns)
+
+    def test_adds_timestamp_col_if_missing(self):
+        df = self.df.drop(columns=['datetime'])
+        # Should add 'datetime' column from file mtime (will use current file, so just check column exists)
+        # Use a real file path for this test
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.jpg') as tmp:
+            df2 = pd.DataFrame({'filepath': [tmp.name], 'dummy': [1]})
+            result = active_times(df2)
+            self.assertIn('min', result['datetime'].columns)
+
     def test_different_cameras_different_sequences(self):
         result = sequence_calculation(self.manifest.copy(), station_col='station')
         cam1_seq = set(result[result['station'] == 'cam1']['sequence'])

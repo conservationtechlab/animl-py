@@ -83,9 +83,10 @@ def extract_miew_embeddings(miew_model,
                                          resize_height=MIEWID_SIZE,
                                          transform=transform)
         for _, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
-            if batch is None:  # entire batch was bad
+            collated, failed = batch
+            if collated is None:  # entire batch was bad
                 continue
-            img = batch[0].numpy()
+            img = collated[0].numpy()
             inp = miew_model.get_inputs()[0]
             emb = miew_model.run(None, {inp.name: img})[0]
             output.extend(emb)
@@ -100,9 +101,10 @@ def extract_miew_embeddings(miew_model,
 
         with torch.no_grad():
             for _, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
-                if batch is None:  # entire batch was bad
+                collated, failed = batch
+                if collated is None:  # entire batch was bad
                     continue
-                img = batch[0]
+                img = collated[0]
                 emb = miew_model.extract_feat(img.to(device))
                 output.extend(emb.detach().cpu().numpy())
         output = np.vstack(output)

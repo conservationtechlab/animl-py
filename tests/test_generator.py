@@ -101,33 +101,38 @@ class TestImageToTensor(unittest.TestCase):
         result = image_to_tensor(self.img_path, letterbox=False,
                                  resize_width=64, resize_height=64)
         self.assertIsInstance(result, tuple)
-        self.assertEqual(len(result), 3)
+        self.assertEqual(len(result), 4)
 
     def test_tensor_shape(self):
-        tensor, _, _ = image_to_tensor(self.img_path, letterbox=False,
+        tensor, _, _, _ = image_to_tensor(self.img_path, letterbox=False,
                                        resize_width=64, resize_height=64)
         # (1, 3, H, W)
         self.assertEqual(tensor.shape, (1, 3, 64, 64))
 
     def test_tensor_dtype_float32(self):
-        tensor, _, _ = image_to_tensor(self.img_path, letterbox=False,
+        tensor, _, _, _ = image_to_tensor(self.img_path, letterbox=False,
                                        resize_width=64, resize_height=64)
         self.assertEqual(tensor.dtype, torch.float32)
 
     def test_tensor_values_normalised(self):
         """Values should be in [0, 1]."""
-        tensor, _, _ = image_to_tensor(self.img_path, letterbox=False,
+        tensor, _, _, _ = image_to_tensor(self.img_path, letterbox=False,
                                        resize_width=64, resize_height=64)
         self.assertGreaterEqual(tensor.min().item(), 0.0)
         self.assertLessEqual(tensor.max().item(), 1.0)
 
     def test_filepath_preserved(self):
-        _, paths, _ = image_to_tensor(self.img_path, letterbox=False,
+        _, paths, _, _ = image_to_tensor(self.img_path, letterbox=False,
                                       resize_width=64, resize_height=64)
         self.assertEqual(paths[0], self.img_path)
 
+    def test_frame_default_zero(self):
+        _, _, frames, _ = image_to_tensor(self.img_path, letterbox=False,
+                                      resize_width=64, resize_height=64)
+        self.assertEqual(frames[0], 0)
+
     def test_size_tensor_correct(self):
-        _, _, sizes = image_to_tensor(self.img_path, letterbox=False,
+        _, _, _, sizes = image_to_tensor(self.img_path, letterbox=False,
                                       resize_width=64, resize_height=64)
         # original image is 100w x 80h → size tensor should be (80, 100)
         self.assertEqual(sizes[0][0].item(), 80)   # height

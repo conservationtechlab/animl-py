@@ -5,30 +5,31 @@ Functionality to draw bounding boxes and labels provided image DataFrame.
 
 @ Kyra Swanson 2023
 """
-import cv2
-import argparse
-import pandas as pd
 import math
+import argparse
+import cv2
 import numpy as np
+import pandas as pd
 from pathlib import Path
 from typing import Optional, Union
 
-from animl.utils import general
+from animl.utils.general import _xywh_to_absxyxy
 from animl.file_management import IMAGE_EXTENSIONS
 from animl.video_processing import get_frame_as_image
+from animl.model_architecture import MD_LABELS
 
 
-MD_COLORS = {0: (255,255,255), 1: (0, 255, 0), 2: (0, 0, 255),  3: (255, 0, 0)}
-MD_LABELS = {0: "empty", 1: "animal", 2: "human",  3: "vehicle"}
+MD_COLORS = {0: (255, 255, 255), 1: (0, 255, 0), 2: (0, 0, 255), 3: (255, 0, 0)}
+
 
 def plot_box(rows,
              file_col: str = "filepath",
              min_conf: Union[int, float] = 0,
-             classifier_label_col=None,
+             classifier_label_col: Optional[str] = None,
              detector_category_col: str = "category",
-             show_confidence=False,
-             colors = MD_COLORS,
-             detector_labels = MD_LABELS,
+             show_confidence: bool = False,
+             colors: dict = MD_COLORS,
+             detector_labels: dict = MD_LABELS,
              return_img: bool = False):
     """
     Plot a bounding box on a given (loaded) image
@@ -57,10 +58,11 @@ def plot_box(rows,
     # If a single row is passed, convert it to a DataFrame for consistency
     if isinstance(rows, pd.Series):
         rows = pd.DataFrame([rows])
-        
+
     if not {file_col, detector_category_col, 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h'}.issubset(rows.columns):
-        raise ValueError(f"DataFrame must contain {file_col}, {detector_category_col}, 'bbox_x', 'bbox_y', 'bbox_w', and 'bbox_h' columns.")
-    
+        raise ValueError(f"""DataFrame must contain {file_col}, {detector_category_col},
+                         'bbox_x', 'bbox_y', 'bbox_w', and 'bbox_h' columns.""")
+
     if colors is None:
         colors = MD_COLORS
     if detector_labels is None:
@@ -76,11 +78,11 @@ def plot_box(rows,
     else:
         frame = rows.iloc[0]['frame'] if 'frame' in rows.columns else 0
         img = get_frame_as_image(rows.iloc[0][file_col], frame)
-    
+
     height, width, _ = img.shape
 
     font_scale = min(width, height) * 1e-3
-    thickness = math.ceil(min(width, height) *  1e-3)
+    thickness = math.ceil(min(width, height) * 1e-3)
 
     for _, row in rows.iterrows():
         # Skipping the box if the confidence threshold is not met
@@ -92,7 +94,7 @@ def plot_box(rows,
             continue
 
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
-        xyxy = general._xywh_to_absxyxy(bbox, width, height)
+        xyxy = _xywh_to_absxyxy(bbox, width, height)
 
         color = colors[int(row[detector_category_col])]
         thick = int((height + width) // 900)
@@ -123,7 +125,8 @@ def plot_box(rows,
 
             # adjust text if label is at top of image
             text_y_pos = label_bottom - 5 if label_top > 0 else label_bottom
-            cv2.putText(img, label, (label_left, text_y_pos), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0,0,0), thickness)
+            cv2.putText(img, label, (label_left, text_y_pos),
+                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), thickness)
 
     if return_img:
         return img
@@ -152,7 +155,7 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         file_col (str): Column name containing file paths
         min_conf (Optional) (Int or Float): Confidence threshold to plot the box
         classifier_label_col (Optional) (str): Column name containing label to print on box
-        detector_category_col (str): Column name containing the detector category (e.g., 'category') to determine box color.
+        detector_category_col (str): Column name containing detector category (e.g., 'category') to determine box color.
         show_confidence (Optional) (bool): If true, show confidence score on box
         colors (Optional) (dict): Dictionary mapping class labels to BGR color tuples for the bounding boxes.
         detector_labels (Optional) (dict): Dictionary mapping detector categories to human-readable labels.
@@ -162,13 +165,13 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
     """
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
-    
+
     # get values
     if colors is None:
         colors = MD_COLORS
     if detector_labels is None:
         detector_labels = MD_LABELS
-    if len(colors)!=len(detector_labels):
+    if len(colors) != len(detector_labels):
         raise ValueError("Colors and detector_labels must have the same number of classes.")
     if len(detector_labels) < max(manifest[detector_category_col]):
         raise ValueError("Detector labels must have a label for each category in the manifest.")
@@ -186,27 +189,27 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
         # file is an image
         if file_ext.lower() in IMAGE_EXTENSIONS:
 
-            img = plot_box(detections, file_col=file_col, min_conf=min_conf, 
-                           classifier_label_col=classifier_label_col, 
-                           detector_category_col=detector_category_col, 
+            img = plot_box(detections, file_col=file_col, min_conf=min_conf,
+                           classifier_label_col=classifier_label_col,
+                           detector_category_col=detector_category_col,
                            show_confidence=show_confidence,
                            colors=colors, detector_labels=detector_labels, return_img=True)
 
-                # Saving the image
+            # save the image
             new_file_path = Path(out_dir) / f"{file_name_no_ext}_box.jpg"
             cv2.imwrite(new_file_path, img)
             cv2.destroyAllWindows()
-            
+
         # file is a video, break up by frames
         else:
             if not {'frame'}.issubset(manifest.columns):
                 raise ValueError("DataFrame must contain 'frame' column for video files.")
-            
+
             frames = detections.groupby('frame')
             for f, frame_detections in frames:
 
                 img = plot_box(frame_detections, file_col=file_col, min_conf=min_conf,
-                               classifier_label_col=classifier_label_col, 
+                               classifier_label_col=classifier_label_col,
                                detector_category_col=detector_category_col,
                                show_confidence=show_confidence,
                                colors=colors, detector_labels=detector_labels, return_img=True)

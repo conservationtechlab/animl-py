@@ -1,0 +1,459 @@
+{
+    "images": [
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/2021-06-30_SYFR0218_cougar.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9724000096321106,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9724000096321106,
+                    "bbox_x": 0.5414999723434448,
+                    "bbox_y": 0.3716999888420105,
+                    "bbox_w": 0.24210000038146973,
+                    "bbox_h": 0.2526000142097473
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/IMAG1065_cougar.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.7559999823570251,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.7559999823570251,
+                    "bbox_x": 0.05950000137090683,
+                    "bbox_y": 0.6144999861717224,
+                    "bbox_w": 0.25,
+                    "bbox_h": 0.1657000035047531
+                },
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.73089998960495,
+                    "bbox_x": 0.2540999948978424,
+                    "bbox_y": 0.628600001335144,
+                    "bbox_w": 0.24230000376701355,
+                    "bbox_h": 0.16359999775886536
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/2021-11-11_11110007_bird.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.786300003528595,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.786300003528595,
+                    "bbox_x": 0.003000000026077032,
+                    "bbox_y": 0.000699999975040555,
+                    "bbox_w": 0.906000018119812,
+                    "bbox_h": 0.40630000829696655
+                },
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.1151999980211258,
+                    "bbox_x": 0.0032999999821186066,
+                    "bbox_y": 0.004100000020116568,
+                    "bbox_w": 0.9074000120162964,
+                    "bbox_h": 0.9430999755859375
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/IMAG0107_deer.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9732999801635742,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9732999801635742,
+                    "bbox_x": 0.0007999999797903001,
+                    "bbox_y": 0.7232000231742859,
+                    "bbox_w": 0.40790000557899475,
+                    "bbox_h": 0.2766000032424927
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/B012_2021-05-27_human.jpg",
+            "frame": 0,
+            "max_detection_conf": 0.8849999904632568,
+            "detections": [
+                {
+                    "category": 2,
+                    "category_label": "human",
+                    "conf": 0.8849999904632568,
+                    "bbox_x": 0.00039999998989515007,
+                    "bbox_y": 0.6748999953269958,
+                    "bbox_w": 0.326200008392334,
+                    "bbox_h": 0.32420000433921814
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/2021-07-24_SYFR0655_coyote.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9764999747276306,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9764999747276306,
+                    "bbox_x": 0.14710000157356262,
+                    "bbox_y": 0.4514000117778778,
+                    "bbox_w": 0.23510000109672546,
+                    "bbox_h": 0.21230000257492065
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/2021-12-07_12080069_rabbit.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9325000047683716,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9325000047683716,
+                    "bbox_x": 0.47929999232292175,
+                    "bbox_y": 0.4851999878883362,
+                    "bbox_w": 0.05510000139474869,
+                    "bbox_h": 0.07599999755620956
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/2021-11-14_11150025_bobcat.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9714999794960022,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9714999794960022,
+                    "bbox_x": 9.999999747378752e-05,
+                    "bbox_y": 0.5422999858856201,
+                    "bbox_w": 0.41510000824928284,
+                    "bbox_h": 0.40709999203681946
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/Asian Plains_S012_2022-08-25_human_vehicle.jpg",
+            "frame": 0,
+            "max_detection_conf": 0.8812000155448914,
+            "detections": [
+                {
+                    "category": 3,
+                    "category_label": "vehicle",
+                    "conf": 0.8812000155448914,
+                    "bbox_x": 0.6777999997138977,
+                    "bbox_y": 0.38999998569488525,
+                    "bbox_w": 0.09380000084638596,
+                    "bbox_h": 0.12549999356269836
+                },
+                {
+                    "category": 2,
+                    "category_label": "human",
+                    "conf": 0.44839999079704285,
+                    "bbox_x": 0.7373999953269958,
+                    "bbox_y": 0.4178999960422516,
+                    "bbox_w": 0.01720000058412552,
+                    "bbox_h": 0.041200000792741776
+                },
+                {
+                    "category": 2,
+                    "category_label": "human",
+                    "conf": 0.25369998812675476,
+                    "bbox_x": 0.7343000173568726,
+                    "bbox_y": 0.4169999957084656,
+                    "bbox_w": 0.014999999664723873,
+                    "bbox_h": 0.017400000244379044
+                },
+                {
+                    "category": 2,
+                    "category_label": "human",
+                    "conf": 0.23600000143051147,
+                    "bbox_x": 0.7283999919891357,
+                    "bbox_y": 0.41679999232292175,
+                    "bbox_w": 0.013100000098347664,
+                    "bbox_h": 0.017500000074505806
+                },
+                {
+                    "category": 2,
+                    "category_label": "human",
+                    "conf": 0.14810000360012054,
+                    "bbox_x": 0.7218999862670898,
+                    "bbox_y": 0.41670000553131104,
+                    "bbox_w": 0.014800000004470348,
+                    "bbox_h": 0.02019999921321869
+                },
+                {
+                    "category": 2,
+                    "category_label": "human",
+                    "conf": 0.14020000398159027,
+                    "bbox_x": 0.6909999847412109,
+                    "bbox_y": 0.4090000092983246,
+                    "bbox_w": 0.01889999955892563,
+                    "bbox_h": 0.04039999842643738
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/IMAG0031_wolf.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9429000020027161,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9429000020027161,
+                    "bbox_x": 0.504800021648407,
+                    "bbox_y": 0.704800009727478,
+                    "bbox_w": 0.148499995470047,
+                    "bbox_h": 0.12520000338554382
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/B013_IMG_0005_empty.jpeg",
+            "frame": 0,
+            "max_detection_conf": null,
+            "category": 0,
+            "category_label": "empty",
+            "detections": []
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/IMAG0104_wolf.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9761999845504761,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9761999845504761,
+                    "bbox_x": 0.3467999994754791,
+                    "bbox_y": 0.5927000045776367,
+                    "bbox_w": 0.2418999969959259,
+                    "bbox_h": 0.21439999341964722
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/2021-05-28_SYFR0041_deer.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9661999940872192,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9661999940872192,
+                    "bbox_x": 0.6567999720573425,
+                    "bbox_y": 0.43779999017715454,
+                    "bbox_w": 0.3431999981403351,
+                    "bbox_h": 0.5206000208854675
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/testdataowl.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9556999802589417,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9556999802589417,
+                    "bbox_x": 0.2847999930381775,
+                    "bbox_y": 0.5167999863624573,
+                    "bbox_w": 0.2696000039577484,
+                    "bbox_h": 0.3950999975204468
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/IMAG0046_bobcat.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9498999714851379,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9498999714851379,
+                    "bbox_x": 0.7968999743461609,
+                    "bbox_y": 0.47929999232292175,
+                    "bbox_w": 0.09239999949932098,
+                    "bbox_h": 0.13740000128746033
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/IMAG0004_cougar.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9466999769210815,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9466999769210815,
+                    "bbox_x": 0.7239999771118164,
+                    "bbox_y": 0.40290001034736633,
+                    "bbox_w": 0.24660000205039978,
+                    "bbox_h": 0.11110000312328339
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/2021-08-08_RCNX0063_fox.JPG",
+            "frame": 0,
+            "max_detection_conf": 0.9702000021934509,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9702000021934509,
+                    "bbox_x": 0.3221000134944916,
+                    "bbox_y": 0.5770000219345093,
+                    "bbox_w": 0.1881999969482422,
+                    "bbox_h": 0.12970000505447388
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/African forest 2-9-2021_cougar.MOV",
+            "frame": 0,
+            "max_detection_conf": 0.945900022983551,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.945900022983551,
+                    "bbox_x": 0.0,
+                    "bbox_y": 0.34779998660087585,
+                    "bbox_w": 0.18299999833106995,
+                    "bbox_h": 0.3084000051021576
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/African forest 2-9-2021_cougar.MOV",
+            "frame": 60,
+            "max_detection_conf": 0.9157999753952026,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9157999753952026,
+                    "bbox_x": 0.13210000097751617,
+                    "bbox_y": 0.33799999952316284,
+                    "bbox_w": 0.12139999866485596,
+                    "bbox_h": 0.23280000686645508
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/African forest 2-9-2021_cougar.MOV",
+            "frame": 120,
+            "max_detection_conf": 0.9254000186920166,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9254000186920166,
+                    "bbox_x": 0.22709999978542328,
+                    "bbox_y": 0.35359999537467957,
+                    "bbox_w": 0.08720000088214874,
+                    "bbox_h": 0.19850000739097595
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/African forest 2-9-2021_cougar.MOV",
+            "frame": 180,
+            "max_detection_conf": 0.9291999936103821,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9291999936103821,
+                    "bbox_x": 0.28459998965263367,
+                    "bbox_y": 0.35839998722076416,
+                    "bbox_w": 0.08860000222921371,
+                    "bbox_h": 0.1678999960422516
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/African forest 2-9-2021_cougar.MOV",
+            "frame": 240,
+            "max_detection_conf": 0.9333000183105469,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9333000183105469,
+                    "bbox_x": 0.3474999964237213,
+                    "bbox_y": 0.3626999855041504,
+                    "bbox_w": 0.08500000089406967,
+                    "bbox_h": 0.13570000231266022
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/IMG_0006_coyote.MP4",
+            "frame": 0,
+            "max_detection_conf": 0.9574000239372253,
+            "detections": [
+                {
+                    "category": 1,
+                    "category_label": "animal",
+                    "conf": 0.9574000239372253,
+                    "bbox_x": 0.5601000189781189,
+                    "bbox_y": 0.3797000050544739,
+                    "bbox_w": 0.11720000207424164,
+                    "bbox_h": 0.19280000030994415
+                }
+            ]
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/IMG_0006_coyote.MP4",
+            "frame": 243,
+            "max_detection_conf": null,
+            "category": 0,
+            "category_label": "empty",
+            "detections": []
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/IMG_0006_coyote.MP4",
+            "frame": 486,
+            "max_detection_conf": null,
+            "category": 0,
+            "category_label": "empty",
+            "detections": []
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/IMG_0006_coyote.MP4",
+            "frame": 729,
+            "max_detection_conf": null,
+            "category": 0,
+            "category_label": "empty",
+            "detections": []
+        },
+        {
+            "filepath": "/home/kyra/animl-py/examples/Southwest/IMG_0006_coyote.MP4",
+            "frame": 972,
+            "max_detection_conf": null,
+            "category": 0,
+            "category_label": "empty",
+            "detections": []
+        }
+    ]
+}

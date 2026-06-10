@@ -38,8 +38,7 @@ PATCHES = [
     'animl.pipeline.detection.load_detector',
     'animl.pipeline.detection.detect',
     'animl.pipeline.detection.parse_detections',
-    'animl.pipeline.split.get_animals',
-    'animl.pipeline.split.get_empty',
+    'animl.pipeline.file_management.class_list_to_dict',
     'animl.pipeline.classification.load_classifier',
     'animl.pipeline.classification.classify',
     'animl.pipeline.classification.single_classification',
@@ -73,6 +72,7 @@ class TestFromPaths(unittest.TestCase):
             'station': ['cam1', 'cam1'],
             'datetime': ['2023-01-01 10:00:00', '2023-01-01 10:01:00'],
             'extension': ['.jpg', '.jpg'],
+            'category_label': ['animal', 'empty'],
         })
         cls.mock_animals = cls.mock_manifest.copy()
         cls.mock_animals['category'] = 1
@@ -95,9 +95,8 @@ class TestFromPaths(unittest.TestCase):
 
     def _setup_mocks(self, mock_wd_cls, mock_build, mock_check, mock_load,
                      mock_save, mock_extract, mock_load_det, mock_detect,
-                     mock_parse, mock_get_animals, mock_get_empty,
-                     mock_load_cls, mock_classify, mock_single, mock_sequence,
-                     mock_export, mock_plot):
+                     mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                     mock_export, mock_plot, mock_class_list_to_dict=None):
         """Configure all mocks with sensible return values."""
         mock_wd_instance = _make_wd_mock()
         mock_wd_cls.return_value = mock_wd_instance
@@ -110,9 +109,8 @@ class TestFromPaths(unittest.TestCase):
         mock_load_det.return_value = MagicMock()
         mock_detect.return_value = []
         mock_parse.return_value = self.mock_manifest
-
-        mock_get_animals.return_value = self.mock_animals
-        mock_get_empty.return_value = self.mock_empty
+        if mock_class_list_to_dict is not None:
+            mock_class_list_to_dict.return_value = {1: 'animal', 2: 'vehicle', 3: 'person'}
 
         mock_model = MagicMock()
         mock_load_cls.return_value = (mock_model, self.mock_class_list)
@@ -129,12 +127,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -143,9 +140,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             result = from_paths(self.image_dir, self.detector_file,
                                 self.classifier_file, self.classlist_file)
@@ -157,12 +153,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -171,9 +166,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file)
@@ -185,12 +179,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -199,9 +192,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file)
@@ -213,12 +205,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -227,9 +218,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file)
@@ -245,12 +235,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -259,9 +248,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, detector_onnx,
                        self.classifier_file, self.classlist_file)
@@ -279,12 +267,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -293,9 +280,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file)
@@ -307,12 +293,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -321,9 +306,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file)
@@ -335,12 +319,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -349,9 +332,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file)
@@ -363,12 +345,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -377,9 +358,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file)
@@ -391,12 +371,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -405,9 +384,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file, sequence=False)
@@ -420,12 +398,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -434,9 +411,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file, sequence=True)
@@ -449,12 +425,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -463,9 +438,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             result = from_paths(self.image_dir, self.detector_file,
                                 self.classifier_file, self.classlist_file,
@@ -480,12 +454,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -494,9 +467,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file, sort=True)
@@ -508,12 +480,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -522,9 +493,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file, sort=False)
@@ -536,12 +506,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -550,9 +519,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file, visualize=True)
@@ -564,12 +532,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -578,9 +545,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file, visualize=False)
@@ -592,12 +558,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -606,9 +571,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_paths
             from_paths(self.image_dir, self.detector_file,
                        self.classifier_file, self.classlist_file)
@@ -620,12 +584,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -634,9 +597,8 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             mock_check.return_value = True
             mock_load.return_value = self.mock_manifest
             from animl.pipeline import from_paths
@@ -651,12 +613,11 @@ class TestFromPaths(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -704,6 +665,7 @@ class TestFromConfig(unittest.TestCase):
             'station': ['cam1', 'cam1'],
             'datetime': ['2023-01-01 10:00:00', '2023-01-01 10:01:00'],
             'extension': ['.jpg', '.jpg'],
+            'category_label': ['animal', 'empty'],
         })
         cls.mock_animals = cls.mock_manifest.copy()
         cls.mock_animals['category'] = 1
@@ -726,9 +688,8 @@ class TestFromConfig(unittest.TestCase):
 
     def _setup_mocks(self, mock_wd_cls, mock_build, mock_check, mock_load,
                      mock_save, mock_extract, mock_load_det, mock_detect,
-                     mock_parse, mock_get_animals, mock_get_empty,
-                     mock_load_cls, mock_classify, mock_single, mock_sequence,
-                     mock_export, mock_plot):
+                     mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                     mock_export, mock_plot, mock_class_list_to_dict=None):
         mock_wd_instance = _make_wd_mock()
         mock_wd_cls.return_value = mock_wd_instance
 
@@ -740,9 +701,8 @@ class TestFromConfig(unittest.TestCase):
         mock_load_det.return_value = MagicMock()
         mock_detect.return_value = []
         mock_parse.return_value = self.mock_manifest
-
-        mock_get_animals.return_value = self.mock_animals
-        mock_get_empty.return_value = self.mock_empty
+        if mock_class_list_to_dict is not None:
+            mock_class_list_to_dict.return_value = {1: 'animal', 2: 'vehicle', 3: 'person'}
 
         mock_model = MagicMock()
         mock_load_cls.return_value = (mock_model, self.mock_class_list)
@@ -762,12 +722,11 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -776,9 +735,8 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_config
             result = from_config(config_path)
             self.assertIsInstance(result, pd.DataFrame)
@@ -792,12 +750,11 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -806,9 +763,8 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_config
             # should not raise
             from_config(config_path)
@@ -828,12 +784,11 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -842,9 +797,8 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_config
             from_config(config_path)
             mock_sequence.assert_called_once()
@@ -857,12 +811,11 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -871,9 +824,8 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_config
             from_config(config_path)
             mock_single.assert_called_once()
@@ -888,12 +840,11 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -902,9 +853,8 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_config
             from_config(config_path)
             mock_export.assert_called_once()
@@ -918,12 +868,11 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -932,9 +881,8 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_config
             from_config(config_path)
             mock_plot.assert_called_once()
@@ -947,12 +895,11 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -961,9 +908,8 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             mock_check.return_value = True
             mock_load.return_value = self.mock_manifest
             from animl.pipeline import from_config
@@ -980,12 +926,11 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -994,9 +939,8 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_config
             from_config(config_path)
             mock_load_det.assert_called_once()
@@ -1012,12 +956,11 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.file_management.check_file') as mock_check, \
              patch('animl.pipeline.file_management.load_data') as mock_load, \
              patch('animl.pipeline.file_management.save_data') as mock_save, \
+             patch('animl.pipeline.file_management.class_list_to_dict') as mock_class_list_to_dict, \
              patch('animl.pipeline.video_processing.extract_frames') as mock_extract, \
              patch('animl.pipeline.detection.load_detector') as mock_load_det, \
              patch('animl.pipeline.detection.detect') as mock_detect, \
              patch('animl.pipeline.detection.parse_detections') as mock_parse, \
-             patch('animl.pipeline.split.get_animals') as mock_get_animals, \
-             patch('animl.pipeline.split.get_empty') as mock_get_empty, \
              patch('animl.pipeline.classification.load_classifier') as mock_load_cls, \
              patch('animl.pipeline.classification.classify') as mock_classify, \
              patch('animl.pipeline.classification.single_classification') as mock_single, \
@@ -1026,9 +969,8 @@ class TestFromConfig(unittest.TestCase):
              patch('animl.pipeline.visualization.plot_all_bounding_boxes') as mock_plot:
             self._setup_mocks(mock_wd_cls, mock_build, mock_check, mock_load,
                               mock_save, mock_extract, mock_load_det, mock_detect,
-                              mock_parse, mock_get_animals, mock_get_empty,
-                              mock_load_cls, mock_classify, mock_single, mock_sequence,
-                              mock_export, mock_plot)
+                              mock_parse, mock_load_cls, mock_classify, mock_single, mock_sequence,
+                              mock_export, mock_plot, mock_class_list_to_dict)
             from animl.pipeline import from_config
             from_config(config_path)
             mock_detect.assert_called_once()

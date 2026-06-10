@@ -2,9 +2,9 @@
 General utils
 
 """
-import cv2
 import os
 import random
+import cv2
 import numpy as np
 from PIL import Image
 
@@ -59,7 +59,7 @@ def get_torch_device(user_set=None, quiet=False):
             return torch.device(user_set)
         else:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
+
     # automatic selection
     else:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -81,7 +81,7 @@ def get_onnx_device(user_set=None, quiet=False):
         if user_set is None:
             if not quiet:
                 print('Using available CUDA device.')
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']     
+            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
         # user selects cpu
         elif user_set == 'cpu':
             if not quiet:
@@ -105,7 +105,7 @@ def get_onnx_device(user_set=None, quiet=False):
             if not quiet:
                 print('Warning: CUDA device specified but not available, using CPU instead.')
         providers = ['CPUExecutionProvider']
-    
+
     return providers
 
 
@@ -126,9 +126,11 @@ def init_seed(seed):
         cudnn.benchmark = True
         cudnn.deterministic = True
 
+
 # ==============================================================================
 # COORDINATE CONVERSION
 # ==============================================================================
+
 def _xyxy_to_xywhc(x):
     # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
@@ -144,10 +146,10 @@ def _xywhc_to_xyxy(bbox):
     Converts bounding boxes from xywhc to xyxy format.
         Used in non_max_suppression
 
-    Args:        
+    Args:
         bbox (list): Bounding box coordinates in the format [x_center, y_center, width, height]
 
-    Returns:   
+    Returns:
         list: Normalized bounding box coordinates in the format [x_min, y_min, x_max, y_max]
     """
     # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
@@ -266,10 +268,10 @@ def normalize_bbox(bbox, image_sizes):
     Returns:
         list: Normalized bounding box coordinates.
     """
-    img_height, img_width  = image_sizes
-    y = bbox.clone() if isinstance(bbox, torch.Tensor) else np.copy(bbox)   
-    y[[0,2]] = np.clip(y[[0,2]] / img_width, 0, 1)
-    y[[1,3]] = np.clip(y[[1,3]] / img_height, 0, 1)
+    img_height, img_width = image_sizes
+    y = bbox.clone() if isinstance(bbox, torch.Tensor) else np.copy(bbox)
+    y[[0, 2]] = np.clip(y[[0, 2]] / img_width, 0, 1)
+    y[[1, 3]] = np.clip(y[[1, 3]] / img_height, 0, 1)
     return y
 
 
@@ -299,6 +301,7 @@ def _clip_coords(boxes, shape):
     else:  # np.array (faster grouped)
         boxes[:, [0, 2]] = boxes[:, [0, 2]].clip(0, shape[1])  # x1, x2
         boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, shape[0])  # y1, y2
+
 
 # ==============================================================================
 # MDV5
@@ -355,7 +358,6 @@ def non_max_suppression(prediction,
     # min_wh = 2  # (pixels) minimum box width and height
     max_wh = 7680  # (pixels) maximum box width and height
     max_nms = 30000  # maximum number of boxes into torchvision.ops.nms()
-    
 
     redundant = True  # require redundant detections
     multi_label &= nc > 1  # multiple labels per box (adds 0.5ms/img)
@@ -427,12 +429,14 @@ def non_max_suppression(prediction,
 
     return output
 
+
 # ==============================================================================
 # Augmentations
 # ==============================================================================
 
-def letterbox(im: np.ndarray, new_shape = (640, 640),
-              color = (114, 114, 114),
+def letterbox(im: np.ndarray,
+              new_shape: tuple = (640, 640),
+              color: tuple = (114, 114, 114),
               auto: bool = True,
               scaleFill: bool = False,
               scaleup: bool = True,
@@ -493,7 +497,7 @@ def scale_letterbox(bbox, resized_shape, original_shape):
     # Convert to numpy array if it's a tensor
     if isinstance(bbox, torch.Tensor):
         bbox = bbox.cpu().numpy()
-    
+
     if isinstance(resized_shape, torch.Tensor):
         resized_shape = resized_shape.cpu().numpy()
 
@@ -511,20 +515,21 @@ def scale_letterbox(bbox, resized_shape, original_shape):
 
     # Remove padding from coordinates
     xyxy_coords[[0, 2]] -= (dw / resized_shape[1])
-    xyxy_coords[[1, 3]] -= (dh /resized_shape[0])
+    xyxy_coords[[1, 3]] -= (dh / resized_shape[0])
 
     # Scale to original image size
-    xyxy_coords[[0, 2]] = xyxy_coords[[0, 2]] *  resized_shape[1]/new_unpad_shape[1]
-    xyxy_coords[[1, 3]] = xyxy_coords[[1, 3]] *  resized_shape[0]/new_unpad_shape[0]
+    xyxy_coords[[0, 2]] = xyxy_coords[[0, 2]] * resized_shape[1] / new_unpad_shape[1]
+    xyxy_coords[[1, 3]] = xyxy_coords[[1, 3]] * resized_shape[0] / new_unpad_shape[0]
 
     # Clip coordinates to be within the original image dimensions
-    xyxy_coords[[0, 2]] = np.clip(xyxy_coords[[0, 2]], 0, 1)  
-    xyxy_coords[[1, 3]] = np.clip(xyxy_coords[[1, 3]], 0, 1) 
+    xyxy_coords[[0, 2]] = np.clip(xyxy_coords[[0, 2]], 0, 1)
+    xyxy_coords[[1, 3]] = np.clip(xyxy_coords[[1, 3]], 0, 1)
 
     # Convert final xyxy to xywh (top-left corner)
     xywh_coords = _xyxy_to_xywh(xyxy_coords)
 
     return xywh_coords
+
 
 def exif_transpose(image):
     """

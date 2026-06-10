@@ -49,7 +49,7 @@ def _make_coco_manifest(n=2):
 
 def _make_class_list():
     """Return a minimal class_list DataFrame."""
-    return pd.DataFrame({'id': [0, 1], 'class': ['empty', 'deer']})
+    return {0: 'empty', 1: 'deer'}
 
 
 def _make_megadetector_manifest():
@@ -227,6 +227,7 @@ class TestExportMegadetector(unittest.TestCase):
         for key in ('info', 'detection_categories', 'classification_categories', 'images'):
             self.assertIn(key, data)
 
+    # TODO: rows with cat=0 should be included but have no detections
     def test_empty_category_rows_skipped(self):
         """Rows where category == 0 should not appear in images."""
         with tempfile.TemporaryDirectory() as tmp:
