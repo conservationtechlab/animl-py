@@ -367,6 +367,8 @@ def class_list_to_dict(class_list: pd.DataFrame,
 
     Args:
         class_list (pd.DataFrame): dataframe with 'class' and 'id' columns
+        id_col (str): column name for class ids, defaults to 'id'
+        class_col (str): column name for class names, defaults to 'class'
 
     Returns:
         class_dict (dict): dictionary mapping ids to class names
