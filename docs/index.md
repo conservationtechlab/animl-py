@@ -299,19 +299,18 @@ it will create a "Sorted" or "Plots" folder respectively within "Animl-Directory
 
 Traverse a directory and find image/video files and gather metadata.
 
+To correctly adjust timestamps from exif data, the argument `data_timezone` should be set to the timezone in which the data was collected. 
+If you are unsure of the timezone, you can list all with zoneinfo.available_timezones() to find the best match, or leave as None to default to the local timezone.
+
+
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `image_dir`       | str   | required | Path to image/video directory |
 | `exif`            | bool  | True  | Returns date and time info from exif data |
 | `out_file`        | str   | None  | File path to which the dataframe should be saved |
-| `data_timezone`   | str   | 4     | Timezone of the data, e.g., 'UTC', 'America/New_York', defaults to local timezone if None
-                             if you are unsure of the timezone, you can list all with zoneinfo.available_timezones() |
-| `station_depth`   | int   | None  | Depth of station directory from the image_dir root in file path, if applicable.
-                             For example, if file paths are in the format "image_dir/station/date/file.jpg",
-                             station_depth would be 1 (0 indexed). If None, station column will not be created. |
-| `camera_depth`    | int   | None  | Depth of camera directory from the image_dir root in file path, if applicable.
-                            For example, if file paths are in the format "image_dir/station/camera/date/file.jpg",
-                            camera_depth would be 2 (0 indexed). If None, camera column will not be created. |
+| `data_timezone`   | str   | 4     | Timezone of the data, e.g., 'UTC', 'America/New_York', defaults to local timezone if None|
+| `station_depth`   | int   | None  | Depth of station directory from the image_dir root in file path, if applicable.* |
+| `camera_depth`    | int   | None  | Depth of camera directory from the image_dir root in file path, if applicable.* |
 | `recursive`       | bool  | True  | Recursively search through all child directories |
 
 **Returns:** `pandas.DataFrame` — object containing file manifest
@@ -327,6 +326,12 @@ Output manifest will have the following columns:
 * datetime (if exif = True, contains createdate or filemodifydate as a fallback)
 * station (if station_depth is not None)
 * camera (if camera_depth is not None)
+
+\* For station_depth, if file paths are in the format "image_dir/station/date/file.jpg",
+station_depth would be 1 (0 indexed). If None, station column will not be created.
+Likewise for camera_depth, if file paths are in the format "image_dir/station/camera/date/file.jpg",
+camera_depth would be 2 (0 indexed). If None, camera column will not be created.
+
 
 <br><br>
   
@@ -390,11 +395,6 @@ Can sample frames based on a specified number of frames or frames per second (fp
   
 <br><br>
 
-### animl.manifest_dataloader()
-
-
-
-
 ---
 ## Detection
 {: #detection}
@@ -404,13 +404,14 @@ Can sample frames based on a specified number of frames or frames per second (fp
 {: #load_detector}
 
 Loads a detector model from a file path.
+Model types accepted: ["mdv5", "mdv6", "mdv1000-cedar", "mdv1000-larch", "mdv1000-sorrel",
+"mdv1000-redwood", "mdv1000-spruce", "yolov5", "yolo", "onnx"]
+For yolo models v6+, use "yolo", for v5, use "yolov5". 
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `model_path`  | str | required | Path to model file |
-| `model_type`  | str | required | Type of model: "mdv5", "mdv6", "mdv1000-cedar", "mdv1000-larch", "mdv1000-sorrel",
-                                  "mdv1000-redwood", "mdv1000-spruce", "yolov5", "yolo", "onnx" 
-                                  For yolo models v6+, use "yolo", for v5, use "yolov5". |
+| `model_type`  | str | required | Type of model|
 | `device`      | str | None    | Device to run model on, i.e. `"cpu"` or `"cuda"` |
 
 **Returns:** loaded model object
@@ -435,8 +436,7 @@ Runs a detector model on batches of image files.
 | `batch_size`              | int | 1 | Number of images per batch |
 | `num_workers`             | int | 1 | Number of dataloader workers |
 | `device`                  | str | None | Device to run inference on: `"cpu"` or `"cuda"` |
-| `checkpoint_path`         | str | None | Path to save intermediate checkpoint JSON. 
-                                           Checkpoint will be saved after every N batches as specified by checkpoint_frequency. |
+| `checkpoint_path`         | str | None | Path to save intermediate checkpoint JSON. Checkpoint will be saved after every N batches as specified by checkpoint_frequency. |
 | `checkpoint_frequency`    | int | -1 | Save checkpoint every N batches; -1 disables checkpointing |
 
 **Returns:** `tuple` — (`detections`, `failed_files`)  
@@ -500,12 +500,12 @@ Pulls out MD non-animal detections and adds prediction and confidence columns
 
 Creates and loads a classifier model of the given architecture from disk, with the associated class list.
 
-| Parameter      | Type                                   | Default                | Description                                                      |
-|----------------|----------------------------------------|------------------------|------------------------------------------------------------------|
-| `model_path`   | str                                    | required               | File or directory path to the model weights                      |
+| Parameter      | Type  | Default                | Description                                                      |
+|----------------|--------|------------------------|------------------------------------------------------------------|
+| `model_path`   | str    | required               | File or directory path to the model weights                      |
 | `classes`      | int \| str \| Path \| pd.DataFrame     | required               | Number of classes, class list file, or DataFrame                 |
-| `device`       | str                                    | None                   | Device to load model on ("cpu" or "cuda")                        |
-| `architecture` | str                                    | "efficientnet_v2_m"    | Expected architecture name ("efficientnet_v2_m" or "convnext_base")       |
+| `device`       | str    | None                   | Device to load model on ("cpu" or "cuda")                        |
+| `architecture` | str    | "efficientnet_v2_m"    | Expected architecture name ("efficientnet_v2_m" or "convnext_base")       |
 | `quiet`        | bool                                   | True                   | Toggles suppression of device info messages                       |
 
 **Returns:** `(model, class_list)` — loaded model (of given architecture) and class list  
@@ -586,7 +586,7 @@ Assigns predicted class labels and confidences to each row in a detection DataFr
 
 <br><br>
   
-### animl.sequence_classification(animals, empty, predictions_output, class_list, station_col, empty_class="", sort_columns=None, ...)
+### animl.sequence_classification(animals, empty, predictions_output, class_list, station_col, empty_class="", ...)
 {: #sequence_classification}
 
 Applies class labels to images based on sequential information.
