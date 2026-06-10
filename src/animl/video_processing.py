@@ -14,7 +14,7 @@ from animl import file_management
 from animl.utils.general import NUM_THREADS
 
 
-def extract_frames(files,
+def extract_frames(manifest: pd.DataFrame,
                    frames: int = 5,
                    fps: Optional[int] = None,
                    out_file: Optional[str] = None,
@@ -27,13 +27,13 @@ def extract_frames(files,
     Can sample frames based on a specified number of frames or frames per second (fps).
 
     Args:
-        files (pd.DataFrame): DataFrame containing file paths to videos and images.
+        manifest (pd.DataFrame): DataFrame containing file paths to videos and images.
         frames (int): Number of frames to sample from each video (default is 5).
         fps (Optional[int]): Frames per second to sample from each video. If specified, overrides frames.
         out_file (Optional[str]): Path to save the extracted frames manifest as a CSV file.
         out_dir (str): Directory to save extracted frame images. If None, frames are not saved as images.
         file_col (str): Column name in the DataFrame that contains the file paths (default is "filepath").
-        parallel (bool): Whether to use multiprocessing for frame extraction (default is True).
+        parallel (bool): Toggle to use multiprocessing for frame extraction (default is True).
         num_workers (int): Number of worker processes to use for parallel processing (default is NUM_THREADS).
 
     Raises:
@@ -42,23 +42,23 @@ def extract_frames(files,
         AssertionError: If neither fps nor frames are defined.
 
     Returns:
-        pd.DataFrame: A DataFrame containing the file paths and corresponding frame numbers for the extracted frames.
-                      The DataFrame will have columns [file_col, "frame"].
+        pd.DataFrame: the input dataframe with and additional "frame" column. The value of frame is 0 for images,
+             while videos will now be represented with multiple rows as indicated by frames or fps, with each row containing the sampled frame number.
     """
     if file_management.check_file(out_file, output_type="ImageFrames"):
         return file_management.load_data(out_file)
-    if not {file_col}.issubset(files.columns):
+    if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
     if (fps is not None) and (frames is not None):
         print("If both fps and frames are defined fps will be used.")
     if (fps is None) and (frames is None):
         raise AssertionError("Either fps or frames need to be defined.")
 
-    images = files[files[file_col].apply(
+    images = manifest[manifest[file_col].apply(
         lambda x: Path(x).suffix.lower()).isin(file_management.IMAGE_EXTENSIONS)]
     images = images.assign(frame=0)
 
-    videos = files[files[file_col].apply(
+    videos = manifest[manifest[file_col].apply(
         lambda x: Path(x).suffix.lower()).isin(file_management.VIDEO_EXTENSIONS)]
 
     if not videos.empty:

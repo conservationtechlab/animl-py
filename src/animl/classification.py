@@ -33,8 +33,8 @@ def load_classifier(model_path: str,
         classes (int | str | Path | pd.DataFrame): number of classes, path to associated class list,
                                                    or pd.DataFrame of class list
         device (str): specify to run on cpu or gpu
-        architecture (str): expected model architecture
-        quiet (bool): whether to suppress GPU warnings
+        architecture (str): expected architecture name ("efficientnet_v2_m" or "convnext_base")
+        quiet (bool): toggles suppression of device info messages
 
     Returns:
         model: model object of given architecture with loaded weights
@@ -160,8 +160,7 @@ def classify(model,
              device: Optional[str] = None,
              out_file: Optional[str] = None):
     """
-    TODO: align with R version
-    Predict species using classifier model.
+    Runs prediction for input detections using a preloaded classifier model
 
     Args:
         model: preloaded classifier model
@@ -391,7 +390,7 @@ def sequence_classification(animals: pd.DataFrame,
         class_list (pd.DataFrame): class list associated with classifier model
         station_col (str): The name of the station column
         empty_class (str) (Optional): the name of class_list 'empty' label
-        sort_columns (List of Strings): Defines sorting order for the DataFrame
+        sort_columns (List of Strings): Defines sorting order for the DataFrame, if not specified defaults to `station_col` and `timestamp_col`
         file_col (str): The name of the filepath column
         timestamp_col (str): The name of the timestamp column
         failed_files (Optional[list]): list of files that failed to load during classification

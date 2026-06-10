@@ -204,10 +204,10 @@ class WorkingDirectory():
         # Assign specific file paths
         self.filemanifest = self.basedir / Path("FileManifest.csv")
         self.imageframes = self.basedir / Path("ImageFrames.csv")
-        self.results = self.basedir / Path("Results.csv")
-        self.predictions = self.basedir / Path("Predictions.csv")
         self.detections = self.basedir / Path("Detections.csv")
         self.mdraw = self.basedir / Path("MD_Raw.json")
+        self.predictions = self.basedir / Path("Predictions.csv")
+        self.results = self.basedir / Path("Results.csv")
 
     def activate_visdir(self):
         self.visdir.mkdir(exist_ok=True)
@@ -367,6 +367,8 @@ def class_list_to_dict(class_list: pd.DataFrame,
 
     Args:
         class_list (pd.DataFrame): dataframe with 'class' and 'id' columns
+        id_col (str): column name representing the class id, defaults to 'id'
+        class_col (str): column name representing the class name, defaults to 'class'
 
     Returns:
         class_dict (dict): dictionary mapping ids to class names
@@ -385,10 +387,10 @@ def active_times(manifest,
 
     Args:
         manifest (pd.DataFrame): file manifest dataframe with file paths and timestamps
+        file_col (str): column in manifest to use for file paths, defaults to "filepath"
         camera_depth (int): directory depth from which to split cameras,
             with 0 being the root of the manifest_dir, defaults to 0
-        file_col (str): column in manifest to use for file paths, defaults to "filepath"
-        timestamp_col (str): column in manifest to use for timestamps, defaults to "datetime"
+        timestamp_col (str): column name representing the timestamp in format "%Y-%m-%d %H:%M:%S", defaults to "datetime".
 
     Returns:
         times (pd.DataFrame): list of files with or without file modify dates
@@ -426,15 +428,18 @@ def sequence_calculation(manifest,
     Unlike sequence_classification(), does not apply any classification or labeling to the sequences.
 
     Args:
-        - manifest (pd.DataFrame): DataFrame containing image file information,
+        manifest (pd.DataFrame): DataFrame containing image file information,
             including 'file_col' and 'timestamp_col' columns
-        - station_col (str): column name in the DataFrame representing the station or camera
-        - sort_columns (list[str]): list of columns to sort by before calculating sequences.
+        station_col (str): column name in the DataFrame representing the station or camera
+        sort_columns (list[str]): list of columns to sort by before calculating sequences.
                                     Defaults to None, which sorts by station_col and timestamp_col.
-        - file_col (str): column name representing the file path. Defaults to "filepath".
-        - timestamp_col (str): column name representing the timestamp in format "%Y-%m-%d %H:%M:%S", defaults to "datetime".
-        - maxdiff (int): maximum time difference in seconds between consecutive images to be
+        file_col (str): column name representing the file path. Defaults to "filepath".
+        timestamp_col (str): column name representing the timestamp in format "%Y-%m-%d %H:%M:%S", defaults to "datetime".
+        maxdiff (int): maximum time difference in seconds between consecutive images to be
             considered part of the same sequence. Defaults to 60.
+
+    Returns:
+        manifest_sort (pd.DataFrame): the input DataFrame with an additional 'sequence' column indicating sequence membership.
     """
     if not isinstance(station_col, str) or station_col == '':
         raise Exception("'station_col' must be a non-empty string")

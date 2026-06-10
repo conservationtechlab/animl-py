@@ -56,7 +56,7 @@ def extract_miew_embeddings(miew_model,
                             num_workers: int = 1,
                             device: Optional[str] = None):
     """
-    Wrapper for MiewID embedding extraction
+    Extract MiewID embeddings from a manifest dataframe
 
     Args:
         miew_model: MiewID model object
@@ -67,7 +67,7 @@ def extract_miew_embeddings(miew_model,
         device (str): device to run model on
 
     Returns:
-        output (np.ndarray): array of extracted embeddings
+        output (np.ndarray): array of extracted embeddings (shape: num_rows x 2048)
     """
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")

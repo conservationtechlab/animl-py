@@ -110,16 +110,18 @@ def detect(detector,
         resize_height (int): height to resize images to
         letterbox (bool): if True, resize and pad image to keep aspect ratio, else resize without padding
         category_map (dict): mapping of category IDs to human-readable labels
-        confidence_threshold (float): only detections above this threshold are returned
-        file_col (str): column name containing file paths
+        confidence_threshold (float): minimum confidence score to retain a detection
+        file_col (str): column name in the DataFrame that contains the file paths (default is "filepath")
         batch_size (int): size of each batch
         num_workers (int): number of processes to handle the data
         device (str): specify to run on cpu or gpu
-        checkpoint_path (str): path to checkpoint file
-        checkpoint_frequency (int): write results to checkpoint file every N images
+        checkpoint_path (str): path to save intermediate checkpoint JSON files. 
+                               Checkpoint will be saved after every N batches as specified by checkpoint_frequency.
+        checkpoint_frequency (int): Save checkpoint every N batches; -1 disables checkpointing
 
     Returns:
-        list: list of dicts, each dict represents detections on one image
+        list[dict]: list of detection results in MegaDetector format, one dict per image
+        failed_files (list): list of files that failed to load during processing (if any)
     """
     if checkpoint_frequency != -1:
         checkpoint_frequency = max(1, round(checkpoint_frequency/batch_size, None))
@@ -379,11 +381,11 @@ def parse_detections(results: Union[list, tuple],
     Converts listed output from detector to DataFrame.
 
     Args:
-        results (Union[list, tuple]): md output dicts or tuple of (md output dicts, failed files)
-        manifest (pd.DataFrame): full file manifest, if not None, merge md predictions automatically
-        out_file (str): path to save dataframe
-        threshold (float): parse only detections above given confidence threshold
-        file_col (str): if manifest, merge results onto file_col
+        results (Union[list, tuple]): detector output dicts or tuple of (md output dicts, failed files)
+        manifest (pd.DataFrame): full file manifest, if not None, merge results automatically
+        out_file (str): path to save detections .csv
+        threshold (float): Minimum confidence score; detections below are not returned
+        file_col (str): Column name containing file paths, will merge results to manifest on this column
 
     Returns:
         df (pd.DataFrame): formatted md outputs, one row per detection
@@ -465,7 +467,7 @@ def parse_detections(results: Union[list, tuple],
 
 def get_animals(manifest: pd.DataFrame):
     """
-    Pulls MD animal detections for classification
+    Pulls out MD animal detections for classification
 
     Args:
         manifest (pd.DataFrame): DataFrame containing one row for every MD detection
@@ -485,7 +487,7 @@ def get_animals(manifest: pd.DataFrame):
 
 def get_empty(manifest: pd.DataFrame):
     """
-    Pulls MD non-animal detections
+    Pulls out MD non-animal detections and adds prediction and confidence columns
 
     Args:
         manifest (pd.DataFrame): DataFrame containing one row for every MD detection

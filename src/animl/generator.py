@@ -25,7 +25,7 @@ from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-
+# TODO: hide from api
 class Letterbox(torch.nn.Module):
     """
     Pads a crop to given size
@@ -111,7 +111,7 @@ def image_to_tensor(file_path, letterbox, resize_width, resize_height):
     frame = 0  # default frame 0 for images
     return img_tensor, [file_path], [frame], torch.tensor([(height, width)])
 
-
+# TODO: hide from api
 class ManifestGenerator(Dataset):
     '''
     Data generator that crops images on the fly, requires relative bbox coordinates,
@@ -276,7 +276,7 @@ class ManifestGenerator(Dataset):
         cv2.destroyAllWindows()
         return img
 
-
+# TODO: hide from api
 class TrainGenerator(Dataset):
     '''
     Data generator for training. Requires a list of possible classes
@@ -422,6 +422,7 @@ class TrainGenerator(Dataset):
             return None, label, str(image_name)
 
 
+# TODO: hide from api
 def train_dataloader(manifest: pd.DataFrame,
                      classes: dict,
                      file_col: str = "filepath",
@@ -475,6 +476,7 @@ def train_dataloader(manifest: pd.DataFrame,
     return dataLoader
 
 
+# TODO: hide from api
 def manifest_dataloader(manifest: pd.DataFrame,
                         file_col: str = "filepath",
                         crop: bool = True,

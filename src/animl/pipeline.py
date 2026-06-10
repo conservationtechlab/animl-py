@@ -32,14 +32,15 @@ def from_paths(image_dir: str,
         detector_file (str): file path of the MegaDetector model.
         classifier_file (str): file path of the classifier model.
         classlist_file (list): list of classes or species for classification.
-        class_label: column in the class list that contains the label wanted
+        class_label: column in the class list that contains the label to use for prediction output (default "class")
         batch_size (int): batch size for inference
-        sort (bool): toggle option to create symlinks
-        visualize (bool): if True, run visualization
+        sort (bool): Toggle to create symlinks of data sorted by species
+        visualize (bool): Toggle to save bounding box visualizations
         sequence (bool): if True, run sequence_classification
 
     Returns:
-        pandas.DataFrame: Concatenated dataframe of animal and empty detections
+        pandas.DataFrame: a dataframe containing the results of the detection and classification, including file paths, 
+                          detection categories, and predicted classes.
     """
     print("Searching directory...")
     # Create a working directory, build the file manifest from img_dir
