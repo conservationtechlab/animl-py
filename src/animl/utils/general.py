@@ -555,3 +555,44 @@ def exif_transpose(image):
             del exif[0x0112]
             image.info["exif"] = exif.tobytes()
     return image
+
+
+# ==============================================================================
+# IOU
+# ==============================================================================
+
+def get_iou(bb1, bb2):
+    """
+    Calculates the intersection over union (IoU) of two bounding boxes.
+    Adapted from:
+    https://stackoverflow.com/questions/25349178/calculating-percentage-of-bounding-box-overlap-for-image-detector-evaluation
+
+    Args:
+        bb1 (list): [x_min, y_min, width_of_box, height_of_box]
+        bb2 (list): [x_min, y_min, width_of_box, height_of_box]
+
+    Returns:
+        float: intersection_over_union, a float in [0, 1]
+    """
+    bb1 = _xywh_to_xyxy(np.array(bb1, dtype=float))
+    bb2 = _xywh_to_xyxy(np.array(bb2, dtype=float))
+
+    assert bb1[0] < bb1[2], 'Malformed bounding box (x2 >= x1)'
+    assert bb1[1] < bb1[3], 'Malformed bounding box (y2 >= y1)'
+    assert bb2[0] < bb2[2], 'Malformed bounding box (x2 >= x1)'
+    assert bb2[1] < bb2[3], 'Malformed bounding box (y2 >= y1)'
+
+    x_left = max(bb1[0], bb2[0])
+    y_top = max(bb1[1], bb2[1])
+    x_right = min(bb1[2], bb2[2])
+    y_bottom = min(bb1[3], bb2[3])
+
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+
+    intersection_area = (x_right - x_left) * (y_bottom - y_top)
+    bb1_area = (bb1[2] - bb1[0]) * (bb1[3] - bb1[1])
+    bb2_area = (bb2[2] - bb2[0]) * (bb2[3] - bb2[1])
+
+    iou = intersection_area / float(bb1_area + bb2_area - intersection_area)
+    return iou
