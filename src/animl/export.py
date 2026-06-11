@@ -26,7 +26,7 @@ def export_folders(manifest: pd.DataFrame,
                    file_col: str = "filepath",
                    timestamp_col: str = "datetime",
                    station_col: str = 'station',
-                   unique_name: str = 'uniquename',
+                   unique_name_col: str = 'uniquename',
                    copy: bool = False) -> pd.DataFrame:
     """
     Creates symbolic links of images into species folders.
@@ -40,7 +40,7 @@ def export_folders(manifest: pd.DataFrame,
         file_col (str): column containing source paths
         timestamp_col (str): column containing timestamps in format "%Y-%m-%d %H:%M:%S"
         station_col (str): column containing station names
-        unique_name (str): column containing unique file name
+        unique_name_col (str): column containing unique file name
         copy (bool): if true, hard copy
 
     Returns:
@@ -61,7 +61,7 @@ def export_folders(manifest: pd.DataFrame,
 
     for i, row in tqdm(manifest.iterrows()):
         try:
-            name = row[unique_name]
+            name = row[unique_name_col]
         except KeyError:
             filename = Path(row[file_col]).stem
             extension = Path(row[file_col]).suffix
@@ -79,7 +79,7 @@ def export_folders(manifest: pd.DataFrame,
             else:
                 name = "_".join([reformat_date, filename]) + extension
 
-            manifest.loc[i, unique_name] = name
+            manifest.loc[i, unique_name_col] = name
 
         link = out_dir / str(row[label_col]) / str(name)
 
@@ -122,20 +122,25 @@ def remove_link(manifest: pd.DataFrame,
 
 def update_labels_from_folders(manifest: pd.DataFrame,
                                export_dir: str,
-                               unique_name: str = 'uniquename') -> pd.DataFrame:
+                               unique_name_col: str = 'uniquename',
+                               label_col: str = 'prediction') -> pd.DataFrame:
     """
     Update manifest after human review of symlink directories.
 
     Args:
-        manifest (pd.DataFrame): dataframe containing images and associated predictions
+        manifest (pd.DataFrame): dataframe containing images and labels to update
         export_dir (str): root directory for species folders
-        unique_name (str): column containing unique file names
+        unique_name_col (str): column containing unique file names
+        label_col (str): column containing labels
 
     Returns:
-        manifest: dataframe with updated predictions
+        manifest: dataframe with updated labels
     """
-    if unique_name not in manifest.columns:
+    if unique_name_col not in manifest.columns:
         raise AssertionError("Manifest does not have unique names, cannot match to sorted directories.")
+    
+    if label_col not in manifest.columns:
+        raise AssertionError(f"Label column {label_col} not found in manifest.")
 
     print("Searching directory...")
     ground_truth = build_file_manifest(export_dir, exif=False)
@@ -144,10 +149,10 @@ def update_labels_from_folders(manifest: pd.DataFrame,
         print(f"Warning, found {len(ground_truth)} files in link dir but {len(manifest)} files in manifest.")
 
     # last level should be label level
-    ground_truth = ground_truth.rename(columns={'filename': unique_name})
-    ground_truth['label'] = ground_truth["filepath"].apply(lambda x: Path(x).parent.name)
+    ground_truth = ground_truth.rename(columns={'filename': unique_name_col})
+    ground_truth[label_col] = ground_truth["filepath"].apply(lambda x: Path(x).parent.name)
 
-    return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
+    return pd.merge(manifest, ground_truth[[unique_name_col, label_col]], on=unique_name_col)
 
 
 def export_train_val_test(manifest: pd.DataFrame,
@@ -511,10 +516,10 @@ def export_camtrapR(manifest: pd.DataFrame,
                     file_col: str = "filepath",
                     timestamp_col: str = "datetime",
                     station_col: str = 'station',
-                    unique_name: str = 'uniquename',
+                    unique_name_col: str = 'uniquename',
                     copy: bool = False) -> pd.DataFrame:
     """
-    Export data into sorted folders organized by station
+    Export data into species-labeled folders organized by station
 
     Args:
         - manifest (pd.DataFrame): dataframe containing images and associated predictions
@@ -524,7 +529,7 @@ def export_camtrapR(manifest: pd.DataFrame,
         - file_col (str): column containing source paths
         - timestamp_col (str): column containing timestamps in format "%Y-%m-%d %H:%M:%S"
         - station_col (str): column containing station names
-        - unique_name (str): column containing unique file name
+        - unique_name_col (str): column containing unique file name
         - copy (bool): if true, hard copy
     """
     expected_columns = (file_col, station_col, label_col)
@@ -538,7 +543,7 @@ def export_camtrapR(manifest: pd.DataFrame,
     for station_name, station in tqdm(stations):
         for i, row in station.iterrows():
             try:
-                name = row[unique_name]
+                name = row[unique_name_col]
             except KeyError:
                 filename = Path(row[file_col]).stem
                 extension = Path(row[file_col]).suffix
@@ -556,7 +561,7 @@ def export_camtrapR(manifest: pd.DataFrame,
                 else:
                     name = "_".join([reformat_date, filename]) + extension
 
-                manifest.loc[i, unique_name] = name
+                manifest.loc[i, unique_name_col] = name
 
             link = out_dir / str(station_name) / str(row[label_col]) / str(name)
 
@@ -578,15 +583,14 @@ def export_timelapse(manifest: pd.DataFrame,
                      out_dir: str,
                      only_animal: bool = True) -> Path:
     '''
-    Converts the Pandas DataFrame created by running the animl classsifier to a csv file
-    that contains columns needed for TimeLapse conversion in later step
+    Converts a manifest to a csv file that contains columns needed for TimeLapse conversion
 
-    Credit: Sachin Gopal Wani
+    Author: Sachin Gopal Wani
 
     Args:
         manifest - a DataFrame that contains classifications
         out_dir - location of directory where csv files will be saved
-        only_animl - A bool that confirms whether we want only animal detctions or all
+        only_animal - A bool that confirms whether we want only animal detctions or all
                      (animal + non-animal detection from MegaDetector + classifier)
 
     Returns:
