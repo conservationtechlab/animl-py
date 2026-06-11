@@ -16,8 +16,8 @@ import onnxruntime
 
 from animl import generator, file_management
 from animl.model_architecture import EfficientNet, ConvNeXtBase
-from animl.utils.general import (get_torch_device, get_onnx_device, softmax,
-                                 tensor_to_onnx, NUM_THREADS)
+from animl.utils.general import (get_torch_device, get_onnx_device, _softmax,
+                                 _tensor_to_onnx, NUM_THREADS)
 
 
 def load_classifier(model_path: str,
@@ -250,9 +250,9 @@ def classify(model,
             # onnx
             elif model.framework == "onnx":
                 data = collated[0]
-                data = tensor_to_onnx(data)
+                data = _tensor_to_onnx(data)
                 output = model.run(None, {model.get_inputs()[0].name: data})[0]
-                raw_output.extend(softmax(output))
+                raw_output.extend(_softmax(output))
             else:
                 raise AssertionError("Model architecture not supported.")
 

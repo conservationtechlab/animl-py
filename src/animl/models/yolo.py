@@ -5,6 +5,7 @@ YOLO-specific modules
 Required for MDv5
 
 """
+from datetime import time
 import os
 import platform
 import sys
@@ -14,11 +15,7 @@ import torch.nn as nn
 from copy import deepcopy
 from pathlib import Path
 
-from animl.models.common import (Bottleneck, BottleneckCSP, C3,
-                                 C3Ghost, C3SPP, C3TR, C3x,
-                                 Contract, Conv, CrossConv, DWConv,
-                                 DWConvTranspose2d, Expand, Focus, GhostBottleneck,
-                                 GhostConv, SPP, SPPF, _make_divisible, _time_sync)
+from animl.models.common import (Bottleneck, C3, Conv, DWConv, SPPF)
 
 try:
     import thop  # for FLOPs computation
@@ -33,6 +30,19 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 if platform.system() != 'Windows':
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
+
+def _time_sync():
+    # PyTorch-accurate time
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    return time.time()
+
+
+def _make_divisible(x, divisor):
+    # Returns nearest x divisible by divisor
+    if isinstance(divisor, torch.Tensor):
+        divisor = int(divisor.max())  # to int
+    return math.ceil(x / divisor) * divisor
 
 
 def _initialize_weights(model):
@@ -123,7 +133,7 @@ class Detect(nn.Module):
                 if self.dynamic or self.grid[i].shape[2:4] != x[i].shape[2:4]:
                     self.grid[i], self.anchor_grid[i] = self._make_grid(nx, ny, i)
 
-                if isinstance(self, Segment):  # (boxes + masks)
+                if isinstance(self, _Segment):  # (boxes + masks)
                     xy, wh, conf, mask = x[i].split((2, 2, self.nc + 1, self.no - self.nc - 5), 4)
                     xy = (xy.sigmoid() * 2 + self.grid[i]) * self.stride[i]  # xy
                     wh = (wh.sigmoid() * 2) ** 2 * self.anchor_grid[i]  # wh
@@ -149,7 +159,7 @@ class Detect(nn.Module):
         return grid, anchor_grid
 
 
-class Segment(Detect):
+class _Segment(Detect):
     """YOLOv5 Segment head for segmentation models, extending Detect with mask and prototype layers."""
 
     def __init__(self, nc=80, anchors=(), nm=32, npr=256, ch=(), inplace=True):
@@ -171,7 +181,7 @@ class Segment(Detect):
         return (x, p) if self.training else (x[0], p) if self.export else (x[0], p, x[1])
 
 
-class BaseModel(nn.Module):
+class _BaseModel(nn.Module):
     """YOLOv5 base model."""
 
     def forward(self, x, profile=False, visualize=False):
@@ -220,7 +230,7 @@ class BaseModel(nn.Module):
         """
         self = super()._apply(fn)
         m = self.model[-1]  # Detect()
-        if isinstance(m, (Detect, Segment)):
+        if isinstance(m, (Detect, _Segment)):
             m.stride = fn(m.stride)
             m.grid = list(map(fn, m.grid))
             if isinstance(m.anchor_grid, list):
@@ -228,7 +238,7 @@ class BaseModel(nn.Module):
         return self
 
 
-class DetectionModel(BaseModel):
+class _DetectionModel(_BaseModel):
     """YOLOv5 detection model class for object detection tasks, supporting custom configurations and anchors."""
 
     def __init__(self, cfg="yolov5s.yaml", ch=3, nc=None, anchors=None):
@@ -249,17 +259,17 @@ class DetectionModel(BaseModel):
             self.yaml["nc"] = nc  # override yaml value
         if anchors:
             self.yaml["anchors"] = round(anchors)  # override yaml value
-        self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
+        self.model, self.save = _parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
         self.names = [str(i) for i in range(self.yaml["nc"])]  # default names
         self.inplace = self.yaml.get("inplace", True)
 
         # Build strides, anchors
         m = self.model[-1]  # Detect()
-        if isinstance(m, (Detect, Segment)):
+        if isinstance(m, (Detect, _Segment)):
 
             def _forward(x):
                 """Passes the input 'x' through the model and returns the processed output."""
-                return self.forward(x)[0] if isinstance(m, Segment) else self.forward(x)
+                return self.forward(x)[0] if isinstance(m, _Segment) else self.forward(x)
 
             s = 256  # 2x min stride
             m.inplace = self.inplace
@@ -340,10 +350,7 @@ class DetectionModel(BaseModel):
             mi.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
 
-Model = DetectionModel  # retain YOLOv5 'Model' class for backwards compatibility
-
-
-def parse_model(d, ch):
+def _parse_model(d, ch):
     """Parses a YOLOv5 model from a dict `d`, configuring layers based on input channels `ch` and model architecture."""
     anchors, nc, gd, gw, act, ch_mul = (
         d["anchors"],
@@ -370,45 +377,27 @@ def parse_model(d, ch):
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
         if m in {
             Conv,
-            GhostConv,
             Bottleneck,
-            GhostBottleneck,
-            SPP,
             SPPF,
             DWConv,
-            Focus,
-            CrossConv,
-            BottleneckCSP,
             C3,
-            C3TR,
-            C3SPP,
-            C3Ghost,
             nn.ConvTranspose2d,
-            DWConvTranspose2d,
-            C3x,
         }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
                 c2 = _make_divisible(c2 * gw, ch_mul)
 
             args = [c1, c2, *args[1:]]
-            if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x}:
-                args.insert(2, n)  # number of repeats
-                n = 1
         elif m is nn.BatchNorm2d:
             args = [ch[f]]
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
-        elif m in {Detect, Segment}:
+        elif m in {Detect, _Segment}:
             args.append([ch[x] for x in f])
             if isinstance(args[1], int):  # number of anchors
                 args[1] = [list(range(args[1] * 2))] * len(f)
-            if m is Segment:
+            if m is _Segment:
                 args[3] = _make_divisible(args[3] * gw, ch_mul)
-        elif m is Contract:
-            c2 = ch[f] * args[0] ** 2
-        elif m is Expand:
-            c2 = ch[f] // args[0] ** 2
         else:
             c2 = ch[f]
 
@@ -422,3 +411,7 @@ def parse_model(d, ch):
             ch = []
         ch.append(c2)
     return nn.Sequential(*layers), sorted(save)
+
+# EXPORT 
+# retain YOLOv5 'Model' class for backwards compatibility
+Model = _DetectionModel 

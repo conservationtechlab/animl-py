@@ -20,8 +20,8 @@ from ultralytics import YOLO
 from animl import file_management
 from animl.model_architecture import MEGADETECTORv5_SIZE, MD_LABELS, MD_MODELS
 from animl.generator import manifest_dataloader, image_to_tensor
-from animl.utils.general import (normalize_bbox, _xyxy_to_xywh, scale_letterbox,
-                                 non_max_suppression, get_torch_device, get_onnx_device)
+from animl.utils.general import (_normalize_bbox, _xyxy_to_xywh, _scale_letterbox,
+                                 _non_max_suppression, get_torch_device, get_onnx_device)
 
 
 def load_detector(model_path: str,
@@ -146,7 +146,7 @@ def detect(detector,
             # letterboxing should be true
             prediction = detector(batch_from_dataloader[0].to(device))
             pred: list = prediction[0]
-            pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
+            pred = _non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
         # onnx
         elif detector.model_type == "onnx":
             input_name = detector.get_inputs()[0].name
@@ -237,7 +237,7 @@ def detect(detector,
             # letterboxing should be true
             prediction = detector(successes[0].to(device))
             pred: list = prediction[0]
-            pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
+            pred = _non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
         # 'onnx'
         elif detector.model_type == "onnx":
             input_name = detector.get_inputs()[0].name
@@ -335,7 +335,7 @@ def _convert_detections(predictions: list,
             for j in range(len(conf)):
                 # YOLOv5/MDv5
                 if model_type in {'onnx', 'mdv5', 'yolov5', "mdv1000-redwood", "mdv1000-spruce"}:  # xyxy absolute
-                    bbox = normalize_bbox(boxes[j], image_tensors[i].shape[1:])
+                    bbox = _normalize_bbox(boxes[j], image_tensors[i].shape[1:])
                     bbox = _xyxy_to_xywh(bbox)
                 # YOLOv6+
                 elif model_type in {'yolo', "mdv6", "mdv1000-cedar", "mdv1000-larch", "mdv1000-sorrel"}:  # xyxy relative
@@ -345,7 +345,7 @@ def _convert_detections(predictions: list,
                     return None
                 # rescale bboxes if letterbox was used in preprocessing
                 if letterbox:
-                    bbox = scale_letterbox(bbox, image_tensors[i].shape[1:], image_sizes[i, :])
+                    bbox = _scale_letterbox(bbox, image_tensors[i].shape[1:], image_sizes[i, :])
 
                 # increase md categories by 1
                 if model_type in MD_MODELS:
