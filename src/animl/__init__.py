@@ -1,6 +1,7 @@
 __version__ = '3.3.1_dev'
 
 from animl import classification
+from animl import count
 from animl import detection
 from animl import export
 from animl import file_management
@@ -18,6 +19,7 @@ from animl import video_processing
 from animl.classification import (classify, load_class_list, load_classifier,
                                   sequence_classification,
                                   single_classification,)
+from animl.count import (count_detections, deduplicate,)
 from animl.detection import (detect, get_animals, get_empty, load_detector,
                              parse_detections,)
 from animl.export import (export_camptrapdp, export_camtrapR, export_coco,
@@ -61,7 +63,7 @@ from animl.train import (load_classifier_checkpoint, save_classifier,
                          train_classifier,)
 from animl.utils import (MD_COLORS, NUM_THREADS, animlr, box_area, box_iou,
                          check_exiftool, check_onnx_cuda, check_torch_cuda,
-                         exif_transpose, general, get_onnx_device,
+                         exif_transpose, general,  get_iou, get_onnx_device,
                          get_torch_device, get_version, init_seed, letterbox,
                          non_max_suppression, normalize_bbox,
                          plot_all_bounding_boxes, plot_box, plot_from_file,
@@ -87,8 +89,8 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'box_area', 'box_iou', 'build_file_manifest', 'check_exiftool',
            'check_file', 'check_onnx_cuda', 'check_torch_cuda',
            'class_list_to_dict', 'classification', 'classify', 'collate_fn',
-           'common', 'compute_batched_distance_matrix',
-           'compute_distance_matrix', 'cosine_distance', 'detect', 'detection',
+           'common', 'count', 'count_detections',
+           'compute_batched_distance_matrix', 'compute_distance_matrix', 'cosine_distance', 'deduplicate', 'detect', 'detection',
            'distance', 'download', 'download_model',
            'euclidean_squared_distance', 'exif_transpose', 'export',
            'export_camptrapdp', 'export_camtrapR', 'export_coco',
@@ -96,7 +98,7 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'export_train_val_test', 'export_yolo', 'extract_frames',
            'extract_miew_embeddings', 'file_management', 'from_config',
            'from_paths', 'general', 'generator', 'get_animals', 'get_empty',
-           'get_frame_as_image', 'get_onnx_device', 'get_torch_device',
+           'get_frame_as_image', 'get_iou', 'get_onnx_device', 'get_torch_device',
            'get_version', 'image_to_tensor', 'inference', 'init_seed',
            'l2_norm', 'letterbox', 'list_models', 'load_class_list',
            'load_classifier', 'load_classifier_checkpoint', 'load_data',
