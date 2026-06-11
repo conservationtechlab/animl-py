@@ -224,7 +224,7 @@ def save_data(data: pd.DataFrame,
 
     Args:
         data (pd.DataFrame): the dataframe to be saved
-        out_file (Union[Path, str]): full path to save file to
+        out_file (Union[Path, str]): full path to save file to, must include .csv extension
         prompt (bool): prompts the user to confirm overwrite
 
     Returns:
