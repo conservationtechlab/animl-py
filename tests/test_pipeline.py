@@ -108,7 +108,7 @@ class TestFromPaths(unittest.TestCase):
 
         mock_load_det.return_value = MagicMock()
         mock_detect.return_value = []
-        mock_parse.return_value = self.mock_manifest
+        mock_parse.return_value = self.mock_animals
         if mock_class_list_to_dict is not None:
             mock_class_list_to_dict.return_value = {1: 'animal', 2: 'vehicle', 3: 'person'}
 
@@ -700,7 +700,7 @@ class TestFromConfig(unittest.TestCase):
 
         mock_load_det.return_value = MagicMock()
         mock_detect.return_value = []
-        mock_parse.return_value = self.mock_manifest
+        mock_parse.return_value = self.mock_animals
         if mock_class_list_to_dict is not None:
             mock_class_list_to_dict.return_value = {1: 'animal', 2: 'vehicle', 3: 'person'}
 
