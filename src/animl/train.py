@@ -35,7 +35,8 @@ def save_classifier(model,
                     epoch: int,
                     stats: dict,
                     optimizer=None,
-                    scheduler=None):
+                    scheduler=None,
+                    scaler=None):
     '''
     Saves model state weights.
 
@@ -46,6 +47,7 @@ def save_classifier(model,
         stats (dict): performance metrics of current epoch
         optimizer: pytorch optimizer (optional)
         scheduler: pytorch scheduler (optional)
+        scaler: pytorch GradScaler (optional)
 
     Returns:
         None
@@ -62,11 +64,13 @@ def save_classifier(model,
         checkpoint['optimizer'] = optimizer.state_dict()
     if scheduler is not None:
         checkpoint['scheduler'] = scheduler.state_dict()
+    if scaler is not None:
+        checkpoint['scaler'] = scaler.state_dict()
 
     torch.save(checkpoint, open(f'{out_dir}/{epoch}.pt', 'wb'))
 
 
-def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
+def load_classifier_checkpoint(model_path, model, optimizer, scheduler, scaler, device):
     '''
     Load checkpoint model weights to resume training.
 
@@ -75,6 +79,7 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
         model: loaded model object
         optimizer: optimizer object
         scheduler: learning rate scheduler
+        scaler: GradScaler object or None if not using GradScaler
         device (str): device to load model and data to
 
     Returns:
@@ -109,6 +114,9 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
         # load scheduler state if available
         if 'scheduler' in checkpoint:
             scheduler.load_state_dict(checkpoint['scheduler'])
+
+        if 'scaler' in checkpoint and scaler is not None:
+            scaler.load_state_dict(checkpoint['scaler'])
 
         # get last epoch from model if avialble
         if 'epoch' in checkpoint:
@@ -389,7 +397,7 @@ def train_classifier(cfg):
         scaler = None
 
     # Load checkpoint for model weights, optimizer state, scheduler state, and actual current_epoch
-    current_epoch = load_classifier_checkpoint(cfg['experiment_folder'], model, optim, scheduler, device=device)
+    current_epoch = load_classifier_checkpoint(cfg['experiment_folder'], model, optim, scheduler, scaler, device=device)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
@@ -449,7 +457,7 @@ def train_classifier(cfg):
             experiment.log_metrics(stats, step=current_epoch)
 
         if current_epoch % checkpoint == 0:
-            save_classifier(model, cfg['experiment_folder'], current_epoch, stats, optim, scheduler)
+            save_classifier(model, cfg['experiment_folder'], current_epoch, stats, optim, scheduler, scaler)
 
         # best.pt saving
         if loss_val < best_val_loss:
