@@ -216,6 +216,8 @@ as a csv containing predicted and ground truth labels for each image.
 ### Re-Identification
 {: re-id}
 
+<br><br>
+
 ---
 ### Exports
 {: #export}
@@ -225,10 +227,11 @@ as a csv containing predicted and ground truth labels for each image.
 
 ---
 # API Reference
+  
+<br>
 
 ## Full Pipeline
 {: #full-pipeline}
-<br>
 
 ### animl.from_paths(image_dir, detector_file, classifier_file, classlist_file, ...)
 {: #from-paths}
@@ -249,7 +252,7 @@ AniML will add a Animl-Directory folder to the image_dir to store the outputs.
 | `sequence`        | bool | False  | Toggle to use sequence-level classification |
 | `detect_only`     | bool | False  | Skip classification step |
 
-**Returns:** a dataframe containing the results of the detection and classification, including file paths, 
+**Returns:** `pandas.DataFrame` — results of detection and classification, including file paths, 
              detection categories, and predicted classes.
 
 <br><br>
@@ -266,7 +269,7 @@ An example configuration .yml file can be found [here](https://github.com/conser
 |---|---|---|---|
 | `config` | str | required | Path to config yml file.
 
-**Returns:** a dataframe containing the results of the detection and classification, including file paths, 
+**Returns:** `pandas.DataFrame` — results of detection and classification, including file paths, 
              detection categories, and predicted classes.
 
 <br><br>
@@ -327,10 +330,10 @@ Output manifest will have the following columns:
 * station (if station_depth is not None)
 * camera (if camera_depth is not None)
 
-\* For station_depth, if file paths are in the format "image_dir/station/date/file.jpg",
-station_depth would be 1 (0 indexed). If None, station column will not be created.
-Likewise for camera_depth, if file paths are in the format "image_dir/station/camera/date/file.jpg",
-camera_depth would be 2 (0 indexed). If None, camera column will not be created.
+\* For `station_depth`, if file paths are in the format "image_dir/station/date/file.jpg",
+`station_depth` would be 1 (0 indexed). If None, station column will not be created.
+Likewise for `camera_depth`, if file paths are in the format "image_dir/station/camera/date/file.jpg",
+`camera_depth` would be 2 (0 indexed). If None, camera column will not be created.
 
 
 <br><br>
@@ -344,8 +347,7 @@ Get start and stop dates for each camera folder.
 |---|---|---|---|
 | `manifest`        | pandas DataFrame  | required      | File manifest dataframe with file paths and timestamps |
 | `file_col`        | str               | "filepath"    | Column in manifest to use for file paths, defaults to "filepath" |
-| `camera_depth`    | int               | 0             | Directory depth from which to split cameras,
-                                                          with 0 being the root of the manifest_dir |
+| `camera_depth`    | int               | 0             | Directory depth from which to split cameras, with 0 being the root of the manifest_dir |
 | `timestamp_col`   | str               | "datetime"    | Column name representing the timestamp in format "%Y-%m-%d %H:%M:%S", defaults to "datetime" |
 
 **Returns:** `pandas.DataFrame` with a row for each camera and the earliest and latest timestamp of data taken at that camera
@@ -362,10 +364,9 @@ Unlike sequence_classification(), does not apply any classification or labeling 
 |---|---|---|---|
 | `manifest`        | pandas DataFrame  | required      | File manifest dataframe with file paths and timestamps |
 | `station_col`     | str               | "station"     | Column name in the DataFrame representing the station or camera |
-| `sort_columns`    | list[str]         | None          | List of columns to sort by before calculating sequences.
-                                                          Defaults to None, which sorts by station_col and timestamp_col |
-| `file_col`        | str               | "filepath"    | Column in manifest to use for file paths, defaults to "filepath" |
-| `timestamp_col`   | str               | "datetime"    | Column name representing the timestamp in format "%Y-%m-%d %H:%M:%S", defaults to "datetime". |
+| `sort_columns`    | list[str]         | None          | List of columns to sort by before calculating sequences. Defaults to None, which sorts by `station_col` and `timestamp_col` |
+| `file_col`        | str               | "filepath"    | Column in manifest to use for file paths, defaults to `"filepath"` |
+| `timestamp_col`   | str               | "datetime"    | Column name representing the timestamp in format "%Y-%m-%d %H:%M:%S", defaults to "datetime" |
 | `maxdiff`         | int               | 60            | Maximum time difference in seconds between consecutive images to be
                                                           considered part of the same sequence. Defaults to 60 |
 
@@ -404,8 +405,10 @@ Can sample frames based on a specified number of frames or frames per second (fp
 {: #load_detector}
 
 Loads a detector model from a file path.
-Model types accepted: ["mdv5", "mdv6", "mdv1000-cedar", "mdv1000-larch", "mdv1000-sorrel",
-"mdv1000-redwood", "mdv1000-spruce", "yolov5", "yolo", "onnx"]
+
+Model types accepted: <br>
+["mdv5", "mdv6", "mdv1000-cedar", "mdv1000-larch", "mdv1000-sorrel",
+"mdv1000-redwood", "mdv1000-spruce", "yolov5", "yolo", "onnx"] <br>
 For yolo models v6+, use "yolo", for v5, use "yolov5". 
 
 | Parameter | Type | Default | Description |
@@ -458,7 +461,7 @@ Converts detector output into a detections DataFrame.
 | `threshold`   | float         | 0             | Minimum confidence score; detections below are not returned |
 | `file_col`    | str           | "filepath"    | Column name containing file paths, will merge results to manifest on this column |
 
-**Returns:** `pd.DataFrame` — one row per detection with columns:
+**Returns:** `pandas.DataFrame` — one row per detection with columns:
              `filepath`, `category`, `category_label`, `conf`, `bbox_x`, `bbox_y`, `bbox_w`, `bbox_h`, `max_detection_conf`
 
 <br><br>
@@ -472,7 +475,7 @@ Pulls out MD animal detections for classification
 |---|---|---|---|
 | `manifest`    | DataFrame | None  | DataFrame containing one row for every MD detection |
 
-**Returns:** `pd.DataFrame` — subset of manifest containing only animal detections
+**Returns:** `pandas.DataFrame` — subset of manifest containing only animal detections
 
 <br><br>
 
@@ -485,7 +488,7 @@ Pulls out MD non-animal detections and adds prediction and confidence columns
 |---|---|---|---|
 | `manifest`    | DataFrame | None  | DataFrame containing one row for every MD detection |
 
-**Returns:** `pd.DataFrame` — subset of manifest containing empty, vehicle and human detections
+**Returns:** `pandas.DataFrame` — subset of manifest containing empty, vehicle and human detections
         with added prediction and confidence columns
 
 <br><br>
@@ -508,7 +511,7 @@ Creates and loads a classifier model of the given architecture from disk, with t
 | `architecture` | str    | "efficientnet_v2_m"    | Expected architecture name ("efficientnet_v2_m" or "convnext_base")       |
 | `quiet`        | bool                                   | True                   | Toggles suppression of device info messages                       |
 
-**Returns:** `(model, class_list)` — loaded model (of given architecture) and class list  
+**Returns:** `(model, class_list)` — loaded model (of given architecture) and class list or `None`
 
 <br><br>
   
@@ -521,7 +524,7 @@ Returns classlist file as DataFrame.
 |-------------------|--------|---------|-----------------------------|
 | `classlist_file`  | str    | required| File path to class list CSV |
 
-**Returns:** `pd.DataFrame` — the class list file data  
+**Returns:** `pandas.DataFrame` — the class list file data  
 
 <br><br>
 
@@ -582,7 +585,7 @@ Assigns predicted class labels and confidences to each row in a detection DataFr
 | `file_col`         | str                           | "filepath"  | Column for file paths                                               |
 | `failed_files`     | list or None                  | None        | List of files that failed during classification                     |
 
-**Returns:** `pd.DataFrame` — DataFrame with columns `prediction`, `confidence`, and associated metadata  
+**Returns:** `pandas.DataFrame` — DataFrame with columns `prediction`, `confidence`, and associated metadata  
 
 <br><br>
   
@@ -611,7 +614,7 @@ species to occur in an image or sequence don't use this function.
 | `failed_files`   | list or None            | None       | List of files that failed to classify                                      |
 | `maxdiff`        | int                     | 60         | Maximum time (sec) separating images in the same burst/sequence            |
 
-**Returns:** `pd.DataFrame` — sequence-classified results with columns including `prediction`, `confidence`, `sequence`
+**Returns:** `pandas.DataFrame` — sequence-classified results with columns including `prediction`, `confidence`, `sequence`
 
 <br><br>
   
@@ -648,7 +651,7 @@ Extracts MiewID embeddings for a given set of images.
 | `num_workers`  | int             | 1            | Number of workers (CPU threads or processes)                 |
 | `device`       | str             | None         | Device for inference ("cpu" or "cuda")                       |
 
-**Returns:** `np.ndarray` — array of extracted embeddings
+**Returns:** `numpy.ndarray` — array of extracted embeddings
 
 <br><br>
 
@@ -704,7 +707,7 @@ Computes a distance matrix between two feature matrices using the specified metr
 | `input2`       | torch.Tensor or np.ndarray | required | 2-D feature matrix                                           |
 | `metric`       | str             | 'euclidean'  | Distance metric: "euclidean" or "cosine"                   |
 
-**Returns:** `np.ndarray` - Distance matrix
+**Returns:** `numpy.ndarray` - Distance matrix
 
 <br><br>
 
@@ -721,7 +724,7 @@ This is useful for large datasets that may not fit in memory when computing the 
 | `metric`       | str             | 'cosine'     | Distance metric (e.g., 'euclidean', 'cosine')               |
 | `batch_size`   | int             | 10           | Number of rows from input1 to process at a time              |
 
-**Returns:** `np.ndarray` - Computed distance matrix
+**Returns:** `numpy.ndarray` - Computed distance matrix
 
 <br><br>
 
@@ -798,69 +801,329 @@ Loads the latest checkpoint to resume model training, restoring weights and opti
 | `video_path`   | str  | required  | File path to video                    |
 | `frame`        | int  | 0         | Frame number to extract, default is 0 |
 
-**Returns:** np.ndarray - Matrix representing the cv2 image
+**Returns:** `numpy.ndarray` - Matrix representing the cv2 image
+
+<br><br>
+
+### animl.plot_box(rows, file_col="filepath, min_conf=0, classifier_label_col=None, detector_category_col="category", show_confidence=False,...)
+{:#plot_box}
+
+Plot bounding box(es) for a single image based on the input rows of a DataFrame.
+
+`plot_box()` is designed for plotting boxes on a single image, while `plot_all_bounding_boxes()` can handle multiple images and has additional options for saving outputs.
+
+`rows` must contan the bounding box coordinates (`bbox_x`, `bbox_y`, `bbox_w`, `bbox_h`), and filepath (`filepath`) for the image to be plotted. 
+
+If `classifier_label_col` is specified, it will also display the predicted class label on the box. The color of the box(es) can be determined by the detector category column specified by `detector_category_col` and the `colors` dictionary. 
+
+If `show_confidence` is True, `rows` must contain `confidence` or `conf` column, and the confidence score will also be displayed on the box.
+
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `rows`                     | pandas.DataFrame or pandas.Series | required | manifest rows to plot bounding boxes for |
+| `file_col`                 | str | "filepath" | Column name containing file paths |
+| `min_conf`                 | float | 0 | Minimum confidence threshold to display a bounding box |
+| `classifier_label_col` | str or None | None | Column name containing classifier labels to display on boxes, if applicable |
+| `detector_category_col` | str | "category" | Column name containing detector category (e.g., 'category') to determine box color |
+| `show_confidence` | bool | False | If true, show confidence score on box |
+| `colors` | dict | MD_COLORS | Dictionary mapping class labels to BGR color tuples for the bounding boxes |
+| `detector_labels` | dict | MD_LABELS | Dictionary mapping detector categories to human-readable labels |
+| `return_image` | bool | False | If true, return the plotted image as a numpy array instead of displaying or saving it |
+
+**Returns:** None or `numpy.ndarray` (if `return_image` is True)
+
+<br><br>
+
+### animl.plot_all_bounding_boxes(manifest, out_dir=None, file_col="filepath", min_conf=0.1, classifier_label_col=None, detector_category_col="category", show_confidence=False,...)
+{:#plot_all_bounding_boxes}
+
+Plot bounding boxes for all rows in a manifest DataFrame, with options to save plotted images.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `manifest`                 | pd.DataFrame | required | DataFrame containing detection results and file    paths |
+| `out_dir`                  | str or None | None | Directory to save plotted images with bounding boxes; if None, images are not saved |
+| `file_col`                 | str | "filepath" | Column name containing file paths |
+| `min_conf`                 | float | 0.1 | Minimum confidence threshold to display a bounding box |
+| `classifier_label_col` | str or None | None | Column name containing classifier labels to display on boxes, if applicable |
+| `detector_category_col` | str | "category" | Column name containing detector category (e.g., 'category') to determine box color |
+| `show_confidence` | bool | False | If true, show confidence score on box |
+| `colors` | dict or None | None | Dictionary mapping detector category labels to BGR color tuples for the bounding boxes |
+| `detector_labels` | dict or None | None | Dictionary mapping detector categories to human-readable labels |
+
+**Returns:** None 
 
 <br><br>
 
 ---
 ## Export
 {: #export}
+<br>
 
-### class `animl.save_data()`
-Runs the full detection + classification pipeline on a directory of images or videos.
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `image_dir` | str | required | Path to image/video directory |
-| `detector_file` | str | required | Path to MegaDetector model |
-
-
-### class `animl.load_data()`
-Runs the full detection + classification pipeline on a directory of images or videos.
+### animl.export_folders(manifest, out_dir, out_file=None, file_col="filepath", label_col="prediction",  timestamp_col="camera", ...)
+{: #export_folders}
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `image_dir` | str | required | Path to image/video directory |
-| `detector_file` | str | required | Path to MegaDetector model |
+| `manifest`    | pd.DataFrame | required | DataFrame containing file paths and labels |
+| `out_dir`     | str          | required | Directory to save exported folders |
+| `out_file`    | str or None  | None     | Optional file path to save a CSV manifest of the exported data |
+| `file_col`    | str          | "filepath" | Column name in manifest containing file paths |
+| `label_col`   | str          | "prediction" | Column name in manifest containing class labels to use for folder names |
+| `timestamp_col` | str       | "camera" | Column name in manifest containing timestamps or camera identifiers |
+| `station_col` | str or None  | None     | Column name in manifest containing station identifiers, if applicable |
+| `unique_name_col`| str | "uniquename" | Column name in manifest to use for unique file names in exported folders; if not in manifest, they will be created from `station_col` and `timestamp_col` |
+| `copy` | bool | True | If True, files will be hard copied to new folders; if False, they will be symlinked |
 
-### class `animl.save_json()`
-Runs the full detection + classification pipeline on a directory of images or videos.
+**Returns:** `pandas.DataFrame` — copy of manifest with additional column `link` for exported file paths, with images
+copied to `out_file` if specified
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `image_dir` | str | required | Path to image/video directory |
-| `detector_file` | str | required | Path to MegaDetector model |
+<br><br>
 
-### class `animl.load_data()`
-Runs the full detection + classification pipeline on a directory of images or videos.
+### animl.remove_link(manifest, link_col="link")
+{: #remove_link}
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `image_dir` | str | required | Path to image/video directory |
-| `detector_file` | str | required | Path to MegaDetector model |
-
-### class `animl.check_file()`
-Runs the full detection + classification pipeline on a directory of images or videos.
+ Deletes symbolic links of images.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `image_dir` | str | required | Path to image/video directory |
-| `detector_file` | str | required | Path to MegaDetector model |
+| `manifest`    | pd.DataFrame | required | DataFrame containing a column with file paths to remove |
+| `link_col`    | str          | "link"   | Column name in manifest containing file paths to remove |
 
+**Returns:** `pandas.DataFrame` — copy of manifest with  column `link_col` removed
 
-### class `animl.get_frame_as_image()`
-Runs the full detection + classification pipeline on a directory of images or videos.
+<br><br>
+
+### animl.update_labels_from_folders(manifest, export_dir, unique_name_col = "uniquename", label_col = "prediction")
+{: #update_labels_from_folders}
+
+Update manifest after human review of symlink directories.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `image_dir` | str | required | Path to image/video directory |
-| `detector_file` | str | required | Path to MegaDetector model |
+| `manifest`    | pd.DataFrame | required | DataFrame containing file paths and labels to update |
+| `export_dir`  | str          | required | Directory containing reviewed folders with updated labels |
+| `unique_name_col` | str          | "uniquename" | Column name in manifest that contains unique identifiers for each file, which should match the unique identifiers in the folder names within `export_dir` |
+| `label_col` | str | "prediction" | Column name in manifest that contains labels to update |
+
+**Returns:** `pandas.DataFrame` — copy of manifest with updated labels based on folder names in `export_dir` after human review
+
+<br><br>
+
+### animl.export_train_val_test(manifest, label_col="class", file_col="filepath", conf_col="confidence", out_dir=None, val_size=0.1, test_size=0.1, seed=42)
+{: #export_train_val_test}
+
+Returns train_df, val_df, test_df with `label_col` stratified.
+`test_size` and `val_size` are fractions of the whole dataset (e.g., 0.2 -> 20%).
+
+If there are multiple detections per image, samples are sorted by `conf_col` confidence score before splitting and only the highest confidence detection per image is used for stratification to ensure that all samples of the same image are in the same split. Otherwise, if there are multiple detections per image and stratification is done on all samples, different samples from the same image could end up in different splits, which can lead to data leakage and overly optimistic performance estimates.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `manifest`    | pd.DataFrame | required | DataFrame containing file paths, labels, and confidence scores |
+| `label_col`   | str          | "class"   | Column name in manifest containing class labels to stratify on |
+| `file_col`    | str          | "filepath" | Column name in manifest containing file paths |
+| `conf_col`    | str          | "confidence" | Column name in manifest containing confidence scores, used to sort samples before splitting |
+| `out_dir`     | str or None  | None     | Directory to save train/val/test CSV files; if None, CSVs are not saved |
+| `val_size`    | float         | 0.1      | Fraction of dataset to use for validation set (e.g., 0.1 for 10%) |
+| `test_size`   | float         | 0.1      | Fraction of dataset to use for test set (e.g., 0.1 for 10%) |
+| `seed`        | int           | 42       | Random seed for reproducibility of splits |
+
+**Returns:** `tuple` — (`train_df`, `val_df`, `test_df`) DataFrames for training, validation, and testing, stratified by `label_col` 
+
+<br><br>
+
+### animl.export_yolo(train_manifest, val_manifest, test_manifest, class_dict, out_dir, label_col="class", file_col="filepath", ...)
+{: #export_yolo}
+
+Export a manifest to YOLO format for model training.
+Saves a .txt file for each image with bounding box coordinates and class labels.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `train_manifest` | pd.DataFrame | required | DataFrame containing training samples with file paths, labels, and bounding box coordinates |
+| `val_manifest`   | pd.DataFrame | required | DataFrame containing validation samples with file paths, labels, and bounding box coordinates |
+| `test_manifest`  | pd.DataFrame | required | DataFrame containing test samples with file paths, labels, and bounding box coordinates |
+| `class_dict`     | dict          | required | Dictionary mapping class labels to class IDs (e.g., {"empty": 0, "species_a": 1, "species_b": 2}) |
+| `out_dir`        | str           | required | Directory to save YOLO formatted .txt files and class list |
+| `label_col`     | str           | "prediction"   | Column name in manifest containing class labels |
+| `file_col`       | str           | "filepath" | Column name in manifest containing file paths |
+| `hard_copy`      | bool          | False     | If True, image files will be hard copied to the YOLO output directory; if False, they will be symlinked |
+
+**Returns** `dict` — dictionary containing paths to saved YOLO formatted files, number of classes, and class list, e.g.:
+```python
+{
+    "path": "path/to/yolo/",
+    "train": "path/to/yolo/images/train",
+    "val": "path/to/yolo/images/val",
+    "test": "path/to/yolo/images/test",
+    "names": ["empty", "species_a", "species_b"],
+    "num_classes": 3
+}
+```
+
+<br><br>
+
+### animl.export_coco(manifest, class_dict, out_file, info=None, licenses=None)
+{: #export_coco}
+
+Export a manifest to COCO format.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `manifest`    | pd.DataFrame  | required | DataFrame containing detection results and file paths |
+| `class_dict`  | dict          | required | Dictionary mapping class labels to category IDs (e.g., {"empty": 0, "species_a": 1, "species_b": 2}) |
+| `out_file`    | str or Path   | required | File path to save the COCO JSON output |
+| `info`        | dict or None  | None     | Optional dictionary containing dataset info to include in COCO output (e.g., {"description": "My Dataset", "version": "1.0"}) |
+| `licenses`    | list of dict or None | None     | Optional list of license dictionaries to include in COCO output (e.g., [{"id": 1, "name": "CC-BY-4.0", "url": "https://creativecommons.org/licenses/by/4.0/"}]) |
+
+**Returns:** `dict` — COCO format dictionary containing `info`, `licenses`, `categories`, `images`, and `annotations` based on the input manifest and class_dict, and saves it to `out_file` as JSON
+
+
+<br><br>
+
+### animl.export_camtrapdp(manifest, out_dir, file_public=False, classifier_name=None)
+{: #export_camtrapdp}
+
+Export a manifest to CamtrapDP format.
+Requires scientific name for the species prediction label and bounding box coordinates for each detection.
+Assumes MegaDetector category labels and uses `category` column to determine which rows are "empty" vs "animal" detections.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `manifest`    | pd.DataFrame  | required | DataFrame containing classification results and file paths |
+| `out_dir`     | str  | required | Directory to save the CamtrapDP formatted output |
+| `file_public` | bool          | False     | Record whether the media files are publicly available |
+| `classifier_name` | str or None | None     | Optional name of the classifier model used for predictions, to include in the output metadata |
+
+**Returns** `tuple` - media_df, observations_df, and datapackage dict
+The media_df contains metadata for each media file, the observations_df contains metadata for each observation (detection), and the datapackage dict contains the overall structure and metadata for the CamtrapDP package. 
+
+<br><br>
+
+### animl.export_camtrapR(manifest, out_dir, out_file=None, label_col='prediction', file_col='filepath', ... )
+{: #export_camtrapR}
+
+Export into species-labeled folders organized by station.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `manifest`    | pd.DataFrame  | required      | DataFrame containing classification results and file paths |
+| `out_dir`     | str           | required      | Directory to export sorted images |
+| `out_file`    | str or None   | None          | Optional file path to save a .csv manifest of the exported data |
+| `label_col`   | str           | "prediction"  | Column name in manifest species labels to use for folder names |
+| `file_col`    | str           | "filepath"    | Column name in manifest containing file paths |
+| `timestamp_col` | str         | "datetime" | Column name in manifest containing timestamps |
+| `station_col` | str           | "station"     | Column name in manifest containing station identifiers |
+| `unique_name_col` | str       | "uniquename" | Column name in manifest to use for unique file names in exported folders; if not in manifest, they will be created from `station_col` and timestamp column (e.g., `datetime`) |
+| `copy` | bool | False | If True, files will be hard copied to new folders; if False, they will be symlinked |
+
+**Returns** `pandas.DataFrame` — copy of manifest with additional column `link` for exported file paths
+
+<br><br>
+
+### animl.export_timelapse(manifest, out_dir, only_animal=True)
+{: #export_timelapse}
+
+Converts a manifest to a csv file that contains columns needed for TimeLapse conversion
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `manifest`    | pd.DataFrame  | required      | DataFrame containing classification results and file paths |
+| `out_dir`     | str           | required      | Directory to save the TimeLapse formatted output |
+| `only_animal` | bool          | True          | Whether to include only rows with animal detections (True) or all rows (False) in the output CSV |
+
+**Returns** `str` — file path to the saved TimeLapse formatted CSV file
+
+<br><br>
+
+### animl.export_megadetector(manifest, out_file=None, detector="MegaDetector v5a", prompt=True)
+{: #export_megadetector}
+
+Converts a manifest DataFrame back into MegaDetector format and saves as a .json file.
+
+If [out_file] is None, '.json' will be appended to the input file.
+
+Author: Dan Morris https://github.com/agentmorris/MegaDetector/tree/main
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `manifest` | pd.DataFrame | required | DataFrame containing images and associated detections |
+| `out_file` | str or None | None | Path to save the MD formatted file |
+| `detector` | str | "MegaDetector v5a" | Name of the detector used |
+| `prompt` | bool | True | Whether to prompt before overwriting existing file |
+
+<br><br>
+
+### animl.save_data(data, out_file, prompt=True)
+{: #save_data}
+
+Save data to a given filepath
+
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `data` | pd.DataFrame | required | DataFrame containing data to be saved |
+| `out_file` | str | required | Full path to save the data, must include file extension |
+| `prompt` | bool | True | Whether to prompt before overwriting existing file |
+
+<br><br>
+
+### animl.load_data(file)
+{: #load_data}
+
+Load data from a given filepath.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `file` | Union[Path, str] | required | Full path of the file to load |
+
+<br><br>
+
+### animl.save_json(data, out_file, prompt=True)
+{: #save_json}
+
+Save a dictionary as a JSON file.
+
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `data` | dict | required | Dictionary containing data to be saved |
+| `out_file` | str | required | Full path to save the JSON file |
+| `prompt` | bool | True | Whether to prompt before overwriting existing file |
+
+<br><br>
+
+### animl.load_json(file)
+{: #load_json}
+
+Load data from a JSON file.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `file` | Union[Path, str] | required | Full path of the JSON file to load |
+
+### animl.check_file(file, output_type=None)
+{: #check_file}
+
+Check for file existence and prompt user if they want to load.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `file` | Union[Path, str] | required | Full path of the file to check |
+| `output_type` | Union[Path, str] | None | Type of output file (e.g., "Manifest", "Detections") for prompt to user|
+
+**Returns:** `bool` — True if file exists and user wants to load, False otherwise
 
 <br><br>
 
 ---
 ## Utilities
 {: #utilities}
+<br>
+
+
 
 
 ---
