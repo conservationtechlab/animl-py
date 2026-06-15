@@ -101,7 +101,7 @@ def get_onnx_device(user_set=None, quiet=False):
 
     # cuda not available
     else:
-        if user_set is not None and user_set in {'cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3'}:
+        if user_set is not None and user_set in ['cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3']:
             if not quiet:
                 print('Warning: CUDA device specified but not available, using CPU instead.')
         providers = ['CPUExecutionProvider']

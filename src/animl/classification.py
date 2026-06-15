@@ -336,7 +336,6 @@ def single_classification(animals: pd.DataFrame,
     files = manifest.groupby(file_col)
 
     for f, file in files:
-        # TODO: remove hardcoded video extensions and frame column name
         if file['extension'].iloc[0] in file_management.VIDEO_EXTENSIONS:
             predictions = file['prediction'].unique()
             if 'empty' in predictions and len(predictions) > 1:
