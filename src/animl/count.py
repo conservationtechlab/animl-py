@@ -15,7 +15,7 @@ from animl.utils.general import get_iou
 # ==============================================================================
 
 def deduplicate(image_detections: pd.DataFrame,
-                iou_threshold: float = 0.5) -> pd.DataFrame:
+                iou_threshold: float = 0.9) -> pd.DataFrame:
     """
     Remove duplicate detections within a single image using IOU.
     When two detections overlap above the threshold, keep the one
@@ -57,19 +57,17 @@ def deduplicate(image_detections: pd.DataFrame,
 # ==============================================================================
 
 def count_detections(detections: pd.DataFrame,
-                     manifest: pd.DataFrame,
-                     station_col: str,
+                     station_col: str = "station",
                      confidence_threshold: float = 0.5,
-                     iou_threshold: float = 0.5,
+                     iou_threshold: float = 0.9,
                      maxdiff: int = 60,
                      max_n: int = None,
-                     classes: list = ["adult", "juvenile"]) -> pd.DataFrame:
+                     classes: list = None) -> pd.DataFrame:
     """
     Count detections per species across image sequences.
 
     Args:
         detections (pd.DataFrame): output of parse_detections()
-        manifest (pd.DataFrame): file manifest with station and datetime columns
         station_col (str): column name representing the station or camera
         confidence_threshold (float): minimum confidence to consider a detection
         iou_threshold (float): IOU threshold for duplicate detection removal
@@ -81,18 +79,16 @@ def count_detections(detections: pd.DataFrame,
         pd.DataFrame: one row per sequence with averaged counts per species
     """
 
-    # Step 1: assign sequence IDs
-    manifest_with_sequences = file_management.sequence_calculation(
-        manifest, station_col=station_col, maxdiff=maxdiff
+    # Step 1: assign sequence IDs using station and datetime already in detections
+    detections = file_management.sequence_calculation(
+        detections, station_col=station_col, maxdiff=maxdiff
     )
 
-    # Step 2: merge sequence IDs onto detections by filepath
-    detections = detections.merge(
-        manifest_with_sequences[["filepath", "sequence"]],
-        on="filepath",
-        how="left"
-    )
-
+    # Step 2: get unique classes from detections if not specified
+    if classes is None:
+        classes = detections['category_label'].dropna().unique().tolist()
+        classes = [c for c in classes if c != 'empty']
+    
     # Step 3: filter out null and low confidence detections
     detections = detections[detections["conf"].notna()]
     detections = detections[detections["conf"] >= confidence_threshold]
