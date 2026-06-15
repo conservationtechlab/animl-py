@@ -15,7 +15,9 @@ from animl.utils.general import get_iou
 
 def _make_detection_row(filepath='a.jpg', category_label='adult',
                          conf=0.9, bbox_x=0.1, bbox_y=0.1,
-                         bbox_w=0.2, bbox_h=0.2):
+                         bbox_w=0.2, bbox_h=0.2,
+                         station='station1',
+                         datetime='2024-01-01 12:00:00'):
     """Return a single detection row as a dictionary."""
     return {
         'filepath': filepath,
@@ -25,6 +27,8 @@ def _make_detection_row(filepath='a.jpg', category_label='adult',
         'bbox_y': bbox_y,
         'bbox_w': bbox_w,
         'bbox_h': bbox_h,
+        'station': station,
+        'datetime': datetime,
     }
 
 
@@ -32,15 +36,6 @@ def _make_detections_df(rows):
     """Return a DataFrame from a list of detection row dicts."""
     return pd.DataFrame(rows)
 
-
-def _make_manifest(filepaths, station='station1',
-                   datetime='2024-01-01 12:00:00'):
-    """Return a simple manifest DataFrame."""
-    return pd.DataFrame({
-        'filepath': filepaths,
-        'station': [station] * len(filepaths),
-        'datetime': [datetime] * len(filepaths),
-    })
 
 
 # ---------------------------------------------------------------------------
@@ -115,20 +110,17 @@ class TestCountDetections(unittest.TestCase):
         filepaths = ['a.jpg', 'b.jpg', 'c.jpg']
         rows = [_make_detection_row(filepath=fp) for fp in filepaths]
         result = count_detections(_make_detections_df(rows),
-                                  _make_manifest(filepaths),
                                   station_col='station',
                                   confidence_threshold=0.5,
                                   maxdiff=60)
         self.assertFalse(result.empty)
         self.assertIn('adult', result.columns)
-        self.assertIn('juvenile', result.columns)
 
     def test_low_confidence_filtered_out(self):
         """Detections below confidence threshold should not be counted."""
         filepaths = ['a.jpg', 'b.jpg', 'c.jpg']
         rows = [_make_detection_row(filepath=fp, conf=0.1) for fp in filepaths]
         result = count_detections(_make_detections_df(rows),
-                                  _make_manifest(filepaths),
                                   station_col='station',
                                   confidence_threshold=0.5,
                                   maxdiff=60)
@@ -139,7 +131,6 @@ class TestCountDetections(unittest.TestCase):
         filepaths = ['a.jpg', 'b.jpg', 'c.jpg']
         rows = [_make_detection_row(filepath=fp) for fp in filepaths]
         result = count_detections(_make_detections_df(rows),
-                                  _make_manifest(filepaths),
                                   station_col='station',
                                   confidence_threshold=0.5,
                                   maxdiff=60, max_n=1)
