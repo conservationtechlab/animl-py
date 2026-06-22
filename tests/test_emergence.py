@@ -25,8 +25,8 @@ def _make_counts_df(sequences, owl_juvenile_values, owl_adult_values=None):
 
 
 def _make_detections_lookup_df(sequences, station='station1',
-                                start='2026-01-01 00:00:00',
-                                minutes_apart=10):
+                               start='2026-01-01 00:00:00',
+                               minutes_apart=10):
     """Return a detections-style DataFrame with one row per sequence,
     used purely for the sequence -> station/datetime/filename lookup
     inside detect_emergence()."""
@@ -49,6 +49,7 @@ def _make_detections_lookup_df(sequences, station='station1',
 # ---------------------------------------------------------------------------
 
 class TestDetectEmergence(unittest.TestCase):
+    """Tests for detect_emergence()."""
 
     def test_raises_on_missing_target_class(self):
         """Should raise ValueError if target_class isn't a counts column."""
@@ -181,6 +182,7 @@ class TestDetectEmergence(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestEmergenceDensityCurve(unittest.TestCase):
+    """Tests for emergence_density_curve()."""
 
     def test_returns_one_row_per_window(self):
         """Should return multiple window rows for a long enough sequence."""

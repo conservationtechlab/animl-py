@@ -16,14 +16,14 @@ import pandas as pd
 # ==============================================================================
 
 def detect_emergence(counts: pd.DataFrame,
-                      detections: pd.DataFrame,
-                      target_class: str,
-                      station_col: str = "station",
-                      window_size: int = 20,
-                      step_size: int = 5,
-                      density_metric: str = "fraction",
-                      density_threshold: float = 0.3,
-                      sustained_windows: int = 3) -> pd.DataFrame:
+                     detections: pd.DataFrame,
+                     target_class: str,
+                     station_col: str = "station",
+                     window_size: int = 20,
+                     step_size: int = 5,
+                     density_metric: str = "fraction",
+                     density_threshold: float = 0.3,
+                     sustained_windows: int = 3) -> pd.DataFrame:
     """
     Detect the first sustained emergence of a target class across image
     sequences, using a sliding window to distinguish real, sustained
@@ -171,12 +171,12 @@ def detect_emergence(counts: pd.DataFrame,
 
 
 def emergence_density_curve(counts: pd.DataFrame,
-                             detections: pd.DataFrame,
-                             target_class: str,
-                             station_col: str = "station",
-                             window_size: int = 20,
-                             step_size: int = 5,
-                             density_metric: str = "fraction") -> pd.DataFrame:
+                            detections: pd.DataFrame,
+                            target_class: str,
+                            station_col: str = "station",
+                            window_size: int = 20,
+                            step_size: int = 5,
+                            density_metric: str = "fraction") -> pd.DataFrame:
     """
     Compute the full sliding-window density curve per station, without
     applying a threshold. Useful for plotting and visually choosing
