@@ -77,6 +77,7 @@ def test_classifier(cfg):
     cfg = file_management.load_yaml(cfg)
 
     crop = cfg.get('crop', False)
+    resize_width, resize_height = cfg.get('image_size', [480,480])
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -103,6 +104,7 @@ def test_classifier(cfg):
                                file_col=cfg.get('file_col', 'filepath'),
                                label_col=cfg.get('label_col', 'species'),
                                crop=crop, augment=False,
+                               resize_height=resize_height, resize_width=resize_width,
                                cache_dir=cfg.get('cache_folder', None))
     # get predictions
     pred, true, paths = _test_classifer_helper(dl_test, model, device)
