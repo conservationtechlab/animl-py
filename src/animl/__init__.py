@@ -4,6 +4,7 @@ from animl import classification
 from animl import count
 from animl import detection
 from animl import export
+from animl import emergence
 from animl import file_management
 from animl import generator
 from animl import model_architecture
@@ -26,6 +27,7 @@ from animl.export import (export_camptrapdp, export_camtrapR, export_coco,
                           export_folders, export_megadetector,
                           export_timelapse, export_train_val_test, export_yolo,
                           remove_link, update_labels_from_folders,)
+from animl.emergence import (detect_emergence, emergence_density_curve,)
 from animl.file_management import (IMAGE_EXTENSIONS, VALID_EXTENSIONS,
                                    VIDEO_EXTENSIONS, WorkingDirectory,
                                    active_times, build_file_manifest,
@@ -90,8 +92,8 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'check_file', 'check_onnx_cuda', 'check_torch_cuda',
            'class_list_to_dict', 'classification', 'classify', 'collate_fn',
            'common', 'count', 'count_detections',
-           'compute_batched_distance_matrix', 'compute_distance_matrix', 'cosine_distance', 'deduplicate', 'detect', 'detection',
-           'distance', 'download', 'download_model',
+           'compute_batched_distance_matrix', 'compute_distance_matrix', 'cosine_distance', 'deduplicate', 'detect', 'detect_emergence', 'detection',
+           'distance', 'download', 'download_model', 'emergence', 'emergence_density_curve',
            'euclidean_squared_distance', 'exif_transpose', 'export',
            'export_camptrapdp', 'export_camtrapR', 'export_coco',
            'export_folders', 'export_megadetector', 'export_timelapse',
