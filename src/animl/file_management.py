@@ -236,11 +236,11 @@ def save_data(data: pd.DataFrame,
         prompt = "Output file exists, would you like to overwrite? y/n: "
         if input(prompt).lower() != "y":
             return
+
+    if Path(out_file).parent.exists():
+        data.to_csv(out_file, index=index)
     else:
-        if Path(out_file).parent.exists():
-            data.to_csv(out_file, index=index)
-        else:
-            raise AssertionError('Cannot save, directory does not exis.')
+        raise AssertionError('Cannot save, directory does not exist.')
 
 
 def load_data(file: Union[Path, str]) -> pd.DataFrame:
