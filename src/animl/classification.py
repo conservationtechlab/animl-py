@@ -508,7 +508,7 @@ def sequence_classification(animals: pd.DataFrame,
         while (current_idx < len(animals_sort) and not pd.isna(animals_sort.loc[seq_start, timestamp_col]) and
                not pd.isna(animals_sort.loc[current_idx, timestamp_col]) and
                animals_sort.loc[current_idx, station_col] == animals_sort.loc[seq_start, station_col] and
-               (animals_sort.loc[current_idx, timestamp_col] - animals_sort.loc[seq_start, timestamp_col]).total_seconds() <= maxdiff):
+               (animals_sort.loc[current_idx, timestamp_col] - animals_sort.loc[current_idx-1, timestamp_col]).total_seconds() <= maxdiff):
             rows.append(current_idx)
             current_idx += 1
 

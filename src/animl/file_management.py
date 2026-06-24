@@ -473,7 +473,7 @@ def sequence_calculation(manifest,
         while (current_idx < len(manifest_sort) and not pd.isna(manifest_sort.loc[seq_start, timestamp_col]) and
                not pd.isna(manifest_sort.loc[current_idx, timestamp_col]) and
                manifest_sort.loc[current_idx, station_col] == manifest_sort.loc[seq_start, station_col] and
-               (manifest_sort.loc[current_idx, timestamp_col] - manifest_sort.loc[seq_start, timestamp_col]).total_seconds() <= maxdiff):
+               (manifest_sort.loc[current_idx, timestamp_col] - manifest_sort.loc[current_idx-1, timestamp_col]).total_seconds() <= maxdiff):
             current_seq.append(current_idx)
             current_idx += 1
 
