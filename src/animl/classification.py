@@ -499,18 +499,18 @@ def sequence_classification(animals: pd.DataFrame,
     predict_placeholder = np.empty(len(animals_sort), dtype='U30')
     sequence_placeholder = np.zeros(len(animals_sort))
 
-    i = 0
-    s = 0
-    while i < len(animals_sort):
-        rows = [i]
-        last_index = i+1
+    seq_start = 0
+    seq_id = 0
+    while seq_start < len(animals_sort):
+        rows = [seq_start]
+        current_idx = seq_start+1
 
-        while (last_index < len(animals_sort) and not pd.isna(animals_sort.loc[i, timestamp_col]) and
-               not pd.isna(animals_sort.loc[last_index, timestamp_col]) and
-               animals_sort.loc[last_index, station_col] == animals_sort.loc[i, station_col] and
-               (animals_sort.loc[last_index, timestamp_col] - animals_sort.loc[i, timestamp_col]).total_seconds() <= maxdiff):
-            rows.append(last_index)
-            last_index += 1
+        while (current_idx < len(animals_sort) and not pd.isna(animals_sort.loc[seq_start, timestamp_col]) and
+               not pd.isna(animals_sort.loc[current_idx, timestamp_col]) and
+               animals_sort.loc[current_idx, station_col] == animals_sort.loc[seq_start, station_col] and
+               (animals_sort.loc[current_idx, timestamp_col] - animals_sort.loc[seq_start, timestamp_col]).total_seconds() <= maxdiff):
+            rows.append(current_idx)
+            current_idx += 1
 
         rows = np.array(rows)
 
@@ -524,7 +524,7 @@ def sequence_classification(animals: pd.DataFrame,
                 predbest = np.mean(predsort_confidence, axis=0)
                 conf_placeholder[rows] = np.max(predsort_confidence[:, np.argmax(predbest)])
                 predict_placeholder[rows] = class_list[np.argmax(predbest)]
-                sequence_placeholder[rows] = int(s)
+                sequence_placeholder[rows] = int(seq_id)
 
             else:
                 mask = pd.DataFrame((predclass == empty_col))
@@ -541,23 +541,23 @@ def sequence_classification(animals: pd.DataFrame,
                     predbest = np.mean(predsort_confidence, axis=0)
                     conf_placeholder[rows[sel_mixed]] = np.max(predsort_confidence[:, np.argmax(predbest)])
                     predict_placeholder[rows[sel_mixed]] = class_list[np.argmax(predbest)]
-                    sequence_placeholder[rows[sel_mixed]] = int(s)
+                    sequence_placeholder[rows[sel_mixed]] = int(seq_id)
                 for file in sel_all_empty[sel_all_empty[0]].index:
                     empty_row = np.where(animals_sort[file_col] == file)
                     predsort_confidence = predsort[empty_row] * np.reshape(animals_sort.loc[empty_row, 'conf'].values, (-1, 1))
                     predbest = np.mean(predsort_confidence, axis=0)
                     conf_placeholder[empty_row] = np.max(predsort_confidence[:, np.argmax(predbest)])
-                    sequence_placeholder[empty_row] = int(s)
+                    sequence_placeholder[empty_row] = int(seq_id)
                     predict_placeholder[empty_row] = class_list[np.argmax(predbest)]
         # single row in sequence
         else:
             predbest = predsort[rows]
             conf_placeholder[rows] = np.max(predbest * animals_sort.loc[rows, 'conf'].values)
             predict_placeholder[rows] = class_list[np.argmax(predbest)]
-            sequence_placeholder[rows] = int(s)
+            sequence_placeholder[rows] = int(seq_id)
 
-        i = last_index
-        s += 1
+        seq_start = current_idx
+        seq_id += 1
 
     animals_sort['confidence'] = conf_placeholder
     animals_sort['prediction'] = predict_placeholder
