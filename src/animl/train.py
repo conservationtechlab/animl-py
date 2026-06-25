@@ -53,11 +53,21 @@ def save_classifier(model,
         None
     '''
     Path(out_dir).mkdir(parents=True, exist_ok=True)
-
-    # get model parameters and add to stats
-    checkpoint = {'model': model.state_dict(),
-                  'stats': stats}
-    # save optimizer and scheduler state dicts if they are provided
+    if model.__class__.__name__=="BioClip":
+        # save only parameters that are changeable: lora and classifier
+        trainable_state_dict = {
+            k: v for k, v in model.state_dict().items()
+            if "lora" in k or "classifier" in k
+        }
+        checkpoint = {
+            'model': trainable_state_dict,
+            'stats': stats
+        }
+    else:
+        # get model parameters and add to stats
+        checkpoint = {'model': model.state_dict(),
+                    'stats': stats}
+    # save optimizer, scheduler, and scaler state dicts if they are provided
     if optimizer is not None or scheduler is not None:
         checkpoint['epoch'] = epoch
     if optimizer is not None:
@@ -99,7 +109,7 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, scaler, 
         # load state dict and apply weights to model
         print(f'Resuming from epoch {start_epoch}')
         checkpoint = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'), map_location=device)
-        model.load_state_dict(checkpoint['model'])
+        model.load_state_dict(checkpoint['model'], strict=False)
         # Model is assumed to be on the correct device already (moved in main before optimizer creation)
 
         # load optimzier state if available
@@ -118,13 +128,13 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, scaler, 
         if 'scaler' in checkpoint and scaler is not None:
             scaler.load_state_dict(checkpoint['scaler'])
 
-        # get last epoch from model if avialble
+        # get last epoch from model if available
         if 'epoch' in checkpoint:
             return checkpoint['epoch']
         else:
             return start_epoch
     else:
-        # no save state found; stasrt anew
+        # no save state found; start anew
         print('No model state found, starting new model')
         return 0
 

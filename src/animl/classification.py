@@ -15,7 +15,7 @@ import torch
 import onnxruntime
 
 from animl import generator, file_management
-from animl.model_architecture import EfficientNet, ConvNeXtBase
+from animl.model_architecture import EfficientNet, ConvNeXtBase, BioClip
 from animl.utils.general import (get_torch_device, get_onnx_device, softmax,
                                  tensor_to_onnx, NUM_THREADS)
 
@@ -56,7 +56,7 @@ def load_classifier(model_path: str,
 
     # Create a new model instance for training (pytorch only)
     if model_path.is_dir():
-        supported_architectures = ["efficientnet_v2_m", "convnext_base", ]
+        supported_architectures = ["efficientnet_v2_m", "convnext_base", "bioclip_2"]
         if architecture not in supported_architectures:
             raise ValueError(f"""Unsupported architecture: {architecture}.
                              Supported architectures are: {supported_architectures}""")
@@ -69,6 +69,8 @@ def load_classifier(model_path: str,
             model = EfficientNet(num_classes, device=device)
         elif architecture == "convnext_base":
             model = ConvNeXtBase(num_classes)
+        elif architecture == "bioclip_2":
+            model = BioClip(num_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
         return model, class_list, start_epoch
@@ -79,7 +81,7 @@ def load_classifier(model_path: str,
         start_time = time()
         # PyTorch dict
         if model_path.suffix == '.pt':
-            supported_architectures = ["efficientnet_v2_m", "convnext_base"]
+            supported_architectures = ["efficientnet_v2_m", "convnext_base", "bioclip_2"]
             if architecture not in supported_architectures:
                 raise ValueError(f"""Unsupported architecture: {architecture}.
                                  Supported architectures are: {supported_architectures}""")
@@ -100,6 +102,13 @@ def load_classifier(model_path: str,
                 model.to(device)
                 model.eval()
                 model.framework = "ConvNeXt-Base"
+            elif architecture == "bioclip_2":
+                model = BioClip(num_classes, tune=False)
+                checkpoint = torch.load(model_path, map_location=device)
+                model.load_state_dict(checkpoint['model'], strict=False)
+                model.to(device)
+                model.eval()
+                model.framework = "BioClip"
         # PyTorch full modelspeak
         elif model_path.suffix == '.pth':
             # check to make sure GPU is available if chosen
