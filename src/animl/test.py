@@ -128,7 +128,7 @@ def test_classifier(cfg):
 
     cm = confusion_matrix(true, pred)
     confuse = pd.DataFrame(cm, columns=classes[class_list_label], index=classes[class_list_label])
-    file_management.save_data(confuse, cfg['experiment_folder'] + "/confusion_matrix.csv")
+    file_management.save_data(confuse, cfg['experiment_folder'] + "/confusion_matrix.csv", index=True)
 
 
 if __name__ == '__main__':
