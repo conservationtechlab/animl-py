@@ -348,6 +348,14 @@ def train_classifier(cfg):
         device = 'cpu'
     # get mixed precision flag
     mixed_precision = cfg.get('mixed_precision', False)
+    precision_dtype = cfg.get('precision_dtype','float16')
+
+    if precision_dtype == 'bfloat16':
+        precision_dtype = torch.bfloat16
+        if mixed_precision:
+            assert torch.cuda.is_bf16_supported(), "bfloat16 not natively supported on this GPU"
+    else:
+        precision_dtype = torch.float16
 
     # model will be on CPU after this call if cfg['experiment_folder'] is a directory
     model, classes, current_epoch = load_classifier(cfg['experiment_folder'], cfg['class_file'],
@@ -393,7 +401,7 @@ def train_classifier(cfg):
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
-    if mixed_precision and device != 'cpu' and torch.cuda.is_available():
+    if mixed_precision and device != 'cpu' and torch.cuda.is_available() and precision_dtype==torch.float16:
         # Creates a GradScaler once at the beginning of training.
         scaler = GradScaler('cuda', enabled=True)
     else:
@@ -431,8 +439,11 @@ def train_classifier(cfg):
             for param in model.parameters():
                 param.requires_grad = True
 
-        loss_train, oa_train = _train_classifier_helper(dl_train, model, optim, scheduler, scaler=scaler, device=device,
-                                                        mixed_precision=mixed_precision, progress=progress)
+        loss_train, oa_train = _train_classifier_helper(dl_train, model, optim, scheduler,
+                                                        scaler=scaler, device=device,
+                                                        mixed_precision=mixed_precision,
+                                                        precision_dtype=precision_dtype,
+                                                        progress=progress)
         loss_val, oa_val, precision, recall = _validate_classifier_helper(dl_val, model, device, progress=progress)
 
         # combine stats and save
