@@ -130,7 +130,7 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, scaler, 
 
 
 def _train_classifier_helper(data_loader, model, optimizer, scheduler, scaler=None, device='cpu',
-                             mixed_precision=False, progress=True):
+                             mixed_precision=False, precision_dtype=torch.float16, progress=True):
     '''
     Main training loop.
 
@@ -142,12 +142,17 @@ def _train_classifier_helper(data_loader, model, optimizer, scheduler, scaler=No
         scaler: GradScaler object
         device (str): device to load model and data to
         mixed_precision (bool): flag to enable mixed precision for GPU
+        precision_dtype (torch.dtype): datatype for mixed precision
         progress (bool): flag to enable/disable progress bar
 
     Returns:
         loss_total: loss for epoch
         oa_total: overall accuracy for epoch
     '''
+    # Ensure float16 always has a scaler to prevent numeric underflow/crashes
+    if mixed_precision and precision_dtype == torch.float16:
+        assert scaler is not None, "GradScaler must be provided for float16 mixed precision"
+
     model.to(device)
     model.train()  # put the model into training mode
 
@@ -171,13 +176,22 @@ def _train_classifier_helper(data_loader, model, optimizer, scheduler, scaler=No
         # reset gradients to zero
         optimizer.zero_grad()
 
+        # forward pass and loss calculation
         # mixed precision training if GPU is available
-        if mixed_precision and device != 'cpu' and torch.cuda.is_available() and scaler is not None:
-            # Scales the loss, and calls backward() on the scaled loss to create
-            # backward gradients. This is a more efficient way to calculate gradients.
-            with autocast(device_type='cuda', dtype=torch.float16):
+        if mixed_precision and device != 'cpu' and torch.cuda.is_available():
+            with autocast(device_type='cuda', dtype=precision_dtype):
                 prediction = model(data)
                 loss = criterion(prediction, labels)
+        else:
+            # forward pass
+            prediction = model(data)
+            # loss
+            loss = criterion(prediction, labels)
+
+        # backward pass
+        if mixed_precision and precision_dtype == torch.float16:
+            # Due to float16's limited range, it scales
+            # the loss and gradient calculation to prevent underflow
             scaler.scale(loss).backward()
             # Unscales the gradients of optimizer's assigned params in-place
             scaler.unscale_(optimizer)
@@ -186,10 +200,6 @@ def _train_classifier_helper(data_loader, model, optimizer, scheduler, scaler=No
             # Updates the scale for next iteration
             scaler.update()
         else:
-            # forward pass
-            prediction = model(data)
-            # loss
-            loss = criterion(prediction, labels)
             # calculate gradients of current batch
             loss.backward()
             # apply gradients to model parameters
