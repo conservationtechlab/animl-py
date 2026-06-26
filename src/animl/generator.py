@@ -14,10 +14,10 @@ from PIL import Image, ImageFile
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
+from torchvision.transforms.functional import InterpolationMode
 from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, RandomHorizontalFlip,
                                        RandomAffine, RandomGrayscale, RandomApply,
                                        ColorJitter, GaussianBlur)
-
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
 from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
@@ -41,10 +41,12 @@ class Letterbox(torch.nn.Module):
             made. If provided a sequence of length 1, it will be interpreted as
             (size[0], size[0]).
     """
-    def __init__(self, resize_height, resize_width):
+    def __init__(self, resize_height, resize_width, color=0, interpolation_mode=InterpolationMode.BILINEAR):
         super().__init__()
         self.resize_height = resize_height
         self.resize_width = resize_width
+        self.color = color
+        self.mode = interpolation_mode
 
     def forward(self, image):
 
@@ -60,18 +62,21 @@ class Letterbox(torch.nn.Module):
             wp = int(ratio_f * height - width)
             if hp > 0 and wp < 0:
                 hp = hp // 2
-                transform = Compose([Pad((0, hp, 0, hp), 0, "constant"),
-                                     Resize([self.resize_height, self.resize_width])])
+                transform = Compose([Pad((0, hp, 0, hp), self.color, "constant"),
+                                     Resize([self.resize_height, self.resize_width],
+                                            interpolation = self.mode)])
                 return transform(image)
 
             elif hp < 0 and wp > 0:
                 wp = wp // 2
-                transform = Compose([Pad((wp, 0, wp, 0), 0, "constant"),
-                                     Resize([self.resize_height, self.resize_width])])
+                transform = Compose([Pad((wp, 0, wp, 0), self.color, "constant"),
+                                     Resize([self.resize_height, self.resize_width],
+                                            interpolation = self.mode)])
                 return transform(image)
 
         else:
-            transform = Resize([self.resize_height, self.resize_width])
+            transform = Resize([self.resize_height, self.resize_width],
+                               interpolation = self.mode)
             return transform(image)
 
 
