@@ -78,6 +78,7 @@ def test_classifier(cfg):
 
     crop = cfg.get('crop', False)
     resize_width, resize_height = cfg.get('image_size', [480,480])
+    architecture=cfg['architecture']
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -89,7 +90,7 @@ def test_classifier(cfg):
     model, classes = load_classifier(cfg['active_model'],
                                      cfg['class_file'],
                                      device=device,
-                                     architecture=cfg['architecture'])
+                                     architecture=architecture)
 
     class_list_label = cfg.get('class_list_label', 'class')
     class_list_index = cfg.get('class_list_index', 'id')
@@ -105,7 +106,8 @@ def test_classifier(cfg):
                                label_col=cfg.get('label_col', 'species'),
                                crop=crop, augment=False,
                                resize_height=resize_height, resize_width=resize_width,
-                               cache_dir=cfg.get('cache_folder', None))
+                               cache_dir=cfg.get('cache_folder', None),
+                               architecture=architecture)
     # get predictions
     pred, true, paths = _test_classifer_helper(dl_test, model, device)
     # calculate precision and recall

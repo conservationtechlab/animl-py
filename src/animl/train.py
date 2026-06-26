@@ -382,14 +382,16 @@ def train_classifier(cfg):
                                 file_col=file_col, label_col=label_col,
                                 crop=crop, augment=cfg.get('augment', True),
                                 resize_height=resize_height, resize_width=resize_width,
-                                cache_dir=cfg.get('cache_folder', None))
+                                cache_dir=cfg.get('cache_folder', None),
+                                architecture=architecture)
     dl_val = train_dataloader(validate_dataset, categories,
                               batch_size=cfg.get('val_batch_size', 16),
                               num_workers=cfg.get('num_workers', NUM_THREADS),
                               file_col=file_col, label_col=label_col,
                               crop=crop, augment=False,
                               resize_height=resize_height, resize_width=resize_width,
-                              cache_dir=cfg.get('cache_folder', None))
+                              cache_dir=cfg.get('cache_folder', None),
+                              architecture=architecture)
 
     # set up model optimizer
     if cfg.get("optimizer", "AdamW") == 'AdamW':

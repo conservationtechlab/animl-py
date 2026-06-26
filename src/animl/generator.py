@@ -291,6 +291,7 @@ class TrainGenerator(Dataset):
         - resize_height: size in pixels for input height
         - resize_width: size in pixels for input width
         - cache_dir: if not None, use given cache directory to store preprocessed images
+        - architecture: model architecture
     '''
     def __init__(self, x: pd.DataFrame,
                  classes: dict,
@@ -301,7 +302,8 @@ class TrainGenerator(Dataset):
                  crop: bool = True,
                  crop_coord: str = 'relative',
                  augment: bool = False,
-                 cache_dir: str = None):
+                 cache_dir: str = None,
+                 architecture: str = None):
         self.x = x.reset_index(drop=True)
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
@@ -442,7 +444,8 @@ def train_dataloader(manifest: pd.DataFrame,
                      augment: bool = False,
                      batch_size: int = 1,
                      num_workers: int = 1,
-                     cache_dir: str = None):
+                     cache_dir: str = None,
+                     architecture: str = None):
     '''
     Loads a dataset for training and wraps it in a PyTorch DataLoader object.
 
@@ -461,6 +464,7 @@ def train_dataloader(manifest: pd.DataFrame,
         batch_size (int): size of each batch
         num_workers (int): number of processes to handle the data
         cache_dir (str): if not None, use given cache directory
+        architecture (str): determines transforms used. if None, uses default transforms
 
     Returns:
         dataloader object
@@ -474,7 +478,8 @@ def train_dataloader(manifest: pd.DataFrame,
                                       resize_height=resize_height,
                                       resize_width=resize_width,
                                       augment=augment,
-                                      cache_dir=cache_dir)
+                                      cache_dir=cache_dir,
+                                      architecture=architecture)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
