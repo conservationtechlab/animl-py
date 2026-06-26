@@ -350,6 +350,7 @@ def train_classifier(cfg):
     file_col = cfg.get('file_col', 'filepath')
     label_col = cfg.get('label_col', 'species')
     resize_width, resize_height = cfg.get('image_size', [480,480])
+    architecture=cfg['architecture']
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -438,8 +439,10 @@ def train_classifier(cfg):
         print(f"Using learning rate : {scheduler.get_last_lr()[0]}")
 
         if current_epoch > frozen_epochs:
-            for param in model.parameters():
-                param.requires_grad = True
+            for name, param in model.named_parameters():
+                if architecture != "bioclip_2" or "lora" in name:
+                    #for bioclip, we only want to unfreeze the lora parameters
+                    param.requires_grad = True
 
         loss_train, oa_train = _train_classifier_helper(dl_train, model, optim, scheduler, scaler=scaler, device=device,
                                                         mixed_precision=mixed_precision, progress=progress)
