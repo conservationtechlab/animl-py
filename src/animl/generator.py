@@ -74,10 +74,9 @@ class Letterbox(torch.nn.Module):
                                             interpolation = self.mode)])
                 return transform(image)
 
-        else:
-            transform = Resize([self.resize_height, self.resize_width],
-                               interpolation = self.mode)
-            return transform(image)
+        transform = Resize([self.resize_height, self.resize_width],
+                            interpolation = self.mode)
+        return transform(image)
 
 
 def image_to_tensor(file_path, letterbox, resize_width, resize_height):
