@@ -14,9 +14,10 @@ from PIL import Image, ImageFile
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
+from torchvision.transforms.functional import InterpolationMode
 from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, RandomHorizontalFlip,
                                        RandomAffine, RandomGrayscale, RandomApply,
-                                       ColorJitter, GaussianBlur)
+                                       ColorJitter, GaussianBlur, Normalize)
 
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
@@ -110,6 +111,35 @@ def image_to_tensor(file_path, letterbox, resize_width, resize_height):
     img.close()
     frame = 0  # default frame 0 for images
     return img_tensor, [file_path], [frame], torch.tensor([(height, width)])
+
+
+def get_model_transforms(resize_height, resize_width, architecture=None):
+    """
+    Generates the image preprocessing pipeline matching the model architecture.
+
+    Args:
+        resize_height (int): resize image height
+        resize_width (int): resize image width
+        architecture (str, optional): Model architecture name. If None, falls
+            back to the default transform pipeline.
+
+    Returns:
+        torchvision.transforms.v2.Compose: Complete preprocessing pipeline.
+    """
+    if architecture == "bioclip_2":
+        assert resize_width == 224 and resize_height == 224, "BioClip only accepts image dimensions of 224x224"
+        return Compose([Letterbox(resize_height = resize_height,
+                                  resize_width = resize_width,
+                                  color = 127,
+                                  interpolation_mode = InterpolationMode.BICUBIC),
+                        ToImage(),
+                        ToDtype(torch.float32, scale=True),
+                        Normalize(mean=[0.48145466, 0.4578275, 0.40821073],
+                                  std=[0.26862954, 0.26130258, 0.27577711]),])
+    # default transformations
+    return Compose([Resize((resize_height, resize_width)),
+                    ToImage(),
+                    ToDtype(torch.float32, scale=True),])
 
 
 class ManifestGenerator(Dataset):
@@ -338,16 +368,10 @@ class TrainGenerator(Dataset):
                                 # adjust brightness and contrast for varying lighting conditions
                                 ColorJitter(brightness=0.2, contrast=0.2)
                                 ])
+        self.transform = get_model_transforms(resize_height, resize_width, architecture)
         if self.augment:
             print("Applying augmentations")
-            self.transform = Compose([augmentations,  # augmentations
-                                      Resize((self.resize_height, self.resize_width)),
-                                      ToImage(),
-                                      ToDtype(torch.float32, scale=True),])
-        else:
-            self.transform = Compose([Resize((self.resize_height, self.resize_width)),
-                                      ToImage(),
-                                      ToDtype(torch.float32, scale=True),])
+            self.transform = Compose(augmentations.transforms + self.transform.transforms)
         self.categories = {c: idx for idx, c in classes.items()}
 
     def __len__(self):
