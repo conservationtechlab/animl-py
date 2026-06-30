@@ -28,18 +28,17 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class Letterbox(torch.nn.Module):
     """
-    Pads a crop to given size
+    Pads a PIL image to a given size
 
-    If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
-    If image size is smaller than output size along any edge, image is padded with 0 and
-    then center cropped.
+    Compares input image dimensions with target aspect ratio.
+    If input size is smaller than output size along any edge,
+    the image is padded with color and then resized to the desired dimensions
 
     Args:
-        size (sequence or int): Desired output size of the crop. If size is an
-            int instead of sequence like (h, w), a square crop (size, size) is
-            made. If provided a sequence of length 1, it will be interpreted as
-            (size[0], size[0]).
+        resize_height (int): desired height of the output image
+        resize_width (int): desired width of the output image
+        color (int): desired color of padding
+        interpolation_mode (torchvision.transforms.InterpolationMode): interpolation mode for adding padding
     """
     def __init__(self, resize_height, resize_width, color=0, interpolation_mode=InterpolationMode.BILINEAR):
         super().__init__()
