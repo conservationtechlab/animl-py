@@ -5,6 +5,7 @@ Provides functions for creating, removing, and updating sorted symlinks.
 
 @ Kyra Swanson 2023
 """
+import math
 import os
 import pandas as pd
 from typing import Optional, Union
@@ -12,7 +13,7 @@ from shutil import copy2
 from random import randrange
 from pathlib import Path
 from tqdm import tqdm
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedGroupKFold, train_test_split
 
 from animl import __version__
 from animl.file_management import build_file_manifest, save_data, save_json, save_yaml
@@ -149,6 +150,74 @@ def update_labels_from_folders(manifest: pd.DataFrame,
 
     return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
 
+def _stratified_grouped_datasplit(manifest: pd.DataFrame,
+                                  label_col: str = "class",
+                                  val_size: float = 0.1,
+                                  test_size: float = 0.1,
+                                  seed: int = 42,
+                                  groupby_col: str = "sequence"):
+    """
+    Returns train_df, val_df, test_df with each group in group_col
+    belonging to only one of train, val, or test
+
+    It attempts to stratify by species and meet test/val size requirements
+    as best as possible, but final proportions may deviate from desired.
+    Manual verification and adjustment is recommended afterwards.
+
+    Note:
+        val_size and test_size are rounded to the nearest 5% increment (0.05)
+        to ensure StratifiedGroupKFold uses at most 20 splits
+
+    Args:
+        manifest (pd.DataFrame): DataFrame containing predictions
+        label_col (str): column containing species labels
+        val_size (float): fraction of data to use for validation
+        test_size (float): fraction of data to use for testing
+        seed (int): random seed for reproducibility
+        groupby_col (str): column containing group labels
+    """
+    # round val_size and test_size to nearest 0.05 and then convert to percentage
+    # val_pct and test_pct must be nonzero (at least 5%)
+    val_pct=int(max(5,round(val_size / 0.05)*5))
+    test_pct=int(max(5,round(test_size / 0.05)*5))
+
+    # the number of splits is determined by the gcd of
+    # the test, val, and train size percentages
+    gcd_val = math.gcd(math.gcd(test_pct, val_pct), 100-test_pct-val_pct)
+    n_splits = 100 // gcd_val
+
+    assert len(manifest[groupby_col].unique())>=n_splits, (
+        f"There must be at least {n_splits} groups for this test size and val size"
+    )
+
+    num_val_folds=int(val_pct*n_splits/100)
+    num_test_folds=int(test_pct*n_splits/100)
+
+    # splits data into n_splits sections with no overlapping groups
+    # and species stratified as best as possible
+    sgkf = StratifiedGroupKFold(n_splits=n_splits,
+                                shuffle=True,
+                                random_state=seed)
+
+    # now we just need to grab the right number of sections to form the val and test df
+    # folds is a list of n_splits folds. every fold isolates one of the n_splits sections
+    # folds[i][1] contains the isolated section indices for that specific fold i.
+    folds = list(sgkf.split(manifest, y=manifest[label_col], groups=manifest[groupby_col]))
+
+    # Grab the relevant folds and retrieve the indices
+    val_folds = folds[:num_val_folds]
+    test_folds = folds[num_val_folds : num_val_folds + num_test_folds]
+    val_indices = [idx for fold in val_folds for idx in fold[1]]
+    test_indices = [idx for fold in test_folds for idx in fold[1]]
+
+    # train indices are whichever indices haven't been selected for val and test
+    train_indices = list(set(manifest.index)-set(test_indices)-set(val_indices))
+
+    train_df=manifest.loc[train_indices]
+    val_df=manifest.loc[val_indices]
+    test_df=manifest.loc[test_indices]
+
+    return train_df, val_df, test_df
 
 def export_train_val_test(manifest: pd.DataFrame,
                           label_col: str = "class",
@@ -157,7 +226,8 @@ def export_train_val_test(manifest: pd.DataFrame,
                           out_dir: Optional[str] = None,
                           val_size: float = 0.1,
                           test_size: float = 0.1,
-                          seed: int = 42):
+                          seed: int = 42,
+                          groupby_col: Optional[str] = None):
     """
     Returns train_df, val_df, test_df with label_col stratified.
     test_size and val_size are fractions of the whole dataset (e.g., 0.2 -> 20%).
@@ -171,6 +241,8 @@ def export_train_val_test(manifest: pd.DataFrame,
         val_size (float): fraction of data to use for validation
         test_size (float): fraction of data to use for testing
         seed (int): random seed for reproducibility
+        groupby_col (Optional[str]): column containing group labels
+            If provided, splits data so test/val/train don't share any groups.
     """
     assert 0 <= test_size < 1
     assert 0 <= val_size < 1
@@ -190,19 +262,30 @@ def export_train_val_test(manifest: pd.DataFrame,
 
     manifest=manifest.reset_index(drop=True)
 
-    # Stage 1: split off test
-    trainval_df, test_df = train_test_split(manifest,
-                                            test_size=test_size,
-                                            stratify=manifest[label_col],
-                                            random_state=seed)
+    if groupby_col is not None:
+        if groupby_col not in manifest.columns:
+            raise ValueError(f"groupby_col '{groupby_col}' not found in dataframe columns")
 
-    # Stage 2: split train/val from trainval (val_size is relative to the original dataset)
-    # Compute val fraction relative to trainval size
-    rel_val_size = val_size / (1.0 - test_size)
-    train_df, val_df = train_test_split(trainval_df,
-                                        test_size=rel_val_size,
-                                        stratify=trainval_df[label_col],
-                                        random_state=seed + 1)
+        train_df, val_df, test_df = _stratified_grouped_datasplit(manifest=manifest,
+                                                                  label_col=label_col,
+                                                                  val_size=val_size,
+                                                                  test_size=test_size,
+                                                                  seed=seed,
+                                                                  groupby_col=groupby_col)
+    else:
+        # Stage 1: split off test
+        trainval_df, test_df = train_test_split(manifest,
+                                                test_size=test_size,
+                                                stratify=manifest[label_col],
+                                                random_state=seed)
+
+        # Stage 2: split train/val from trainval (val_size is relative to the original dataset)
+        # Compute val fraction relative to trainval size
+        rel_val_size = val_size / (1.0 - test_size)
+        train_df, val_df = train_test_split(trainval_df,
+                                            test_size=rel_val_size,
+                                            stratify=trainval_df[label_col],
+                                            random_state=seed + 1)
     # save to csv
     if out_dir is not None:
         save_data(train_df, out_dir + "/train_data.csv")
