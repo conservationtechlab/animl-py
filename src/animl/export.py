@@ -186,7 +186,9 @@ def export_train_val_test(manifest: pd.DataFrame,
         manifest = manifest.drop_duplicates(subset=[file_col])
     else:
         idx = manifest.groupby(file_col)[conf_col].idxmax()
-        manifest = manifest.loc[idx].reset_index(drop=True)
+        manifest = manifest.loc[idx]
+
+    manifest=manifest.reset_index(drop=True)
 
     # Stage 1: split off test
     trainval_df, test_df = train_test_split(manifest,
