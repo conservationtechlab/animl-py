@@ -14,10 +14,10 @@ from PIL import Image, ImageFile
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
+from torchvision.transforms.functional import InterpolationMode
 from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, RandomHorizontalFlip,
                                        RandomAffine, RandomGrayscale, RandomApply,
                                        ColorJitter, GaussianBlur)
-
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
 from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
@@ -28,23 +28,24 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class Letterbox(torch.nn.Module):
     """
-    Pads a crop to given size
+    Pads a PIL image to a given size
 
-    If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
-    If image size is smaller than output size along any edge, image is padded with 0 and
-    then center cropped.
+    Compares input image dimensions with target aspect ratio.
+    If input size is smaller than output size along any edge,
+    the image is padded with color and then resized to the desired dimensions
 
     Args:
-        size (sequence or int): Desired output size of the crop. If size is an
-            int instead of sequence like (h, w), a square crop (size, size) is
-            made. If provided a sequence of length 1, it will be interpreted as
-            (size[0], size[0]).
+        resize_height (int): desired height of the output image
+        resize_width (int): desired width of the output image
+        color (int): desired color of padding
+        interpolation_mode (torchvision.transforms.InterpolationMode): interpolation mode for adding padding
     """
-    def __init__(self, resize_height, resize_width):
+    def __init__(self, resize_height, resize_width, color=0, interpolation_mode=InterpolationMode.BILINEAR):
         super().__init__()
         self.resize_height = resize_height
         self.resize_width = resize_width
+        self.color = color
+        self.mode = interpolation_mode
 
     def forward(self, image):
 
@@ -60,19 +61,21 @@ class Letterbox(torch.nn.Module):
             wp = int(ratio_f * height - width)
             if hp > 0 and wp < 0:
                 hp = hp // 2
-                transform = Compose([Pad((0, hp, 0, hp), 0, "constant"),
-                                     Resize([self.resize_height, self.resize_width])])
+                transform = Compose([Pad((0, hp, 0, hp), self.color, "constant"),
+                                     Resize([self.resize_height, self.resize_width],
+                                            interpolation = self.mode)])
                 return transform(image)
 
             elif hp < 0 and wp > 0:
                 wp = wp // 2
-                transform = Compose([Pad((wp, 0, wp, 0), 0, "constant"),
-                                     Resize([self.resize_height, self.resize_width])])
+                transform = Compose([Pad((wp, 0, wp, 0), self.color, "constant"),
+                                     Resize([self.resize_height, self.resize_width],
+                                            interpolation = self.mode)])
                 return transform(image)
 
-        else:
-            transform = Resize([self.resize_height, self.resize_width])
-            return transform(image)
+        transform = Resize([self.resize_height, self.resize_width],
+                            interpolation = self.mode)
+        return transform(image)
 
 
 def image_to_tensor(file_path, letterbox, resize_width, resize_height):
