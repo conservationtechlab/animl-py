@@ -127,7 +127,13 @@ def get_model_transforms(resize_height, resize_width, architecture=None):
         torchvision.transforms.v2.Compose: Complete preprocessing pipeline.
     """
     if architecture == "bioclip_2":
-        assert resize_width == 224 and resize_height == 224, "BioClip only accepts image dimensions of 224x224"
+        if resize_width != 224 or resize_height != 224:
+            resize_width, resize_height = (224,224)
+            print(
+                "[WARNING] Changing resize_width and resize_height to 224x224 "
+                "to satisfy BioClip input requirements."
+            )
+
         return Compose([Letterbox(resize_height = resize_height,
                                   resize_width = resize_width,
                                   color = 127,
