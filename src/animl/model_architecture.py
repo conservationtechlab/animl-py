@@ -85,6 +85,7 @@ class BioClip(nn.Module):
             open_clip.create_model_and_transforms('hf-hub:imageomics/bioclip-2')
         )
         self.model = full_model.visual
+        embedding_dim = self.model.output_dim
         # set up low-rank adaptation
         config = LoraConfig(
                 r=16,
@@ -102,7 +103,6 @@ class BioClip(nn.Module):
                 param.requires_grad = False
 
         # Add a classifier layer
-        embedding_dim = self.model.base_model.output_dim
         self.classifier = nn.Linear(in_features=embedding_dim, out_features=num_classes)
 
     def forward(self,x):
