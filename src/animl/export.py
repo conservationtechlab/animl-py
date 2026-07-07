@@ -244,8 +244,8 @@ def export_train_val_test(manifest: pd.DataFrame,
         groupby_col (Optional[str]): column containing group labels
             If provided, splits data so test/val/train don't share any groups.
     """
-    assert 0 <= test_size < 1
-    assert 0 <= val_size < 1
+    assert 0 < test_size < 1
+    assert 0 < val_size < 1
     assert test_size + val_size < 1
 
     if label_col not in manifest.columns:
