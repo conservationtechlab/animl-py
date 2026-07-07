@@ -113,7 +113,7 @@ def image_to_tensor(file_path, letterbox, resize_width, resize_height):
     return img_tensor, [file_path], [frame], torch.tensor([(height, width)])
 
 
-def get_model_transforms(resize_height, resize_width, architecture=None):
+def _get_model_transforms(resize_height, resize_width, architecture=None):
     """
     Generates the image preprocessing pipeline matching the model architecture.
 
@@ -374,7 +374,7 @@ class TrainGenerator(Dataset):
                                 # adjust brightness and contrast for varying lighting conditions
                                 ColorJitter(brightness=0.2, contrast=0.2)
                                 ])
-        self.transform = get_model_transforms(resize_height, resize_width, architecture)
+        self.transform = _get_model_transforms(resize_height, resize_width, architecture)
         if self.augment:
             print("Applying augmentations")
             self.transform = Compose(augmentations.transforms + self.transform.transforms)
