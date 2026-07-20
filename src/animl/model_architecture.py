@@ -54,7 +54,7 @@ class ConvNeXtBase(nn.Module):
     '''
     Construct the ConvNeXt-Base model architecture.
     '''
-    def __init__(self, num_classes, tune=True):
+    def __init__(self, num_classes, tune=False):
         super(ConvNeXtBase, self).__init__()
         # load the ConvNeXt-Base model pre-trained on ImageNet 1K
         self.model = convnext_base(weights=ConvNeXt_Base_Weights.DEFAULT)
