@@ -22,7 +22,6 @@ class EfficientNet(nn.Module):
     def __init__(self, num_classes, device=None, tune=False):
         super(EfficientNet, self).__init__()
         self.device = device
-        self.avgpool = nn.AdaptiveAvgPool2d(1)
         # "pretrained": use weights pre-trained on ImageNet
         self.model = efficientnet.efficientnet_v2_m(weights=efficientnet.EfficientNet_V2_M_Weights.DEFAULT)
         if tune:
@@ -41,13 +40,7 @@ class EfficientNet(nn.Module):
         Forward pass (prediction)
         '''
         # x.size(): [B x 3 x W x H]
-        x = self.model.features(x)
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-
-        prediction = self.model.classifier(x)  # prediction.size(): [B x num_classes]
-
-        return prediction
+        return self.model(x)
 
 
 class ConvNeXtBase(nn.Module):
