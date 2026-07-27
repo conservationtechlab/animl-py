@@ -18,9 +18,8 @@ from animl.file_management import IMAGE_EXTENSIONS
 from animl.video_processing import get_frame_as_image
 
 
-
-MD_COLORS = {"1": (0, 255, 0), "2": (0, 0, 255),  "3": (255, 0, 0)}
-MD_LABELS = {"1": "animal", "2": "human",  "3": "vehicle"}
+MD_COLORS = {1: (0, 255, 0), 2: (0, 0, 255),  3: (255, 0, 0)}
+MD_LABELS = {1: "animal", 2: "human",  3: "vehicle"}
 
 def plot_box(rows,
              file_col: str = "filepath",
@@ -64,9 +63,10 @@ def plot_box(rows,
     if 'conf' not in rows.columns and 'confidence' not in rows.columns:
         rows['conf'] = 1.0  # If no confidence column, assume all detections are confident (1.0)   
 
-    if label_col and label_col not in rows.columns: 
+    if label_col is not None and label_col not in rows.columns: 
         raise ValueError(f"Label column '{label_col}' not found in DataFrame.")
-    
+
+    # set defaults for colors
     if colors is None:
         colors = MD_COLORS
     if detector_labels is None:
@@ -100,14 +100,15 @@ def plot_box(rows,
         bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         xyxy = general.convert_minxywh_to_absxyxy(bbox, width, height)
 
-        category = str(int(row['category'])) if 'category' in row and not np.isnan(row['category']) else None
+        category = row['category'] if 'category' in row and not np.isnan(row['category']) else None
 
-        color = colors[category] if category else (0, 255, 0)
+        # default to gray
+        color = colors[category] if category else (192, 192, 192)
         thick = int((height + width) // 900)
         cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), color, thick)
 
         # Printing prediction if enabled
-        if label_col:
+        if label_col is not None:
             if label_col == "category":
                 label = detector_labels[category] if category else "Unknown"
             else:
