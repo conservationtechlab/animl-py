@@ -53,11 +53,21 @@ def save_classifier(model,
         None
     '''
     Path(out_dir).mkdir(parents=True, exist_ok=True)
-
-    # get model parameters and add to stats
-    checkpoint = {'model': model.state_dict(),
-                  'stats': stats}
-    # save optimizer and scheduler state dicts if they are provided
+    if model.__class__.__name__=="BioClip":
+        # save only parameters that are changeable: lora and classifier
+        trainable_state_dict = {
+            k: v for k, v in model.state_dict().items()
+            if "lora" in k or "classifier" in k
+        }
+        checkpoint = {
+            'model': trainable_state_dict,
+            'stats': stats
+        }
+    else:
+        # get model parameters and add to stats
+        checkpoint = {'model': model.state_dict(),
+                    'stats': stats}
+    # save optimizer, scheduler, and scaler state dicts if they are provided
     if optimizer is not None or scheduler is not None:
         checkpoint['epoch'] = epoch
     if optimizer is not None:
@@ -99,7 +109,7 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, scaler, 
         # load state dict and apply weights to model
         print(f'Resuming from epoch {start_epoch}')
         checkpoint = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'), map_location=device)
-        model.load_state_dict(checkpoint['model'])
+        model.load_state_dict(checkpoint['model'], strict=False)
         # Model is assumed to be on the correct device already (moved in main before optimizer creation)
 
         # load optimzier state if available
@@ -118,13 +128,13 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, scaler, 
         if 'scaler' in checkpoint and scaler is not None:
             scaler.load_state_dict(checkpoint['scaler'])
 
-        # get last epoch from model if avialble
+        # get last epoch from model if available
         if 'epoch' in checkpoint:
             return checkpoint['epoch']
         else:
             return start_epoch
     else:
-        # no save state found; stasrt anew
+        # no save state found; start anew
         print('No model state found, starting new model')
         return 0
 
@@ -350,6 +360,7 @@ def train_classifier(cfg):
     file_col = cfg.get('file_col', 'filepath')
     label_col = cfg.get('label_col', 'species')
     resize_width, resize_height = cfg.get('image_size', [480,480])
+    architecture=cfg['architecture']
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -389,14 +400,16 @@ def train_classifier(cfg):
                                 file_col=file_col, label_col=label_col,
                                 crop=crop, augment=cfg.get('augment', True),
                                 resize_height=resize_height, resize_width=resize_width,
-                                cache_dir=cfg.get('cache_folder', None))
+                                cache_dir=cfg.get('cache_folder', None),
+                                architecture=architecture)
     dl_val = train_dataloader(validate_dataset, categories,
                               batch_size=cfg.get('val_batch_size', 16),
                               num_workers=cfg.get('num_workers', NUM_THREADS),
                               file_col=file_col, label_col=label_col,
                               crop=crop, augment=False,
                               resize_height=resize_height, resize_width=resize_width,
-                              cache_dir=cfg.get('cache_folder', None))
+                              cache_dir=cfg.get('cache_folder', None),
+                              architecture=architecture)
 
     # set up model optimizer
     if cfg.get("optimizer", "AdamW") == 'AdamW':
@@ -446,8 +459,10 @@ def train_classifier(cfg):
         print(f"Using learning rate : {scheduler.get_last_lr()[0]}")
 
         if current_epoch > frozen_epochs:
-            for param in model.parameters():
-                param.requires_grad = True
+            for name, param in model.named_parameters():
+                if architecture != "bioclip_2" or "lora" in name:
+                    #for bioclip, we only want to unfreeze the lora parameters
+                    param.requires_grad = True
 
         loss_train, oa_train = _train_classifier_helper(dl_train, model, optim, scheduler,
                                                         scaler=scaler, device=device,

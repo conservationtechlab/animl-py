@@ -3,10 +3,11 @@ Class Definitions for Species Classification
 
 @ Kyra Swanson 2023
 """
+import open_clip
+from peft import LoraConfig, get_peft_model
 import torch
 import torch.nn as nn
 from torchvision.models import efficientnet, convnext_base, ConvNeXt_Base_Weights
-
 
 MEGADETECTORv5_SIZE = 1280
 MEGADETECTORv5_STRIDE = 64
@@ -64,3 +65,47 @@ class ConvNeXtBase(nn.Module):
         Forward pass (prediction).
         '''
         return self.model(x)
+
+
+class BioClip(nn.Module):
+    '''
+    Construct the BioClip2 model architecture.
+    '''
+    def __init__(self, num_classes, tune=False):
+        super(BioClip,self).__init__()
+        # load the BioClip2 vision encoder pre-trained on TreeOfLife-200M
+        full_model, self.preprocess_train, self.preprocess_val = (
+            open_clip.create_model_and_transforms('hf-hub:imageomics/bioclip-2')
+        )
+        self.model = full_model.visual
+        embedding_dim = self.model.output_dim
+        # set up low-rank adaptation
+        config = LoraConfig(
+                r=16,
+                lora_alpha=32,
+                target_modules=["attn","c_fc","c_proj"],
+                lora_dropout=0.0,
+                bias="none",
+                modules_to_save=None
+        )
+        # this freezes the base visual encoder and injects trainable LoRA layers
+        self.model = get_peft_model(self.model, config)
+
+        if not tune:
+            for param in self.model.parameters():
+                param.requires_grad = False
+
+        # Add a classifier layer
+        self.classifier = nn.Linear(in_features=embedding_dim, out_features=num_classes)
+
+    def forward(self,x):
+        '''
+        Forward pass (prediction)
+        '''
+        # only use the visual encoder of the BioClip2 model
+        features = self.model(x)
+        # features.size(): [B x 768]
+        # normalize so the model learns based off direction only
+        features = features / features.norm(dim=-1, keepdim=True)
+        logits = self.classifier(features)
+        return logits

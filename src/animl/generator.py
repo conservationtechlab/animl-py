@@ -17,7 +17,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms.functional import InterpolationMode
 from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, RandomHorizontalFlip,
                                        RandomAffine, RandomGrayscale, RandomApply,
-                                       ColorJitter, GaussianBlur)
+                                       ColorJitter, GaussianBlur, Normalize)
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
 from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
@@ -113,6 +113,41 @@ def image_to_tensor(file_path, letterbox, resize_width, resize_height):
     img.close()
     frame = 0  # default frame 0 for images
     return img_tensor, [file_path], [frame], torch.tensor([(height, width)])
+
+
+def _get_model_transforms(resize_height, resize_width, architecture=None):
+    """
+    Generates the image preprocessing pipeline matching the model architecture.
+
+    Args:
+        resize_height (int): resize image height
+        resize_width (int): resize image width
+        architecture (str, optional): Model architecture name. If None, falls
+            back to the default transform pipeline.
+
+    Returns:
+        torchvision.transforms.v2.Compose: Complete preprocessing pipeline.
+    """
+    if architecture == "bioclip_2":
+        if resize_width != 224 or resize_height != 224:
+            resize_width, resize_height = (224,224)
+            print(
+                "[WARNING] Changing resize_width and resize_height to 224x224 "
+                "to satisfy BioClip input requirements."
+            )
+
+        return Compose([Letterbox(resize_height = resize_height,
+                                  resize_width = resize_width,
+                                  color = 127,
+                                  interpolation_mode = InterpolationMode.BICUBIC),
+                        ToImage(),
+                        ToDtype(torch.float32, scale=True),
+                        Normalize(mean=[0.48145466, 0.4578275, 0.40821073],
+                                  std=[0.26862954, 0.26130258, 0.27577711]),])
+    # default transformations
+    return Compose([Resize((resize_height, resize_width)),
+                    ToImage(),
+                    ToDtype(torch.float32, scale=True),])
 
 
 class ManifestGenerator(Dataset):
@@ -294,6 +329,7 @@ class TrainGenerator(Dataset):
         - resize_height: size in pixels for input height
         - resize_width: size in pixels for input width
         - cache_dir: if not None, use given cache directory to store preprocessed images
+        - architecture: model architecture
     '''
     def __init__(self, x: pd.DataFrame,
                  classes: dict,
@@ -304,7 +340,8 @@ class TrainGenerator(Dataset):
                  crop: bool = True,
                  crop_coord: str = 'relative',
                  augment: bool = False,
-                 cache_dir: str = None):
+                 cache_dir: str = None,
+                 architecture: str = None):
         self.x = x.reset_index(drop=True)
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
@@ -339,16 +376,10 @@ class TrainGenerator(Dataset):
                                 # adjust brightness and contrast for varying lighting conditions
                                 ColorJitter(brightness=0.2, contrast=0.2)
                                 ])
+        self.transform = _get_model_transforms(resize_height, resize_width, architecture)
         if self.augment:
             print("Applying augmentations")
-            self.transform = Compose([augmentations,  # augmentations
-                                      Resize((self.resize_height, self.resize_width)),
-                                      ToImage(),
-                                      ToDtype(torch.float32, scale=True),])
-        else:
-            self.transform = Compose([Resize((self.resize_height, self.resize_width)),
-                                      ToImage(),
-                                      ToDtype(torch.float32, scale=True),])
+            self.transform = Compose(augmentations.transforms + self.transform.transforms)
         self.categories = {c: idx for idx, c in classes.items()}
 
     def __len__(self):
@@ -445,7 +476,8 @@ def train_dataloader(manifest: pd.DataFrame,
                      augment: bool = False,
                      batch_size: int = 1,
                      num_workers: int = 1,
-                     cache_dir: str = None):
+                     cache_dir: str = None,
+                     architecture: str = None):
     '''
     Loads a dataset for training and wraps it in a PyTorch DataLoader object.
 
@@ -464,6 +496,7 @@ def train_dataloader(manifest: pd.DataFrame,
         batch_size (int): size of each batch
         num_workers (int): number of processes to handle the data
         cache_dir (str): if not None, use given cache directory
+        architecture (str): determines transforms used. if None, uses default transforms
 
     Returns:
         dataloader object
@@ -477,7 +510,8 @@ def train_dataloader(manifest: pd.DataFrame,
                                       resize_height=resize_height,
                                       resize_width=resize_width,
                                       augment=augment,
-                                      cache_dir=cache_dir)
+                                      cache_dir=cache_dir,
+                                      architecture=architecture)
 
     dataLoader = DataLoader(dataset=dataset_instance,
                             batch_size=batch_size,
