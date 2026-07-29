@@ -151,13 +151,13 @@ def update_labels_from_folders(manifest: pd.DataFrame,
     return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
 
 def _stratified_grouped_datasplit(manifest: pd.DataFrame,
+                                  groupby_col: str,
                                   label_col: str = "class",
                                   val_size: float = 0.1,
                                   test_size: float = 0.1,
-                                  seed: int = 42,
-                                  groupby_col: str = "sequence"):
+                                  seed: int = 42):
     """
-    Returns train_df, val_df, test_df with each group in group_col
+    Returns train_df, val_df, test_df with each group in groupby_col
     belonging to only one of train, val, or test
 
     It attempts to stratify by species and meet test/val size requirements
@@ -170,11 +170,11 @@ def _stratified_grouped_datasplit(manifest: pd.DataFrame,
 
     Args:
         manifest (pd.DataFrame): DataFrame containing predictions
+        groupby_col (str): column containing group labels (e.g., "sequence")
         label_col (str): column containing species labels
         val_size (float): fraction of data to use for validation
         test_size (float): fraction of data to use for testing
         seed (int): random seed for reproducibility
-        groupby_col (str): column containing group labels
     """
     # round val_size and test_size to nearest 0.05 and then convert to percentage
     # val_pct and test_pct must be nonzero (at least 5%)
@@ -267,11 +267,11 @@ def export_train_val_test(manifest: pd.DataFrame,
             raise ValueError(f"groupby_col '{groupby_col}' not found in dataframe columns")
 
         train_df, val_df, test_df = _stratified_grouped_datasplit(manifest=manifest,
+                                                                  groupby_col=groupby_col,
                                                                   label_col=label_col,
                                                                   val_size=val_size,
                                                                   test_size=test_size,
-                                                                  seed=seed,
-                                                                  groupby_col=groupby_col)
+                                                                  seed=seed)
     else:
         # Stage 1: split off test
         trainval_df, test_df = train_test_split(manifest,
