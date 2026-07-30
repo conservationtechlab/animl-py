@@ -118,7 +118,36 @@ class OpenStackTestRunner:
         
         return None
     
-    def run_tests_on_instance(self, server, repo_url, ssh_user="ubuntu"):
+    def download_model_files(self, server, github_repo, release_tag, ssh_user="ubuntu"):
+        """Download model files from GitHub release"""
+        ip = self.get_instance_ip(server)
+        if not ip:
+            raise Exception("Could not get IP for instance")
+        
+        print(f"  Downloading model files from release: {release_tag}")
+        
+        # Create tests/models directory
+        mkdir_cmd = f"ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 {ssh_user}@{ip} 'mkdir -p ~/animl/tests/models'"
+        subprocess.run(mkdir_cmd, shell=True, check=True, capture_output=True, timeout=30)
+        
+        # Download all .pt and .csv files from release
+        download_cmd = f"""
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 {ssh_user}@{ip} '
+        cd ~/animl/tests/models && 
+        wget -q https://github.com/{github_repo}/releases/download/{release_tag}/*.pt 2>/dev/null || true &&
+        wget -q https://github.com/{github_repo}/releases/download/{release_tag}/*.csv 2>/dev/null || true
+        '
+        """
+        
+        result = subprocess.run(download_cmd, shell=True, capture_output=True, timeout=120, text=True)
+        
+        if result.returncode != 0 and result.stderr:
+            print(f"  ⚠️  Warning: Model download returned exit code {result.returncode}")
+            print(f"  Details: {result.stderr}")
+        else:
+            print(f"  ✓ Model files downloaded")
+    
+    def run_tests_on_instance(self, server, repo_url, github_repo="conservationtechlab/animl-py", release_tag="sdzwa_southwest_v3", ssh_user="ubuntu"):
         """SSH into instance, setup environment, and run unit tests"""
         ip = self.get_instance_ip(server)
         if not ip:
@@ -132,6 +161,9 @@ class OpenStackTestRunner:
             print(f"  Cloning repository...")
             clone_cmd = f"ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 {ssh_user}@{ip} 'git clone {repo_url} ~/animl'"
             subprocess.run(clone_cmd, shell=True, check=True, capture_output=True, timeout=120)
+            
+            # Download model files from GitHub release
+            self.download_model_files(server, github_repo, release_tag, ssh_user)
             
             # Install requirements
             print(f"  Installing requirements...")
@@ -311,6 +343,8 @@ def main():
     FLAVOR = "m1.small"                                         # Your flavor
     NETWORK = "private"                                         # Your network
     REPO_URL = "https://github.com/conservationtechlab/animl-py.git"
+    GITHUB_REPO = "conservationtechlab/animl-py"
+    RELEASE_TAG = "sdzwa_southwest_v3"
     SSH_USER = "ubuntu"
     # ==================================
     
@@ -332,10 +366,12 @@ def main():
             network_name=NETWORK
         )
         
-        # Run tests (installs requirements + runs unittest discover)
+        # Run tests (clones repo, downloads models, installs requirements, runs tests)
         result = runner.run_tests_on_instance(
             server,
             repo_url=REPO_URL,
+            github_repo=GITHUB_REPO,
+            release_tag=RELEASE_TAG,
             ssh_user=SSH_USER
         )
         
