@@ -1,0 +1,61 @@
+name: Run Unit Tests on OpenStack
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install OpenStack SDK
+      run: pip install openstacksdk
+    
+    - name: Run Unit Tests on OpenStack
+      env:
+        OS_AUTH_URL: ${{ secrets.OS_AUTH_URL }}
+        OS_USERNAME: ${{ secrets.OS_USERNAME }}
+        OS_PASSWORD: ${{ secrets.OS_PASSWORD }}
+        OS_PROJECT_NAME: ${{ secrets.OS_PROJECT_NAME }}
+        OS_USER_DOMAIN_NAME: ${{ secrets.OS_USER_DOMAIN_NAME }}
+        OS_PROJECT_DOMAIN_NAME: ${{ secrets.OS_PROJECT_DOMAIN_NAME }}
+        OS_REGION_NAME: ${{ secrets.OS_REGION_NAME }}
+      run: python openstack_test_runner.py
+    
+    - name: Upload Test Report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-report
+        path: test_report.txt
+    
+    - name: Comment Test Results on PR
+      if: always() && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('test_report.txt', 'utf8');
+          
+          // Extract summary from report
+          const lines = report.split('\n');
+          const summaryStart = lines.findIndex(l => l.includes('SUMMARY'));
+          const summaryEnd = lines.findIndex((l, i) => i > summaryStart && l.trim() === '');
+          const summary = lines.slice(summaryStart, summaryEnd).join('\n');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## 🧪 Test Results\n\n\`\`\`\n${summary}\n\`\`\`\n\n[Full Report](${context.payload.pull_request.html_url}/checks)`
+          });
