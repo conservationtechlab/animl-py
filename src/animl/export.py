@@ -253,6 +253,7 @@ def export_train_val_test(manifest: pd.DataFrame,
     if file_col not in manifest.columns:
         raise ValueError(f"file_col '{file_col}' not found in dataframe columns")
 
+    manifest = manifest.reset_index(drop=True)
     # Keep only the highest confidence entry for each file, or one entry per file if no conf_col
     if conf_col not in manifest.columns:
         manifest = manifest.drop_duplicates(subset=[file_col])
