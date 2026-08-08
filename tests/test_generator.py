@@ -81,6 +81,13 @@ class TestLetterbox(unittest.TestCase):
         result = lb(img)
         self.assertIsInstance(result, Image.Image)
 
+    def test_similar_aspect_ratio_no_padding(self):
+        """Image with nearly matching aspect ratio should just be resized"""
+        lb = Letterbox(resize_height=75, resize_width=100)
+        img = Image.new("RGB", (134, 100))
+        result = lb(img)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.size, (100, 75))
 
 # ---------------------------------------------------------------------------
 # image_to_tensor
@@ -325,7 +332,7 @@ class TestTrainGeneratorInit(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp()
         cls.img_path = _make_image(Path(cls.tmp_dir) / "img.jpg")
-        cls.classes = ["cat", "dog"]
+        cls.classes = {0: "cat", 1: "dog"}
         cls.manifest = _make_manifest(
             [cls.img_path], label_col="species", labels=["cat"]
         )
@@ -383,7 +390,7 @@ class TestTrainGeneratorGetItem(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp()
         cls.img_path = _make_image(Path(cls.tmp_dir) / "img.jpg", width=100, height=80)
-        cls.classes = ["cat", "dog"]
+        cls.classes = {0: "cat", 1: "dog"}
         cls.manifest = _make_manifest(
             [cls.img_path], label_col="species", labels=["cat"]
         )
@@ -570,7 +577,7 @@ class TestTrainDataloader(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp()
         cls.img_path = _make_image(Path(cls.tmp_dir) / "img.jpg")
-        cls.classes = ["cat", "dog"]
+        cls.classes = {0: "cat", 1: "dog"}
         cls.manifest = _make_manifest(
             [cls.img_path], label_col="species", labels=["cat"]
         )

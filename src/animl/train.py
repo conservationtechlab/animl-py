@@ -35,7 +35,8 @@ def save_classifier(model,
                     epoch: int,
                     stats: dict,
                     optimizer=None,
-                    scheduler=None):
+                    scheduler=None,
+                    scaler=None):
     '''
     Saves model state weights.
 
@@ -46,6 +47,7 @@ def save_classifier(model,
         stats (dict): performance metrics of current epoch
         optimizer: pytorch optimizer (optional)
         scheduler: pytorch scheduler (optional)
+        scaler: pytorch GradScaler (optional)
 
     Returns:
         None
@@ -62,11 +64,13 @@ def save_classifier(model,
         checkpoint['optimizer'] = optimizer.state_dict()
     if scheduler is not None:
         checkpoint['scheduler'] = scheduler.state_dict()
+    if scaler is not None:
+        checkpoint['scaler'] = scaler.state_dict()
 
     torch.save(checkpoint, open(f'{out_dir}/{epoch}.pt', 'wb'))
 
 
-def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
+def load_classifier_checkpoint(model_path, model, optimizer, scheduler, scaler, device):
     '''
     Load checkpoint model weights to resume training.
 
@@ -75,6 +79,7 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
         model: loaded model object
         optimizer: optimizer object
         scheduler: learning rate scheduler
+        scaler: GradScaler object or None if not using GradScaler
         device (str): device to load model and data to
 
     Returns:
@@ -110,6 +115,9 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
         if 'scheduler' in checkpoint:
             scheduler.load_state_dict(checkpoint['scheduler'])
 
+        if 'scaler' in checkpoint and scaler is not None:
+            scaler.load_state_dict(checkpoint['scaler'])
+
         # get last epoch from model if avialble
         if 'epoch' in checkpoint:
             return checkpoint['epoch']
@@ -121,8 +129,8 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, device):
         return 0
 
 
-def _train_classifier_helper(data_loader, model, optimizer, scheduler, device='cpu',
-                             mixed_precision=False, progress=True):
+def _train_classifier_helper(data_loader, model, optimizer, scheduler, scaler=None, device='cpu',
+                             mixed_precision=False, precision_dtype=torch.float16, progress=True):
     '''
     Main training loop.
 
@@ -131,14 +139,20 @@ def _train_classifier_helper(data_loader, model, optimizer, scheduler, device='c
         model: loaded model object
         optimizer: optimizer object
         scheduler: learning rate scheduler
+        scaler: GradScaler object
         device (str): device to load model and data to
         mixed_precision (bool): flag to enable mixed precision for GPU
+        precision_dtype (torch.dtype): datatype for mixed precision
         progress (bool): flag to enable/disable progress bar
 
     Returns:
         loss_total: loss for epoch
         oa_total: overall accuracy for epoch
     '''
+    # Ensure float16 always has a scaler to prevent numeric underflow/crashes
+    if mixed_precision and precision_dtype == torch.float16:
+        assert scaler is not None, "GradScaler must be provided for float16 mixed precision"
+
     model.to(device)
     model.train()  # put the model into training mode
 
@@ -151,10 +165,6 @@ def _train_classifier_helper(data_loader, model, optimizer, scheduler, device='c
     if progress:
         progressBar = trange(len(data_loader))
 
-    if mixed_precision and device != 'cpu' and torch.cuda.is_available():
-        # Creates a GradScaler once at the beginning of training.
-        scaler = GradScaler('cuda', enabled=True)
-
     for idx, batch in enumerate(data_loader):
         collated, failed = batch
         if collated is None:  # entire batch was bad
@@ -166,13 +176,22 @@ def _train_classifier_helper(data_loader, model, optimizer, scheduler, device='c
         # reset gradients to zero
         optimizer.zero_grad()
 
+        # forward pass and loss calculation
         # mixed precision training if GPU is available
         if mixed_precision and device != 'cpu' and torch.cuda.is_available():
-            # Scales the loss, and calls backward() on the scaled loss to create
-            # backward gradients. This is a more efficient way to calculate gradients.
-            with autocast(device_type='cuda', dtype=torch.float16):
+            with autocast(device_type='cuda', dtype=precision_dtype):
                 prediction = model(data)
                 loss = criterion(prediction, labels)
+        else:
+            # forward pass
+            prediction = model(data)
+            # loss
+            loss = criterion(prediction, labels)
+
+        # backward pass
+        if mixed_precision and precision_dtype == torch.float16:
+            # Due to float16's limited range, it scales
+            # the loss and gradient calculation to prevent underflow
             scaler.scale(loss).backward()
             # Unscales the gradients of optimizer's assigned params in-place
             scaler.unscale_(optimizer)
@@ -181,10 +200,6 @@ def _train_classifier_helper(data_loader, model, optimizer, scheduler, device='c
             # Updates the scale for next iteration
             scaler.update()
         else:
-            # forward pass
-            prediction = model(data)
-            # loss
-            loss = criterion(prediction, labels)
             # calculate gradients of current batch
             loss.backward()
             # apply gradients to model parameters
@@ -334,6 +349,7 @@ def train_classifier(cfg):
     crop = cfg.get('crop', True)
     file_col = cfg.get('file_col', 'filepath')
     label_col = cfg.get('label_col', 'species')
+    resize_width, resize_height = cfg.get('image_size', [480,480])
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -342,6 +358,14 @@ def train_classifier(cfg):
         device = 'cpu'
     # get mixed precision flag
     mixed_precision = cfg.get('mixed_precision', False)
+    precision_dtype = cfg.get('precision_dtype','float16')
+
+    if precision_dtype == 'bfloat16':
+        precision_dtype = torch.bfloat16
+        if mixed_precision:
+            assert torch.cuda.is_bf16_supported(), "bfloat16 not natively supported on this GPU"
+    else:
+        precision_dtype = torch.float16
 
     # model will be on CPU after this call if cfg['experiment_folder'] is a directory
     model, classes, current_epoch = load_classifier(cfg['experiment_folder'], cfg['class_file'],
@@ -364,12 +388,14 @@ def train_classifier(cfg):
                                 num_workers=cfg.get('num_workers', NUM_THREADS),
                                 file_col=file_col, label_col=label_col,
                                 crop=crop, augment=cfg.get('augment', True),
+                                resize_height=resize_height, resize_width=resize_width,
                                 cache_dir=cfg.get('cache_folder', None))
     dl_val = train_dataloader(validate_dataset, categories,
                               batch_size=cfg.get('val_batch_size', 16),
                               num_workers=cfg.get('num_workers', NUM_THREADS),
                               file_col=file_col, label_col=label_col,
                               crop=crop, augment=False,
+                              resize_height=resize_height, resize_width=resize_width,
                               cache_dir=cfg.get('cache_folder', None))
 
     # set up model optimizer
@@ -385,8 +411,14 @@ def train_classifier(cfg):
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
+    if mixed_precision and device != 'cpu' and torch.cuda.is_available() and precision_dtype==torch.float16:
+        # Creates a GradScaler once at the beginning of training.
+        scaler = GradScaler('cuda', enabled=True)
+    else:
+        scaler = None
+
     # Load checkpoint for model weights, optimizer state, scheduler state, and actual current_epoch
-    current_epoch = load_classifier_checkpoint(cfg['experiment_folder'], model, optim, scheduler, device=device)
+    current_epoch = load_classifier_checkpoint(cfg['experiment_folder'], model, optim, scheduler, scaler, device=device)
 
     # initialize training arguments
     numEpochs = cfg['num_epochs']
@@ -417,8 +449,11 @@ def train_classifier(cfg):
             for param in model.parameters():
                 param.requires_grad = True
 
-        loss_train, oa_train = _train_classifier_helper(dl_train, model, optim, scheduler, device,
-                                                        mixed_precision=mixed_precision, progress=progress)
+        loss_train, oa_train = _train_classifier_helper(dl_train, model, optim, scheduler,
+                                                        scaler=scaler, device=device,
+                                                        mixed_precision=mixed_precision,
+                                                        precision_dtype=precision_dtype,
+                                                        progress=progress)
         loss_val, oa_val, precision, recall = _validate_classifier_helper(dl_val, model, device, progress=progress)
 
         # combine stats and save
@@ -446,7 +481,7 @@ def train_classifier(cfg):
             experiment.log_metrics(stats, step=current_epoch)
 
         if current_epoch % checkpoint == 0:
-            save_classifier(model, cfg['experiment_folder'], current_epoch, stats, optim, scheduler)
+            save_classifier(model, cfg['experiment_folder'], current_epoch, stats, optim, scheduler, scaler)
 
         # best.pt saving
         if loss_val < best_val_loss:

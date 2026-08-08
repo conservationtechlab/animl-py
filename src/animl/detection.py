@@ -240,6 +240,7 @@ def detect(detector,
             pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
         # 'onnx'
         elif detector.model_type == "onnx":
+            # TODO add conf threshold for onnx
             input_name = detector.get_inputs()[0].name
             if device == "cpu":
                 pred = detector.run(None, {input_name: successes[0].cpu().numpy()})[0]

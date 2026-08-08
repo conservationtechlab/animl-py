@@ -14,10 +14,10 @@ from PIL import Image, ImageFile
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
+from torchvision.transforms.functional import InterpolationMode
 from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, RandomHorizontalFlip,
                                        RandomAffine, RandomGrayscale, RandomApply,
                                        ColorJitter, GaussianBlur)
-
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE
 from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
@@ -28,23 +28,24 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class Letterbox(torch.nn.Module):
     """
-    Pads a crop to given size
+    Pads a PIL image to a given size
 
-    If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
-    If image size is smaller than output size along any edge, image is padded with 0 and
-    then center cropped.
+    Compares input image dimensions with target aspect ratio.
+    If input size is smaller than output size along any edge,
+    the image is padded with color and then resized to the desired dimensions
 
     Args:
-        size (sequence or int): Desired output size of the crop. If size is an
-            int instead of sequence like (h, w), a square crop (size, size) is
-            made. If provided a sequence of length 1, it will be interpreted as
-            (size[0], size[0]).
+        resize_height (int): desired height of the output image
+        resize_width (int): desired width of the output image
+        color (int): desired color of padding
+        interpolation_mode (torchvision.transforms.InterpolationMode): interpolation mode for adding padding
     """
-    def __init__(self, resize_height, resize_width):
+    def __init__(self, resize_height, resize_width, color=0, interpolation_mode=InterpolationMode.BILINEAR):
         super().__init__()
         self.resize_height = resize_height
         self.resize_width = resize_width
+        self.color = color
+        self.mode = interpolation_mode
 
     def forward(self, image):
 
@@ -60,19 +61,21 @@ class Letterbox(torch.nn.Module):
             wp = int(ratio_f * height - width)
             if hp > 0 and wp < 0:
                 hp = hp // 2
-                transform = Compose([Pad((0, hp, 0, hp), 0, "constant"),
-                                     Resize([self.resize_height, self.resize_width])])
+                transform = Compose([Pad((0, hp, 0, hp), self.color, "constant"),
+                                     Resize([self.resize_height, self.resize_width],
+                                            interpolation = self.mode)])
                 return transform(image)
 
             elif hp < 0 and wp > 0:
                 wp = wp // 2
-                transform = Compose([Pad((wp, 0, wp, 0), 0, "constant"),
-                                     Resize([self.resize_height, self.resize_width])])
+                transform = Compose([Pad((wp, 0, wp, 0), self.color, "constant"),
+                                     Resize([self.resize_height, self.resize_width],
+                                            interpolation = self.mode)])
                 return transform(image)
 
-        else:
-            transform = Resize([self.resize_height, self.resize_width])
-            return transform(image)
+        transform = Resize([self.resize_height, self.resize_width],
+                            interpolation = self.mode)
+        return transform(image)
 
 
 def image_to_tensor(file_path, letterbox, resize_width, resize_height):
@@ -188,8 +191,9 @@ class ManifestGenerator(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, str, int, Tensor]:
         try:
-            filepath = self.x.loc[idx, self.file_col]
-            frame = self.x.loc[idx, 'frame']
+            file_row=self.x.iloc[idx]
+            filepath = file_row[self.file_col]
+            frame = file_row['frame']
             ext = Path(filepath).suffix.lower()
 
             if ext in VIDEO_EXTENSIONS:
@@ -217,10 +221,10 @@ class ManifestGenerator(Dataset):
                 self.width = int(height / width * self.height)
 
             if self.crop:
-                bbox_x = self.x['bbox_x'].iloc[idx]
-                bbox_y = self.x['bbox_y'].iloc[idx]
-                bbox_w = self.x['bbox_w'].iloc[idx]
-                bbox_h = self.x['bbox_h'].iloc[idx]
+                bbox_x = file_row['bbox_x']
+                bbox_y = file_row['bbox_y']
+                bbox_w = file_row['bbox_w']
+                bbox_h = file_row['bbox_h']
 
                 if self.crop_coord == 'relative':
                     left = width * bbox_x
@@ -301,7 +305,7 @@ class TrainGenerator(Dataset):
                  crop_coord: str = 'relative',
                  augment: bool = False,
                  cache_dir: str = None):
-        self.x = x
+        self.x = x.reset_index(drop=True)
         self.resize_height = int(resize_height)
         self.resize_width = int(resize_width)
         self.file_col = file_col
@@ -350,12 +354,19 @@ class TrainGenerator(Dataset):
     def __len__(self):
         return len(self.x)
 
-    def _get_cache_path(self, img_path):
+    def _get_cache_path(self, img_row):
         if self.cache_dir is None:
             return None
 
+        img_path=img_row[self.file_col]
+
         if self.crop:
-            identifier = f"{img_path}_{self.x['bbox_x']}_{self.x['bbox_y']}_{self.x['bbox_w']}_{self.x['bbox_h']}"
+            bbox_x = img_row['bbox_x']
+            bbox_y = img_row['bbox_y']
+            bbox_w = img_row['bbox_w']
+            bbox_h = img_row['bbox_h']
+
+            identifier = f"{img_path}_{bbox_x}_{bbox_y}_{bbox_w}_{bbox_h}"
         else:
             identifier = f"{img_path}"
         hash_id = hashlib.md5(identifier.encode()).hexdigest()
@@ -363,9 +374,10 @@ class TrainGenerator(Dataset):
 
     def __getitem__(self, idx):
         try:
-            image_name = self.x.loc[idx, self.file_col]
-            label = self.categories[self.x.loc[idx, self.label_col]]
-            cache_path = self._get_cache_path(image_name)
+            img_row=self.x.iloc[idx]
+            image_name = img_row[self.file_col]
+            label = self.categories[img_row[self.label_col]]
+            cache_path = self._get_cache_path(img_row)
 
             if cache_path is not None and Path(cache_path).exists():
                 img = Image.open(cache_path).convert("RGB")
@@ -381,10 +393,10 @@ class TrainGenerator(Dataset):
                 if self.crop:
                     width, height = img.size
 
-                    bbox_x = self.x['bbox_x'].iloc[idx]
-                    bbox_y = self.x['bbox_y'].iloc[idx]
-                    bbox_w = self.x['bbox_w'].iloc[idx]
-                    bbox_h = self.x['bbox_h'].iloc[idx]
+                    bbox_x = img_row['bbox_x']
+                    bbox_y = img_row['bbox_y']
+                    bbox_w = img_row['bbox_w']
+                    bbox_h = img_row['bbox_h']
 
                     if self.crop_coord == 'relative':
                         left = width * bbox_x
