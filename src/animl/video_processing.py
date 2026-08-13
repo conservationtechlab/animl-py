@@ -135,16 +135,13 @@ def _count_frames(filepath, frames=5, fps=None) -> int:
             if duration > 0:
                 video_fps = frame_count / duration
             else:
-                print(f"Could not determine video FPS, defaulting to {frames} frames uniformly sampled.")
-                increment = int(frame_count / frames)
-                while len(frames_saved) < frames:
-                    frames_saved.append([str(filepath), frame_capture])
-                    frame_capture += increment
-                return frames_saved
+                print(f"Could not determine video FPS, defaulting to 30 FPS.")
+                video_fps = 30  # Default to 30 if unable to determine
 
-        frames = int(frame_count / video_fps * fps)
-        sampled_times = [i / fps for i in range(frames)]
+        n_frames = int(frame_count / video_fps) * fps
+        sampled_times = [i / fps for i in range(n_frames)]
         frames_saved = [min(int(round(t * video_fps)), frame_count-1) for t in sampled_times]
+        frames_saved = [[str(filepath), frame] for frame in frames_saved]
 
     # select set number of frames
     else:
