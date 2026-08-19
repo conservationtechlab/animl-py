@@ -325,7 +325,7 @@ class TestTrainGeneratorInit(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp()
         cls.img_path = _make_image(Path(cls.tmp_dir) / "img.jpg")
-        cls.classes = ["cat", "dog"]
+        cls.classes = {0:"cat", 1:"dog"}
         cls.manifest = _make_manifest(
             [cls.img_path], label_col="species", labels=["cat"]
         )
@@ -383,7 +383,7 @@ class TestTrainGeneratorGetItem(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp()
         cls.img_path = _make_image(Path(cls.tmp_dir) / "img.jpg", width=100, height=80)
-        cls.classes = ["cat", "dog"]
+        cls.classes = {0:"cat", 1:"dog"}
         cls.manifest = _make_manifest(
             [cls.img_path], label_col="species", labels=["cat"]
         )
@@ -570,7 +570,7 @@ class TestTrainDataloader(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp()
         cls.img_path = _make_image(Path(cls.tmp_dir) / "img.jpg")
-        cls.classes = ["cat", "dog"]
+        cls.classes = {0:"cat", 1:"dog"}
         cls.manifest = _make_manifest(
             [cls.img_path], label_col="species", labels=["cat"]
         )

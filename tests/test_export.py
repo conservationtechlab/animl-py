@@ -132,7 +132,7 @@ class TestUpdateLabelsFromFolders(unittest.TestCase):
             'filepath': ['/tmp/sorted/deer/deer_001.jpg'],
             'filename': ['deer_001.jpg'],
         })
-        with patch('animl.file_management.build_file_manifest', return_value=fake_ground_truth):
+        with patch('animl.export.build_file_manifest', return_value=fake_ground_truth):
             result = update_labels_from_folders(manifest, export_dir='/tmp/sorted')
         self.assertIn('label', result.columns)
 
@@ -228,16 +228,19 @@ class TestExportMegadetector(unittest.TestCase):
             self.assertIn(key, data)
 
     # TODO: rows with cat=0 should be included but have no detections
-    def test_empty_category_rows_skipped(self):
-        """Rows where category == 0 should not appear in images."""
+    def test_empty_category_rows_included_with_no_detections(self):
+        """Rows where category == 0 should appear in images but with empty detections list."""
         with tempfile.TemporaryDirectory() as tmp:
             out_file = str(Path(tmp) / 'md.json')
             export_megadetector(self.manifest.copy(), out_file=out_file, prompt=False)
             with open(out_file) as f:
                 data = json.load(f)
-        # img1.jpg has category=0 and should be excluded
+        # img1.jpg has category=0 but should still be included
         image_files = [im['file'] for im in data['images']]
-        self.assertNotIn('/tmp/img1.jpg', image_files)
+        self.assertIn('/tmp/img1.jpg', image_files)
+        # The empty row should have empty detections list
+        img1_entry = [im for im in data['images'] if im['file'] == '/tmp/img1.jpg'][0]
+        self.assertEqual(img1_entry.get('detections', []), [])
 
     def test_missing_column_raises_value_error(self):
         bad_manifest = self.manifest.drop(columns=['bbox_x'])
