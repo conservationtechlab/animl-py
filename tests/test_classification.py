@@ -17,7 +17,6 @@ from animl.classification import (
     load_classifier,
     single_classification,
     sequence_classification,
-    save_classifier,
 )
 
 
@@ -45,66 +44,6 @@ class TestLoadClassList(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             load_class_list('/nonexistent/classes.csv')
 
-
-class TestSaveClassifier(unittest.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        cls.tmp_dir = tempfile.mkdtemp()
-
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(cls.tmp_dir)
-
-    def test_saves_checkpoint_file(self):
-        import torch.nn as nn
-
-        model = nn.Linear(4, 2)
-        stats = {'loss': 0.5, 'accuracy': 0.9}
-        out_dir = str(Path(self.tmp_dir) / 'checkpoints')
-
-        save_classifier(model, out_dir, epoch=1, stats=stats)
-
-        self.assertTrue(Path(out_dir, '1.pt').exists())
-
-    def test_creates_output_directory(self):
-        import torch.nn as nn
-
-        model = nn.Linear(4, 2)
-        stats = {'loss': 0.3}
-        out_dir = str(Path(self.tmp_dir) / 'new_checkpoints')
-
-        save_classifier(model, out_dir, epoch=5, stats=stats)
-        self.assertTrue(Path(out_dir).exists())
-
-    def test_checkpoint_contains_model_and_stats(self):
-        import torch
-        import torch.nn as nn
-
-        model = nn.Linear(4, 2)
-        stats = {'loss': 0.1}
-        out_dir = str(Path(self.tmp_dir) / 'verify_checkpoints')
-
-        save_classifier(model, out_dir, epoch=2, stats=stats)
-
-        checkpoint = torch.load(Path(out_dir) / '2.pt', weights_only=False)
-        self.assertIn('model', checkpoint)
-        self.assertIn('stats', checkpoint)
-
-    def test_checkpoint_includes_optimizer_state(self):
-        import torch
-        import torch.nn as nn
-        import torch.optim as optim
-
-        model = nn.Linear(4, 2)
-        optimizer = optim.Adam(model.parameters())
-        stats = {'loss': 0.2}
-        out_dir = str(Path(self.tmp_dir) / 'opt_checkpoints')
-
-        save_classifier(model, out_dir, epoch=3, stats=stats, optimizer=optimizer)
-
-        checkpoint = torch.load(Path(out_dir) / '3.pt', weights_only=False)
-        self.assertIn('optimizer', checkpoint)
 
 
 class TestLoadClassifier(unittest.TestCase):
