@@ -213,7 +213,7 @@ def detect(detector,
         device = get_torch_device(user_set=device, quiet=True)
 
     # create dataloader
-    dataloader = manifest_dataloader(manifest, batch_size=batch_size,
+    dataloader = manifest_dataloader(manifest, file_col=file_col, batch_size=batch_size,
                                      num_workers=num_workers, crop=False,
                                      normalize=True, letterbox=letterbox,
                                      file_col=file_col,
