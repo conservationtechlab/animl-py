@@ -1,4 +1,4 @@
-__version__ = '3.3.0'
+__version__ = '3.3.1'
 
 from animl import classification
 from animl import detection
@@ -96,11 +96,11 @@ __all__ = ['ArcFaceLossAdaptiveMargin', 'ArcFaceSubCenterDynamic',
            'export_train_val_test', 'export_yolo', 'extract_frames',
            'extract_miew_embeddings', 'file_management', 'from_config',
            'from_paths', 'general', 'generator', 'get_animals', 'get_empty',
-           'get_frame_as_image', 'get_onnx_device', 'get_torch_device',
-           'get_version', 'image_to_tensor', 'inference', 'init_seed',
-           'l2_norm', 'letterbox', 'list_models', 'load_class_list',
-           'load_classifier', 'load_classifier_checkpoint', 'load_data',
-           'load_detector', 'load_json', 'load_miew', 'load_yaml',
+           'get_frame_as_image', 'get_onnx_device',
+           'get_torch_device', 'get_version', 'image_to_tensor', 'inference',
+           'init_seed', 'l2_norm', 'letterbox', 'list_models',
+           'load_class_list', 'load_classifier', 'load_classifier_checkpoint',
+           'load_data', 'load_detector', 'load_json', 'load_miew', 'load_yaml',
            'manifest_dataloader', 'miewid', 'model_architecture', 'models',
            'non_max_suppression', 'normalize_bbox', 'parse_detections',
            'parse_model', 'pipeline', 'plot_all_bounding_boxes', 'plot_box',

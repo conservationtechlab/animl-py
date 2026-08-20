@@ -213,9 +213,12 @@ def detect(detector,
         device = get_torch_device(user_set=device, quiet=True)
 
     # create dataloader
-    dataloader = manifest_dataloader(manifest, batch_size=batch_size,
-                                     num_workers=num_workers, crop=False,
-                                     normalize=True, letterbox=letterbox,
+    dataloader = manifest_dataloader(manifest, 
+                                     batch_size=batch_size,
+                                     num_workers=num_workers, 
+                                     crop=False,
+                                     normalize=True, 
+                                     letterbox=letterbox,
                                      file_col=file_col,
                                      resize_width=resize_width,
                                      resize_height=resize_height)
@@ -398,14 +401,18 @@ def parse_detections(results: Union[list, tuple],
     # unpack results
     if isinstance(results, (tuple, list)) and len(results) == 2 and isinstance(results[0], list):
         detections, failed_files = results
-        if len(failed_files) > 0:
-            print(f"Warning: {len(failed_files)} files failed to load during detection and will be excluded from results.")
-            if out_file is not None:
-                with (Path(out_file).parent / "detection_failed_files.txt").open("w") as f:
-                    for item in failed_files:
-                        f.write(f"{item}\n")
+    elif isinstance(results, dict):
+        detections = results.get('detections', [])
+        failed_files = results.get('failed_files', [])
     else:
-        detections, failed_files = results, None
+        detections, failed_files = results, []
+
+    if len(failed_files) > 0:
+        print(f"Warning: {len(failed_files)} files failed to load during detection and will be excluded from results.")
+        if out_file is not None:
+            with (Path(out_file).parent / "detection_failed_files.txt").open("w") as f:
+                for item in failed_files:
+                    f.write(f"{item}\n")
 
     # check results format
     if not isinstance(detections, list):

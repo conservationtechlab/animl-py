@@ -64,14 +64,14 @@ def load_classifier(model_path: str,
         # check to make sure GPU is available if chosen
         device = get_torch_device(user_set=device, quiet=quiet)
         model_path = str(model_path)
-        start_epoch = 0
         if architecture == "efficientnet_v2_m":
             model = EfficientNet(num_classes, device=device)
         elif architecture == "convnext_base":
             model = ConvNeXtBase(num_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
-        return model, class_list, start_epoch
+
+        return model, class_list
 
     # load a specific model file
     elif model_path.is_file():
@@ -125,7 +125,6 @@ def load_classifier(model_path: str,
         elapsed = time() - start_time
         print('Loaded model in %.2f seconds' % elapsed)
 
-        # no need to return epoch
         return model, class_list
 
     # no dir or file found
@@ -160,7 +159,6 @@ def classify(model,
              device: Optional[str] = None,
              out_file: Optional[str] = None):
     """
-    TODO: align with R version
     Predict species using classifier model.
 
     Args:
@@ -193,6 +191,17 @@ def classify(model,
     if not hasattr(model, "framework"):
         raise AttributeError("""Model object must have 'framework' attribute indicating model type
                               (e.g. 'pytorch', 'onnx', etc.)""")
+
+    # unpack model
+    if isinstance(model, (list, tuple)) and len(model) == 2:
+        model, _ = model
+    # handle reticulate output
+    elif isinstance(model, dict):
+        model = model.get('model')
+        if model is None:
+            raise ValueError("Model dictionary does not contain 'model' key.")
+    else:
+        pass
 
     # set model to device if pytorch
     if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
@@ -315,8 +324,17 @@ def single_classification(animals: pd.DataFrame,
     # handle tuple output from classify (predictions, failed_files)
     if isinstance(predictions_output, (list, tuple)) and len(predictions_output) == 2:
         predictions_raw, failed_files = predictions_output
+    # handle reticulate output
+    elif isinstance(predictions_output, dict):
+        predictions_raw = predictions_output.get('predictions', np.array([[]]))
+        failed_files = predictions_output.get('failed_files', [])
     else:
         predictions_raw, failed_files = predictions_output, failed_files
+
+    # check prections are correct shape
+    assert predictions_raw is not None, "Predictions output is None."
+    assert predictions_raw.shape[0] == len(animals), "Number of predictions does not match number of animal detections."
+    assert predictions_raw.shape[1] == len(class_list), "Number of classes in predictions does not match length of class list."
 
     if not animals.empty:
         if failed_files is not None and len(failed_files) > 0:
@@ -324,7 +342,7 @@ def single_classification(animals: pd.DataFrame,
                   " and will be excluded from results.")
             animals = animals[~animals[file_col].isin(failed_files)]
         animals = animals.reset_index(drop=True)
-        animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1)]
+        animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1).astype(int)]
         animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
@@ -432,17 +450,22 @@ def sequence_classification(animals: pd.DataFrame,
         empty_col = None
 
     # handle tuple output from classify (predictions, failed_files)
-    if isinstance(predictions_output, tuple):
+    if isinstance(predictions_output, (list, tuple)) and len(predictions_output) == 2:
         predictions_raw, failed_files = predictions_output
+    # handle reticulate output
+    elif isinstance(predictions_output, dict):
+        predictions_raw = predictions_output.get('predictions', np.array([[]]))
+        failed_files = predictions_output.get('failed_files', [])
     else:
-        predictions_raw = predictions_output
+        predictions_raw, failed_files = predictions_output, failed_files
+
+    # check prections are correct shape
+    assert predictions_raw.shape[0] == len(animals), "Number of predictions does not match number of animal detections."
+    assert predictions_raw.shape[1] == len(class_list), "Number of classes in predictions does not match length of class list."
 
     # remove failed files from animals dataframe
     if failed_files is not None:
         animals = animals[~animals[file_col].isin(failed_files)].reset_index(drop=True)
-
-    if len(animals) != predictions_raw.shape[0]:
-        raise ValueError("Number of predictions does not match number of animal detections.")
 
     # prepare empty dataframe for concat
     if empty is not None and not empty.empty:
@@ -471,7 +494,7 @@ def sequence_classification(animals: pd.DataFrame,
             empty_col = predempty.columns.get_loc("empty")
 
         # placeholders
-        animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
+        animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1).astype(int)])
         animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 
         empty["conf"] = 1

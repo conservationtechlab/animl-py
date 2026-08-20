@@ -1,6 +1,6 @@
 [project]
 name = "animl"  
-version = "3.3.0"
+version = "3.3.1"
 description = "A Collection of ML Tools for Species Detection and Classification in Camera Trap Images and Videos."  
 
 readme = "README.md" 
@@ -13,7 +13,8 @@ requires-python = ">=3.12"
 dependencies = [
     "dill>=0.4.0",
     "numpy>=2.0.2", 
-    "onnxruntime-gpu>=1.19.2", 
+    "onnxruntime-gpu>=1.19.2 ; platform_system != 'Darwin'",
+    "onnxruntime>=1.19.2 ; platform_system == 'Darwin'",
     "pandas>=2.2.2,<3.0.0", 
     "pillow>=11.0.0", 
     "pyexiftool>=0.5.6",
