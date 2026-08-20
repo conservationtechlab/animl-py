@@ -63,7 +63,7 @@ jobs:
     - name: Install R dependencies
       uses: r-lib/actions/setup-r-dependencies@v2
       with:
-        extra-packages: any::devtools, any::testthat, any::reticulate
+        extra-packages: any::devtools, any::testthat, any::reticulate, any::pbapply
     
     - name: Checkout animl-r repository
       uses: actions/checkout@v4.2.2
