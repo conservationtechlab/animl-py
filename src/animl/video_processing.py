@@ -130,7 +130,7 @@ def _count_frames(filepath, frames=5, fps=None) -> int:
         video_fps = cap.get(cv2.CAP_PROP_FPS)
         if video_fps == 0:
             # Attempt to get FPS using ffmpeg if OpenCV fails
-            video_fps = get_fps_from_ffmpeg(filepath)
+            video_fps = _get_fps_from_ffmpeg(filepath)
             if video_fps is None:
                 print("Could not determine video FPS, defaulting to 30 FPS.")
                 video_fps = 30  # Default to 30 if unable to determine
@@ -153,29 +153,7 @@ def _count_frames(filepath, frames=5, fps=None) -> int:
     return frames_saved
 
 
-# get specific frame of video as QImage
-def get_frame_as_image(video_path, frame=0):
-    """
-    Given a video path, return a specific frame as an RGB image
-
-    Args:
-        video_path: path to video file
-        frame: frame number to extract  (default is 0)
-
-    Returns:
-        rgb_frame: extracted frame as RGB image
-    """
-    cap = cv2.VideoCapture(video_path)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, frame)
-    ret, still = cap.read()  # Read the first frame
-    cap.release()
-
-    if ret:
-        rgb_frame = cv2.cvtColor(still, cv2.COLOR_BGR2RGB)
-    return rgb_frame
-
-
-def get_fps_from_ffmpeg(video_path):
+def _get_fps_from_ffmpeg(video_path):
     """Extract FPS from ffmpeg output"""
     try:
         result = subprocess.run(
@@ -199,3 +177,25 @@ def get_fps_from_ffmpeg(video_path):
     except Exception as e:
         print(f"Error: {e}")
         return None
+
+
+# get specific frame of video as QImage
+def get_frame_as_image(video_path, frame=0):
+    """
+    Given a video path, return a specific frame as an RGB image
+
+    Args:
+        video_path: path to video file
+        frame: frame number to extract  (default is 0)
+
+    Returns:
+        rgb_frame: extracted frame as RGB image
+    """
+    cap = cv2.VideoCapture(video_path)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame)
+    ret, still = cap.read()  # Read the first frame
+    cap.release()
+
+    if ret:
+        rgb_frame = cv2.cvtColor(still, cv2.COLOR_BGR2RGB)
+    return rgb_frame
