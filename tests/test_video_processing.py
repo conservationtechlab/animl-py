@@ -18,7 +18,7 @@ from animl.video_processing import (
     extract_frames,
     _count_frames,
     get_frame_as_image,
-    get_fps_from_ffmpeg,
+    _get_fps_from_ffmpeg,
 )
 
 class TestExtractFrames(unittest.TestCase):
@@ -195,7 +195,7 @@ class TestCountFrames(unittest.TestCase):
             Path(video_path).touch()
             
             with patch('cv2.VideoCapture') as mock_cap, \
-                 patch('animl.video_processing.get_fps_from_ffmpeg', return_value=24.0):
+                 patch('animl.video_processing._get_fps_from_ffmpeg', return_value=24.0):
                 mock_cap_instance = MagicMock()
                 mock_cap_instance.isOpened.return_value = True
                 mock_cap_instance.get.side_effect = lambda prop: {
@@ -285,7 +285,7 @@ class TestGetFpsFromFfmpeg(unittest.TestCase):
         
         with patch('subprocess.run') as mock_run:
             mock_run.return_value = Mock(stderr=ffmpeg_output, returncode=0)
-            result = get_fps_from_ffmpeg('/tmp/video.mp4')
+            result = _get_fps_from_ffmpeg('/tmp/video.mp4')
         
         self.assertEqual(result, 24.0)
 
@@ -295,7 +295,7 @@ class TestGetFpsFromFfmpeg(unittest.TestCase):
         
         with patch('subprocess.run') as mock_run:
             mock_run.return_value = Mock(stderr=ffmpeg_output, returncode=0)
-            result = get_fps_from_ffmpeg('/tmp/video.mp4')
+            result = _get_fps_from_ffmpeg('/tmp/video.mp4')
         
         self.assertEqual(result, 23.976)
 
@@ -305,14 +305,14 @@ class TestGetFpsFromFfmpeg(unittest.TestCase):
         
         with patch('subprocess.run') as mock_run:
             mock_run.return_value = Mock(stderr=ffmpeg_output, returncode=0)
-            result = get_fps_from_ffmpeg('/tmp/video.mp4')
+            result = _get_fps_from_ffmpeg('/tmp/video.mp4')
         
         self.assertIsNone(result)
 
     def test_returns_none_on_exception(self):
         """Test that None is returned on exception."""
         with patch('subprocess.run', side_effect=Exception("Test error")):
-            result = get_fps_from_ffmpeg('/tmp/video.mp4')
+            result = _get_fps_from_ffmpeg('/tmp/video.mp4')
         
         self.assertIsNone(result)
 
@@ -320,7 +320,7 @@ class TestGetFpsFromFfmpeg(unittest.TestCase):
         """Test that subprocess timeout is set."""
         with patch('subprocess.run') as mock_run:
             mock_run.return_value = Mock(stderr="", returncode=0)
-            get_fps_from_ffmpeg('/tmp/video.mp4')
+            _get_fps_from_ffmpeg('/tmp/video.mp4')
             
             # Check that timeout was passed
             call_args = mock_run.call_args
