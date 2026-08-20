@@ -3,6 +3,8 @@ Video Processing Functions
 
 """
 import cv2
+import subprocess
+import re
 from tqdm import tqdm
 import multiprocessing as mp
 import pandas as pd
@@ -120,9 +122,6 @@ def _count_frames(filepath, frames=5, fps=None) -> int:
         # print(f"Video file {filepath} has 0 frames, skipping.")
         return None
 
-    cap.release()
-    cv2.destroyAllWindows()
-
     frames_saved = []
     frame_capture = 0
 
@@ -130,21 +129,16 @@ def _count_frames(filepath, frames=5, fps=None) -> int:
     if fps is not None:
         video_fps = cap.get(cv2.CAP_PROP_FPS)
         if video_fps == 0:
-            # try to calculate fps from duration
-            duration = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000  # Sometimes unreliable
-            if duration > 0:
-                video_fps = frame_count / duration
-            else:
-                print(f"Could not determine video FPS, defaulting to {frames} frames uniformly sampled.")
-                increment = int(frame_count / frames)
-                while len(frames_saved) < frames:
-                    frames_saved.append([str(filepath), frame_capture])
-                    frame_capture += increment
-                return frames_saved
+            # Attempt to get FPS using ffmpeg if OpenCV fails
+            video_fps = get_fps_from_ffmpeg(filepath)
+            if video_fps is None:
+                print("Could not determine video FPS, defaulting to 30 FPS.")
+                video_fps = 30  # Default to 30 if unable to determine
 
-        frames = int(frame_count / video_fps * fps)
-        sampled_times = [i / fps for i in range(frames)]
+        n_frames = int(frame_count / video_fps) * fps
+        sampled_times = [i / fps for i in range(n_frames)]
         frames_saved = [min(int(round(t * video_fps)), frame_count-1) for t in sampled_times]
+        frames_saved = [[str(filepath), frame] for frame in frames_saved]
 
     # select set number of frames
     else:
@@ -152,6 +146,9 @@ def _count_frames(filepath, frames=5, fps=None) -> int:
         while len(frames_saved) < frames:
             frames_saved.append([str(filepath), frame_capture])
             frame_capture += increment
+
+    cap.release()
+    cv2.destroyAllWindows()
 
     return frames_saved
 
@@ -176,3 +173,29 @@ def get_frame_as_image(video_path, frame=0):
     if ret:
         rgb_frame = cv2.cvtColor(still, cv2.COLOR_BGR2RGB)
     return rgb_frame
+
+
+def get_fps_from_ffmpeg(video_path):
+    """Extract FPS from ffmpeg output"""
+    try:
+        result = subprocess.run(
+            ['ffmpeg', '-i', video_path],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        # Search for fps value in output
+        # Pattern: "X fps" where X is a number (can be decimal)
+        match = re.search(r'(\d+\.?\d*)\s+fps', result.stderr)
+
+        if match:
+            fps = float(match.group(1))
+            print(f"FPS: {fps}")
+            return fps
+        else:
+            print("Could not find fps in ffmpeg output")
+            return None
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
