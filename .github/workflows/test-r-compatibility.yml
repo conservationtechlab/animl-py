@@ -67,7 +67,7 @@ jobs:
         needs: check
     
     - name: Checkout animl-r repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
       with:
         repository: conservationtechlab/animl
         path: animl-r
