@@ -331,9 +331,8 @@ def single_classification(animals: pd.DataFrame,
     else:
         predictions_raw, failed_files = predictions_output, failed_files
 
-    # check prections are correct shape
+    # check predictions are correct shape
     assert predictions_raw is not None, "Predictions output is None."
-    assert predictions_raw.shape[0] == len(animals), "Number of predictions does not match number of animal detections."
     assert predictions_raw.shape[1] == len(class_list), "Number of classes in predictions does not match length of class list."
 
     if not animals.empty:
@@ -342,6 +341,10 @@ def single_classification(animals: pd.DataFrame,
                   " and will be excluded from results.")
             animals = animals[~animals[file_col].isin(failed_files)]
         animals = animals.reset_index(drop=True)
+
+        # ensure the number of predictions matches the number of animal detections after failed files are removed
+        assert predictions_raw.shape[0] == len(animals), "Number of predictions does not match number of animal detections."
+
         animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1).astype(int)]
         animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 

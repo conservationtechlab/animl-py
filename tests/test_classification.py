@@ -230,7 +230,6 @@ class TestClassifyOnnx(unittest.TestCase):
         cls.model = load_classifier(cls.model_path_onnx, cls.classes, device='cpu')
 
 
-
 class TestSingleClassification(unittest.TestCase):
 
     @classmethod
@@ -294,6 +293,69 @@ class TestSingleClassification(unittest.TestCase):
         preds = np.array([[0.9, 0.05, 0.05], [0.6, 0.2, 0.2]])
         result = single_classification(animals, None, preds, self.class_list, best=True)
         self.assertEqual(len(result['filepath'].unique()), 1)
+
+    # --- Prediction count assertion tests ---
+
+    def test_assertion_passes_exact_match(self):
+        """Prediction count exactly matches animal detection count."""
+        result = single_classification(self.animals.copy(), None, self.predictions_raw, self.class_list)
+        self.assertEqual(len(result), len(self.animals))
+
+    def test_assertion_passes_after_failed_files_filtered(self):
+        """
+        Predictions sized for post-filter animals (after failed files removed) should pass.
+        """
+        failed = ['b.jpg', 'c.jpg']  # 2 removed → 1 remains
+        preds = np.array([[0.9, 0.05, 0.05]])  # matches 1 remaining animal
+        result = single_classification(self.animals.copy(), None, preds, self.class_list, failed_files=failed)
+        self.assertEqual(len(result), 1)
+
+    def test_assertion_passes_single_detection(self):
+        """Edge case: single animal detection with one prediction row."""
+        animals = pd.DataFrame({
+            'filepath': ['a.jpg'],
+            'extension': ['.jpg'],
+            'conf': [0.9],
+        })
+        preds = np.array([[0.9, 0.05, 0.05]])
+        result = single_classification(animals, None, preds, self.class_list)
+        self.assertEqual(len(result), 1)
+
+    def test_assertion_fails_too_few_predictions(self):
+        """Fewer prediction rows than animal detections should raise AssertionError."""
+        preds = np.array([
+            [0.9, 0.05, 0.05],
+            [0.1, 0.8, 0.1],
+        ])  # 2 predictions for 3 animals
+        with self.assertRaisesRegex(AssertionError, "Number of predictions does not match"):
+            single_classification(self.animals.copy(), None, preds, self.class_list)
+
+    def test_assertion_fails_too_many_predictions(self):
+        """More prediction rows than animal detections should raise AssertionError."""
+        preds = np.array([
+            [0.9, 0.05, 0.05],
+            [0.1, 0.8, 0.1],
+            [0.1, 0.1, 0.8],
+            [0.2, 0.6, 0.2],
+        ])  # 4 predictions for 3 animals
+        with self.assertRaisesRegex(AssertionError, "Number of predictions does not match"):
+            single_classification(self.animals.copy(), None, preds, self.class_list)
+
+    def test_assertion_fails_predictions_sized_for_prefiler_count(self):
+        """
+        Most likely real-world mistake: predictions sized for the original animal count
+        but failed_files filtering reduces animals — sizes no longer match.
+        """
+        failed = ['c.jpg']  # filters down to 2 animals
+        # caller incorrectly passes predictions for all 3 original animals
+        with self.assertRaisesRegex(AssertionError, "Number of predictions does not match"):
+            single_classification(self.animals.copy(), None, self.predictions_raw, self.class_list, failed_files=failed)
+
+    def test_assertion_fails_empty_predictions_nonempty_animals(self):
+        """Empty predictions array against non-empty animals should raise AssertionError."""
+        preds = np.array([]).reshape(0, 3)
+        with self.assertRaisesRegex(AssertionError, "Number of predictions does not match"):
+            single_classification(self.animals.copy(), None, preds, self.class_list)
 
 
 class TestSequenceClassification(unittest.TestCase):
