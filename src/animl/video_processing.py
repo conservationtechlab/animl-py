@@ -5,6 +5,7 @@ Video Processing Functions
 import cv2
 import subprocess
 import re
+import math
 from tqdm import tqdm
 import multiprocessing as mp
 import pandas as pd
@@ -135,7 +136,7 @@ def _count_frames(filepath, frames=5, fps=None) -> int:
                 print("Could not determine video FPS, defaulting to 30 FPS.")
                 video_fps = 30  # Default to 30 if unable to determine
 
-        n_frames = int(frame_count / video_fps) * fps
+        n_frames = math.ceil(frame_count / video_fps * fps)
         sampled_times = [i / fps for i in range(n_frames)]
         frames_saved = [min(int(round(t * video_fps)), frame_count-1) for t in sampled_times]
         frames_saved = [[str(filepath), frame] for frame in frames_saved]
