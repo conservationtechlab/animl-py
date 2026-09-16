@@ -63,18 +63,18 @@ class Letterbox(torch.nn.Module):
                 hp = hp // 2
                 transform = Compose([Pad((0, hp, 0, hp), self.color, "constant"),
                                      Resize([self.resize_height, self.resize_width],
-                                            interpolation = self.mode)])
+                                            interpolation=self.mode)])
                 return transform(image)
 
             elif hp < 0 and wp > 0:
                 wp = wp // 2
                 transform = Compose([Pad((wp, 0, wp, 0), self.color, "constant"),
                                      Resize([self.resize_height, self.resize_width],
-                                            interpolation = self.mode)])
+                                            interpolation=self.mode)])
                 return transform(image)
 
-        transform = Resize([self.resize_height, self.resize_width],
-                            interpolation = self.mode)
+        transform = Resize([self.resize_height, self.resize_width], interpolation=self.mode)
+
         return transform(image)
 
 
@@ -191,7 +191,7 @@ class ManifestGenerator(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, str, int, Tensor]:
         try:
-            file_row=self.x.iloc[idx]
+            file_row = self.x.iloc[idx]
             filepath = file_row[self.file_col]
             frame = file_row['frame']
             ext = Path(filepath).suffix.lower()
@@ -358,7 +358,7 @@ class TrainGenerator(Dataset):
         if self.cache_dir is None:
             return None
 
-        img_path=img_row[self.file_col]
+        img_path = img_row[self.file_col]
 
         if self.crop:
             bbox_x = img_row['bbox_x']
@@ -374,7 +374,7 @@ class TrainGenerator(Dataset):
 
     def __getitem__(self, idx):
         try:
-            img_row=self.x.iloc[idx]
+            img_row = self.x.iloc[idx]
             image_name = img_row[self.file_col]
             label = self.categories[img_row[self.label_col]]
             cache_path = self._get_cache_path(img_row)

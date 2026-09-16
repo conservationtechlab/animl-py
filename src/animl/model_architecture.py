@@ -3,7 +3,6 @@ Class Definitions for Species Classification
 
 @ Kyra Swanson 2023
 """
-import torch
 import torch.nn as nn
 from torchvision.models import efficientnet, convnext_base, ConvNeXt_Base_Weights
 

@@ -349,7 +349,7 @@ def train_classifier(cfg):
     crop = cfg.get('crop', True)
     file_col = cfg.get('file_col', 'filepath')
     label_col = cfg.get('label_col', 'species')
-    resize_width, resize_height = cfg.get('image_size', [480,480])
+    resize_width, resize_height = cfg.get('image_size', [480, 480])
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -358,7 +358,7 @@ def train_classifier(cfg):
         device = 'cpu'
     # get mixed precision flag
     mixed_precision = cfg.get('mixed_precision', False)
-    precision_dtype = cfg.get('precision_dtype','float16')
+    precision_dtype = cfg.get('precision_dtype', 'float16')
 
     if precision_dtype == 'bfloat16':
         precision_dtype = torch.bfloat16
@@ -411,7 +411,7 @@ def train_classifier(cfg):
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
-    if mixed_precision and device != 'cpu' and torch.cuda.is_available() and precision_dtype==torch.float16:
+    if mixed_precision and device != 'cpu' and torch.cuda.is_available() and precision_dtype == torch.float16:
         # Creates a GradScaler once at the beginning of training.
         scaler = GradScaler('cuda', enabled=True)
     else:

@@ -77,7 +77,7 @@ def test_classifier(cfg):
     cfg = file_management.load_yaml(cfg)
 
     crop = cfg.get('crop', False)
-    resize_width, resize_height = cfg.get('image_size', [480,480])
+    resize_width, resize_height = cfg.get('image_size', [480, 480])
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
