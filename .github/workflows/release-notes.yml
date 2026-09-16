@@ -1,0 +1,88 @@
+name: Auto-generate Release Notes
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  release-notes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        id: release_notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            const previousTag = await github.rest.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            }).then(res => res.data.tag_name).catch(() => null);
+
+            const compareUrl = previousTag
+              ? `https://github.com/${context.repo.owner}/${context.repo.repo}/compare/${previousTag}...${tag}`
+              : `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/tag/${tag}`;
+
+            const commits = await github.rest.repos.compareCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base: previousTag || tag + '^',
+              head: tag,
+            }).then(res => res.data.commits).catch(() => []);
+
+            let releaseNotes = `## Changes in ${tag}\n\n`;
+            
+            if (commits.length > 0) {
+              const features = commits.filter(c => c.commit.message.toLowerCase().includes('feat'));
+              const fixes = commits.filter(c => c.commit.message.toLowerCase().includes('fix'));
+              const other = commits.filter(c => !c.commit.message.toLowerCase().includes('feat') && !c.commit.message.toLowerCase().includes('fix'));
+
+              if (features.length > 0) {
+                releaseNotes += '### Features\n';
+                features.forEach(c => {
+                  const msg = c.commit.message.split('\n')[0];
+                  releaseNotes += `- ${msg} ([${c.sha.substring(0, 7)}](${c.html_url}))\n`;
+                });
+                releaseNotes += '\n';
+              }
+
+              if (fixes.length > 0) {
+                releaseNotes += '### Bug Fixes\n';
+                fixes.forEach(c => {
+                  const msg = c.commit.message.split('\n')[0];
+                  releaseNotes += `- ${msg} ([${c.sha.substring(0, 7)}](${c.html_url}))\n`;
+                });
+                releaseNotes += '\n';
+              }
+
+              if (other.length > 0) {
+                releaseNotes += '### Other Changes\n';
+                other.forEach(c => {
+                  const msg = c.commit.message.split('\n')[0];
+                  releaseNotes += `- ${msg} ([${c.sha.substring(0, 7)}](${c.html_url}))\n`;
+                });
+              }
+            }
+
+            core.setOutput('release_notes', releaseNotes);
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: ${{ steps.release_notes.outputs.release_notes }}
+          draft: false
+          prerelease: false

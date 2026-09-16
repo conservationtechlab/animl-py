@@ -134,7 +134,6 @@ def load_classifier(model_path: str,
         elapsed = time() - start_time
         print('Loaded model in %.2f seconds' % elapsed)
 
-        # no need to return epoch
         return model, class_list
 
     # no dir or file found
@@ -199,6 +198,17 @@ def classify(model,
     if batch_size <= 0:
         raise ValueError("batch_size must be a positive integer")
 
+    # unpack model
+    if isinstance(model, (list, tuple)) and len(model) == 2:
+        model, _ = model
+    # handle reticulate output
+    elif isinstance(model, dict):
+        model = model.get('model')
+        if model is None:
+            raise ValueError("Model dictionary does not contain 'model' key.")
+    else:
+        pass
+      
     # check if model has architecture attribute
     if not hasattr(model, "architecture"):
         raise AttributeError("""Model object must have 'architecture' attribute indicating model type
@@ -344,8 +354,16 @@ def single_classification(animals: pd.DataFrame,
     # handle tuple output from classify (predictions, failed_files)
     if isinstance(predictions_output, (list, tuple)) and len(predictions_output) == 2:
         predictions_raw, failed_files = predictions_output
+    # handle reticulate output
+    elif isinstance(predictions_output, dict):
+        predictions_raw = predictions_output.get('predictions', np.array([[]]))
+        failed_files = predictions_output.get('failed_files', [])
     else:
         predictions_raw, failed_files = predictions_output, failed_files
+
+    # check predictions are correct shape
+    assert predictions_raw is not None, "Predictions output is None."
+    assert predictions_raw.shape[1] == len(class_list), "Number of classes in predictions does not match length of class list."
 
     if not animals.empty:
         if failed_files is not None and len(failed_files) > 0:
@@ -353,7 +371,11 @@ def single_classification(animals: pd.DataFrame,
                   " and will be excluded from results.")
             animals = animals[~animals[file_col].isin(failed_files)]
         animals = animals.reset_index(drop=True)
-        animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1)]
+
+        # ensure the number of predictions matches the number of animal detections after failed files are removed
+        assert predictions_raw.shape[0] == len(animals), "Number of predictions does not match number of animal detections."
+
+        animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1).astype(int)]
         animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
@@ -460,17 +482,22 @@ def sequence_classification(animals: pd.DataFrame,
         empty_col = None
 
     # handle tuple output from classify (predictions, failed_files)
-    if isinstance(predictions_output, tuple):
+    if isinstance(predictions_output, (list, tuple)) and len(predictions_output) == 2:
         predictions_raw, failed_files = predictions_output
+    # handle reticulate output
+    elif isinstance(predictions_output, dict):
+        predictions_raw = predictions_output.get('predictions', np.array([[]]))
+        failed_files = predictions_output.get('failed_files', [])
     else:
-        predictions_raw = predictions_output
+        predictions_raw, failed_files = predictions_output, failed_files
+
+    # check prections are correct shape
+    assert predictions_raw.shape[0] == len(animals), "Number of predictions does not match number of animal detections."
+    assert predictions_raw.shape[1] == len(class_list), "Number of classes in predictions does not match length of class list."
 
     # remove failed files from animals dataframe
     if failed_files is not None:
         animals = animals[~animals[file_col].isin(failed_files)].reset_index(drop=True)
-
-    if len(animals) != predictions_raw.shape[0]:
-        raise ValueError("Number of predictions does not match number of animal detections.")
 
     # prepare empty dataframe for concat
     if empty is not None and not empty.empty:
@@ -499,7 +526,7 @@ def sequence_classification(animals: pd.DataFrame,
             empty_col = predempty.columns.get_loc("empty")
 
         # placeholders
-        animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
+        animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1).astype(int)])
         animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 
         empty["conf"] = 1

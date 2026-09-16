@@ -88,7 +88,7 @@ def count_detections(detections: pd.DataFrame,
     if classes is None:
         classes = detections['category_label'].dropna().unique().tolist()
         classes = [c for c in classes if c != 'empty']
-    
+
     # Step 3: filter out null and low confidence detections
     detections = detections[detections["conf"].notna()]
     detections = detections[detections["conf"] >= confidence_threshold]

@@ -1,4 +1,4 @@
-__version__ = '3.3.1_dev'
+__version__ = '3.4.0'
 
 from animl import classification
 from animl import count

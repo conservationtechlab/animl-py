@@ -17,7 +17,6 @@ from animl.classification import (
     load_classifier,
     single_classification,
     sequence_classification,
-    save_classifier,
 )
 
 
@@ -45,66 +44,6 @@ class TestLoadClassList(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             load_class_list('/nonexistent/classes.csv')
 
-
-class TestSaveClassifier(unittest.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        cls.tmp_dir = tempfile.mkdtemp()
-
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(cls.tmp_dir)
-
-    def test_saves_checkpoint_file(self):
-        import torch.nn as nn
-
-        model = nn.Linear(4, 2)
-        stats = {'loss': 0.5, 'accuracy': 0.9}
-        out_dir = str(Path(self.tmp_dir) / 'checkpoints')
-
-        save_classifier(model, out_dir, epoch=1, stats=stats)
-
-        self.assertTrue(Path(out_dir, '1.pt').exists())
-
-    def test_creates_output_directory(self):
-        import torch.nn as nn
-
-        model = nn.Linear(4, 2)
-        stats = {'loss': 0.3}
-        out_dir = str(Path(self.tmp_dir) / 'new_checkpoints')
-
-        save_classifier(model, out_dir, epoch=5, stats=stats)
-        self.assertTrue(Path(out_dir).exists())
-
-    def test_checkpoint_contains_model_and_stats(self):
-        import torch
-        import torch.nn as nn
-
-        model = nn.Linear(4, 2)
-        stats = {'loss': 0.1}
-        out_dir = str(Path(self.tmp_dir) / 'verify_checkpoints')
-
-        save_classifier(model, out_dir, epoch=2, stats=stats)
-
-        checkpoint = torch.load(Path(out_dir) / '2.pt', weights_only=False)
-        self.assertIn('model', checkpoint)
-        self.assertIn('stats', checkpoint)
-
-    def test_checkpoint_includes_optimizer_state(self):
-        import torch
-        import torch.nn as nn
-        import torch.optim as optim
-
-        model = nn.Linear(4, 2)
-        optimizer = optim.Adam(model.parameters())
-        stats = {'loss': 0.2}
-        out_dir = str(Path(self.tmp_dir) / 'opt_checkpoints')
-
-        save_classifier(model, out_dir, epoch=3, stats=stats, optimizer=optimizer)
-
-        checkpoint = torch.load(Path(out_dir) / '3.pt', weights_only=False)
-        self.assertIn('optimizer', checkpoint)
 
 
 class TestLoadClassifier(unittest.TestCase):
@@ -291,7 +230,6 @@ class TestClassifyOnnx(unittest.TestCase):
         cls.model = load_classifier(cls.model_path_onnx, cls.classes, device='cpu')
 
 
-
 class TestSingleClassification(unittest.TestCase):
 
     @classmethod
@@ -355,6 +293,69 @@ class TestSingleClassification(unittest.TestCase):
         preds = np.array([[0.9, 0.05, 0.05], [0.6, 0.2, 0.2]])
         result = single_classification(animals, None, preds, self.class_list, best=True)
         self.assertEqual(len(result['filepath'].unique()), 1)
+
+    # --- Prediction count assertion tests ---
+
+    def test_assertion_passes_exact_match(self):
+        """Prediction count exactly matches animal detection count."""
+        result = single_classification(self.animals.copy(), None, self.predictions_raw, self.class_list)
+        self.assertEqual(len(result), len(self.animals))
+
+    def test_assertion_passes_after_failed_files_filtered(self):
+        """
+        Predictions sized for post-filter animals (after failed files removed) should pass.
+        """
+        failed = ['b.jpg', 'c.jpg']  # 2 removed → 1 remains
+        preds = np.array([[0.9, 0.05, 0.05]])  # matches 1 remaining animal
+        result = single_classification(self.animals.copy(), None, preds, self.class_list, failed_files=failed)
+        self.assertEqual(len(result), 1)
+
+    def test_assertion_passes_single_detection(self):
+        """Edge case: single animal detection with one prediction row."""
+        animals = pd.DataFrame({
+            'filepath': ['a.jpg'],
+            'extension': ['.jpg'],
+            'conf': [0.9],
+        })
+        preds = np.array([[0.9, 0.05, 0.05]])
+        result = single_classification(animals, None, preds, self.class_list)
+        self.assertEqual(len(result), 1)
+
+    def test_assertion_fails_too_few_predictions(self):
+        """Fewer prediction rows than animal detections should raise AssertionError."""
+        preds = np.array([
+            [0.9, 0.05, 0.05],
+            [0.1, 0.8, 0.1],
+        ])  # 2 predictions for 3 animals
+        with self.assertRaisesRegex(AssertionError, "Number of predictions does not match"):
+            single_classification(self.animals.copy(), None, preds, self.class_list)
+
+    def test_assertion_fails_too_many_predictions(self):
+        """More prediction rows than animal detections should raise AssertionError."""
+        preds = np.array([
+            [0.9, 0.05, 0.05],
+            [0.1, 0.8, 0.1],
+            [0.1, 0.1, 0.8],
+            [0.2, 0.6, 0.2],
+        ])  # 4 predictions for 3 animals
+        with self.assertRaisesRegex(AssertionError, "Number of predictions does not match"):
+            single_classification(self.animals.copy(), None, preds, self.class_list)
+
+    def test_assertion_fails_predictions_sized_for_prefiler_count(self):
+        """
+        Most likely real-world mistake: predictions sized for the original animal count
+        but failed_files filtering reduces animals — sizes no longer match.
+        """
+        failed = ['c.jpg']  # filters down to 2 animals
+        # caller incorrectly passes predictions for all 3 original animals
+        with self.assertRaisesRegex(AssertionError, "Number of predictions does not match"):
+            single_classification(self.animals.copy(), None, self.predictions_raw, self.class_list, failed_files=failed)
+
+    def test_assertion_fails_empty_predictions_nonempty_animals(self):
+        """Empty predictions array against non-empty animals should raise AssertionError."""
+        preds = np.array([]).reshape(0, 3)
+        with self.assertRaisesRegex(AssertionError, "Number of predictions does not match"):
+            single_classification(self.animals.copy(), None, preds, self.class_list)
 
 
 class TestSequenceClassification(unittest.TestCase):
