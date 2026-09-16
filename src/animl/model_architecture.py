@@ -14,6 +14,7 @@ MEGADETECTORv5_STRIDE = 64
 MD_LABELS = {0: "empty", 1: "animal", 2: "human",  3: "vehicle"}
 MD_MODELS = {"mdv5", "mdv6", "mdv1000-redwood", "mdv1000-spruce", "mdv1000-cedar", "mdv1000-larch", "mdv1000-sorrel"}
 SDZWA_CLASSIFIER_SIZE = 480
+BIOCLIP_CLASSIFIER_SIZE = 224
 
 
 class EfficientNet(nn.Module):
@@ -79,7 +80,7 @@ class BioCLIP(nn.Module):
     Construct the BioClip2 model architecture.
     '''
     def __init__(self, num_classes, tune=False):
-        super(BioCLIP,self).__init__()
+        super(BioCLIP, self).__init__()
         # load the BioClip2 vision encoder pre-trained on TreeOfLife-200M
         full_model, self.preprocess_train, self.preprocess_val = (
             open_clip.create_model_and_transforms('hf-hub:imageomics/bioclip-2')
@@ -90,7 +91,7 @@ class BioCLIP(nn.Module):
         config = LoraConfig(
                 r=16,
                 lora_alpha=32,
-                target_modules=["attn","c_fc","c_proj"],
+                target_modules=["attn", "c_fc", "c_proj"],
                 lora_dropout=0.0,
                 bias="none",
                 modules_to_save=None
@@ -105,7 +106,7 @@ class BioCLIP(nn.Module):
         # Add a classifier layer
         self.classifier = nn.Linear(in_features=embedding_dim, out_features=num_classes)
 
-    def forward(self,x):
+    def forward(self, x):
         '''
         Forward pass (prediction)
         '''

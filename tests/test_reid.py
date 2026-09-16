@@ -247,9 +247,9 @@ class TestMiewIdNet(unittest.TestCase):
     def test_instantiates(self):
         self.assertIsNotNone(self.model)
 
-    def test_has_framework_attribute_after_manual_set(self):
-        self.model.framework = 'torch'
-        self.assertEqual(self.model.framework, 'torch')
+    def test_has_architecture_attribute_after_manual_set(self):
+        self.model.architecture = 'miewid'
+        self.assertEqual(self.model.architecture, 'miewid')
 
     def test_extract_feat_output_shape(self):
         # MIEWID_SIZE = 440; use a small proxy size to keep the test fast
@@ -288,7 +288,7 @@ class TestLoadMiew(unittest.TestCase):
             self.skipTest("PyTorch model not found")
         model = load_miew(str(self.model_path_pt), device='cpu')
         self.assertIsNotNone(model)
-        self.assertEqual(model.framework, 'torch')
+        self.assertEqual(model.architecture, 'miewid')
 
     def test_pytorch_model_is_in_eval_mode(self):
         if not self.model_path_pt.exists():
@@ -301,7 +301,7 @@ class TestLoadMiew(unittest.TestCase):
             self.skipTest("ONNX model not found")
         model = load_miew(str(self.model_path_onnx), device='cpu')
         self.assertIsNotNone(model)
-        self.assertEqual(model.framework, 'onnx')
+        self.assertEqual(model.architecture, 'onnx')
 
 
 class TestExtractMiewEmbeddings(unittest.TestCase):

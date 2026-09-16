@@ -53,7 +53,8 @@ def save_classifier(model,
         None
     '''
     Path(out_dir).mkdir(parents=True, exist_ok=True)
-    if model.framework == "bioclip_2":
+    architecture = getattr(model, "architecture", None)
+    if architecture == "bioclip_2":
         # save only parameters that are changeable: lora and classifier
         trainable_state_dict = {
             k: v for k, v in model.state_dict().items()
@@ -66,7 +67,7 @@ def save_classifier(model,
     else:
         # get model parameters and add to stats
         checkpoint = {'model': model.state_dict(),
-                    'stats': stats}
+                      'stats': stats}
     # save optimizer, scheduler, and scaler state dicts if they are provided
     if optimizer is not None or scheduler is not None:
         checkpoint['epoch'] = epoch
@@ -139,8 +140,14 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, scaler, 
         return 0
 
 
-def _train_classifier_helper(data_loader, model, optimizer, scheduler, scaler=None, device='cpu',
-                             mixed_precision=False, progress=True):
+def _train_classifier_helper(data_loader,
+                             model,
+                             optimizer,
+                             scheduler,
+                             scaler=None,
+                             device='cpu',
+                             mixed_precision=False,
+                             progress=True):
     '''
     Main training loop.
 
@@ -343,55 +350,65 @@ def train_classifier(cfg):
         experiment = None
         print("Comet ML not installed; skipping experiment logging.")
 
+    # get progress bar flag from config
     progress = cfg.get('progress', True)
+
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
-    crop = cfg.get('crop', True)
-    file_col = cfg.get('file_col', 'filepath')
-    label_col = cfg.get('label_col', 'species')
-    resize_width, resize_height = cfg.get('image_size', [480,480])
-    architecture=cfg['architecture']
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
     if device != 'cpu' and not torch.cuda.is_available():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
         device = 'cpu'
-    # get mixed precision flag
-    mixed_precision = cfg.get('mixed_precision', False)
 
+    # LOAD MODEL
     # model will be on CPU after this call if cfg['experiment_folder'] is a directory
-    model, classes = load_classifier(cfg['experiment_folder'], cfg['class_file'],
-                                     device=device, architecture=cfg['architecture'])
+    model, classes = load_classifier(cfg['experiment_folder'],
+                                     cfg['class_file'],
+                                     device=device,
+                                     architecture=cfg['architecture'])
 
     # Move model to the target device BEFORE optimizer initialization
     model.to(device)
-    print(f"Model moved to {device}")
 
-    categories = file_management.class_list_to_dict(classes, id_col=cfg.get('class_list_index', 'id'),
+    categories = file_management.class_list_to_dict(classes,
+                                                    id_col=cfg.get('class_list_index', 'id'),
                                                     class_col=cfg.get('class_list_label', 'class'))
 
     # load datasets
     train_dataset = file_management.load_data(cfg['training_set'])
     validate_dataset = file_management.load_data(cfg['validate_set'])
 
+    # get image resize dimensions from config
+    resize_width, resize_height = cfg.get('image_size', [480, 480])
+
     # Initialize data loaders for training and validation set
-    dl_train = train_dataloader(train_dataset, categories,
+    dl_train = train_dataloader(train_dataset,
+                                categories,
+                                file_col=cfg.get('file_col', 'filepath'),
+                                label_col=cfg.get('label_col', 'species'),
+                                crop=cfg.get('crop', True),
+                                resize_height=resize_height,
+                                resize_width=resize_width,
+                                architecture=model.architecture,
+                                augment=cfg.get('augment', True),
                                 batch_size=cfg['batch_size'],
                                 num_workers=cfg.get('num_workers', NUM_THREADS),
-                                file_col=file_col, label_col=label_col,
-                                crop=crop, augment=cfg.get('augment', True),
-                                resize_height=resize_height, resize_width=resize_width,
-                                cache_dir=cfg.get('cache_folder', None),
-                                architecture=architecture)
-    dl_val = train_dataloader(validate_dataset, categories,
+                                cache_dir=cfg.get('cache_folder', None),)
+
+    dl_val = train_dataloader(validate_dataset,
+                              categories,
+                              file_col=cfg.get('file_col', 'filepath'),
+                              label_col=cfg.get('label_col', 'species'),
+                              crop=cfg.get('crop', True),
+                              resize_height=resize_height,
+                              resize_width=resize_width,
+                              architecture=model.architecture,
+                              augment=False,
                               batch_size=cfg.get('val_batch_size', 16),
                               num_workers=cfg.get('num_workers', NUM_THREADS),
-                              file_col=file_col, label_col=label_col,
-                              crop=crop, augment=False,
-                              resize_height=resize_height, resize_width=resize_width,
-                              cache_dir=cfg.get('cache_folder', None),
-                              architecture=architecture)
+                              cache_dir=cfg.get('cache_folder', None))
 
     # set up model optimizer
     if cfg.get("optimizer", "AdamW") == 'AdamW':
@@ -405,6 +422,9 @@ def train_classifier(cfg):
         scheduler = CosineAnnealingLR(optim, T_max=cfg.get('t_max', 100), eta_min=0)
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
+
+    # get mixed precision flag
+    mixed_precision = cfg.get('mixed_precision', False)
 
     if mixed_precision and device != 'cpu' and torch.cuda.is_available():
         # Creates a GradScaler once at the beginning of training.
@@ -442,13 +462,23 @@ def train_classifier(cfg):
 
         if current_epoch > frozen_epochs:
             for name, param in model.named_parameters():
-                if architecture != "bioclip_2" or "lora" in name:
-                    #for bioclip, we only want to unfreeze the lora parameters
+                if model.architecture != "bioclip_2" or "lora" in name:
+                    # for bioclip, we only want to unfreeze the lora parameters
                     param.requires_grad = True
 
-        loss_train, oa_train = _train_classifier_helper(dl_train, model, optim, scheduler, scaler=scaler, device=device,
-                                                        mixed_precision=mixed_precision, progress=progress)
-        loss_val, oa_val, precision, recall = _validate_classifier_helper(dl_val, model, device, progress=progress)
+        loss_train, oa_train = _train_classifier_helper(dl_train,
+                                                        model,
+                                                        optim,
+                                                        scheduler,
+                                                        scaler=scaler,
+                                                        device=device,
+                                                        mixed_precision=mixed_precision,
+                                                        progress=progress)
+
+        loss_val, oa_val, precision, recall = _validate_classifier_helper(dl_val,
+                                                                          model,
+                                                                          device,
+                                                                          progress=progress)
 
         # combine stats and save
         stats = {

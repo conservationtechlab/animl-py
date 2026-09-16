@@ -107,7 +107,7 @@ def load_classifier(model_path: str,
                 model.eval()
 
             # set architecture
-            model.framework = architecture
+            model.architecture = architecture
 
         # PyTorch full modelspeak
         elif model_path.suffix == '.pth':
@@ -116,12 +116,12 @@ def load_classifier(model_path: str,
             model = torch.load(model_path, map_location=device)
             model.to(device)
             model.eval()
-            model.framework = "pytorch"  # unknown model type
+            model.architecture = "pytorch"  # unknown model type
         elif model_path.suffix == '.onnx':
             providers = get_onnx_device(user_set=device)
             model = onnxruntime.InferenceSession(model_path,
                                                  providers=providers)
-            model.framework = "onnx"
+            model.architecture = "onnx"
             # try to load class dict from metadata
             props = model.get_modelmeta().custom_metadata_map
             if "class_dict" in props:
@@ -198,12 +198,15 @@ def classify(model,
         raise ValueError("num_workers must be a positive integer")
     if batch_size <= 0:
         raise ValueError("batch_size must be a positive integer")
-    if not hasattr(model, "framework"):
-        raise AttributeError("""Model object must have 'framework' attribute indicating model type
-                              (e.g. 'pytorch', 'onnx', etc.)""")
 
-    # set model to device if pytorch
-    if model.framework in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
+    # check if model has architecture attribute
+    if not hasattr(model, "architecture"):
+        raise AttributeError("""Model object must have 'architecture' attribute indicating model type
+                              (e.g. 'pytorch', 'onnx', etc.)""")
+    architecture = model.architecture
+
+    # move to device if not already there
+    if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
         device = get_torch_device(user_set=device)
         model = model.to(device)  # move model to given device before inference
 
@@ -224,21 +227,39 @@ def classify(model,
             print("Warning: 'frame' column not found in manifest columns. Defaulting to 0 assuming images.")
             detections['frame'] = 0
 
-        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=crop,
-                                                resize_width=resize_width, resize_height=resize_height,
-                                                normalize=normalize, batch_size=batch_size, num_workers=num_workers)
+        dataset = generator.manifest_dataloader(detections,
+                                                file_col=file_col,
+                                                crop=crop,
+                                                resize_width=resize_width,
+                                                resize_height=resize_height,
+                                                architecture=architecture,
+                                                normalize=normalize,
+                                                batch_size=batch_size,
+                                                num_workers=num_workers)
     # Single File
     elif isinstance(detections, str):
         detections = pd.DataFrame({file_col: detections, 'frame': 0}, index=[0])
-        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
-                                                resize_width=resize_width, resize_height=resize_height,
-                                                normalize=normalize, batch_size=1, num_workers=1)
+        dataset = generator.manifest_dataloader(detections,
+                                                file_col=file_col,
+                                                crop=False,
+                                                resize_width=resize_width,
+                                                resize_height=resize_height,
+                                                architecture=architecture,
+                                                normalize=normalize,
+                                                batch_size=1,
+                                                num_workers=1)
     # List of Files
     elif isinstance(detections, list):
         detections = pd.DataFrame({file_col: detections, 'frame': 0}, index=range(len(detections)))
-        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
-                                                resize_width=resize_width, resize_height=resize_height,
-                                                normalize=normalize, batch_size=batch_size, num_workers=1)
+        dataset = generator.manifest_dataloader(detections,
+                                                file_col=file_col,
+                                                crop=False,
+                                                resize_width=resize_width,
+                                                resize_height=resize_height,
+                                                architecture=architecture,
+                                                normalize=normalize,
+                                                batch_size=batch_size,
+                                                num_workers=1)
     else:
         raise AssertionError("Input must be a data frame of crops, single file path or vector of file paths.")
 
@@ -251,13 +272,13 @@ def classify(model,
             if collated is None:  # entire batch was bad
                 continue
             # pytorch
-            if model.framework in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
+            if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
                 data = collated[0]
                 data = data.to(device)
                 output = model(data)
                 raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
             # onnx
-            elif model.framework == "onnx":
+            elif architecture == "onnx":
                 data = collated[0]
                 data = tensor_to_onnx(data)
                 output = model.run(None, {model.get_inputs()[0].name: data})[0]
