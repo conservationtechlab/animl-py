@@ -74,12 +74,12 @@ class ConvNeXtBase(nn.Module):
         return self.model(x)
 
 
-class BioClip(nn.Module):
+class BioCLIP(nn.Module):
     '''
     Construct the BioClip2 model architecture.
     '''
     def __init__(self, num_classes, tune=False):
-        super(BioClip,self).__init__()
+        super(BioCLIP,self).__init__()
         # load the BioClip2 vision encoder pre-trained on TreeOfLife-200M
         full_model, self.preprocess_train, self.preprocess_val = (
             open_clip.create_model_and_transforms('hf-hub:imageomics/bioclip-2')
