@@ -6,6 +6,7 @@ import cv2
 import subprocess
 import re
 import math
+import struct
 from tqdm import tqdm
 import multiprocessing as mp
 import pandas as pd
@@ -130,11 +131,14 @@ def _count_frames(filepath, frames=5, fps=None) -> int:
     if fps is not None:
         video_fps = cap.get(cv2.CAP_PROP_FPS)
         if video_fps == 0:
-            # Attempt to get FPS using ffmpeg if OpenCV fails
-            video_fps = _get_fps_from_ffmpeg(filepath)
+            # Attempt to get FPS using MP4 track information
+            video_fps = _get_fps_from_mp4_track(filepath)
             if video_fps is None:
-                print("Could not determine video FPS, defaulting to 30 FPS.")
-                video_fps = 30  # Default to 30 if unable to determine
+                # Attempt to get FPS using ffmpeg if MP4 track information fails
+                video_fps = _get_fps_from_ffmpeg(filepath)
+                if video_fps is None:
+                    print(f"Could not determine video FPS for {filepath}, defaulting to 30 FPS.")
+                    video_fps = 30  # Default to 30 if unable to determine
 
         n_frames = math.ceil(frame_count / video_fps * fps)
         sampled_times = [i / fps for i in range(n_frames)]
@@ -152,6 +156,50 @@ def _count_frames(filepath, frames=5, fps=None) -> int:
     cv2.destroyAllWindows()
 
     return frames_saved
+
+
+def _get_fps_from_mp4_track(video_path):
+    """Extract FPS from MP4 video track (more reliable for variable frame rates)"""
+    try:
+        with open(video_path, 'rb') as f:
+            data = f.read()
+
+            # Find 'tkhd' (track header) and 'mdia' (media) boxes
+            tkhd_pos = data.find(b'tkhd')
+            if tkhd_pos == -1:
+                print("Could not find tkhd box")
+                return None
+
+            # Find mdhd (media header) which contains timescale
+            mdhd_pos = data.find(b'mdhd', tkhd_pos)
+            if mdhd_pos == -1:
+                print("Could not find mdhd box")
+                return None
+            
+            # Read timescale from mdhd (same structure as mvhd)
+            version = data[mdhd_pos + 8]
+            if version == 0:
+                timescale_pos = mdhd_pos + 12
+                timescale = struct.unpack('>I', data[timescale_pos:timescale_pos + 4])[0]
+                duration_pos = mdhd_pos + 16
+                duration = struct.unpack('>I', data[duration_pos:duration_pos + 4])[0]
+            else:
+                timescale_pos = mdhd_pos + 12
+                timescale = struct.unpack('>I', data[timescale_pos:timescale_pos + 4])[0]
+                duration_pos = mdhd_pos + 20
+                duration = struct.unpack('>Q', data[duration_pos:duration_pos + 8])[0]
+            
+            if duration > 0 and timescale > 0:
+                fps = timescale / duration
+                print(f"FPS: {fps}")
+                return fps
+            else:
+                print("Invalid timescale or duration")
+                return None
+    
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
 
 
 def _get_fps_from_ffmpeg(video_path):
