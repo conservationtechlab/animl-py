@@ -15,7 +15,7 @@ import torch
 import onnxruntime
 
 from animl import generator, file_management
-from animl.model_architecture import EfficientNet, ConvNeXtBase, BioClip
+from animl.model_architecture import BioCLIP, EfficientNet, ConvNeXtBase
 from animl.utils.general import (get_torch_device, get_onnx_device, softmax,
                                  tensor_to_onnx, NUM_THREADS)
 
@@ -64,16 +64,15 @@ def load_classifier(model_path: str,
         # check to make sure GPU is available if chosen
         device = get_torch_device(user_set=device, quiet=quiet)
         model_path = str(model_path)
-        start_epoch = 0
         if architecture == "efficientnet_v2_m":
             model = EfficientNet(num_classes, device=device)
         elif architecture == "convnext_base":
             model = ConvNeXtBase(num_classes)
         elif architecture == "bioclip_2":
-            model = BioClip(num_classes)
+            model = BioCLIP(num_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
-        return model, class_list, start_epoch
+        return model, class_list
 
     # load a specific model file
     elif model_path.is_file():
@@ -94,21 +93,22 @@ def load_classifier(model_path: str,
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()
-                model.framework = "EfficientNet"
             elif architecture == "convnext_base":
                 model = ConvNeXtBase(num_classes, tune=False)
                 checkpoint = torch.load(model_path, map_location=device)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()
-                model.framework = "ConvNeXt-Base"
             elif architecture == "bioclip_2":
-                model = BioClip(num_classes, tune=False)
+                model = BioCLIP(num_classes, tune=False)
                 checkpoint = torch.load(model_path, map_location=device)
                 model.load_state_dict(checkpoint['model'], strict=False)
                 model.to(device)
                 model.eval()
-                model.framework = "BioClip"
+
+            # set architecture
+            model.framework = architecture
+
         # PyTorch full modelspeak
         elif model_path.suffix == '.pth':
             # check to make sure GPU is available if chosen
@@ -116,7 +116,7 @@ def load_classifier(model_path: str,
             model = torch.load(model_path, map_location=device)
             model.to(device)
             model.eval()
-            model.framework = "pytorch"
+            model.framework = "pytorch"  # unknown model type
         elif model_path.suffix == '.onnx':
             providers = get_onnx_device(user_set=device)
             model = onnxruntime.InferenceSession(model_path,
@@ -203,7 +203,7 @@ def classify(model,
                               (e.g. 'pytorch', 'onnx', etc.)""")
 
     # set model to device if pytorch
-    if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
+    if model.framework in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
         device = get_torch_device(user_set=device)
         model = model.to(device)  # move model to given device before inference
 
@@ -251,7 +251,7 @@ def classify(model,
             if collated is None:  # entire batch was bad
                 continue
             # pytorch
-            if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
+            if model.framework in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
                 data = collated[0]
                 data = data.to(device)
                 output = model(data)
