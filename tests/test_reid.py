@@ -4,23 +4,22 @@ Unit tests for animl/reid/
 @ Kyra Swanson 2024
 """
 import unittest
-import tempfile
-import shutil
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 
-from animl.reid.distance import (
+from animl.reid import (
+    load_miew, 
+    extract_miew_embeddings,
     remove_diagonal,
     euclidean_squared_distance,
     cosine_distance,
     compute_distance_matrix,
     compute_batched_distance_matrix,
 )
-from animl.reid.miewid import MiewIdNet, GeM, l2_norm, MIEWID_SIZE
-from animl.reid.inference import load_miew, extract_miew_embeddings
+from animl.model_architecture import MiewIdNet, GeM
 
 
 class TestRemoveDiagonal(unittest.TestCase):
@@ -192,27 +191,6 @@ class TestComputeBatchedDistanceMatrix(unittest.TestCase):
         self.assertEqual(result.shape, (4, 4))
         for i in range(4):
             self.assertAlmostEqual(result[i, i], 0.0, places=4)
-
-
-class TestL2Norm(unittest.TestCase):
-
-    def test_output_is_unit_norm(self):
-        x = torch.tensor([[3.0, 4.0]])
-        result = l2_norm(x, axis=1)
-        norm = torch.norm(result, p=2, dim=1)
-        self.assertAlmostEqual(norm.item(), 1.0, places=5)
-
-    def test_batch_output_all_unit_norm(self):
-        x = torch.randn(5, 8)
-        result = l2_norm(x, axis=1)
-        norms = torch.norm(result, p=2, dim=1)
-        for n in norms:
-            self.assertAlmostEqual(n.item(), 1.0, places=5)
-
-    def test_output_shape_unchanged(self):
-        x = torch.randn(4, 6)
-        result = l2_norm(x, axis=1)
-        self.assertEqual(result.shape, x.shape)
 
 
 class TestGeM(unittest.TestCase):
