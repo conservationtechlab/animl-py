@@ -134,8 +134,10 @@ def detect(detector,
     # Single image filepath
     if isinstance(image_file_names, str):
         # convert img path to tensor
-        batch_from_dataloader = image_to_tensor(image_file_names, letterbox=letterbox,
-                                                resize_width=resize_width, resize_height=resize_height)
+        batch_from_dataloader = image_to_tensor(image_file_names,
+                                                resize_height=resize_height,
+                                                resize_width=resize_width,
+                                                letterbox=letterbox)
         if batch_from_dataloader is None:
             print(f"Error loading image {image_file_names}. Skipping.")
             return []
@@ -213,12 +215,16 @@ def detect(detector,
         device = get_torch_device(user_set=device, quiet=True)
 
     # create dataloader
-    dataloader = manifest_dataloader(manifest, batch_size=batch_size,
-                                     num_workers=num_workers, crop=False,
-                                     normalize=True, letterbox=letterbox,
+    dataloader = manifest_dataloader(manifest,
                                      file_col=file_col,
+                                     crop=False,
                                      resize_width=resize_width,
-                                     resize_height=resize_height)
+                                     resize_height=resize_height,
+                                     architecture=None,  # no specific model architecture for detection
+                                     letterbox=letterbox,
+                                     normalize=True,
+                                     batch_size=batch_size,
+                                     num_workers=num_workers)
 
     start_time = time.time()
     failed_files = []
@@ -240,6 +246,7 @@ def detect(detector,
             pred = _non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
         # 'onnx'
         elif detector.model_type == "onnx":
+            # TODO add conf threshold for onnx
             input_name = detector.get_inputs()[0].name
             if device == "cpu":
                 pred = detector.run(None, {input_name: successes[0].cpu().numpy()})[0]
@@ -398,14 +405,18 @@ def parse_detections(results: Union[list, tuple],
     # unpack results
     if isinstance(results, (tuple, list)) and len(results) == 2 and isinstance(results[0], list):
         detections, failed_files = results
-        if len(failed_files) > 0:
-            print(f"Warning: {len(failed_files)} files failed to load during detection and will be excluded from results.")
-            if out_file is not None:
-                with (Path(out_file).parent / "detection_failed_files.txt").open("w") as f:
-                    for item in failed_files:
-                        f.write(f"{item}\n")
+    elif isinstance(results, dict):
+        detections = results.get('detections', [])
+        failed_files = results.get('failed_files', [])
     else:
-        detections, failed_files = results, None
+        detections, failed_files = results, []
+
+    if len(failed_files) > 0:
+        print(f"Warning: {len(failed_files)} files failed to load during detection and will be excluded from results.")
+        if out_file is not None:
+            with (Path(out_file).parent / "detection_failed_files.txt").open("w") as f:
+                for item in failed_files:
+                    f.write(f"{item}\n")
 
     # check results format
     if not isinstance(detections, list):

@@ -483,7 +483,6 @@ class TestSequenceCalculation(unittest.TestCase):
 # ------------------------------------------------------------------
 # active_times tests
 # ------------------------------------------------------------------
-import pytest
 from animl.file_management import active_times
 
 class TestActiveTimes(unittest.TestCase):
@@ -501,6 +500,18 @@ class TestActiveTimes(unittest.TestCase):
                 '2023-01-01 12:00:00',
                 '2023-01-02 09:00:00',
                 '2023-01-02 11:00:00',
+            ],
+            'station': [
+                's1',
+                's1',
+                's1',
+                's1',
+            ],
+            'camera': [
+                'cam1',
+                'cam1',
+                'cam2',
+                'cam2',
             ]
         })
 
@@ -552,15 +563,15 @@ class TestActiveTimes(unittest.TestCase):
             self.assertIn('min', result['datetime'].columns)
 
     def test_different_cameras_different_sequences(self):
-        result = sequence_calculation(self.manifest.copy(), station_col='station')
+        result = sequence_calculation(self.df.copy(), station_col='station')
         cam1_seq = set(result[result['station'] == 'cam1']['sequence'])
         cam2_seq = set(result[result['station'] == 'cam2']['sequence'])
         self.assertTrue(cam1_seq.isdisjoint(cam2_seq))
 
     def test_custom_sort_columns_explicit(self):
-        default_result = sequence_calculation(self.manifest.copy(), station_col='station')
+        default_result = sequence_calculation(self.df.copy(), station_col='station')
         explicit_result = sequence_calculation(
-            self.manifest.copy(),
+            self.df.copy(),
             station_col='station',
             sort_columns=['station', 'datetime'],
         )
@@ -570,18 +581,18 @@ class TestActiveTimes(unittest.TestCase):
 
     def test_custom_sort_columns(self):
         result = sequence_calculation(
-            self.manifest.copy(),
+            self.df.copy(),
             station_col='station',
             sort_columns=['station', 'datetime'],
         )
         self.assertIn('sequence', result.columns)
 
     def test_zero_maxdiff(self):
-        result = sequence_calculation(self.manifest.copy(), station_col='station', maxdiff=0)
+        result = sequence_calculation(self.df.copy(), station_col='station', maxdiff=0)
         self.assertEqual(len(set(result['sequence'])), len(result))
 
     def test_single_row_dataframe(self):
-        one_row = self.manifest.head(1).copy()
+        one_row = self.df.head(1).copy()
         result = sequence_calculation(one_row, station_col='station')
         self.assertEqual(len(result), 1)
         self.assertEqual(result.iloc[0]['sequence'], 0)

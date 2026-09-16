@@ -1,6 +1,7 @@
-__version__ = '3.3.1_dev'
+__version__ = '3.4.0'
 
 from animl import classification
+from animl import count
 from animl import detection
 from animl import export
 from animl import file_management
@@ -18,6 +19,7 @@ from animl import video_processing
 from animl.classification import (classify, load_class_list, load_classifier,
                                   sequence_classification,
                                   single_classification,)
+from animl.count import (count_detections, deduplicate,)
 from animl.detection import (detect, get_animals, get_empty, load_detector,
                              parse_detections,)
 from animl.export import (export_camptrapdp, export_camtrapR, export_coco,
@@ -43,14 +45,10 @@ from animl.models import (Bottleneck, C3, CLASSIFIER, CLASS_LIST, Concat, Conv,
                           list_models, yolo,)
 from animl.pipeline import (from_config, from_paths,)
 from animl.pose import (predict_viewpoints, viewpoint,)
-from animl.reid import (ArcFaceLossAdaptiveMargin, ArcFaceSubCenterDynamic,
-                        ArcMarginProduct, ArcMarginProduct_subcenter,
-                        ElasticArcFace, GeM, MIEWID_SIZE, MiewIdNet,
-                        compute_batched_distance_matrix,
-                        compute_distance_matrix, cosine_distance, distance,
+from animl.reid import (compute_batched_distance_matrix,
+                        compute_distance_matrix, cosine_distance,
                         euclidean_squared_distance, extract_miew_embeddings,
-                        inference, l2_norm, load_miew, miewid,
-                        remove_diagonal,)
+                        load_miew, remove_diagonal,)
 from animl.test import (test_classifier,)
 from animl.train import (load_classifier_checkpoint, save_classifier,
                          train_classifier,)

@@ -15,10 +15,9 @@ import torch
 import onnxruntime
 
 from animl import generator, file_management
-from animl.model_architecture import EfficientNet, ConvNeXtBase
+from animl.model_architecture import BioCLIP, EfficientNet, ConvNeXtBase
 from animl.utils.general import (get_torch_device, get_onnx_device, _softmax,
                                  _tensor_to_onnx, NUM_THREADS)
-
 
 def load_classifier(model_path: str,
                     classes: Union[int, str, Path, pd.DataFrame],
@@ -56,7 +55,7 @@ def load_classifier(model_path: str,
 
     # Create a new model instance for training (pytorch only)
     if model_path.is_dir():
-        supported_architectures = ["efficientnet_v2_m", "convnext_base", ]
+        supported_architectures = ["efficientnet_v2_m", "convnext_base", "bioclip_2"]
         if architecture not in supported_architectures:
             raise ValueError(f"""Unsupported architecture: {architecture}.
                              Supported architectures are: {supported_architectures}""")
@@ -64,14 +63,15 @@ def load_classifier(model_path: str,
         # check to make sure GPU is available if chosen
         device = get_torch_device(user_set=device, quiet=quiet)
         model_path = str(model_path)
-        start_epoch = 0
         if architecture == "efficientnet_v2_m":
             model = EfficientNet(num_classes, device=device)
         elif architecture == "convnext_base":
             model = ConvNeXtBase(num_classes)
+        elif architecture == "bioclip_2":
+            model = BioCLIP(num_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
-        return model, class_list, start_epoch
+        return model, class_list
 
     # load a specific model file
     elif model_path.is_file():
@@ -79,7 +79,7 @@ def load_classifier(model_path: str,
         start_time = time()
         # PyTorch dict
         if model_path.suffix == '.pt':
-            supported_architectures = ["efficientnet_v2_m", "convnext_base"]
+            supported_architectures = ["efficientnet_v2_m", "convnext_base", "bioclip_2"]
             if architecture not in supported_architectures:
                 raise ValueError(f"""Unsupported architecture: {architecture}.
                                  Supported architectures are: {supported_architectures}""")
@@ -92,14 +92,22 @@ def load_classifier(model_path: str,
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()
-                model.framework = "EfficientNet"
             elif architecture == "convnext_base":
                 model = ConvNeXtBase(num_classes, tune=False)
                 checkpoint = torch.load(model_path, map_location=device)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()
-                model.framework = "ConvNeXt-Base"
+            elif architecture == "bioclip_2":
+                model = BioCLIP(num_classes, tune=False)
+                checkpoint = torch.load(model_path, map_location=device)
+                model.load_state_dict(checkpoint['model'], strict=False)
+                model.to(device)
+                model.eval()
+
+            # set architecture
+            model.architecture = architecture
+
         # PyTorch full modelspeak
         elif model_path.suffix == '.pth':
             # check to make sure GPU is available if chosen
@@ -107,12 +115,12 @@ def load_classifier(model_path: str,
             model = torch.load(model_path, map_location=device)
             model.to(device)
             model.eval()
-            model.framework = "pytorch"
+            model.architecture = "pytorch"  # unknown model type
         elif model_path.suffix == '.onnx':
             providers = get_onnx_device(user_set=device)
             model = onnxruntime.InferenceSession(model_path,
                                                  providers=providers)
-            model.framework = "onnx"
+            model.architecture = "onnx"
             # try to load class dict from metadata
             props = model.get_modelmeta().custom_metadata_map
             if "class_dict" in props:
@@ -125,7 +133,6 @@ def load_classifier(model_path: str,
         elapsed = time() - start_time
         print('Loaded model in %.2f seconds' % elapsed)
 
-        # no need to return epoch
         return model, class_list
 
     # no dir or file found
@@ -189,12 +196,26 @@ def classify(model,
         raise ValueError("num_workers must be a positive integer")
     if batch_size <= 0:
         raise ValueError("batch_size must be a positive integer")
-    if not hasattr(model, "framework"):
-        raise AttributeError("""Model object must have 'framework' attribute indicating model type
-                              (e.g. 'pytorch', 'onnx', etc.)""")
 
-    # set model to device if pytorch
-    if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
+    # unpack model
+    if isinstance(model, (list, tuple)) and len(model) == 2:
+        model, _ = model
+    # handle reticulate output
+    elif isinstance(model, dict):
+        model = model.get('model')
+        if model is None:
+            raise ValueError("Model dictionary does not contain 'model' key.")
+    else:
+        pass
+      
+    # check if model has architecture attribute
+    if not hasattr(model, "architecture"):
+        raise AttributeError("""Model object must have 'architecture' attribute indicating model type
+                              (e.g. 'pytorch', 'onnx', etc.)""")
+    architecture = model.architecture
+
+    # move to device if not already there
+    if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
         device = get_torch_device(user_set=device)
         model = model.to(device)  # move model to given device before inference
 
@@ -215,21 +236,39 @@ def classify(model,
             print("Warning: 'frame' column not found in manifest columns. Defaulting to 0 assuming images.")
             detections['frame'] = 0
 
-        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=crop,
-                                                resize_width=resize_width, resize_height=resize_height,
-                                                normalize=normalize, batch_size=batch_size, num_workers=num_workers)
+        dataset = generator.manifest_dataloader(detections,
+                                                file_col=file_col,
+                                                crop=crop,
+                                                resize_width=resize_width,
+                                                resize_height=resize_height,
+                                                architecture=architecture,
+                                                normalize=normalize,
+                                                batch_size=batch_size,
+                                                num_workers=num_workers)
     # Single File
     elif isinstance(detections, str):
         detections = pd.DataFrame({file_col: detections, 'frame': 0}, index=[0])
-        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
-                                                resize_width=resize_width, resize_height=resize_height,
-                                                normalize=normalize, batch_size=1, num_workers=1)
+        dataset = generator.manifest_dataloader(detections,
+                                                file_col=file_col,
+                                                crop=False,
+                                                resize_width=resize_width,
+                                                resize_height=resize_height,
+                                                architecture=architecture,
+                                                normalize=normalize,
+                                                batch_size=1,
+                                                num_workers=1)
     # List of Files
     elif isinstance(detections, list):
         detections = pd.DataFrame({file_col: detections, 'frame': 0}, index=range(len(detections)))
-        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
-                                                resize_width=resize_width, resize_height=resize_height,
-                                                normalize=normalize, batch_size=batch_size, num_workers=1)
+        dataset = generator.manifest_dataloader(detections,
+                                                file_col=file_col,
+                                                crop=False,
+                                                resize_width=resize_width,
+                                                resize_height=resize_height,
+                                                architecture=architecture,
+                                                normalize=normalize,
+                                                batch_size=batch_size,
+                                                num_workers=1)
     else:
         raise AssertionError("Input must be a data frame of crops, single file path or vector of file paths.")
 
@@ -242,13 +281,13 @@ def classify(model,
             if collated is None:  # entire batch was bad
                 continue
             # pytorch
-            if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
+            if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
                 data = collated[0]
                 data = data.to(device)
                 output = model(data)
                 raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
             # onnx
-            elif model.framework == "onnx":
+            elif architecture == "onnx":
                 data = collated[0]
                 data = _tensor_to_onnx(data)
                 output = model.run(None, {model.get_inputs()[0].name: data})[0]
@@ -314,8 +353,16 @@ def single_classification(animals: pd.DataFrame,
     # handle tuple output from classify (predictions, failed_files)
     if isinstance(predictions_output, (list, tuple)) and len(predictions_output) == 2:
         predictions_raw, failed_files = predictions_output
+    # handle reticulate output
+    elif isinstance(predictions_output, dict):
+        predictions_raw = predictions_output.get('predictions', np.array([[]]))
+        failed_files = predictions_output.get('failed_files', [])
     else:
         predictions_raw, failed_files = predictions_output, failed_files
+
+    # check predictions are correct shape
+    assert predictions_raw is not None, "Predictions output is None."
+    assert predictions_raw.shape[1] == len(class_list), "Number of classes in predictions does not match length of class list."
 
     if not animals.empty:
         if failed_files is not None and len(failed_files) > 0:
@@ -323,7 +370,11 @@ def single_classification(animals: pd.DataFrame,
                   " and will be excluded from results.")
             animals = animals[~animals[file_col].isin(failed_files)]
         animals = animals.reset_index(drop=True)
-        animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1)]
+
+        # ensure the number of predictions matches the number of animal detections after failed files are removed
+        assert predictions_raw.shape[0] == len(animals), "Number of predictions does not match number of animal detections."
+
+        animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1).astype(int)]
         animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 
     manifest = pd.concat([animals if not animals.empty else None, empty if not empty.empty else None]).reset_index(drop=True)
@@ -336,7 +387,6 @@ def single_classification(animals: pd.DataFrame,
     files = manifest.groupby(file_col)
 
     for f, file in files:
-        # TODO: remove hardcoded video extensions and frame column name
         if file['extension'].iloc[0] in file_management.VIDEO_EXTENSIONS:
             predictions = file['prediction'].unique()
             if 'empty' in predictions and len(predictions) > 1:
@@ -431,17 +481,22 @@ def sequence_classification(animals: pd.DataFrame,
         empty_col = None
 
     # handle tuple output from classify (predictions, failed_files)
-    if isinstance(predictions_output, tuple):
+    if isinstance(predictions_output, (list, tuple)) and len(predictions_output) == 2:
         predictions_raw, failed_files = predictions_output
+    # handle reticulate output
+    elif isinstance(predictions_output, dict):
+        predictions_raw = predictions_output.get('predictions', np.array([[]]))
+        failed_files = predictions_output.get('failed_files', [])
     else:
-        predictions_raw = predictions_output
+        predictions_raw, failed_files = predictions_output, failed_files
+
+    # check prections are correct shape
+    assert predictions_raw.shape[0] == len(animals), "Number of predictions does not match number of animal detections."
+    assert predictions_raw.shape[1] == len(class_list), "Number of classes in predictions does not match length of class list."
 
     # remove failed files from animals dataframe
     if failed_files is not None:
         animals = animals[~animals[file_col].isin(failed_files)].reset_index(drop=True)
-
-    if len(animals) != predictions_raw.shape[0]:
-        raise ValueError("Number of predictions does not match number of animal detections.")
 
     # prepare empty dataframe for concat
     if empty is not None and not empty.empty:
@@ -470,7 +525,7 @@ def sequence_classification(animals: pd.DataFrame,
             empty_col = predempty.columns.get_loc("empty")
 
         # placeholders
-        animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1)])
+        animals["prediction"] = list(class_list[np.argmax(predictions_raw, axis=1).astype(int)])
         animals["confidence"] = animals["conf"].mul(np.max(predictions_raw, axis=1))
 
         empty["conf"] = 1
