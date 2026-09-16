@@ -53,7 +53,7 @@ def save_classifier(model,
         None
     '''
     Path(out_dir).mkdir(parents=True, exist_ok=True)
-    if model.__class__.__name__=="BioClip":
+    if model.framework == "bioclip_2":
         # save only parameters that are changeable: lora and classifier
         trainable_state_dict = {
             k: v for k, v in model.state_dict().items()
@@ -361,8 +361,8 @@ def train_classifier(cfg):
     mixed_precision = cfg.get('mixed_precision', False)
 
     # model will be on CPU after this call if cfg['experiment_folder'] is a directory
-    model, classes, current_epoch = load_classifier(cfg['experiment_folder'], cfg['class_file'],
-                                                    device=device, architecture=cfg['architecture'])
+    model, classes = load_classifier(cfg['experiment_folder'], cfg['class_file'],
+                                     device=device, architecture=cfg['architecture'])
 
     # Move model to the target device BEFORE optimizer initialization
     model.to(device)
