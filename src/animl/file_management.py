@@ -218,8 +218,7 @@ class WorkingDirectory():
 
 def save_data(data: pd.DataFrame,
               out_file: Union[Path, str],
-              prompt: bool = True,
-              index: bool = False) -> None:
+              prompt: bool = True) -> None:
     """
     Save data to given file.
 
@@ -227,7 +226,6 @@ def save_data(data: pd.DataFrame,
         data (pd.DataFrame): the dataframe to be saved
         out_file (Union[Path, str]): full path to save file to
         prompt (bool): prompts the user to confirm overwrite
-        index (bool): if True, saves the indices in the output file
 
     Returns:
         None
@@ -236,11 +234,11 @@ def save_data(data: pd.DataFrame,
         prompt = "Output file exists, would you like to overwrite? y/n: "
         if input(prompt).lower() != "y":
             return
-
-    if Path(out_file).parent.exists():
-        data.to_csv(out_file, index=index)
     else:
-        raise AssertionError('Cannot save, directory does not exist.')
+        if Path(out_file).parent.exists():
+            data.to_csv(out_file, index=False)
+        else:
+            raise AssertionError('Cannot save, directory does not exis.')
 
 
 def load_data(file: Union[Path, str]) -> pd.DataFrame:
@@ -369,8 +367,6 @@ def class_list_to_dict(class_list: pd.DataFrame,
 
     Args:
         class_list (pd.DataFrame): dataframe with 'class' and 'id' columns
-        id_col (str): column name for class ids, defaults to 'id'
-        class_col (str): column name for class names, defaults to 'class'
 
     Returns:
         class_dict (dict): dictionary mapping ids to class names
