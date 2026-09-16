@@ -22,7 +22,7 @@ class_list_label: 'class'
 
 # training hyperparameters
 architecture: "efficientnet_v2_m" # or choose "convnext_base"
-image_size: [480, 480]
+image_size: [480, 480] # [width, height] preprocess images to this size (architecture dependent. some models require a certain size)
 crop: False # train on cropped images or not
 batch_size: 12
 val_batch_size: 48
@@ -38,6 +38,7 @@ momentum: 0.9 # only for SGD
 scheduler: True # CosineAnnealingLR
 t_max: 10 # number of epochs for the scheduler, usualy the same as num_epochs
 mixed_precision: True # True or False, if you have a GPU with Tensor Cores (NVIDIA Volta, Turing, or Ampere architecture), set to True
+precision_dtype: float16 # bfloat16 or float16 for mixed precision (bfloat16 requires NVIDIA Ampere or newer)
 
 # overwrite .pt files
 overwrite: False

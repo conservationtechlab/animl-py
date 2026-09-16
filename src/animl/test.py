@@ -77,6 +77,7 @@ def test_classifier(cfg):
     cfg = file_management.load_yaml(cfg)
 
     crop = cfg.get('crop', False)
+    resize_width, resize_height = cfg.get('image_size', [480,480])
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -103,6 +104,7 @@ def test_classifier(cfg):
                                file_col=cfg.get('file_col', 'filepath'),
                                label_col=cfg.get('label_col', 'species'),
                                crop=crop, augment=False,
+                               resize_height=resize_height, resize_width=resize_width,
                                cache_dir=cfg.get('cache_folder', None))
     # get predictions
     pred, true, paths = _test_classifer_helper(dl_test, model, device)
@@ -126,7 +128,7 @@ def test_classifier(cfg):
 
     cm = confusion_matrix(true, pred)
     confuse = pd.DataFrame(cm, columns=classes[class_list_label], index=classes[class_list_label])
-    file_management.save_data(confuse, cfg['experiment_folder'] + "/confusion_matrix.csv")
+    file_management.save_data(confuse, cfg['experiment_folder'] + "/confusion_matrix.csv", index=True)
 
 
 if __name__ == '__main__':

@@ -246,6 +246,7 @@ def export_coco(manifest: pd.DataFrame,
     # build categories from class list
     categories = []
     for key, value in class_dict.items():
+        # TODO: handle case where class_dict keys are strings instead of integers (e.g., from reticulate)
         category = {'id': int(key),
                     'name': value,
                     'supercategory': 'none'}

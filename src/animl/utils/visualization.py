@@ -6,7 +6,6 @@ Functionality to draw bounding boxes and labels provided image DataFrame.
 @ Kyra Swanson 2023
 """
 import math
-import argparse
 import cv2
 import numpy as np
 import pandas as pd
@@ -32,7 +31,7 @@ def plot_box(rows,
              detector_labels: dict = MD_LABELS,
              return_img: bool = False):
     """
-    Plot a bounding box on a given (loaded) image
+    Plot bounding box(es) on a given (loaded) image
 
     Args:
         rows (pandas.DataFrame): Row from the DataFrame containing bounding box coordinates and prediction.
@@ -42,7 +41,6 @@ def plot_box(rows,
             - 'bbox_y': y-coordinate of the top-left corner of the bounding box.
             - 'bbox_w': width of the bounding box.
             - 'bbox_h': height of the bounding box.
-            - 'prediction': Prediction label to be displayed alongside the bounding box (optional).
         file_col (str): filepath column name in the DataFrame
         min_conf (int or float): Minimum confidence threshold to plot the box
         classifier_label_col (str or None): Column name containing class to print above the box. If None, no label is printed.
@@ -101,32 +99,39 @@ def plot_box(rows,
         cv2.rectangle(img, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), color, thick)
 
         # Printing prediction if enabled
-        if classifier_label_col is not None and classifier_label_col in row and not pd.isna(row[classifier_label_col]):
-            if classifier_label_col == "category":
-                label = detector_labels[int(row[detector_category_col])]
+        if classifier_label_col is not None:
+            
+            if classifier_label_col in row and not pd.isna(row[classifier_label_col]):
+                if classifier_label_col == "category":
+                    label = detector_labels[int(row[detector_category_col])]
+                else:
+                    label = row[classifier_label_col]
+
+                if show_confidence:
+                    if 'confidence' in row and not np.isnan(row['confidence']):
+                        label += f" {row['confidence']:.2f}"
+                    elif 'conf' in row and not np.isnan(row['conf']):
+                        label += f" {row['conf']:.2f}"
+                    else:
+                        print(f"Warning: show_confidence is True but no confidence column found or confidence value is NaN. No confidence will be shown for this box.")
+
+                (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, font_scale, thickness)
+                # move label if it is out of the image
+                label_top = max(0, xyxy[1] - text_height - baseline)
+                label_bottom = xyxy[1] if label_top > 0 else xyxy[1] + text_height + baseline
+
+                label_right = min(width, xyxy[0] + text_width)
+                label_left = xyxy[0] if label_right < width else xyxy[0] - text_width
+
+                img = cv2.rectangle(img, (label_left, label_top), (label_right, label_bottom), color, -1)
+
+                # adjust text if label is at top of image
+                text_y_pos = label_bottom - 5 if label_top > 0 else label_bottom
+                cv2.putText(img, label, (label_left, text_y_pos),
+                            cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), thickness)
+                
             else:
-                label = row[classifier_label_col]
-
-            if show_confidence:
-                if 'confidence' in row and not np.isnan(row['confidence']):
-                    label += f" {row['confidence']:.2f}"
-                elif 'conf' in row and not np.isnan(row['conf']):
-                    label += f" {row['conf']:.2f}"
-
-            (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, font_scale, thickness)
-            # move label if it is out of the image
-            label_top = max(0, xyxy[1] - text_height - baseline)
-            label_bottom = xyxy[1] if label_top > 0 else xyxy[1] + text_height + baseline
-
-            label_right = min(width, xyxy[0] + text_width)
-            label_left = xyxy[0] if label_right < width else xyxy[0] - text_width
-
-            img = cv2.rectangle(img, (label_left, label_top), (label_right, label_bottom), color, -1)
-
-            # adjust text if label is at top of image
-            text_y_pos = label_bottom - 5 if label_top > 0 else label_bottom
-            cv2.putText(img, label, (label_left, text_y_pos),
-                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), thickness)
+                print(f"Warning: classifier_label_col '{classifier_label_col}' is specified but not found in row or is NaN. No label will be printed for this box.")
 
     if return_img:
         return img
@@ -139,15 +144,14 @@ def plot_box(rows,
 def plot_all_bounding_boxes(manifest: pd.DataFrame,
                             out_dir: str,
                             file_col: str = 'filepath',
-                            min_conf: Union[int, float] = 0.1,
+                            min_conf: Union[int, float] = 0,
                             classifier_label_col: Optional[str] = None,
                             detector_category_col: str = "category",
                             show_confidence: bool = False,
                             colors: Optional[dict] = None,
                             detector_labels: Optional[dict] = None):
     """
-    This function takes the parsed dataframe output from MegaDetector, makes a copy of each image,
-    plots the boxes in the new image, and saves it the specified directory.
+    Plot bounding boxes for all rows in a manifest DataFrame, with options to save plotted images.
 
     Args:
         manifest (Pandas DataFrame): manifest of detections
@@ -218,45 +222,3 @@ def plot_all_bounding_boxes(manifest: pd.DataFrame,
                 new_file_path = Path(out_dir) / f"{file_name_no_ext}_{f}_box.jpg"
                 cv2.imwrite(new_file_path, img)
                 cv2.destroyAllWindows()
-
-
-def plot_from_file(csv_file: str, out_dir: str, file_col: str = 'filepath'):
-    """
-    Read a CSV manifest file and perform box plotting on the images.
-
-    Args:
-        csv_file (str): Path to the CSV file.
-        out_dir (str): Saved location  of boxed images output dir.
-        file_col (str): Column name containing file paths.
-
-    Returns:
-        None
-    """
-    # Read the CSV file
-    data = pd.read_csv(csv_file)
-
-    # Perform box plotting for each image in the CSV file
-    for i, row in data.iterrows():
-        img = plot_box(row, return_img=True)
-        # Save the image with boxes
-        file_name_no_ext = Path(row[file_col]).stem
-        file_ext = Path(row[file_col]).suffix
-        if file_ext.lower() not in IMAGE_EXTENSIONS:
-            file_ext = '.jpg'
-        new_file_path = Path(out_dir, f"{file_name_no_ext}_{i}_{file_ext}")
-        cv2.imwrite(new_file_path, img)
-
-
-if __name__ == '__main__':
-    # Create an argument parser
-    parser = argparse.ArgumentParser(description='Plot boxes images-csv')
-
-    # Add the CSV file and output directory arguments
-    parser.add_argument('csv_file', type=str, help='Path to the CSV file')
-    parser.add_argument('out_dir', type=str, help='Path to the output dir')
-
-    # Parse the command-line arguments
-    args = parser.parse_args()
-
-    # Call the main function'
-    plot_from_file(args.csv_file, args.out_dir)

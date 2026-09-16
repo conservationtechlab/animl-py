@@ -81,6 +81,13 @@ class TestLetterbox(unittest.TestCase):
         result = lb(img)
         self.assertIsInstance(result, Image.Image)
 
+    def test_similar_aspect_ratio_no_padding(self):
+        """Image with nearly matching aspect ratio should just be resized"""
+        lb = Letterbox(resize_height=75, resize_width=100)
+        img = Image.new("RGB", (134, 100))
+        result = lb(img)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.size, (100, 75))
 
 # ---------------------------------------------------------------------------
 # image_to_tensor
