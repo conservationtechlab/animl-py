@@ -30,23 +30,24 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class Letterbox(torch.nn.Module):
     """
-    Pads a crop to given size
+    Pads a PIL image to a given size
 
-    If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
-    If image size is smaller than output size along any edge, image is padded with 0 and
-    then center cropped.
+    Compares input image dimensions with target aspect ratio.
+    If input size is smaller than output size along any edge,
+    the image is padded with color and then resized to the desired dimensions
 
     Args:
-        size (sequence or int): Desired output size of the crop. If size is an
-            int instead of sequence like (h, w), a square crop (size, size) is
-            made. If provided a sequence of length 1, it will be interpreted as
-            (size[0], size[0]).
+        resize_height (int): desired height of the output image
+        resize_width (int): desired width of the output image
+        color (int): desired color of padding
+        interpolation_mode (torchvision.transforms.InterpolationMode): interpolation mode for adding padding
     """
-    def __init__(self, resize_height, resize_width):
+    def __init__(self, resize_height, resize_width, color=0, interpolation_mode=InterpolationMode.BILINEAR):
         super().__init__()
         self.resize_height = resize_height
         self.resize_width = resize_width
+        self.color = color
+        self.mode = interpolation_mode
 
     def forward(self, image):
 
@@ -62,19 +63,21 @@ class Letterbox(torch.nn.Module):
             wp = int(ratio_f * height - width)
             if hp > 0 and wp < 0:
                 hp = hp // 2
-                transform = Compose([Pad((0, hp, 0, hp), 0, "constant"),
-                                     Resize([self.resize_height, self.resize_width])])
+                transform = Compose([Pad((0, hp, 0, hp), self.color, "constant"),
+                                     Resize([self.resize_height, self.resize_width],
+                                            interpolation=self.mode)])
                 return transform(image)
 
             elif hp < 0 and wp > 0:
                 wp = wp // 2
-                transform = Compose([Pad((wp, 0, wp, 0), 0, "constant"),
-                                     Resize([self.resize_height, self.resize_width])])
+                transform = Compose([Pad((wp, 0, wp, 0), self.color, "constant"),
+                                     Resize([self.resize_height, self.resize_width],
+                                            interpolation=self.mode)])
                 return transform(image)
 
-        else:
-            transform = Resize([self.resize_height, self.resize_width])
-            return transform(image)
+        transform = Resize([self.resize_height, self.resize_width], interpolation=self.mode)
+
+        return transform(image)
 
 
 def image_to_tensor(file_path, resize_height, resize_width, letterbox):
@@ -153,14 +156,14 @@ def _get_model_transforms(resize_height,
     # MiewID model preprocessing pipeline
     if architecture == "miewid":
         if resize_width != MIEWID_SIZE or resize_height != MIEWID_SIZE:
-            resize_width, resize_height = (MIEWID_SIZE, MIEWID_SIZE)
+            resize_width = MIEWID_SIZE
+            resize_height = MIEWID_SIZE
             print(
                 "[WARNING] Changing resize_width and resize_height to 128x128 "
                 "to satisfy MiewID input requirements."
             )
 
-        return Compose([Resize(resize_height=resize_height,
-                               resize_width=resize_width),
+        return Compose([Resize((resize_height, resize_width)),
                         ToImage(),
                         ToDtype(torch.float32, scale=True),
                         Normalize(mean=[0.485, 0.456, 0.406],
@@ -204,12 +207,13 @@ class ManifestGenerator(Dataset):
         letterbox: if true, will apply letterbox resizing
         transform: torchvision transforms to apply to images
     '''
-    def __init__(self, x: pd.DataFrame,
+    def __init__(self,
+                 x: pd.DataFrame,
+                 transform: Compose,
                  file_col: str = "filepath",
                  crop: bool = True,
                  crop_coord: str = 'relative',
-                 normalize: bool = True,
-                 transform: Compose = None) -> None:
+                 normalize: bool = True) -> None:
         self.x = x.reset_index(drop=True)
         self.file_col = file_col
         if self.file_col not in self.x.columns:
