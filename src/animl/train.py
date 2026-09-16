@@ -147,6 +147,7 @@ def _train_classifier_helper(data_loader,
                              scaler=None,
                              device='cpu',
                              mixed_precision=False,
+                             precision_dtype=torch.float16,
                              progress=True):
     '''
     Main training loop.
@@ -492,6 +493,7 @@ def train_classifier(cfg):
                                                         scaler=scaler,
                                                         device=device,
                                                         mixed_precision=mixed_precision,
+                                                        precision_dtype=precision_dtype,
                                                         progress=progress)
 
         loss_val, oa_val, precision, recall = _validate_classifier_helper(dl_val,

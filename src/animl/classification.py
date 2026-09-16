@@ -19,6 +19,7 @@ from animl.model_architecture import BioCLIP, EfficientNet, ConvNeXtBase
 from animl.utils.general import (get_torch_device, get_onnx_device, _softmax,
                                  _tensor_to_onnx, NUM_THREADS)
 
+
 def load_classifier(model_path: str,
                     classes: Union[int, str, Path, pd.DataFrame],
                     device: Optional[str] = None,
@@ -207,7 +208,7 @@ def classify(model,
             raise ValueError("Model dictionary does not contain 'model' key.")
     else:
         pass
-      
+
     # check if model has architecture attribute
     if not hasattr(model, "architecture"):
         raise AttributeError("""Model object must have 'architecture' attribute indicating model type

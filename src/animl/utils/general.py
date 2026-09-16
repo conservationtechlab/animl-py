@@ -21,6 +21,7 @@ cv2.setNumThreads(0)  # prevent OpenCV from multithreading (incompatible with Py
 os.environ['NUMEXPR_MAX_THREADS'] = str(NUM_THREADS)  # NumExpr max threads
 os.environ['OMP_NUM_THREADS'] = str(NUM_THREADS)  # OpenMP max threads (PyTorch and SciPy)
 
+
 # ==============================================================================
 # Classification
 # ==============================================================================
@@ -337,13 +338,13 @@ def _box_iou(box1, box2):
 
 
 def _non_max_suppression(prediction,
-                        conf_thres=0.25,
-                        iou_thres=0.45,
-                        classes=None,
-                        agnostic=False,
-                        multi_label=False,
-                        labels=(),
-                        max_det=300):
+                         conf_thres=0.25,
+                         iou_thres=0.45,
+                         classes=None,
+                         agnostic=False,
+                         multi_label=False,
+                         labels=(),
+                         max_det=300):
     """Non-Maximum Suppression (NMS) on inference results to reject overlapping bounding boxes
 
     Returns:
@@ -438,12 +439,12 @@ def _non_max_suppression(prediction,
 # ==============================================================================
 
 def _letterbox(im: np.ndarray,
-              new_shape: tuple = (640, 640),
-              color: tuple = (114, 114, 114),
-              auto: bool = True,
-              scaleFill: bool = False,
-              scaleup: bool = True,
-              stride: int = 32):
+               new_shape: tuple = (640, 640),
+               color: tuple = (114, 114, 114),
+               auto: bool = True,
+               scaleFill: bool = False,
+               scaleup: bool = True,
+               stride: int = 32):
     # Resize and pad image while meeting stride-multiple constraints
     shape = im.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):

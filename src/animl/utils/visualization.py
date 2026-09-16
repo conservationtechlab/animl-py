@@ -100,20 +100,20 @@ def plot_box(rows,
 
         # Printing prediction if enabled
         if classifier_label_col is not None:
-            
             if classifier_label_col in row and not pd.isna(row[classifier_label_col]):
                 if classifier_label_col == "category":
                     label = detector_labels[int(row[detector_category_col])]
                 else:
                     label = row[classifier_label_col]
-
+                # add confidence
                 if show_confidence:
                     if 'confidence' in row and not np.isnan(row['confidence']):
                         label += f" {row['confidence']:.2f}"
                     elif 'conf' in row and not np.isnan(row['conf']):
                         label += f" {row['conf']:.2f}"
                     else:
-                        print(f"Warning: show_confidence is True but no confidence column found or confidence value is NaN. No confidence will be shown for this box.")
+                        print("Warning: show_confidence is True but no confidence column found or confidence value is NaN. ",
+                              "No confidence will be shown for this box.")
 
                 (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, font_scale, thickness)
                 # move label if it is out of the image
@@ -129,9 +129,9 @@ def plot_box(rows,
                 text_y_pos = label_bottom - 5 if label_top > 0 else label_bottom
                 cv2.putText(img, label, (label_left, text_y_pos),
                             cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), thickness)
-                
             else:
-                print(f"Warning: classifier_label_col '{classifier_label_col}' is specified but not found in row or is NaN. No label will be printed for this box.")
+                print(f"Warning: classifier_label_col '{classifier_label_col}' is specified but not found in row or is NaN. ",
+                      "No label will be printed for this box.")
 
     if return_img:
         return img

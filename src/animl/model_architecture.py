@@ -5,11 +5,10 @@ Class Definitions for Species Classification
 """
 import open_clip
 from peft import LoraConfig, get_peft_model
+import timm
 import torch
 import torch.nn as nn
-import timm
 import torch.nn.functional as F
-import torch.nn as nn
 from torchvision.models import efficientnet, convnext_base, ConvNeXt_Base_Weights
 
 MEGADETECTORv5_SIZE = 1280
