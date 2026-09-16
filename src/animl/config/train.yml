@@ -24,7 +24,7 @@ class_list_index: 'id'
 class_list_label: 'class'
 
 # training hyperparameters
-architecture: "efficientnet_v2_m" # or choose "convnext_base"
+architecture: "efficientnet_v2_m" # or choose "convnext_base" or "bioclip_2"
 image_size: [480, 480] # [width, height] preprocess images to this size (architecture dependent. some models require a certain size)
 crop: True # train on cropped images or not
 crop_coord: 'relative' #relative or absolute bounding box coordinates

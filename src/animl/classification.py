@@ -15,7 +15,7 @@ import torch
 import onnxruntime
 
 from animl import generator, file_management
-from animl.model_architecture import EfficientNet, ConvNeXtBase
+from animl.model_architecture import BioCLIP, EfficientNet, ConvNeXtBase
 from animl.utils.general import (get_torch_device, get_onnx_device, softmax,
                                  tensor_to_onnx, NUM_THREADS)
 
@@ -56,7 +56,7 @@ def load_classifier(model_path: str,
 
     # Create a new model instance for training (pytorch only)
     if model_path.is_dir():
-        supported_architectures = ["efficientnet_v2_m", "convnext_base", ]
+        supported_architectures = ["efficientnet_v2_m", "convnext_base", "bioclip_2"]
         if architecture not in supported_architectures:
             raise ValueError(f"""Unsupported architecture: {architecture}.
                              Supported architectures are: {supported_architectures}""")
@@ -68,9 +68,10 @@ def load_classifier(model_path: str,
             model = EfficientNet(num_classes, device=device)
         elif architecture == "convnext_base":
             model = ConvNeXtBase(num_classes)
+        elif architecture == "bioclip_2":
+            model = BioCLIP(num_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
-
         return model, class_list
 
     # load a specific model file
@@ -79,7 +80,7 @@ def load_classifier(model_path: str,
         start_time = time()
         # PyTorch dict
         if model_path.suffix == '.pt':
-            supported_architectures = ["efficientnet_v2_m", "convnext_base"]
+            supported_architectures = ["efficientnet_v2_m", "convnext_base", "bioclip_2"]
             if architecture not in supported_architectures:
                 raise ValueError(f"""Unsupported architecture: {architecture}.
                                  Supported architectures are: {supported_architectures}""")
@@ -92,14 +93,22 @@ def load_classifier(model_path: str,
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()
-                model.framework = "EfficientNet"
             elif architecture == "convnext_base":
                 model = ConvNeXtBase(num_classes, tune=False)
                 checkpoint = torch.load(model_path, map_location=device)
                 model.load_state_dict(checkpoint['model'])
                 model.to(device)
                 model.eval()
-                model.framework = "ConvNeXt-Base"
+            elif architecture == "bioclip_2":
+                model = BioCLIP(num_classes, tune=False)
+                checkpoint = torch.load(model_path, map_location=device)
+                model.load_state_dict(checkpoint['model'], strict=False)
+                model.to(device)
+                model.eval()
+
+            # set architecture
+            model.architecture = architecture
+
         # PyTorch full modelspeak
         elif model_path.suffix == '.pth':
             # check to make sure GPU is available if chosen
@@ -107,12 +116,12 @@ def load_classifier(model_path: str,
             model = torch.load(model_path, map_location=device)
             model.to(device)
             model.eval()
-            model.framework = "pytorch"
+            model.architecture = "pytorch"  # unknown model type
         elif model_path.suffix == '.onnx':
             providers = get_onnx_device(user_set=device)
             model = onnxruntime.InferenceSession(model_path,
                                                  providers=providers)
-            model.framework = "onnx"
+            model.architecture = "onnx"
             # try to load class dict from metadata
             props = model.get_modelmeta().custom_metadata_map
             if "class_dict" in props:
@@ -188,9 +197,6 @@ def classify(model,
         raise ValueError("num_workers must be a positive integer")
     if batch_size <= 0:
         raise ValueError("batch_size must be a positive integer")
-    if not hasattr(model, "framework"):
-        raise AttributeError("""Model object must have 'framework' attribute indicating model type
-                              (e.g. 'pytorch', 'onnx', etc.)""")
 
     # unpack model
     if isinstance(model, (list, tuple)) and len(model) == 2:
@@ -202,9 +208,15 @@ def classify(model,
             raise ValueError("Model dictionary does not contain 'model' key.")
     else:
         pass
+      
+    # check if model has architecture attribute
+    if not hasattr(model, "architecture"):
+        raise AttributeError("""Model object must have 'architecture' attribute indicating model type
+                              (e.g. 'pytorch', 'onnx', etc.)""")
+    architecture = model.architecture
 
-    # set model to device if pytorch
-    if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
+    # move to device if not already there
+    if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
         device = get_torch_device(user_set=device)
         model = model.to(device)  # move model to given device before inference
 
@@ -225,21 +237,39 @@ def classify(model,
             print("Warning: 'frame' column not found in manifest columns. Defaulting to 0 assuming images.")
             detections['frame'] = 0
 
-        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=crop,
-                                                resize_width=resize_width, resize_height=resize_height,
-                                                normalize=normalize, batch_size=batch_size, num_workers=num_workers)
+        dataset = generator.manifest_dataloader(detections,
+                                                file_col=file_col,
+                                                crop=crop,
+                                                resize_width=resize_width,
+                                                resize_height=resize_height,
+                                                architecture=architecture,
+                                                normalize=normalize,
+                                                batch_size=batch_size,
+                                                num_workers=num_workers)
     # Single File
     elif isinstance(detections, str):
         detections = pd.DataFrame({file_col: detections, 'frame': 0}, index=[0])
-        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
-                                                resize_width=resize_width, resize_height=resize_height,
-                                                normalize=normalize, batch_size=1, num_workers=1)
+        dataset = generator.manifest_dataloader(detections,
+                                                file_col=file_col,
+                                                crop=False,
+                                                resize_width=resize_width,
+                                                resize_height=resize_height,
+                                                architecture=architecture,
+                                                normalize=normalize,
+                                                batch_size=1,
+                                                num_workers=1)
     # List of Files
     elif isinstance(detections, list):
         detections = pd.DataFrame({file_col: detections, 'frame': 0}, index=range(len(detections)))
-        dataset = generator.manifest_dataloader(detections, file_col=file_col, crop=False,
-                                                resize_width=resize_width, resize_height=resize_height,
-                                                normalize=normalize, batch_size=batch_size, num_workers=1)
+        dataset = generator.manifest_dataloader(detections,
+                                                file_col=file_col,
+                                                crop=False,
+                                                resize_width=resize_width,
+                                                resize_height=resize_height,
+                                                architecture=architecture,
+                                                normalize=normalize,
+                                                batch_size=batch_size,
+                                                num_workers=1)
     else:
         raise AssertionError("Input must be a data frame of crops, single file path or vector of file paths.")
 
@@ -252,13 +282,13 @@ def classify(model,
             if collated is None:  # entire batch was bad
                 continue
             # pytorch
-            if model.framework in ["pytorch", "EfficientNet", "ConvNeXt-Base"]:
+            if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
                 data = collated[0]
                 data = data.to(device)
                 output = model(data)
                 raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
             # onnx
-            elif model.framework == "onnx":
+            elif architecture == "onnx":
                 data = collated[0]
                 data = tensor_to_onnx(data)
                 output = model.run(None, {model.get_inputs()[0].name: data})[0]

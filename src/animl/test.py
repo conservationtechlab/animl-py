@@ -78,6 +78,7 @@ def test_classifier(cfg):
 
     crop = cfg.get('crop', False)
     resize_width, resize_height = cfg.get('image_size', [480, 480])
+    architecture = cfg['architecture']
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
@@ -89,22 +90,28 @@ def test_classifier(cfg):
     model, classes = load_classifier(cfg['active_model'],
                                      cfg['class_file'],
                                      device=device,
-                                     architecture=cfg['architecture'])
+                                     architecture=architecture)
 
     class_list_label = cfg.get('class_list_label', 'class')
     class_list_index = cfg.get('class_list_index', 'id')
 
-    categories = file_management.class_list_to_dict(classes, id_col=class_list_index, class_col=class_list_label)
+    categories = file_management.class_list_to_dict(classes,
+                                                    id_col=class_list_index,
+                                                    class_col=class_list_label)
 
     # initialize data loaders for training and validation set
     test_dataset = file_management.load_data(cfg['test_set'])
-    dl_test = train_dataloader(test_dataset, categories,
-                               batch_size=cfg['batch_size'],
-                               num_workers=cfg.get('num_workers', NUM_THREADS),
+    dl_test = train_dataloader(test_dataset,
+                               categories,
                                file_col=cfg.get('file_col', 'filepath'),
                                label_col=cfg.get('label_col', 'species'),
-                               crop=crop, augment=False,
-                               resize_height=resize_height, resize_width=resize_width,
+                               crop=crop,
+                               resize_height=resize_height,
+                               resize_width=resize_width,
+                               architecture=architecture,
+                               augment=False,
+                               batch_size=cfg['batch_size'],
+                               num_workers=cfg.get('num_workers', NUM_THREADS),
                                cache_dir=cfg.get('cache_folder', None))
     # get predictions
     pred, true, paths = _test_classifer_helper(dl_test, model, device)

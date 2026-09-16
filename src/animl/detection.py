@@ -134,8 +134,10 @@ def detect(detector,
     # Single image filepath
     if isinstance(image_file_names, str):
         # convert img path to tensor
-        batch_from_dataloader = image_to_tensor(image_file_names, letterbox=letterbox,
-                                                resize_width=resize_width, resize_height=resize_height)
+        batch_from_dataloader = image_to_tensor(image_file_names,
+                                                resize_height=resize_height,
+                                                resize_width=resize_width,
+                                                letterbox=letterbox)
         if batch_from_dataloader is None:
             print(f"Error loading image {image_file_names}. Skipping.")
             return []
@@ -214,14 +216,15 @@ def detect(detector,
 
     # create dataloader
     dataloader = manifest_dataloader(manifest,
-                                     batch_size=batch_size,
-                                     num_workers=num_workers,
-                                     crop=False,
-                                     normalize=True,
-                                     letterbox=letterbox,
                                      file_col=file_col,
+                                     crop=False,
                                      resize_width=resize_width,
-                                     resize_height=resize_height)
+                                     resize_height=resize_height,
+                                     architecture=None,  # no specific model architecture for detection
+                                     letterbox=letterbox,
+                                     normalize=True,
+                                     batch_size=batch_size,
+                                     num_workers=num_workers)
 
     start_time = time.time()
     failed_files = []

@@ -15,7 +15,6 @@ import onnxruntime as ort
 from animl.reid.miewid import MiewIdNet, MIEWID_SIZE
 from animl.utils.general import get_torch_device, get_onnx_device
 from animl.generator import manifest_dataloader
-from torchvision.transforms import Compose, Normalize
 
 
 def load_miew(file_path: str,
@@ -33,7 +32,7 @@ def load_miew(file_path: str,
     if Path(file_path).suffix == '.onnx':
         providers = get_onnx_device(user_set=device)
         miew = ort.InferenceSession(file_path, providers=providers)
-        miew.framework = 'onnx'
+        miew.architecture = 'onnx'  # treat like generic onnx model
         return miew
 
     else:
@@ -43,7 +42,7 @@ def load_miew(file_path: str,
         miew = MiewIdNet(device=device)
         miew.to(device)
         miew.device = device
-        miew.framework = 'torch'
+        miew.architecture = 'miewid'
         miew.load_state_dict(weights, strict=False)
         miew.eval()
     return miew
@@ -74,14 +73,16 @@ def extract_miew_embeddings(miew_model,
 
     output = []
 
-    transform = Compose([Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),])
-
-    if miew_model.framework == 'onnx':
-        dataloader = manifest_dataloader(manifest, batch_size=1, num_workers=num_workers,
-                                         file_col=file_col, crop=True, normalize=True,
-                                         resize_width=MIEWID_SIZE,
+    if miew_model.architecture == 'onnx':
+        dataloader = manifest_dataloader(manifest,
+                                         file_col=file_col,
+                                         crop=True,
                                          resize_height=MIEWID_SIZE,
-                                         transform=transform)
+                                         resize_width=MIEWID_SIZE,
+                                         architecture="miewid",
+                                         normalize=True,
+                                         batch_size=1,
+                                         num_workers=num_workers)
         for _, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
             collated, failed = batch
             if collated is None:  # entire batch was bad
@@ -93,12 +94,15 @@ def extract_miew_embeddings(miew_model,
         output = np.vstack(output)
     else:
         device = get_torch_device(user_set=device)
-        dataloader = manifest_dataloader(manifest, batch_size=batch_size, num_workers=num_workers,
-                                         file_col=file_col, crop=True, normalize=True,
-                                         resize_width=MIEWID_SIZE,
+        dataloader = manifest_dataloader(manifest,
+                                         file_col=file_col,
+                                         crop=True,
                                          resize_height=MIEWID_SIZE,
-                                         transform=transform)
-
+                                         resize_width=MIEWID_SIZE,
+                                         architecture="miewid",
+                                         normalize=True,
+                                         batch_size=batch_size,
+                                         num_workers=num_workers)
         with torch.no_grad():
             for _, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
                 collated, failed = batch

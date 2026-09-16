@@ -53,11 +53,22 @@ def save_classifier(model,
         None
     '''
     Path(out_dir).mkdir(parents=True, exist_ok=True)
-
-    # get model parameters and add to stats
-    checkpoint = {'model': model.state_dict(),
-                  'stats': stats}
-    # save optimizer and scheduler state dicts if they are provided
+    architecture = getattr(model, "architecture", None)
+    if architecture == "bioclip_2":
+        # save only parameters that are changeable: lora and classifier
+        trainable_state_dict = {
+            k: v for k, v in model.state_dict().items()
+            if "lora" in k or "classifier" in k
+        }
+        checkpoint = {
+            'model': trainable_state_dict,
+            'stats': stats
+        }
+    else:
+        # get model parameters and add to stats
+        checkpoint = {'model': model.state_dict(),
+                      'stats': stats}
+    # save optimizer, scheduler, and scaler state dicts if they are provided
     if optimizer is not None or scheduler is not None:
         checkpoint['epoch'] = epoch
     if optimizer is not None:
@@ -99,7 +110,7 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, scaler, 
         # load state dict and apply weights to model
         print(f'Resuming from epoch {start_epoch}')
         checkpoint = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'), map_location=device)
-        model.load_state_dict(checkpoint['model'])
+        model.load_state_dict(checkpoint['model'], strict=False)
         # Model is assumed to be on the correct device already (moved in main before optimizer creation)
 
         # load optimzier state if available
@@ -118,19 +129,25 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, scaler, 
         if 'scaler' in checkpoint and scaler is not None:
             scaler.load_state_dict(checkpoint['scaler'])
 
-        # get last epoch from model if avialble
+        # get last epoch from model if available
         if 'epoch' in checkpoint:
             return checkpoint['epoch']
         else:
             return start_epoch
     else:
-        # no save state found; stasrt anew
+        # no save state found; start anew
         print('No model state found, starting new model')
         return 0
 
 
-def _train_classifier_helper(data_loader, model, optimizer, scheduler, scaler=None, device='cpu',
-                             mixed_precision=False, precision_dtype=torch.float16, progress=True):
+def _train_classifier_helper(data_loader,
+                             model,
+                             optimizer,
+                             scheduler,
+                             scaler=None,
+                             device='cpu',
+                             mixed_precision=False,
+                             progress=True):
     '''
     Main training loop.
 
@@ -343,59 +360,64 @@ def train_classifier(cfg):
         experiment = None
         print("Comet ML not installed; skipping experiment logging.")
 
+    # get progress bar flag from config
     progress = cfg.get('progress', True)
+
     # init random number generator seed (set at the start)
     init_seed(cfg.get('seed', None))
-    crop = cfg.get('crop', True)
-    file_col = cfg.get('file_col', 'filepath')
-    label_col = cfg.get('label_col', 'species')
-    resize_width, resize_height = cfg.get('image_size', [480, 480])
 
     # check if GPU is available
     device = cfg.get('device', 'cpu')
     if device != 'cpu' and not torch.cuda.is_available():
         print(f'WARNING: device set to "{device}" but CUDA not available; falling back to CPU...')
         device = 'cpu'
-    # get mixed precision flag
-    mixed_precision = cfg.get('mixed_precision', False)
-    precision_dtype = cfg.get('precision_dtype', 'float16')
 
-    if precision_dtype == 'bfloat16':
-        precision_dtype = torch.bfloat16
-        if mixed_precision:
-            assert torch.cuda.is_bf16_supported(), "bfloat16 not natively supported on this GPU"
-    else:
-        precision_dtype = torch.float16
-
+    # LOAD MODEL
     # model will be on CPU after this call if cfg['experiment_folder'] is a directory
-    model, classes = load_classifier(cfg['experiment_folder'], cfg['class_file'],
-                                     device=device, architecture=cfg['architecture'])
+    model, classes = load_classifier(cfg['experiment_folder'],
+                                     cfg['class_file'],
+                                     device=device,
+                                     architecture=cfg['architecture'])
 
     # Move model to the target device BEFORE optimizer initialization
     model.to(device)
-    print(f"Model moved to {device}")
 
-    categories = file_management.class_list_to_dict(classes, id_col=cfg.get('class_list_index', 'id'),
+    categories = file_management.class_list_to_dict(classes,
+                                                    id_col=cfg.get('class_list_index', 'id'),
                                                     class_col=cfg.get('class_list_label', 'class'))
 
     # load datasets
     train_dataset = file_management.load_data(cfg['training_set'])
     validate_dataset = file_management.load_data(cfg['validate_set'])
 
+    # get image resize dimensions from config
+    resize_width, resize_height = cfg.get('image_size', [480, 480])
+
     # Initialize data loaders for training and validation set
-    dl_train = train_dataloader(train_dataset, categories,
+    dl_train = train_dataloader(train_dataset,
+                                categories,
+                                file_col=cfg.get('file_col', 'filepath'),
+                                label_col=cfg.get('label_col', 'species'),
+                                crop=cfg.get('crop', True),
+                                resize_height=resize_height,
+                                resize_width=resize_width,
+                                architecture=model.architecture,
+                                augment=cfg.get('augment', True),
                                 batch_size=cfg['batch_size'],
                                 num_workers=cfg.get('num_workers', NUM_THREADS),
-                                file_col=file_col, label_col=label_col,
-                                crop=crop, augment=cfg.get('augment', True),
-                                resize_height=resize_height, resize_width=resize_width,
-                                cache_dir=cfg.get('cache_folder', None))
-    dl_val = train_dataloader(validate_dataset, categories,
+                                cache_dir=cfg.get('cache_folder', None),)
+
+    dl_val = train_dataloader(validate_dataset,
+                              categories,
+                              file_col=cfg.get('file_col', 'filepath'),
+                              label_col=cfg.get('label_col', 'species'),
+                              crop=cfg.get('crop', True),
+                              resize_height=resize_height,
+                              resize_width=resize_width,
+                              architecture=model.architecture,
+                              augment=False,
                               batch_size=cfg.get('val_batch_size', 16),
                               num_workers=cfg.get('num_workers', NUM_THREADS),
-                              file_col=file_col, label_col=label_col,
-                              crop=crop, augment=False,
-                              resize_height=resize_height, resize_width=resize_width,
                               cache_dir=cfg.get('cache_folder', None))
 
     # set up model optimizer
@@ -411,7 +433,19 @@ def train_classifier(cfg):
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
-    if mixed_precision and device != 'cpu' and torch.cuda.is_available() and precision_dtype == torch.float16:
+    # get mixed precision flag
+    mixed_precision = cfg.get('mixed_precision', False)
+    # get mixed precision flag
+    precision_dtype = cfg.get('precision_dtype', 'float16')
+
+    if precision_dtype == 'bfloat16':
+        precision_dtype = torch.bfloat16
+        if mixed_precision:
+            assert torch.cuda.is_bf16_supported(), "bfloat16 not natively supported on this GPU"
+    else:
+        precision_dtype = torch.float16
+
+    if mixed_precision and device != 'cpu' and torch.cuda.is_available():
         # Creates a GradScaler once at the beginning of training.
         scaler = GradScaler('cuda', enabled=True)
     else:
@@ -446,15 +480,24 @@ def train_classifier(cfg):
         print(f"Using learning rate : {scheduler.get_last_lr()[0]}")
 
         if current_epoch > frozen_epochs:
-            for param in model.parameters():
-                param.requires_grad = True
+            for name, param in model.named_parameters():
+                if model.architecture != "bioclip_2" or "lora" in name:
+                    # for bioclip, we only want to unfreeze the lora parameters
+                    param.requires_grad = True
 
-        loss_train, oa_train = _train_classifier_helper(dl_train, model, optim, scheduler,
-                                                        scaler=scaler, device=device,
+        loss_train, oa_train = _train_classifier_helper(dl_train,
+                                                        model,
+                                                        optim,
+                                                        scheduler,
+                                                        scaler=scaler,
+                                                        device=device,
                                                         mixed_precision=mixed_precision,
-                                                        precision_dtype=precision_dtype,
                                                         progress=progress)
-        loss_val, oa_val, precision, recall = _validate_classifier_helper(dl_val, model, device, progress=progress)
+
+        loss_val, oa_val, precision, recall = _validate_classifier_helper(dl_val,
+                                                                          model,
+                                                                          device,
+                                                                          progress=progress)
 
         # combine stats and save
         stats = {
