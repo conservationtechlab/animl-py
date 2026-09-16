@@ -1,5 +1,3 @@
-__version__ = '3.3.1_dev'
-
 from animl.models import common
 from animl.models import download
 from animl.models import yolo

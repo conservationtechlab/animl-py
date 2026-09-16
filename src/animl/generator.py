@@ -19,8 +19,7 @@ from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, R
                                        RandomAffine, RandomGrayscale, RandomApply,
                                        ColorJitter, GaussianBlur, Normalize)
 
-from animl.model_architecture import SDZWA_CLASSIFIER_SIZE, BIOCLIP_CLASSIFIER_SIZE
-from animl.reid.miewid import MIEWID_SIZE
+from animl.model_architecture import SDZWA_CLASSIFIER_SIZE, BIOCLIP_CLASSIFIER_SIZE, MIEWID_SIZE
 from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
 
 
