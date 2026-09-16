@@ -150,6 +150,7 @@ def update_labels_from_folders(manifest: pd.DataFrame,
 
     return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
 
+
 def _stratified_grouped_datasplit(manifest: pd.DataFrame,
                                   groupby_col: str,
                                   label_col: str = "class",
@@ -178,20 +179,20 @@ def _stratified_grouped_datasplit(manifest: pd.DataFrame,
     """
     # round val_size and test_size to nearest 0.05 and then convert to percentage
     # val_pct and test_pct must be nonzero (at least 5%)
-    val_pct=int(max(5,round(val_size / 0.05)*5))
-    test_pct=int(max(5,round(test_size / 0.05)*5))
+    val_pct = int(max(5, round(val_size / 0.05) * 5))
+    test_pct = int(max(5, round(test_size / 0.05) * 5))
 
     # the number of splits is determined by the gcd of
     # the test, val, and train size percentages
-    gcd_val = math.gcd(math.gcd(test_pct, val_pct), 100-test_pct-val_pct)
+    gcd_val = math.gcd(math.gcd(test_pct, val_pct), 100 - test_pct - val_pct)
     n_splits = 100 // gcd_val
 
-    assert len(manifest[groupby_col].unique())>=n_splits, (
+    assert len(manifest[groupby_col].unique()) >= n_splits, (
         f"There must be at least {n_splits} groups for this test size and val size"
     )
 
-    num_val_folds=int(val_pct*n_splits/100)
-    num_test_folds=int(test_pct*n_splits/100)
+    num_val_folds = int(val_pct * n_splits / 100)
+    num_test_folds = int(test_pct * n_splits / 100)
 
     # splits data into n_splits sections with no overlapping groups
     # and species stratified as best as possible
@@ -206,18 +207,19 @@ def _stratified_grouped_datasplit(manifest: pd.DataFrame,
 
     # Grab the relevant folds and retrieve the indices
     val_folds = folds[:num_val_folds]
-    test_folds = folds[num_val_folds : num_val_folds + num_test_folds]
+    test_folds = folds[num_val_folds: num_val_folds + num_test_folds]
     val_indices = [idx for fold in val_folds for idx in fold[1]]
     test_indices = [idx for fold in test_folds for idx in fold[1]]
 
     # train indices are whichever indices haven't been selected for val and test
-    train_indices = list(set(manifest.index)-set(test_indices)-set(val_indices))
+    train_indices = list(set(manifest.index) - set(test_indices) - set(val_indices))
 
-    train_df=manifest.loc[train_indices]
-    val_df=manifest.loc[val_indices]
-    test_df=manifest.loc[test_indices]
+    train_df = manifest.loc[train_indices]
+    val_df = manifest.loc[val_indices]
+    test_df = manifest.loc[test_indices]
 
     return train_df, val_df, test_df
+
 
 def export_train_val_test(manifest: pd.DataFrame,
                           label_col: str = "class",
@@ -261,7 +263,7 @@ def export_train_val_test(manifest: pd.DataFrame,
         idx = manifest.groupby(file_col)[conf_col].idxmax()
         manifest = manifest.loc[idx]
 
-    manifest=manifest.reset_index(drop=True)
+    manifest = manifest.reset_index(drop=True)
 
     if groupby_col is not None:
         if groupby_col not in manifest.columns:
