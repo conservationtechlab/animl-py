@@ -287,14 +287,18 @@ class TestExtractMiewEmbeddings(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.model_path = Path.cwd() / 'models/miewid_v3.bin'
+        cls.model = load_miew(str(cls.model_path), device='cpu')
+        examples_dir = Path(__file__).parent.parent / 'examples' / 'Southwest'
+        cls.detections = pd.read_csv(cls.detections_path)
+        cls.detections['filepath'] = cls.detections['filepath'].apply(
+            lambda p: str(examples_dir / Path(p).name)
+        )
         cls.detections_path = Path(__file__).parent / 'GroundTruth/southwest/Detections.csv'
         if not cls.model_path.exists() or not cls.detections_path.exists():
             raise unittest.SkipTest(
                 "MiewID model or ground-truth detections not found; "
                 "skipping TestExtractMiewEmbeddings (requires model weights and test data)."
             )
-        cls.model = load_miew(str(cls.model_path), device='cpu')
-        cls.detections = pd.read_csv(cls.detections_path)
 
     def test_returns_ndarray(self):
         result = extract_miew_embeddings(self.model, self.detections.head(2), device='cpu', batch_size=1)

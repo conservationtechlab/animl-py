@@ -42,6 +42,7 @@ jobs:
           --repo ${{ github.repository }} \
           --dir models \
           --pattern "sdzwa_southwest_v3.pt" \
+          --pattern "sdzwa_southwest_v3.onnx" \
           --pattern "sdzwa_southwest_v3_classes.csv" \
           --clobber
 
