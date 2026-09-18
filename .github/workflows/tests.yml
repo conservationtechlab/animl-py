@@ -24,7 +24,27 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .
         pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-    
+
+    - name: Cache classifier model assets
+      id: cache-models
+      uses: actions/cache@v4
+      with:
+        path: models
+        key: models-sdzwa_southwest_v3-v1
+
+    - name: Download classifier model assets
+      if: steps.cache-models.outputs.cache-hit != 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        mkdir -p models
+        gh release download model \
+          --repo ${{ github.repository }} \
+          --dir models \
+          --pattern "sdzwa_southwest_v3.pt" \
+          --pattern "sdzwa_southwest_v3_classes.csv" \
+          --clobber
+
     - name: Run unit tests
       run: |
         python -m unittest discover -s tests -p "test_*.py" -v
