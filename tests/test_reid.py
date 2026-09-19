@@ -94,15 +94,8 @@ def _fetch_and_convert_miewid(out_path: Path) -> bool:
         fc_dim=config.get("fc_dim", 512),
         dropout=config.get("dropout", 0.0),
         loss_module=config.get("loss_module", "softmax"),
-        s=config.get("s", 30.0),
-        margin=config.get("margin", 0.50),
-        ls_eps=config.get("ls_eps", 0.0),
-        theta_zero=config.get("theta_zero", 0.785),
         pretrained=False,  # every weight is about to be overwritten
-        margins=config.get("margins"),
-        k=config.get("k"),
     )
-
     # The actual compatibility test. strict=False only so we can report
     # *which* keys mismatch; any mismatch at all is still a hard failure.
     result = model.load_state_dict(state_dict, strict=False)
