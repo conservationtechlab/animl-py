@@ -2,7 +2,7 @@ name: Tests
 
 on:
   pull_request:
-    branches: [ main, dev]
+    branches: [ main, dev ]
 
 jobs:
   test:
@@ -24,7 +24,36 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .
         pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-    
+        pip install huggingface_hub safetensors
+
+    - name: Cache classifier model assets
+      id: cache-models
+      uses: actions/cache@v4
+      with:
+        path: models
+        key: models-sdzwa_southwest_v3-v1
+
+    - name: Download classifier model assets
+      if: steps.cache-models.outputs.cache-hit != 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        mkdir -p models
+        gh release download model \
+          --repo ${{ github.repository }} \
+          --dir models \
+          --pattern "sdzwa_southwest_v3.pt" \
+          --pattern "sdzwa_southwest_v3.onnx" \
+          --pattern "sdzwa_southwest_v3_classes.csv" \
+          --clobber
+
+    - name: Cache MiewID weights (fetched from Hugging Face by test_reid.py, not redistributed)
+      id: cache-miewid
+      uses: actions/cache@v4
+      with:
+        path: models/miewid_v3.bin
+        key: models-miewid_v3-v1
+
     - name: Run unit tests
       run: |
         python -m unittest discover -s tests -p "test_*.py" -v
