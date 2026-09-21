@@ -1,6 +1,6 @@
 [project]
 name = "animl"  
-version = "3.3.1"
+dynamic = ["version"]
 description = "A Collection of ML Tools for Species Detection and Classification in Camera Trap Images and Videos."  
 
 readme = "README.md" 
@@ -35,9 +35,11 @@ mlops = [
 [project.urls]  # Optional
 "Homepage" = "https://github.com/conservationtechlab/animl-py"
 
-
 [build-system]
 # These are the assumed default build requirements from pip:
 # https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support
-requires = ["setuptools>=42"]
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "animl.__version__"}
