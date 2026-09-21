@@ -54,6 +54,25 @@ jobs:
         path: models/miewid_v3.bin
         key: models-miewid_v3-v1
 
+    - name: Cache MegaDetector v5a
+      id: cache-mdv5a
+      uses: actions/cache@v4
+      with:
+        path: models/md_v5a.0.0.pt
+        key: models-mdv5a-v1
+
+    - name: Download MegaDetector v5a
+      if: steps.cache-mdv5a.outputs.cache-hit != 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        mkdir -p models
+        gh release download megadetector \
+          --repo ${{ github.repository }} \
+          --dir models \
+          --pattern "md_v5a.0.0.pt" \
+          --clobber
+
     - name: Run unit tests
       run: |
         python -m unittest discover -s tests -p "test_*.py" -v
