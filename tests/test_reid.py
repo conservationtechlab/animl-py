@@ -75,6 +75,20 @@ def _fetch_and_convert_miewid(out_path: Path) -> bool:
         config = json.load(f)
     state_dict = load_file(weights_path)
 
+
+    KEY_REMAP = {"backbone.global_pool.p": "pooling.p"}
+    for src_key, dst_key in KEY_REMAP.items():
+        if src_key in state_dict and dst_key not in state_dict:
+            tensor = state_dict.pop(src_key)
+            if tuple(tensor.shape) != (1,):
+                raise RuntimeError(
+                    f"Refusing to remap '{src_key}' -> '{dst_key}': expected a shape (1,) GeM "
+                    f"exponent but got {tuple(tensor.shape)}. The checkpoint's structure may have "
+                    "changed in a way this narrow remap no longer accounts for."
+                )
+            print(f"Remapping checkpoint key '{src_key}' -> '{dst_key}' (shape {tuple(tensor.shape)})")
+            state_dict[dst_key] = tensor
+
     # Infer n_classes from the checkpoint itself: config.json's value is
     # frequently a placeholder unrelated to the actual training run.
     final_weight_keys = [k for k in state_dict if k.startswith("final.") and k.endswith(".weight")]
