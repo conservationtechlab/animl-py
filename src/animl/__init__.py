@@ -1,4 +1,4 @@
-__version__ = '3.3.1'
+__version__ = '3.3.2rc1'
 
 from animl import classification
 from animl import detection
