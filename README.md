@@ -4,7 +4,7 @@ AniML comprises a variety of machine learning tools for analyzing ecological dat
 This package is also available in R: [animl](https://github.com/conservationtechlab/animl)
 
 Table of Contents
-1. Installation
+1. [Installation](#installation-instructions)
 2. [Usage](#usage)
 3. [Models](#models)
 
@@ -27,7 +27,7 @@ pip install animl
 ```
 
 ### Dependencies
-We recommend running AniML on GPU-enabled hardware. **If using an NVIDIA GPU, ensure driviers, cuda-toolkit and cudnn are installed.
+We recommend running AniML on GPU-enabled hardware. **If using an NVIDIA GPU, ensure drivers, cuda-toolkit and cudnn are installed.**
 
 **Python** >= 3.12
 
@@ -79,7 +79,6 @@ See the [Reference Manual](https://conservationtechlab.github.io/animl-py/) for 
 
 ### Inference
 The functionality of animl can be parcelated into its individual functions to suit your data and scripting needs.
-The sandbox.ipynb notebook has all of these steps available for further exploration.
 
 1. It is recommended that you use the animl working directory for storing intermediate steps.
 
@@ -95,7 +94,7 @@ The sandbox.ipynb notebook has all of these steps available for further explorat
    ```
 
 3. If there are videos, extract individual frames for processing.
-   Select either the number of frames or fps using the argumments.
+   Select either the number of frames or fps using the arguments.
    The other option can be set to None or removed.
 
    ```python
@@ -103,7 +102,7 @@ The sandbox.ipynb notebook has all of these steps available for further explorat
    ```
 
 4. Pass all images into MegaDetector. We recommend [MDv5a](https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt).
-   The function parse_MD will convert the json to a pandas DataFrame and merge detections with the original file manifest, if provided.
+   The function parse_detections will convert the output to a pandas DataFrame and merge detections with the original file manifest, if provided.
 
    ```python
    detector = animl.load_detector('/path/to/mdmodel.pt', model_type="mdv5", device='cuda:0')
@@ -114,7 +113,7 @@ The sandbox.ipynb notebook has all of these steps available for further explorat
                            letterbox=True,
                            device='cuda:0',
                            batch_size = 4,
-                           checkpoint_path=working_dir.mdraw,
+                           checkpoint_path=workingdir.mdraw,
                            checkpoint_frequency=1000)
    detections = animl.parse_detections(mdresults, manifest=allframes, out_file=workingdir.detections)
    ```
@@ -136,7 +135,7 @@ The sandbox.ipynb notebook has all of these steps available for further explorat
                                     resize_width=480,
                                     resize_height=480,
                                     batch_size=4,
-                                    out_file=working_dir.predictions)
+                                    out_file=workingdir.predictions)
    ```
 
 7. Apply labels from class list with or without utilizing timestamp-based sequences.
@@ -169,7 +168,7 @@ The sandbox.ipynb notebook has all of these steps available for further explorat
 9. (OPTIONAL) Create symlinks within a given directory for file browser access.
 
    ```python
-   manifest = animl.export_folders(manifest, out_dir=working_dir.linkdir, out_file=working_dir.results)
+   manifest = animl.export_folders(manifest, out_dir=workingdir.linkdir, out_file=workingdir.results)
    ```
 
 ---
@@ -184,13 +183,13 @@ Training workflows are still under development. Please submit Issues as you come
    train, val, test, stats = animl.export_train_val_test(manifest,
                                                          out_dir='path/to/save/data/',
                                                          label_col="species",
-                                                         val_size: float = 0.1,
-                                                         test_size: float = 0.1,
-                                                         random_state: int = 42)
+                                                         val_size=0.1,
+                                                         test_size=0.1,
+                                                         seed=42)
    ```
 
 2. Set up training configuration file. Specify the paths to the data splits from the previous step. 
-Example configs are available in the `configs/` folder.
+Example configs are available in the `src/animl/config/` folder.
 
 3. Using the config file, begin training.
 
@@ -201,7 +200,7 @@ Example configs are available in the `configs/` folder.
    Every 10 epochs (or define custom 'checkpoint_frequency'), the model will be checkpointed to the 'experiment_folder' parameter in the config file, and will contain performance metrics for selection.
 
 
-5. Testing of a model checkpoint can be done with the "test.py" module.  Add an 'active_model' parameter to the config 
+4. Testing of a model checkpoint can be done with the "test.py" module.  Add an 'active_model' parameter to the config 
 file that contains the path of the checkpoint to test. This will produce a confusion matrix of the test dataset as well 
 as a csv containing predicted and ground truth labels for each image.
 
@@ -215,7 +214,7 @@ The Conservation Technology Lab has several models available for use.
 You can use the download function within animl or access them here:
 
    ```python
-   animl.download_model(animl.CLASSIFIER['sdzes_andes_v1'],  out_dir: str = 'models/')
+   animl.download_model(animl.CLASSIFIER['sdzwa_andes_v1'], out_dir='models/')
    ```
 
 * Southwest United States [v3](https://sandiegozoo.box.com/s/0mait8k3san3jvet8251mpz8svqyjnc3)
