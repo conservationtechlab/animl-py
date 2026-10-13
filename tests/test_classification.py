@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import torch
 
 from animl.classification import (
     classify,
@@ -78,21 +79,40 @@ class TestLoadClassifier(unittest.TestCase):
         self.assertIsNotNone(model)
 
     def test_loads_onnx_cpu_with_classes(self):
+        if not self.model_path_onnx.exists():
+            self.skipTest(
+                f"ONNX model not found at {self.model_path_onnx}; skipping until it's "
+                "downloaded as part of the 'model' release assets."
+            )
         model = load_classifier(self.model_path_onnx, self.classes, device='cpu')
         self.assertIsNotNone(model)
 
     def test_loads_onnx_cpu_without_classes(self):
+        if not self.model_path_onnx.exists():
+            self.skipTest(
+                f"ONNX model not found at {self.model_path_onnx}; skipping until it's "
+                "downloaded as part of the 'model' release assets."
+            )
         model = load_classifier(self.model_path_onnx, None, device='cpu')
         self.assertIsNotNone(model)
 
     def test_loads_pytorch_cuda(self):
+        if not torch.cuda.is_available():
+            self.skipTest("No CUDA device available on this runner.")
         model = load_classifier(self.model_path_pt, self.classes, 
                                 device='cuda', architecture='efficientnet_v2_m')
         self.assertIsNotNone(model)
 
     def test_loads_onnx_cuda(self):
+        if not self.model_path_onnx.exists():
+            self.skipTest(
+                f"ONNX model not found at {self.model_path_onnx}; skipping until it's "
+                "downloaded as part of the 'model' release assets."
+            )
+        if not torch.cuda.is_available():
+            self.skipTest("No CUDA device available on this runner.")
         model = load_classifier(self.model_path_onnx, self.classes, device='cuda')
-        self.assertIsNotNone(model)    
+        self.assertIsNotNone(model)
 
 
 
@@ -109,6 +129,10 @@ class TestClassifyPytorch(unittest.TestCase):
                 "skipping TestClassifyPytorch (requires downloaded model files and test data)."
             )
         detections = pd.read_csv(cls.detections_path)
+        examples_dir = Path(__file__).parent.parent / 'examples' / 'Southwest'
+        detections['filepath'] = detections['filepath'].apply(
+            lambda p: str(examples_dir / Path(p).name)
+        )
         cls.detections = detections[detections["category_label"] == "animal"].reset_index(drop=True)
         cls.class_path = load_class_list(cls.class_list_path)
         cls.model, cls.classes = load_classifier(cls.model_path_pt, cls.class_path, device='cpu', architecture='efficientnet_v2_m')

@@ -4,23 +4,23 @@ Unit tests for animl/reid/
 @ Kyra Swanson 2024
 """
 import unittest
-import tempfile
-import shutil
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 
-from animl.reid.distance import (
+from animl.reid import (
+    load_miew, 
+    extract_miew_embeddings,
     remove_diagonal,
     euclidean_squared_distance,
     cosine_distance,
     compute_distance_matrix,
     compute_batched_distance_matrix,
 )
-from animl.reid.miewid import MiewIdNet, GeM, l2_norm, MIEWID_SIZE
-from animl.reid.inference import load_miew, extract_miew_embeddings
+from animl.utils.test_utils import fetch_and_convert_miewid
+from animl.model_architecture import MiewIdNet, GeM
 
 
 class TestRemoveDiagonal(unittest.TestCase):
@@ -194,27 +194,6 @@ class TestComputeBatchedDistanceMatrix(unittest.TestCase):
             self.assertAlmostEqual(result[i, i], 0.0, places=4)
 
 
-class TestL2Norm(unittest.TestCase):
-
-    def test_output_is_unit_norm(self):
-        x = torch.tensor([[3.0, 4.0]])
-        result = l2_norm(x, axis=1)
-        norm = torch.norm(result, p=2, dim=1)
-        self.assertAlmostEqual(norm.item(), 1.0, places=5)
-
-    def test_batch_output_all_unit_norm(self):
-        x = torch.randn(5, 8)
-        result = l2_norm(x, axis=1)
-        norms = torch.norm(result, p=2, dim=1)
-        for n in norms:
-            self.assertAlmostEqual(n.item(), 1.0, places=5)
-
-    def test_output_shape_unchanged(self):
-        x = torch.randn(4, 6)
-        result = l2_norm(x, axis=1)
-        self.assertEqual(result.shape, x.shape)
-
-
 class TestGeM(unittest.TestCase):
 
     def test_forward_produces_tensor(self):
@@ -247,9 +226,9 @@ class TestMiewIdNet(unittest.TestCase):
     def test_instantiates(self):
         self.assertIsNotNone(self.model)
 
-    def test_has_framework_attribute_after_manual_set(self):
-        self.model.framework = 'torch'
-        self.assertEqual(self.model.framework, 'torch')
+    def test_has_architecture_attribute_after_manual_set(self):
+        self.model.architecture = 'miewid'
+        self.assertEqual(self.model.architecture, 'miewid')
 
     def test_extract_feat_output_shape(self):
         # MIEWID_SIZE = 440; use a small proxy size to keep the test fast
@@ -274,9 +253,11 @@ class TestLoadMiew(unittest.TestCase):
         cls.model_path_pt = Path.cwd() / 'models/miewid_v3.bin'
         cls.model_path_onnx = Path.cwd() / 'models/miewid_v3.onnx'
         if not cls.model_path_pt.exists() and not cls.model_path_onnx.exists():
+            fetch_and_convert_miewid(cls.model_path_pt)
+        if not cls.model_path_pt.exists() and not cls.model_path_onnx.exists():
             raise unittest.SkipTest(
-                "No MiewID model file found at models/miewid_v3.bin or models/miewid_v3.onnx; "
-                "skipping TestLoadMiew (requires downloaded model weights)."
+                "No MiewID model file found at models/miewid_v3.bin or models/miewid_v3.onnx, "
+                "and it couldn't be fetched from Hugging Face; skipping TestLoadMiew."
             )
 
     def test_nonexistent_path_raises(self):
@@ -288,7 +269,7 @@ class TestLoadMiew(unittest.TestCase):
             self.skipTest("PyTorch model not found")
         model = load_miew(str(self.model_path_pt), device='cpu')
         self.assertIsNotNone(model)
-        self.assertEqual(model.framework, 'torch')
+        self.assertEqual(model.architecture, 'miewid')
 
     def test_pytorch_model_is_in_eval_mode(self):
         if not self.model_path_pt.exists():
@@ -301,7 +282,7 @@ class TestLoadMiew(unittest.TestCase):
             self.skipTest("ONNX model not found")
         model = load_miew(str(self.model_path_onnx), device='cpu')
         self.assertIsNotNone(model)
-        self.assertEqual(model.framework, 'onnx')
+        self.assertEqual(model.architecture, 'onnx')
 
 
 class TestExtractMiewEmbeddings(unittest.TestCase):
@@ -310,13 +291,20 @@ class TestExtractMiewEmbeddings(unittest.TestCase):
     def setUpClass(cls):
         cls.model_path = Path.cwd() / 'models/miewid_v3.bin'
         cls.detections_path = Path(__file__).parent / 'GroundTruth/southwest/Detections.csv'
+        if not cls.model_path.exists():
+            fetch_and_convert_miewid(cls.model_path)
         if not cls.model_path.exists() or not cls.detections_path.exists():
             raise unittest.SkipTest(
-                "MiewID model or ground-truth detections not found; "
-                "skipping TestExtractMiewEmbeddings (requires model weights and test data)."
+                "MiewID model (local or fetched from Hugging Face) or ground-truth detections "
+                "not found; skipping TestExtractMiewEmbeddings."
             )
         cls.model = load_miew(str(cls.model_path), device='cpu')
-        cls.detections = pd.read_csv(cls.detections_path)
+        detections = pd.read_csv(cls.detections_path)
+        examples_dir = Path(__file__).parent.parent / 'examples' / 'Southwest'
+        detections['filepath'] = detections['filepath'].apply(
+            lambda p: str(examples_dir / Path(p).name)
+        )
+        cls.detections = detections
 
     def test_returns_ndarray(self):
         result = extract_miew_embeddings(self.model, self.detections.head(2), device='cpu', batch_size=1)

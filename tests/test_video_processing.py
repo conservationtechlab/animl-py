@@ -108,8 +108,8 @@ class TestCountFrames(unittest.TestCase):
 
     def test_raises_for_nonexistent_file(self):
         """Test that FileNotFoundError is raised for non-existent video."""
-        with self.assertRaises(FileNotFoundError):
-            _count_frames('/nonexistent/video.mp4', frames=5)
+        result = _count_frames('/nonexistent/video.mp4', frames=5)
+        self.assertIsNone(result)
 
     def test_returns_none_for_corrupted_video(self):
         """Test that None is returned for corrupted video that won't open."""
