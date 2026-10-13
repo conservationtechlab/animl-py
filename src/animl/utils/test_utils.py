@@ -63,7 +63,6 @@ def fetch_and_convert_miewid(out_path: Union[str, Path]) -> bool:
         config = json.load(f)
     state_dict = load_file(weights_path)
 
-
     KEY_REMAP = {"backbone.global_pool.p": "pooling.p"}
     for src_key, dst_key in KEY_REMAP.items():
         if src_key in state_dict and dst_key not in state_dict:
