@@ -466,23 +466,23 @@ def sequence_calculation(manifest,
     # Initialize sequence placeholder with zeros
     sequence_placeholder = np.zeros(len(manifest_sort))
 
-    i = 0
-    s = 0
-    while i < len(manifest_sort):
-        rows = [i]
-        last_index = i+1
+    seq_start = 0
+    seq_id = 0
+    while seq_start < len(manifest_sort):
+        current_seq = [seq_start]
+        current_idx = seq_start+1
 
-        while (last_index < len(manifest_sort) and not pd.isna(manifest_sort.loc[i, timestamp_col]) and
-               not pd.isna(manifest_sort.loc[last_index, timestamp_col]) and
-               manifest_sort.loc[last_index, station_col] == manifest_sort.loc[i, station_col] and
-               (manifest_sort.loc[last_index, timestamp_col] - manifest_sort.loc[i, timestamp_col]).total_seconds() <= maxdiff):
-            rows.append(last_index)
-            last_index += 1
+        while (current_idx < len(manifest_sort) and not pd.isna(manifest_sort.loc[seq_start, timestamp_col]) and
+               not pd.isna(manifest_sort.loc[current_idx, timestamp_col]) and
+               manifest_sort.loc[current_idx, station_col] == manifest_sort.loc[seq_start, station_col] and
+               (manifest_sort.loc[current_idx, timestamp_col] - manifest_sort.loc[current_idx-1, timestamp_col]).total_seconds() <= maxdiff):
+            current_seq.append(current_idx)
+            current_idx += 1
 
-        sequence_placeholder[np.array(rows)] = int(s)
+        sequence_placeholder[np.array(current_seq)] = int(seq_id)
 
-        i = last_index
-        s += 1
+        seq_start = current_idx
+        seq_id += 1
 
     manifest_sort['sequence'] = sequence_placeholder
 
