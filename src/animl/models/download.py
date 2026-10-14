@@ -59,7 +59,8 @@ def download_model(model_url: str,
     """
     Path(out_dir).mkdir(exist_ok=True)
     print('Saving to', out_dir)
-    wget.download(model_url, out=out_dir)
+
+    wget.download(model_url, out=str(out_dir))
 
 
 def list_models():
