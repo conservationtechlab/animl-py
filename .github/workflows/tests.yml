@@ -5,10 +5,11 @@ on:
     branches: [ main, dev ]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  test-cpu:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ['3.12', '3.13']
     
     steps:
@@ -46,8 +47,9 @@ jobs:
           --pattern "sdzwa_southwest_v3.onnx" \
           --pattern "sdzwa_southwest_v3_classes.csv" \
           --clobber
+      shell: bash
 
-    - name: Cache MiewID weights (fetched from Hugging Face by test_reid.py, not redistributed)
+    - name: Cache MiewID weights
       id: cache-miewid
       uses: actions/cache@v4
       with:
@@ -72,6 +74,7 @@ jobs:
           --dir models \
           --pattern "md_v5a.0.0.pt" \
           --clobber
+      shell: bash
 
     - name: Run unit tests
       run: |
@@ -88,6 +91,95 @@ jobs:
       uses: codecov/codecov-action@v4.6.0
       with:
         files: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
+        flags: unittests-cpu
+        name: codecov-umbrella-${{ matrix.os }}
+        fail_ci_if_error: false
+
+  test-gpu:
+    runs-on: [self-hosted, gpu]  # Your custom GPU runner label
+    strategy:
+      matrix:
+        python-version: ['3.12', '3.13']
+    
+    steps:
+    - uses: actions/checkout@v4.2.2
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5.2.0
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+        pip install huggingface_hub safetensors
+
+    - name: Cache classifier model assets
+      id: cache-models
+      uses: actions/cache@v4
+      with:
+        path: models
+        key: models-sdzwa_southwest_v3-v1
+
+    - name: Download classifier model assets
+      if: steps.cache-models.outputs.cache-hit != 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        mkdir -p models
+        gh release download model \
+          --repo ${{ github.repository }} \
+          --dir models \
+          --pattern "sdzwa_southwest_v3.pt" \
+          --pattern "sdzwa_southwest_v3.onnx" \
+          --pattern "sdzwa_southwest_v3_classes.csv" \
+          --clobber
+      shell: bash
+
+    - name: Cache MiewID weights
+      id: cache-miewid
+      uses: actions/cache@v4
+      with:
+        path: models/miewid_v3.bin
+        key: models-miewid_v3-v1
+
+    - name: Cache MegaDetector v5a
+      id: cache-mdv5a
+      uses: actions/cache@v4
+      with:
+        path: models/md_v5a.0.0.pt
+        key: models-mdv5a-v1
+
+    - name: Download MegaDetector v5a
+      if: steps.cache-mdv5a.outputs.cache-hit != 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        mkdir -p models
+        gh release download megadetector \
+          --repo ${{ github.repository }} \
+          --dir models \
+          --pattern "md_v5a.0.0.pt" \
+          --clobber
+      shell: bash
+
+    - name: Run unit tests (including GPU tests)
+      run: |
+        python -m unittest discover -s tests -p "test_*.py" -v
+    
+    - name: Generate coverage report
+      run: |
+        pip install coverage
+        coverage run -m unittest discover -s tests -p "test_*.py"
+        coverage report -m
+        coverage xml
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4.6.0
+      with:
+        files: ./coverage.xml
+        flags: unittests-gpu
+        name: codecov-umbrella-gpu
         fail_ci_if_error: false

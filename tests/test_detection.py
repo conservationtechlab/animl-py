@@ -25,6 +25,30 @@ from animl.model_architecture import MD_LABELS, MEGADETECTORv5_SIZE
 
 
 # ---------------------------------------------------------------------------
+# Device detection helpers
+# ---------------------------------------------------------------------------
+
+def has_cuda():
+    """Check if CUDA is available."""
+    return torch.cuda.is_available()
+
+
+def has_mps():
+    """Check if MPS (Metal Performance Shaders) is available."""
+    return torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else False
+
+
+def get_available_devices():
+    """Return list of available device strings for testing."""
+    devices = ['cpu']
+    if has_cuda():
+        devices.append('cuda')
+    if has_mps():
+        devices.append('mps')
+    return devices
+
+
+# ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
 
@@ -52,7 +76,6 @@ def _make_detection_result(filepath='a.jpg', frame=0, max_conf=0.9, detections=N
 # ---------------------------------------------------------------------------
 # load_detector
 # ---------------------------------------------------------------------------
-
 class TestLoadDetector(unittest.TestCase):
 
     def test_nonexistent_file_raises(self):
@@ -63,6 +86,42 @@ class TestLoadDetector(unittest.TestCase):
         with tempfile.NamedTemporaryFile(suffix='.pt') as f:
             result = load_detector(f.name, 'UNSUPPORTED')
             self.assertIsNone(result)
+
+    @patch('animl.detection.torch.load')
+    def test_loads_on_cpu(self, mock_torch_load):
+        """Test that load_detector calls torch.load with correct device."""
+        mock_torch_load.return_value = MagicMock()  # Mock the model
+        with tempfile.NamedTemporaryFile(suffix='.pt') as f:
+            result = load_detector(f.name, 'MDV5', device='cpu')
+            mock_torch_load.assert_called_once()
+            # Verify device was passed to torch.load
+            call_kwargs = mock_torch_load.call_args[1]
+            map_location = call_kwargs.get('map_location')
+            self.assertEqual(str(map_location), 'cpu')
+
+    @unittest.skipUnless(has_cuda(), "CUDA not available on this runner")
+    @patch('animl.detection.torch.load')
+    def test_loads_on_cuda(self, mock_torch_load):
+        """Test that load_detector calls torch.load with CUDA device."""
+        mock_torch_load.return_value = MagicMock()
+        with tempfile.NamedTemporaryFile(suffix='.pt') as f:
+            result = load_detector(f.name, 'MDV5', device='cuda')
+            mock_torch_load.assert_called_once()
+            call_kwargs = mock_torch_load.call_args[1]
+            map_location = call_kwargs.get('map_location')
+            self.assertEqual(str(map_location), 'cuda')
+
+    @unittest.skipUnless(has_mps(), "MPS not available on this runner")
+    @patch('animl.detection.torch.load')
+    def test_loads_on_mps(self, mock_torch_load):
+        """Test that load_detector calls torch.load with MPS device."""
+        mock_torch_load.return_value = MagicMock()
+        with tempfile.NamedTemporaryFile(suffix='.pt') as f:
+            result = load_detector(f.name, 'MDV5', device='mps')
+            mock_torch_load.assert_called_once()
+            call_kwargs = mock_torch_load.call_args[1]
+            map_location = call_kwargs.get('map_location')
+            self.assertEqual(str(map_location), 'mps')
 
 
 class TestDetectMDv5(unittest.TestCase):
@@ -93,13 +152,14 @@ class TestDetectMDv5(unittest.TestCase):
         if not images:
             raise unittest.SkipTest(f"No example images found under {examples_dir}")
         cls.image_path = str(images[0])
-        cls.detector = load_detector(str(cls.model_path), 'mdv5', device='cpu')
 
-    def test_loads_real_checkpoint(self):
-        self.assertIsNotNone(self.detector)
+    def test_loads_real_checkpoint_cpu(self):
+        detector = load_detector(str(self.model_path), 'mdv5', device='cpu')
+        self.assertIsNotNone(detector)
 
-    def test_detect_single_image_returns_list_of_dicts(self):
-        results = detect(self.detector, self.image_path,
+    def test_detect_single_image_returns_list_of_dicts_cpu(self):
+        detector = load_detector(str(self.model_path), 'mdv5', device='cpu')
+        results = detect(detector, self.image_path,
                          resize_width=MEGADETECTORv5_SIZE, resize_height=MEGADETECTORv5_SIZE,
                          device='cpu')
         self.assertIsInstance(results, list)
@@ -113,6 +173,40 @@ class TestDetectMDv5(unittest.TestCase):
             self.assertIn(det['category_label'], MD_LABELS.values())
             for key in ('bbox_x', 'bbox_y', 'bbox_w', 'bbox_h', 'conf'):
                 self.assertIn(key, det)
+
+    @unittest.skipUnless(has_cuda(), "CUDA not available on this runner")
+    def test_loads_real_checkpoint_cuda(self):
+        detector = load_detector(str(self.model_path), 'mdv5', device='cuda')
+        self.assertIsNotNone(detector)
+
+    @unittest.skipUnless(has_cuda(), "CUDA not available on this runner")
+    def test_detect_single_image_returns_list_of_dicts_cuda(self):
+        detector = load_detector(str(self.model_path), 'mdv5', device='cuda')
+        results = detect(detector, self.image_path,
+                         resize_width=MEGADETECTORv5_SIZE, resize_height=MEGADETECTORv5_SIZE,
+                         device='cuda')
+        self.assertIsInstance(results, list)
+        self.assertEqual(len(results), 1)
+        result = results[0]
+        self.assertIn('filepath', result)
+        self.assertIn('detections', result)
+
+    @unittest.skipUnless(has_mps(), "MPS not available on this runner")
+    def test_loads_real_checkpoint_mps(self):
+        detector = load_detector(str(self.model_path), 'mdv5', device='mps')
+        self.assertIsNotNone(detector)
+
+    @unittest.skipUnless(has_mps(), "MPS not available on this runner")
+    def test_detect_single_image_returns_list_of_dicts_mps(self):
+        detector = load_detector(str(self.model_path), 'mdv5', device='mps')
+        results = detect(detector, self.image_path,
+                         resize_width=MEGADETECTORv5_SIZE, resize_height=MEGADETECTORv5_SIZE,
+                         device='mps')
+        self.assertIsInstance(results, list)
+        self.assertEqual(len(results), 1)
+        result = results[0]
+        self.assertIn('filepath', result)
+        self.assertIn('detections', result)
 
 
 class TestSaveDetectionCheckpoint(unittest.TestCase):
@@ -513,7 +607,7 @@ class TestDetectCategoryMap(unittest.TestCase):
 
         with patch('animl.detection.get_onnx_device', return_value=['CPUExecutionProvider']):
             detect(detector, 'fake.jpg', resize_width=640, resize_height=640,
-                   letterbox=False, category_map=custom_map)
+                   letterbox=False, category_map=custom_map, device='cpu')
 
         mock_convert.assert_called_once()
         _, call_kwargs = mock_convert.call_args
@@ -548,7 +642,7 @@ class TestDetectCategoryMap(unittest.TestCase):
 
         with patch('animl.detection.get_onnx_device', return_value=['CPUExecutionProvider']):
             results = detect(detector, 'fake.jpg', resize_width=640, resize_height=640,
-                             letterbox=False, category_map=custom_map)
+                             letterbox=False, category_map=custom_map, device='cpu')
 
         self.assertEqual(results[0]['detections'][0]['category_label'], expected_label)
 

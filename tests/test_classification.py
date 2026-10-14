@@ -21,6 +21,16 @@ from animl.classification import (
 )
 
 
+def has_cuda():
+    """Check if CUDA is available."""
+    return torch.cuda.is_available()
+
+
+def has_mps():
+    """Check if MPS (Metal Performance Shaders) is available."""
+    return torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else False
+
+
 class TestLoadClassList(unittest.TestCase):
 
     @classmethod
@@ -96,22 +106,36 @@ class TestLoadClassifier(unittest.TestCase):
         model = load_classifier(self.model_path_onnx, None, device='cpu')
         self.assertIsNotNone(model)
 
+    @unittest.skipUnless(has_cuda(), "CUDA not available on this runner")
     def test_loads_pytorch_cuda(self):
-        if not torch.cuda.is_available():
-            self.skipTest("No CUDA device available on this runner.")
         model = load_classifier(self.model_path_pt, self.classes, 
                                 device='cuda', architecture='efficientnet_v2_m')
         self.assertIsNotNone(model)
 
+    @unittest.skipUnless(has_cuda(), "CUDA not available on this runner")
     def test_loads_onnx_cuda(self):
         if not self.model_path_onnx.exists():
             self.skipTest(
                 f"ONNX model not found at {self.model_path_onnx}; skipping until it's "
                 "downloaded as part of the 'model' release assets."
             )
-        if not torch.cuda.is_available():
-            self.skipTest("No CUDA device available on this runner.")
         model = load_classifier(self.model_path_onnx, self.classes, device='cuda')
+        self.assertIsNotNone(model)
+
+    @unittest.skipUnless(has_mps(), "MPS not available on this runner")
+    def test_loads_pytorch_mps(self):
+        model = load_classifier(self.model_path_pt, self.classes, 
+                                device='mps', architecture='efficientnet_v2_m')
+        self.assertIsNotNone(model)
+
+    @unittest.skipUnless(has_mps(), "MPS not available on this runner")
+    def test_loads_onnx_coreml(self):
+        if not self.model_path_onnx.exists():
+            self.skipTest(
+                f"ONNX model not found at {self.model_path_onnx}; skipping until it's "
+                "downloaded as part of the 'model' release assets."
+            )
+        model = load_classifier(self.model_path_onnx, self.classes, device='coreml')
         self.assertIsNotNone(model)
 
 
