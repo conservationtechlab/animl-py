@@ -53,20 +53,25 @@ def get_torch_device(user_set=None, quiet=False):
     """
     Get Torch device if available
 
-    #TODO: test if user picks bad cuda device
+    Supports: CUDA (NVIDIA), MPS (Apple Silicon), CPU
     """
     # user selects device
     if user_set is not None:
         if user_set == 'cpu':
             device = torch.device('cpu')
+        elif user_set == 'mps' and torch.backends.mps.is_available():
+            device = torch.device('mps')
         elif user_set.startswith('cuda'):
-            return torch.device(user_set)
+            device = torch.device(user_set) if torch.cuda.is_available() else torch.device('cpu')
         else:
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+            device = torch.device('mps' if torch.backends.mps.is_available()
+                                  else 'cuda' if torch.cuda.is_available()
+                                  else 'cpu')
     # automatic selection
     else:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('mps' if torch.backends.mps.is_available()
+                              else 'cuda' if torch.cuda.is_available()
+                              else 'cpu')
 
     if not quiet:
         print(f'Device is set to {device}.')
@@ -75,42 +80,82 @@ def get_torch_device(user_set=None, quiet=False):
 
 def get_onnx_device(user_set=None, quiet=False):
     """
-    Get gpu if available
+    Get execution providers for ONNX Runtime if available
 
-    #TODO: test if user picks bad cuda device
+    Supports: CUDA (NVIDIA), CoreML (Apple Silicon), CPU
     """
     providers = ort.get_available_providers()
-    if 'CUDAExecutionProvider' in providers:
-        # no user input
-        if user_set is None:
+    
+    # Check for CoreML (Apple Silicon)
+    has_coreml = 'CoreMLExecutionProvider' in providers
+    has_cuda = 'CUDAExecutionProvider' in providers
+    
+    # No user input - automatic selection
+    if user_set is None:
+        if has_coreml:
+            if not quiet:
+                print('Using available CoreML device (Apple Silicon).')
+            return ['CoreMLExecutionProvider', 'CPUExecutionProvider']
+        elif has_cuda:
             if not quiet:
                 print('Using available CUDA device.')
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-        # user selects cpu
-        elif user_set == 'cpu':
+            return ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        else:
             if not quiet:
-                print('CUDA is available but set to cpu by user.')
-                providers = ['CPUExecutionProvider']
-        # user selects cuda device and is available
-        elif user_set.startswith('cuda'):
+                print('Using CPU device.')
+            return ['CPUExecutionProvider']
+    
+    # User selects CPU
+    elif user_set == 'cpu':
+        if not quiet:
+            print('Device set to CPU by user.')
+        return ['CPUExecutionProvider']
+    
+    # User selects CoreML
+    elif user_set == 'coreml':
+        if has_coreml:
+            if not quiet:
+                print('Using CoreML device.')
+            return ['CoreMLExecutionProvider', 'CPUExecutionProvider']
+        else:
+            if not quiet:
+                print('Warning: CoreML requested but not available, using CPU instead.')
+            return ['CPUExecutionProvider']
+    
+    # User selects MPS (via CUDA naming for compatibility)
+    elif user_set == 'mps':
+        if has_coreml:
+            if not quiet:
+                print('Using CoreML device (Apple Silicon).')
+            return ['CoreMLExecutionProvider', 'CPUExecutionProvider']
+        else:
+            if not quiet:
+                print('Warning: MPS requested but CoreML not available, using CPU instead.')
+            return ['CPUExecutionProvider']
+    
+    # User selects CUDA device
+    elif user_set.startswith('cuda'):
+        if has_cuda:
             device_number = int(user_set.split(':')[-1]) if ':' in user_set else 0
             providers = [('CUDAExecutionProvider', {'device_id': device_number}), 'CPUExecutionProvider']
             if not quiet:
                 print(f'Attempting to use CUDA device: {user_set}')
-        # unknown user input
+            return providers
         else:
             if not quiet:
-                print('User-specified device unknown, using available CUDA device.')
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-
-    # cuda not available
-    else:
-        if user_set is not None and user_set in ['cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3']:
-            if not quiet:
                 print('Warning: CUDA device specified but not available, using CPU instead.')
-        providers = ['CPUExecutionProvider']
-
-    return providers
+            return ['CPUExecutionProvider']
+    
+    # Unknown user input
+    else:
+        if not quiet:
+            print('User-specified device unknown, using available device.')
+        if has_coreml:
+            return ['CoreMLExecutionProvider', 'CPUExecutionProvider']
+        elif has_cuda:
+            return ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        else:
+            return ['CPUExecutionProvider']
 
 
 def init_seed(seed):
