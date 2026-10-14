@@ -3,8 +3,10 @@ Forked from
 https://github.com/agentmorris/MegaDetector/blob/main/megadetector/postprocessing/repeat_detection_elimination/repeat_detections_core.py
 
 """
+import argparse
 import os
 import copy
+import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import List, Dict
@@ -530,3 +532,19 @@ def remove_false_positives(manifest_marked):
     filtered_manifest.drop(columns=['category_label'], inplace=True)
     return filtered_manifest
 
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("manifest", type=str, help="Path to input manifest")
+    parser.add_argument("-o", "--output", type=str, help="Path to save the marked manifest")
+    args = parser.parse_args()
+
+    manifest = pd.read_csv(args.manifest)
+
+    _, all_detections_flat, true_positives, false_positives = find_repeat_detections(manifest, options=None, manual_review=True)
+
+
+    manifest_marked = mark_manifest(manifest, options=None, false_positives=false_positives)
+    if args.output:
+        manifest_marked.to_csv(args.output, index=False)
