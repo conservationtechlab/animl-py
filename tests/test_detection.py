@@ -115,6 +115,38 @@ class TestDetectMDv5(unittest.TestCase):
                 self.assertIn(key, det)
 
 
+class TestResumeFromCheckpoint(unittest.TestCase):
+    """detect() resumes from a checkpoint under either the 'images' or 'detections' key."""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        self.files = ['a.jpg', 'b.jpg']
+        self.results = [_make_detection_result(filepath=f) for f in self.files]
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+
+    def _resume(self, key):
+        path = str(Path(self.tmp_dir) / 'checkpoint.json')
+        with open(path, 'w') as f:
+            json.dump({key: self.results}, f)
+        # the checkpoint covers every image, so detect returns before touching the model;
+        # answer 'y' to the load-checkpoint prompt
+        with patch('builtins.input', return_value='y'):
+            return detect(MagicMock(), self.files, MEGADETECTORv5_SIZE, MEGADETECTORv5_SIZE,
+                          checkpoint_path=path)
+
+    def test_resume_from_images_key(self):
+        detections, failed_files = self._resume('images')
+        self.assertEqual(detections, self.results)
+        self.assertEqual(failed_files, [])
+
+    def test_resume_from_detections_key(self):
+        detections, failed_files = self._resume('detections')
+        self.assertEqual(detections, self.results)
+        self.assertEqual(failed_files, [])
+
+
 class TestSaveDetectionCheckpoint(unittest.TestCase):
 
     @classmethod

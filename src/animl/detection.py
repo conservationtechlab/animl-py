@@ -199,12 +199,14 @@ def detect(detector,
 
     # load checkpoint
     if file_management.check_file(checkpoint_path, output_type="Megadetector raw output"):
-        results = file_management.load_json(checkpoint_path).get('images')
+        checkpoint = file_management.load_json(checkpoint_path)
+        # checkpoints currently use 'images'; accept 'detections' for forward compatibility
+        results = checkpoint.get('detections', checkpoint.get('images', []))
         already_processed = set([r['filepath'] for r in results])
-        manifest = image_file_names[~image_file_names[file_col].isin(already_processed)][[file_col, 'frame']].reset_index(drop=True)
+        manifest = manifest[~manifest[file_col].isin(already_processed)][[file_col, 'frame']].reset_index(drop=True)
         if manifest.empty:
             print("All images have already been processed. Exiting.")
-            return results
+            return results, []
     else:
         results = []
         image_file_names = set(image_file_names)
@@ -406,7 +408,8 @@ def parse_detections(results: Union[list, tuple],
     if isinstance(results, (tuple, list)) and len(results) == 2 and isinstance(results[0], list):
         detections, failed_files = results
     elif isinstance(results, dict):
-        detections = results.get('detections', [])
+        # detection checkpoint files use the 'images' key
+        detections = results.get('detections', results.get('images', []))
         failed_files = results.get('failed_files', [])
     else:
         detections, failed_files = results, []
@@ -539,6 +542,7 @@ def _save_detection_checkpoint(checkpoint_path: str, results: dict) -> None:
         copyfile(checkpoint_path, checkpoint_tmp_path)
 
     # Write the new checkpoint
+    # TODO(next major): write under 'detections'; 'images' kept so older versions can resume
     file_management.save_json({'images': results}, checkpoint_path, prompt=False)
 
     # Remove the backup checkpoint if it exists
