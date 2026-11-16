@@ -22,14 +22,18 @@ os.environ['NUMEXPR_MAX_THREADS'] = str(NUM_THREADS)  # NumExpr max threads
 os.environ['OMP_NUM_THREADS'] = str(NUM_THREADS)  # OpenMP max threads (PyTorch and SciPy)
 
 
-def softmax(x):
+# ==============================================================================
+# Classification
+# ==============================================================================
+
+def _softmax(x):
     '''
     Helper function to softmax
     '''
     return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
 
 
-def tensor_to_onnx(tensor, channel_last=False):
+def _tensor_to_onnx(tensor, channel_last=False):
     '''
     Helper function for onnx, shifts dims to BxHxWxC
     '''
@@ -101,7 +105,7 @@ def get_onnx_device(user_set=None, quiet=False):
 
     # cuda not available
     else:
-        if user_set is not None and user_set in {'cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3'}:
+        if user_set is not None and user_set in ['cuda', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3']:
             if not quiet:
                 print('Warning: CUDA device specified but not available, using CPU instead.')
         providers = ['CPUExecutionProvider']
@@ -257,7 +261,7 @@ def _xywh_to_absxyxy(bbox, width, height):
     return [int(x1 * width), int(y1 * height), int(x2 * width), int(y2 * height)]
 
 
-def normalize_bbox(bbox, image_sizes):
+def _normalize_bbox(bbox, image_sizes):
     """
     Converts absolute bounding box coordinates to relative coordinates.
 
@@ -307,12 +311,12 @@ def _clip_coords(boxes, shape):
 # MDV5
 # ==============================================================================
 
-def box_area(box):
+def _box_area(box):
     # box = xyxy(4,n)
     return (box[2] - box[0]) * (box[3] - box[1])
 
 
-def box_iou(box1, box2):
+def _box_iou(box1, box2):
     # https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
     """
     Return intersection-over-union (Jaccard index) of boxes.
@@ -330,17 +334,17 @@ def box_iou(box1, box2):
     inter = (torch.min(a2, b2) - torch.max(a1, b1)).clamp(0).prod(2)
 
     # IoU = inter / (area1 + area2 - inter)
-    return inter / (box_area(box1.T)[:, None] + box_area(box2.T) - inter)
+    return inter / (_box_area(box1.T)[:, None] + _box_area(box2.T) - inter)
 
 
-def non_max_suppression(prediction,
-                        conf_thres=0.25,
-                        iou_thres=0.45,
-                        classes=None,
-                        agnostic=False,
-                        multi_label=False,
-                        labels=(),
-                        max_det=300):
+def _non_max_suppression(prediction,
+                         conf_thres=0.25,
+                         iou_thres=0.45,
+                         classes=None,
+                         agnostic=False,
+                         multi_label=False,
+                         labels=(),
+                         max_det=300):
     """Non-Maximum Suppression (NMS) on inference results to reject overlapping bounding boxes
 
     Returns:
@@ -419,7 +423,7 @@ def non_max_suppression(prediction,
             i = i[:max_det]
         if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
             # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
-            iou = box_iou(boxes[i], boxes) > iou_thres  # iou matrix
+            iou = _box_iou(boxes[i], boxes) > iou_thres  # iou matrix
             weights = iou * scores[None]  # box weights
             x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
             if redundant:
@@ -434,13 +438,13 @@ def non_max_suppression(prediction,
 # Augmentations
 # ==============================================================================
 
-def letterbox(im: np.ndarray,
-              new_shape: tuple = (640, 640),
-              color: tuple = (114, 114, 114),
-              auto: bool = True,
-              scaleFill: bool = False,
-              scaleup: bool = True,
-              stride: int = 32):
+def _letterbox(im: np.ndarray,
+               new_shape: tuple = (640, 640),
+               color: tuple = (114, 114, 114),
+               auto: bool = True,
+               scaleFill: bool = False,
+               scaleup: bool = True,
+               stride: int = 32):
     # Resize and pad image while meeting stride-multiple constraints
     shape = im.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
@@ -473,7 +477,7 @@ def letterbox(im: np.ndarray,
     return im, ratio, (dw, dh)
 
 
-def scale_letterbox(bbox, resized_shape, original_shape):
+def _scale_letterbox(bbox, resized_shape, original_shape):
     """
     Converts bounding box coordinates from a resized, letterboxed image space
     back to the original image's coordinate space. Assumes input coordinates
@@ -531,7 +535,7 @@ def scale_letterbox(bbox, resized_shape, original_shape):
     return xywh_coords
 
 
-def exif_transpose(image):
+def _exif_transpose(image):
     """
     Transpose a PIL image accordingly if it has an EXIF Orientation tag.
     Inplace version of https://github.com/python-pillow/Pillow/blob/master/src/PIL/ImageOps.py exif_transpose()
@@ -555,3 +559,44 @@ def exif_transpose(image):
             del exif[0x0112]
             image.info["exif"] = exif.tobytes()
     return image
+
+
+# ==============================================================================
+# IOU
+# ==============================================================================
+
+def get_iou(bb1, bb2):
+    """
+    Calculates the intersection over union (IoU) of two bounding boxes.
+    Adapted from:
+    https://stackoverflow.com/questions/25349178/calculating-percentage-of-bounding-box-overlap-for-image-detector-evaluation
+
+    Args:
+        bb1 (list): [x_min, y_min, width_of_box, height_of_box]
+        bb2 (list): [x_min, y_min, width_of_box, height_of_box]
+
+    Returns:
+        float: intersection_over_union, a float in [0, 1]
+    """
+    bb1 = _xywh_to_xyxy(np.array(bb1, dtype=float))
+    bb2 = _xywh_to_xyxy(np.array(bb2, dtype=float))
+
+    assert bb1[0] < bb1[2], 'Malformed bounding box (x2 >= x1)'
+    assert bb1[1] < bb1[3], 'Malformed bounding box (y2 >= y1)'
+    assert bb2[0] < bb2[2], 'Malformed bounding box (x2 >= x1)'
+    assert bb2[1] < bb2[3], 'Malformed bounding box (y2 >= y1)'
+
+    x_left = max(bb1[0], bb2[0])
+    y_top = max(bb1[1], bb2[1])
+    x_right = min(bb1[2], bb2[2])
+    y_bottom = min(bb1[3], bb2[3])
+
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+
+    intersection_area = (x_right - x_left) * (y_bottom - y_top)
+    bb1_area = (bb1[2] - bb1[0]) * (bb1[3] - bb1[1])
+    bb2_area = (bb2[2] - bb2[0]) * (bb2[3] - bb2[1])
+
+    iou = intersection_area / float(bb1_area + bb2_area - intersection_area)
+    return iou
