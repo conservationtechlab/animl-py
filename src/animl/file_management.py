@@ -15,7 +15,7 @@ import PIL
 import cv2
 import exiftool
 import yaml
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.tiff', '.tif', '.ppm'}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
@@ -29,7 +29,9 @@ def build_file_manifest(image_dir: str,
                         data_timezone: Optional[str] = None,
                         station_depth: Optional[int] = None,
                         camera_depth: Optional[int] = None,
-                        recursive: bool = True):
+                        recursive: bool = True,
+                        should_cancel: Optional[Callable[[], bool]] = None,
+                        progress: Optional[Callable[[int, int], None]] = None):
     """
     Find Image/Video Files and Gather exif Data.
 
@@ -46,9 +48,13 @@ def build_file_manifest(image_dir: str,
                             For example, if file paths are in the format "image_dir/station/camera/date/file.jpg",
                             camera_depth would be 2 (0 indexed). If None, camera column will not be created.
         recursive (bool): recursively search through all child directories
+        should_cancel (callable): called with no arguments before reading each file's exif data,
+                                  return True to stop, eg. a GUI thread's isInterruptionRequested
+        progress (callable): called as progress(done, total) after each file's exif data is read
 
     Returns:
-        files (pd.DataFrame): list of files with or without file modify dates
+        files (pd.DataFrame): list of files with or without file modify dates,
+                              None if stopped by should_cancel (out_file is not written)
     """
     image_dir = Path(image_dir)
     if check_file(out_file, output_type="Manifest"):
@@ -88,44 +94,65 @@ def build_file_manifest(image_dir: str,
     invalid = []
 
     if exif:
-        for i, row in files.iterrows():
-            if row["extension"] in IMAGE_EXTENSIONS:
-                try:
-                    img = PIL.Image.open(row['filepath'])
-                    files.loc[i, "width"] = img.size[0]
-                    files.loc[i, "height"] = img.size[1]
-                    files.loc[i, "createdate"] = img.getexif().get(0x0132)
-                except PIL.UnidentifiedImageError:
-                    print(f"Error processing image file {row['filepath']}")
-                    invalid.append(i)
+        # one exiftool process for all videos, starting one per video was most of the time spent on them
+        et = None
+        exiftool_failed = False
+        total = len(files)
+        try:
+            for done, (i, row) in enumerate(files.iterrows(), start=1):
+                if should_cancel is not None and should_cancel():
+                    return None
 
-            elif row["extension"] in VIDEO_EXTENSIONS:
-                try:
-                    vid = cv2.VideoCapture(row['filepath'])
-                    # check if video opened successfully
-                    if not vid.isOpened():
-                        print(f"Error opening video file {row['filepath']}")
+                if row["extension"] in IMAGE_EXTENSIONS:
+                    try:
+                        img = PIL.Image.open(row['filepath'])
+                        files.loc[i, "width"] = img.size[0]
+                        files.loc[i, "height"] = img.size[1]
+                        files.loc[i, "createdate"] = img.getexif().get(0x0132)
+                    except PIL.UnidentifiedImageError:
+                        print(f"Error processing image file {row['filepath']}")
                         invalid.append(i)
-                        continue
-                    files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
-                    files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                except Exception as e:
-                    print(f"Error processing file {row['filepath']}: {e}")
-                    invalid.append(i)
-                # for videos try to get createdate from exiftool, but use filemodifydate as backup
-                try:
-                    with exiftool.ExifToolHelper() as et:
-                        metadata = et.get_metadata(row['filepath'])[0]
-                        if "QuickTime:CreateDate" in metadata:
-                            files.loc[i, "createdate"] = metadata["QuickTime:CreateDate"]
-                        elif "EXIF:DateTimeOriginal" in metadata:
-                            files.loc[i, "createdate"] = metadata["EXIF:DateTimeOriginal"]
-                        else:
-                            files.loc[i, "createdate"] = None
-                except Exception:
-                    print("pyexiftool failed, is exiftool installed and in PATH? \n",
-                          "createdate cannot be determined for videos, falling back to filemodifydate.")
+
+                elif row["extension"] in VIDEO_EXTENSIONS:
+                    try:
+                        vid = cv2.VideoCapture(row['filepath'])
+                        # check if video opened successfully
+                        if not vid.isOpened():
+                            print(f"Error opening video file {row['filepath']}")
+                            invalid.append(i)
+                            if progress is not None:
+                                progress(done, total)
+                            continue
+                        files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    except Exception as e:
+                        print(f"Error processing file {row['filepath']}: {e}")
+                        invalid.append(i)
+                    # for videos try to get createdate from exiftool, but use filemodifydate as backup
                     files.loc[i, "createdate"] = None
+                    if not exiftool_failed:
+                        try:
+                            if et is None:
+                                et = exiftool.ExifToolHelper()
+                            metadata = et.get_metadata(row['filepath'])[0]
+                            if "QuickTime:CreateDate" in metadata:
+                                files.loc[i, "createdate"] = metadata["QuickTime:CreateDate"]
+                            elif "EXIF:DateTimeOriginal" in metadata:
+                                files.loc[i, "createdate"] = metadata["EXIF:DateTimeOriginal"]
+                        except Exception:
+                            # exiftool missing: say so once, not for every video
+                            if et is None or not et.running:
+                                exiftool_failed = True
+                                print("pyexiftool failed, is exiftool installed and in PATH? \n",
+                                      "createdate cannot be determined for videos, falling back to filemodifydate.")
+                            else:
+                                print(f"exiftool could not read {row['filepath']}, falling back to filemodifydate.")
+
+                if progress is not None:
+                    progress(done, total)
+        finally:
+            if et is not None and et.running:
+                et.terminate()
 
         # determine local timezone for conversion
         local_tz = datetime.now().astimezone().tzinfo

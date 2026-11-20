@@ -284,6 +284,97 @@ class TestBuildFileManifest(unittest.TestCase):
             self.assertIsNone(shallow_row['camera'])
 
 
+class TestBuildFileManifestCancelAndProgress(unittest.TestCase):
+    """should_cancel stops the exif scan, progress reports it, videos share one exiftool process"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        for name in ['a.jpg', 'b.jpg', 'c.jpg']:
+            Image.fromarray(np.uint8(np.zeros((10, 10, 3)))).save(Path(self.tmp_dir) / name)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+
+    def _write_videos(self, names):
+        import cv2
+        for name in names:
+            writer = cv2.VideoWriter(str(Path(self.tmp_dir) / name), cv2.VideoWriter_fourcc(*'mp4v'), 5, (16, 16))
+            for _ in range(3):
+                writer.write(np.zeros((16, 16, 3), np.uint8))
+            writer.release()
+
+    def test_progress_reports_each_file(self):
+        calls = []
+        build_file_manifest(self.tmp_dir, exif=True, progress=lambda done, total: calls.append((done, total)))
+        self.assertEqual(calls, [(1, 3), (2, 3), (3, 3)])
+
+    def test_should_cancel_false_builds_full_manifest(self):
+        result = build_file_manifest(self.tmp_dir, exif=True, should_cancel=lambda: False)
+        self.assertEqual(len(result), 3)
+
+    def test_should_cancel_stops_and_returns_none(self):
+        checks = []
+
+        def should_cancel():
+            checks.append(1)
+            return len(checks) > 1  # cancelled after the first file
+
+        progress = []
+        result = build_file_manifest(self.tmp_dir, exif=True, should_cancel=should_cancel,
+                                     progress=lambda done, total: progress.append(done))
+        self.assertIsNone(result)
+        self.assertEqual(len(checks), 2)
+        self.assertEqual(progress, [1])
+
+    def test_cancelled_scan_does_not_write_out_file(self):
+        with tempfile.TemporaryDirectory() as out_dir:
+            out_file = Path(out_dir) / 'manifest.csv'
+            result = build_file_manifest(self.tmp_dir, exif=True, out_file=str(out_file), should_cancel=lambda: True)
+            self.assertIsNone(result)
+            self.assertFalse(out_file.exists())
+
+    def test_videos_share_one_exiftool_process(self):
+        from unittest.mock import patch
+        self._write_videos(['v1.mp4', 'v2.mp4', 'v3.mp4'])
+        with patch('animl.file_management.exiftool.ExifToolHelper') as helper:
+            helper.return_value.get_metadata.return_value = [{"QuickTime:CreateDate": "2024:01:02 03:04:05"}]
+            helper.return_value.running = True
+            result = build_file_manifest(self.tmp_dir, exif=True)
+        helper.assert_called_once()
+        self.assertEqual(helper.return_value.get_metadata.call_count, 3)
+        helper.return_value.terminate.assert_called_once()
+        videos = result[result['extension'] == '.mp4']
+        self.assertTrue((videos['createdate'] == '2024-01-02 03:04:05').all())
+
+    def test_exiftool_terminated_when_cancelled(self):
+        from unittest.mock import patch
+        for name in ['a.jpg', 'b.jpg', 'c.jpg']:
+            (Path(self.tmp_dir) / name).unlink()  # videos only, so the first file starts exiftool
+        self._write_videos(['v1.mp4', 'v2.mp4'])
+        checks = []
+        with patch('animl.file_management.exiftool.ExifToolHelper') as helper:
+            helper.return_value.get_metadata.return_value = [{}]
+            helper.return_value.running = True
+            result = build_file_manifest(self.tmp_dir, exif=True,
+                                         should_cancel=lambda: checks.append(1) or len(checks) > 1)
+        self.assertIsNone(result)
+        helper.assert_called_once()
+        helper.return_value.terminate.assert_called_once()
+
+    def test_missing_exiftool_falls_back_to_modify_date_once(self):
+        from unittest.mock import patch
+        self._write_videos(['v1.mp4', 'v2.mp4'])
+        with patch('animl.file_management.exiftool.ExifToolHelper', side_effect=FileNotFoundError("exiftool")) as helper, \
+                patch('builtins.print') as printed:
+            result = build_file_manifest(self.tmp_dir, exif=True)
+        helper.assert_called_once()
+        warnings = [c for c in printed.call_args_list if 'pyexiftool failed' in str(c)]
+        self.assertEqual(len(warnings), 1)
+        videos = result[result['extension'] == '.mp4']
+        self.assertEqual(len(videos), 2)
+        self.assertTrue(videos['datetime'].notna().all())
+
+
 class TestWorkingDirectory(unittest.TestCase):
 
     @classmethod
