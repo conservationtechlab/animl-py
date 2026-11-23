@@ -19,6 +19,8 @@ from animl.model_architecture import BioCLIP, EfficientNet, ConvNeXtBase
 from animl.utils.general import (get_torch_device, get_onnx_device, _softmax,
                                  _tensor_to_onnx, NUM_THREADS)
 
+FAILED_FILES_NAME = "classification_failed_files.txt"
+
 
 def load_classifier(model_path: str,
                     classes: Union[int, str, Path, pd.DataFrame],
@@ -184,11 +186,13 @@ def classify(model,
         out_file (Optional[str]): path to save prediction results to
 
     Returns:
-        predictions (np.array): array of softmaxed logits for each class for each image
+        predictions (np.array): array of softmaxed logits for each class for each image that loaded
+        failed_rows (list): positions of the detections that failed to load
     """
-    # load from file if out_file provided and exists
+    # load from file if out_file provided and exists, with the rows that failed to load then
     if file_management.check_file(out_file, output_type="Classification results"):
-        return file_management.load_data(out_file).to_numpy()
+        failed_rows = file_management.load_failed_rows(Path(out_file).parent / FAILED_FILES_NAME)
+        return file_management.load_data(out_file).to_numpy(), failed_rows
 
     # input checks
     if resize_width <= 0 or resize_height <= 0:
@@ -222,13 +226,13 @@ def classify(model,
 
     # initialize lists
     raw_output = []
-    failed_files = []
+    failed_rows = []
 
     # Manifest
     if isinstance(detections, pd.DataFrame):
         if detections.empty:
             print("No detections to classify.")
-            return np.array(raw_output), failed_files
+            return np.array(raw_output), failed_rows
 
         if file_col not in detections.columns:
             raise ValueError(f"file_col {file_col} not found in manifest columns")
@@ -278,7 +282,7 @@ def classify(model,
     with torch.no_grad():
         for _, batch in tqdm(enumerate(dataset), total=len(dataset)):
             collated, failed = batch
-            failed_files.extend(failed)
+            failed_rows.extend(failed)
             if collated is None:  # entire batch was bad
                 continue
             # pytorch
@@ -302,16 +306,55 @@ def classify(model,
         if not Path(out_file).parent.is_dir():
             raise FileNotFoundError(f"Directory not found for out_file: {out_file}")
         file_management.save_data(pd.DataFrame(raw_output), out_file)
-        # save failed files if any
-        if len(failed_files) > 0:
-            with (Path(out_file).parent / "classification_failed_files.txt").open("w") as f:
-                for item in failed_files:
-                    f.write(f"{item}\n")
+        file_management.save_failed_rows(dataset.dataset.x, failed_rows,
+                                         Path(out_file).parent / FAILED_FILES_NAME, file_col=file_col)
 
     print(f"\nFinished classification. Total images processed: {len(raw_output)}",
           f" at {round(len(raw_output)/(time() - start_time), 1)} img/s.")
 
-    return raw_output, failed_files
+    return raw_output, failed_rows
+
+
+def _unpack_predictions(predictions_output, failed_rows):
+    """
+    Unpack classify output into predictions and failed rows.
+
+    Args:
+        predictions_output (Union[np.array, tuple, dict]): classify output, reticulate dict or predictions only
+        failed_rows (Optional[list]): failed rows to use when predictions_output is predictions only
+
+    Returns:
+        tuple of predictions and failed rows
+    """
+    if isinstance(predictions_output, (list, tuple)) and len(predictions_output) == 2:
+        predictions_raw, failed_rows = predictions_output
+    elif isinstance(predictions_output, dict):
+        predictions_raw = predictions_output.get('predictions', np.array([[]]))
+        failed_rows = predictions_output.get('failed_rows', [])
+    else:
+        predictions_raw = predictions_output
+    return predictions_raw, failed_rows
+
+
+def _drop_failed_rows(animals: pd.DataFrame, failed_rows: Optional[list]) -> pd.DataFrame:
+    """
+    Remove the detections that failed to load from animals.
+
+    Args:
+        animals (pd.DataFrame): animal detections passed to classify, in the same order
+        failed_rows (Optional[list]): positions of the detections that failed to load
+
+    Returns:
+        animals dataframe without the failed rows
+    """
+    animals = animals.reset_index(drop=True)
+    if failed_rows is not None and len(failed_rows) > 0:
+        # reticulate can pass the rows back as floats
+        failed_rows = [int(r) for r in failed_rows]
+        print(f"Warning: {len(failed_rows)} detections failed to load during classification",
+              "and will be excluded from results.")
+        animals = animals.drop(index=failed_rows).reset_index(drop=True)
+    return animals
 
 
 def single_classification(animals: pd.DataFrame,
@@ -321,7 +364,7 @@ def single_classification(animals: pd.DataFrame,
                           best: bool = False,
                           count: bool = False,
                           file_col: str = "filepath",
-                          failed_files: Optional[list] = None):
+                          failed_rows: Optional[list] = None):
     """
     Get maximum likelihood prediction from softmaxed logits.
 
@@ -329,12 +372,13 @@ def single_classification(animals: pd.DataFrame,
         animals (pd.DataFrame): animal detections from manifest
         empty (Optional[pd.DataFrame]): empty detections from manifest
         predictions_output (Union[np.array, tuple]): softmaxed logits from classify()
-            and optionally list of failed files from classify
+            and optionally the rows that failed to load, i.e. classify's output
         class_list (Union[list, pd.Series]): class list associated with model
         best (bool): whether to return one prediction per file
         count (bool): whether to add a count column with number of detections of each species per file
         file_col (str): column name for file paths in the dataframe
-        failed_files (Optional[list]): list of files that failed to load during classification
+        failed_rows (Optional[list]): positions in animals of the rows that failed to load
+            during classification, when predictions_output is only the predictions
 
     Returns:
         animals dataframe with "prediction" label an "confidence" columns
@@ -351,28 +395,16 @@ def single_classification(animals: pd.DataFrame,
     if isinstance(class_list, pd.Series):
         class_list = class_list.to_list()
 
-    # handle tuple output from classify (predictions, failed_files)
-    if isinstance(predictions_output, (list, tuple)) and len(predictions_output) == 2:
-        predictions_raw, failed_files = predictions_output
-    # handle reticulate output
-    elif isinstance(predictions_output, dict):
-        predictions_raw = predictions_output.get('predictions', np.array([[]]))
-        failed_files = predictions_output.get('failed_files', [])
-    else:
-        predictions_raw, failed_files = predictions_output, failed_files
+    predictions_raw, failed_rows = _unpack_predictions(predictions_output, failed_rows)
 
     # check predictions are correct shape
     assert predictions_raw is not None, "Predictions output is None."
     assert predictions_raw.shape[1] == len(class_list), "Number of classes in predictions does not match length of class list."
 
     if not animals.empty:
-        if failed_files is not None and len(failed_files) > 0:
-            print(f"Warning: {len(failed_files)} files failed to load during classification",
-                  " and will be excluded from results.")
-            animals = animals[~animals[file_col].isin(failed_files)]
-        animals = animals.reset_index(drop=True)
+        animals = _drop_failed_rows(animals, failed_rows)
 
-        # ensure the number of predictions matches the number of animal detections after failed files are removed
+        # ensure the number of predictions matches the number of animal detections after failed rows are removed
         assert predictions_raw.shape[0] == len(animals), "Number of predictions does not match number of animal detections."
 
         animals["prediction"] = [class_list[i] for i in np.argmax(predictions_raw, axis=1).astype(int)]
@@ -422,7 +454,7 @@ def sequence_classification(animals: pd.DataFrame,
                             sort_columns: list[str] = None,
                             file_col: str = "filepath",
                             timestamp_col: str = "datetime",
-                            failed_files: Optional[list] = None,
+                            failed_rows: Optional[list] = None,
                             maxdiff: int = 60):
     # TODO: align with R version
     """
@@ -444,7 +476,8 @@ def sequence_classification(animals: pd.DataFrame,
         sort_columns (List of Strings): Defines sorting order for the DataFrame
         file_col (str): The name of the filepath column
         timestamp_col (str): The name of the timestamp column
-        failed_files (Optional[list]): list of files that failed to load during classification
+        failed_rows (Optional[list]): positions in animals of the rows that failed to load
+            during classification, when predictions_output is only the predictions
         maxdiff (int): Maximum time difference in seconds between any two images in a sequence
 
     Returns:
@@ -481,23 +514,15 @@ def sequence_classification(animals: pd.DataFrame,
     else:
         empty_col = None
 
-    # handle tuple output from classify (predictions, failed_files)
-    if isinstance(predictions_output, (list, tuple)) and len(predictions_output) == 2:
-        predictions_raw, failed_files = predictions_output
-    # handle reticulate output
-    elif isinstance(predictions_output, dict):
-        predictions_raw = predictions_output.get('predictions', np.array([[]]))
-        failed_files = predictions_output.get('failed_files', [])
-    else:
-        predictions_raw, failed_files = predictions_output, failed_files
+    # unpack predictions and failed rows
+    predictions_raw, failed_rows = _unpack_predictions(predictions_output, failed_rows)
+
+    # remove the rows that failed to load from animals dataframe
+    animals = _drop_failed_rows(animals, failed_rows)
 
     # check prections are correct shape
     assert predictions_raw.shape[0] == len(animals), "Number of predictions does not match number of animal detections."
     assert predictions_raw.shape[1] == len(class_list), "Number of classes in predictions does not match length of class list."
-
-    # remove failed files from animals dataframe
-    if failed_files is not None:
-        animals = animals[~animals[file_col].isin(failed_files)].reset_index(drop=True)
 
     # prepare empty dataframe for concat
     if empty is not None and not empty.empty:

@@ -236,7 +236,7 @@ class ManifestGenerator(Dataset):
     def __len__(self) -> int:
         return len(self.x)
 
-    def __getitem__(self, idx: int) -> Tuple[Tensor, str, int, Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[Tensor, str, int, Tensor, int]:
         try:
             file_row = self.x.iloc[idx]
             filepath = file_row[self.file_col]
@@ -246,18 +246,18 @@ class ManifestGenerator(Dataset):
             if ext in VIDEO_EXTENSIONS:
                 img = self.extract_frames(idx, filepath)
                 if img is None:
-                    return None, str(filepath), int(frame), None
+                    return None, str(filepath), int(frame), None, idx
 
             elif ext in IMAGE_EXTENSIONS:
                 try:
                     img = Image.open(filepath).convert('RGB')
                 except OSError:
                     print(f"Image {filepath} cannot be opened. Skipping.")
-                    return None, str(filepath), int(frame), None
+                    return None, str(filepath), int(frame), None, idx
 
             else:
                 print(f"File {filepath} is not a video or image. Skipping.")
-                return None, str(filepath), int(frame), None
+                return None, str(filepath), int(frame), None, idx
 
             width, height = img.size
 
@@ -297,11 +297,11 @@ class ManifestGenerator(Dataset):
             if not self.normalize:  # un-normalize
                 img_tensor = img_tensor * 255
 
-            return img_tensor, str(filepath), int(frame), torch.tensor((height, width))
+            return img_tensor, str(filepath), int(frame), torch.tensor((height, width)), idx
 
         except Exception as e:
             print(f"Error processing file {filepath}. Exception: {e}")
-            return None, str(filepath), int(frame), None
+            return None, str(filepath), int(frame), None, idx
 
     def extract_frames(self, idx, filepath):
         frame = self.x.loc[idx, 'frame']
@@ -380,8 +380,17 @@ def manifest_dataloader(manifest: pd.DataFrame,
 
 
 def collate_fn(batch):
+    '''
+    Collate items that loaded and list the manifest rows of items that failed
+
+    Args:
+        batch (list): items from ManifestGenerator or TrainGenerator, ending with their manifest row
+
+    Returns:
+        collated items that loaded (None if none did) and list of failed manifest rows
+    '''
     good = [x for x in batch if x[0] is not None]
-    failed = [x[1] for x in batch if x[0] is None]  # just the filepath strings
+    failed = [int(x[-1]) for x in batch if x[0] is None]  # manifest rows
 
     if len(good) == 0:
         return None, failed
@@ -477,13 +486,13 @@ class TrainGenerator(Dataset):
             if cache_path is not None and Path(cache_path).exists():
                 img = Image.open(cache_path).convert("RGB")
                 img_tensor = self.transform(img)
-                return img_tensor, label, image_name
+                return img_tensor, label, image_name, idx
             else:
                 try:
                     img = Image.open(image_name).convert('RGB')
                 except OSError:
                     print(f"Image {image_name} cannot be opened. Skipping.")
-                    return None, label, str(image_name)
+                    return None, label, str(image_name), idx
 
                 if self.crop:
                     width, height = img.size
@@ -526,11 +535,11 @@ class TrainGenerator(Dataset):
                     img.save(cache_path, format="JPEG")
                 img.close()
 
-            return img_tensor, label, str(image_name)
+            return img_tensor, label, str(image_name), idx
 
         except Exception as e:
             print(f"Error processing file {image_name}. Exception: {e}")
-            return None, label, str(image_name)
+            return None, label, str(image_name), idx
 
 
 def train_dataloader(manifest: pd.DataFrame,

@@ -234,7 +234,8 @@ def detect(detector,
     count = 0  # counter to track number of batches processed for checkpointing
     for _, batch_from_dataloader in tqdm(enumerate(dataloader), total=len(dataloader)):
         successes, failed = batch_from_dataloader
-        failed_files.extend(failed)
+        # collate_fn reports manifest rows; detect reports their files
+        failed_files.extend(dataloader.dataset.x.iloc[failed][file_col].tolist())
 
         if successes is None:  # entire batch was bad
             continue
