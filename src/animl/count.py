@@ -62,6 +62,7 @@ def count_detections(detections: pd.DataFrame,
                      iou_threshold: float = 0.9,
                      maxdiff: int = 60,
                      max_n: int = None,
+                     count_type: str = "max",
                      classes: list = None) -> pd.DataFrame:
     """
     Count detections per species across image sequences.
@@ -73,6 +74,7 @@ def count_detections(detections: pd.DataFrame,
         iou_threshold (float): IOU threshold for duplicate detection removal
         maxdiff (int): max time difference in seconds between images in a sequence
         max_n (int): optional max number of images per sequence to consider
+        count_type (str): "max" or "mean" to determine how to aggregate counts
         classes (list): list of category labels to count
 
     Returns:
@@ -123,8 +125,13 @@ def count_detections(detections: pd.DataFrame,
 
         # Step 6: average counts across images in the sequence
         if image_counts:
-            avg_counts = {cls: sum(c[cls] for c in image_counts) / len(image_counts)
-                          for cls in classes}
+            if count_type == "max":
+                avg_counts = {cls: max(c[cls] for c in image_counts) for cls in classes}
+            elif count_type == "mean":
+                avg_counts = {cls: sum(c[cls] for c in image_counts) / len(image_counts)
+                              for cls in classes}
+            else:
+                raise ValueError("count_type must be 'max' or 'mean'")
             avg_counts["sequence"] = seq_id
             results.append(avg_counts)
 
