@@ -74,7 +74,8 @@ def extract_miew_embeddings(miew_model,
     if not {file_col}.issubset(manifest.columns):
         raise ValueError(f"DataFrame must contain '{file_col}' column.")
 
-    output = None
+    output = []
+    rows = []  # manifest row of each embedding
     failed_rows = []
 
     if miew_model.architecture == 'onnx':
@@ -95,7 +96,8 @@ def extract_miew_embeddings(miew_model,
             img = collated[0].numpy()
             inp = miew_model.get_inputs()[0]
             emb = miew_model.run(None, {inp.name: img})[0]
-            output = _place_by_row(output, emb, collated[-1].numpy(), len(dataloader.dataset))
+            output.extend(emb)
+            rows.extend(collated[-1].tolist())
     else:
         device = get_torch_device(user_set=device)
         dataloader = manifest_dataloader(manifest,
@@ -115,32 +117,16 @@ def extract_miew_embeddings(miew_model,
                     continue
                 img = collated[0]
                 emb = miew_model.extract_feat(img.to(device))
-                output = _place_by_row(output, emb.detach().cpu().numpy(), collated[-1].numpy(),
-                                       len(dataloader.dataset))
+                output.extend(emb.detach().cpu().numpy())
+                rows.extend(collated[-1].tolist())
 
-    if output is None:
+    if len(output) == 0:
         raise ValueError("None of the images could be loaded; see failed rows above.")
     if len(failed_rows) > 0:
         print(f"Warning: {len(failed_rows)} images could not be loaded, their embeddings are NaN.")
-    return output
-
-
-def _place_by_row(output: Optional[np.ndarray], emb: np.ndarray, rows: np.ndarray, n_rows: int) -> np.ndarray:
-    """
-    Place a batch of embeddings at their manifest rows.
-
-    Args:
-        output (Optional[np.ndarray]): embeddings so far, None before the first batch
-        emb (np.ndarray): embeddings of the batch
-        rows (np.ndarray): manifest rows of the batch
-        n_rows (int): number of rows in the manifest
-
-    Returns:
-        output with emb at rows, NaN for rows not yet filled
-    """
-    emb = np.asarray(emb).reshape(len(rows), -1)
-    if output is None:
-        output = np.full((n_rows, emb.shape[1]), np.nan, dtype=np.float32)
+    # one embedding per manifest row, NaN for rows that failed to load
+    emb = np.vstack(output)
+    output = np.full((len(manifest), emb.shape[1]), np.nan, dtype=np.float32)
     output[rows] = emb
     return output
 
