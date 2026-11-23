@@ -300,6 +300,8 @@ def classify(model,
             else:
                 raise AssertionError("Model architecture not supported.")
 
+    if len(raw_output) == 0:
+        raise ValueError("None of the detections could be loaded; see failed rows above.")
     raw_output = np.vstack(raw_output)
 
     if out_file:

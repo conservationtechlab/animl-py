@@ -219,6 +219,12 @@ class TestClassifyPytorch(unittest.TestCase):
         result, fnf = classify(self.model, detections, device='cpu', batch_size=1)
         self.assertEqual(result.shape[0], len(self.detections) - len(fnf)) 
 
+    def test_no_detections_loaded_raises(self):
+        detections = self.detections[0:2].copy()
+        detections['filepath'] = 'nonexistent_file.jpg'
+        with self.assertRaisesRegex(ValueError, "None of the detections could be loaded"):
+            classify(self.model, detections, device='cpu', batch_size=1)
+
     def test_failed_rows_are_positions(self):
         detections = self.detections.copy()
         detections.loc[1, 'filepath'] = 'nonexistent_file.jpg'
