@@ -346,6 +346,45 @@ def load_yaml(file: Union[Path, str]) -> dict:
         raise AssertionError("Error. Expecting a .yaml or .yml file.")
 
 
+def save_failed_rows(manifest: pd.DataFrame,
+                     failed_rows: list,
+                     out_file: Union[Path, str],
+                     file_col: str = "filepath") -> None:
+    """
+    Save the manifest rows that failed to load, or remove an old file if none failed.
+
+    Args:
+        manifest (pd.DataFrame): manifest passed to the dataloader
+        failed_rows (list): positions in manifest of the rows that failed to load
+        out_file (Union[Path, str]): full path to save file to
+        file_col (str): column name containing file paths
+
+    Returns:
+        None
+    """
+    if len(failed_rows) > 0:
+        failed = manifest.iloc[failed_rows][[file_col, 'frame']].rename(columns={file_col: 'filepath'})
+        failed.insert(0, 'row', failed_rows)
+        failed.to_csv(out_file, index=False)
+    elif Path(out_file).is_file():
+        Path(out_file).unlink()
+
+
+def load_failed_rows(file: Union[Path, str]) -> list:
+    """
+    Load the manifest rows that failed to load from file.
+
+    Args:
+        file (Union[Path, str]): full path to failed rows file
+
+    Returns:
+        list of positions of the rows that failed to load, empty if file does not exist
+    """
+    if not Path(file).is_file():
+        return []
+    return pd.read_csv(file)['row'].astype(int).tolist()
+
+
 def check_file(file: Union[Path, str], output_type: Union[Path, str] = None) -> bool:
     """
     Check for files existence and prompt user if they want to load.

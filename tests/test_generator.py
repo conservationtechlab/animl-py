@@ -360,42 +360,42 @@ class TestManifestGeneratorGetItem(unittest.TestCase):
         """Item should be (tensor, filepath, frame, size)."""
         ds = ManifestGenerator(self.manifest, crop=False, transform=self.transform)
         item = ds[0]
-        self.assertEqual(len(item), 4)
+        self.assertEqual(len(item), 5)
 
     def test_tensor_dtype_is_float32(self):
         """Tensor dtype should be float32."""
         ds = ManifestGenerator(self.manifest, crop=False, transform=self.transform)
-        tensor, _, _, _ = ds[0]
+        tensor, _, _, _, _ = ds[0]
         self.assertEqual(tensor.dtype, torch.float32)
 
     def test_tensor_shape_matches_resize(self):
         """Tensor shape should match resize dimensions."""
         ds = ManifestGenerator(self.manifest, crop=False, transform=self.transform)
-        tensor, _, _, _ = ds[0]
+        tensor, _, _, _, _ = ds[0]
         self.assertEqual(tensor.shape, (3, 64, 64))
 
     def test_filepath_preserved(self):
         """Filepath should be preserved in output."""
         ds = ManifestGenerator(self.manifest, crop=False, transform=self.transform)
-        _, filepath, _, _ = ds[0]
+        _, filepath, _, _, _ = ds[0]
         self.assertEqual(filepath, self.img_path)
 
     def test_frame_is_int(self):
         """Frame should be an integer."""
         ds = ManifestGenerator(self.manifest, crop=False, transform=self.transform)
-        _, _, frame, _ = ds[0]
+        _, _, frame, _, _ = ds[0]
         self.assertIsInstance(frame, (int, np.integer))
 
     def test_size_tensor_shape(self):
         """Size tensor should have shape (2,)."""
         ds = ManifestGenerator(self.manifest, crop=False, transform=self.transform)
-        _, _, _, size = ds[0]
+        _, _, _, size, _ = ds[0]
         self.assertEqual(size.shape, (2,))
 
     def test_size_tensor_values(self):
         """Size tensor should contain (height, width) of original."""
         ds = ManifestGenerator(self.manifest, crop=False, transform=self.transform)
-        _, _, _, size = ds[0]
+        _, _, _, size, _ = ds[0]
         self.assertEqual(size[0].item(), 80)   # height
         self.assertEqual(size[1].item(), 100)  # width
 
@@ -403,7 +403,7 @@ class TestManifestGeneratorGetItem(unittest.TestCase):
         """Crop with relative coords should return valid tensor."""
         ds = ManifestGenerator(self.manifest_bbox, crop=True, 
                              crop_coord='relative', transform=self.transform)
-        tensor, _, _, _ = ds[0]
+        tensor, _, _, _, _ = ds[0]
         self.assertIsNotNone(tensor)
         self.assertEqual(tensor.shape, (3, 64, 64))
 
@@ -416,14 +416,14 @@ class TestManifestGeneratorGetItem(unittest.TestCase):
         manifest["bbox_h"] = 40
         ds = ManifestGenerator(manifest, crop=True, crop_coord='absolute',
                              transform=self.transform)
-        tensor, _, _, _ = ds[0]
+        tensor, _, _, _, _ = ds[0]
         self.assertIsNotNone(tensor)
 
     def test_nonexistent_image_returns_none_tensor(self):
         """Nonexistent image should return None tensor."""
         manifest = _make_manifest(["/nonexistent/img.jpg"])
         ds = ManifestGenerator(manifest, crop=False, transform=self.transform)
-        tensor, filepath, _, _ = ds[0]
+        tensor, filepath, _, _, _ = ds[0]
         self.assertIsNone(tensor)
         self.assertEqual(filepath, "/nonexistent/img.jpg")
 
@@ -433,7 +433,7 @@ class TestManifestGeneratorGetItem(unittest.TestCase):
         txt_file.write_text("not an image")
         manifest = _make_manifest([str(txt_file)])
         ds = ManifestGenerator(manifest, crop=False, transform=self.transform)
-        tensor, _, _, _ = ds[0]
+        tensor, _, _, _, _ = ds[0]
         self.assertIsNone(tensor)
 
 
@@ -523,47 +523,47 @@ class TestTrainGeneratorGetItem(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(cls.tmp_dir)
 
-    def test_getitem_returns_tuple_of_three(self):
+    def test_getitem_returns_tuple_of_four(self):
         """Item should be (tensor, label, filepath)."""
         ds = TrainGenerator(self.manifest, self.classes, self.transform, crop=False)
         item = ds[0]
-        self.assertEqual(len(item), 3)
+        self.assertEqual(len(item), 4)
 
     def test_tensor_dtype_is_float32(self):
         """Tensor dtype should be float32."""
         ds = TrainGenerator(self.manifest, self.classes, self.transform, crop=False)
-        tensor, _, _ = ds[0]
+        tensor, _, _, _ = ds[0]
         self.assertEqual(tensor.dtype, torch.float32)
 
     def test_tensor_shape_matches_resize(self):
         """Tensor shape should match resize dimensions."""
         ds = TrainGenerator(self.manifest, self.classes, self.transform, crop=False)
-        tensor, _, _ = ds[0]
+        tensor, _, _, _ = ds[0]
         self.assertEqual(tensor.shape, (3, 64, 64))
 
     def test_label_is_int(self):
         """Label should be an integer."""
         ds = TrainGenerator(self.manifest, self.classes, self.transform, crop=False)
-        _, label, _ = ds[0]
+        _, label, _, _ = ds[0]
         self.assertIsInstance(label, (int, np.integer))
 
     def test_label_correct_index(self):
         """Label should map to correct category index."""
         ds = TrainGenerator(self.manifest, self.classes, self.transform, crop=False)
-        _, label, _ = ds[0]
+        _, label, _, _ = ds[0]
         self.assertEqual(label, ds.categories["cat"])
 
     def test_filepath_preserved(self):
         """Filepath should be preserved in output."""
         ds = TrainGenerator(self.manifest, self.classes, self.transform, crop=False)
-        _, _, filepath = ds[0]
+        _, _, filepath, _ = ds[0]
         self.assertEqual(filepath, self.img_path)
 
     def test_crop_relative_returns_tensor(self):
         """Crop with relative coords should return valid tensor."""
         ds = TrainGenerator(self.manifest_bbox, self.classes, self.transform,
                           crop=True, crop_coord='relative')
-        tensor, _, _ = ds[0]
+        tensor, _, _, _ = ds[0]
         self.assertIsNotNone(tensor)
 
     def test_nonexistent_image_returns_none_tensor(self):
@@ -571,7 +571,7 @@ class TestTrainGeneratorGetItem(unittest.TestCase):
         manifest = _make_manifest(["/nonexistent/img.jpg"],
                                 label_col="species", labels=["cat"])
         ds = TrainGenerator(manifest, self.classes, self.transform, crop=False)
-        tensor, _, _ = ds[0]
+        tensor, _, _, _ = ds[0]
         self.assertIsNone(tensor)
 
     def test_cache_saves_image(self):
@@ -589,7 +589,7 @@ class TestTrainGeneratorGetItem(unittest.TestCase):
         ds = TrainGenerator(self.manifest, self.classes, self.transform,
                           crop=False, cache_dir=str(cache))
         ds[0]   # writes cache
-        tensor, _, _ = ds[0]   # reads from cache
+        tensor, _, _, _ = ds[0]   # reads from cache
         self.assertIsNotNone(tensor)
 
 
@@ -600,42 +600,52 @@ class TestTrainGeneratorGetItem(unittest.TestCase):
 class TestCollateFn(unittest.TestCase):
     """Test collate_fn for batch handling."""
 
-    def _make_item(self, filepath="a.jpg"):
+    def _make_item(self, filepath="a.jpg", row=0):
         """Create a valid batch item."""
         tensor = torch.zeros(3, 64, 64)
-        return tensor, filepath, 0, torch.tensor((80, 100))
+        return tensor, filepath, 0, torch.tensor((80, 100)), row
+
+    def _make_failed(self, filepath="a.jpg", row=0):
+        """Create a failed batch item."""
+        return None, filepath, 0, None, row
 
     def test_all_valid_batch(self):
         """All valid items should be collated."""
-        batch = [self._make_item("a.jpg"), self._make_item("b.jpg")]
+        batch = [self._make_item("a.jpg", 0), self._make_item("b.jpg", 1)]
         collated, failed = collate_fn(batch)
         self.assertIsNotNone(collated)
         self.assertEqual(len(failed), 0)
 
     def test_all_failed_batch(self):
         """All failed items should return None collated."""
-        batch = [(None, "a.jpg", 0, None), (None, "b.jpg", 0, None)]
+        batch = [self._make_failed("a.jpg", 0), self._make_failed("b.jpg", 1)]
         collated, failed = collate_fn(batch)
         self.assertIsNone(collated)
         self.assertEqual(len(failed), 2)
 
     def test_mixed_batch(self):
         """Mixed batch should filter out None items."""
-        batch = [self._make_item("a.jpg"), (None, "b.jpg", 0, None)]
+        batch = [self._make_item("a.jpg", 0), self._make_failed("b.jpg", 1)]
         collated, failed = collate_fn(batch)
         self.assertIsNotNone(collated)
-        self.assertEqual(len(failed), 1)
-        self.assertIn("b.jpg", failed)
+        self.assertEqual(failed, [1])
 
-    def test_failed_filepaths_collected(self):
-        """Failed item filepaths should be collected."""
-        batch = [(None, "bad1.jpg", 0, None), (None, "bad2.jpg", 0, None)]
+    def test_failed_rows_collected(self):
+        """Failed item manifest rows should be collected."""
+        batch = [self._make_failed("bad1.jpg", 3), self._make_failed("bad2.jpg", 7)]
         _, failed = collate_fn(batch)
-        self.assertEqual(set(failed), {"bad1.jpg", "bad2.jpg"})
+        self.assertEqual(failed, [3, 7])
+
+    def test_failed_row_within_same_file(self):
+        """Only the failed row of a file should be reported, not the whole file."""
+        batch = [self._make_item("vid.mp4", 0), self._make_failed("vid.mp4", 1), self._make_item("vid.mp4", 2)]
+        collated, failed = collate_fn(batch)
+        self.assertEqual(failed, [1])
+        self.assertEqual(collated[-1].tolist(), [0, 2])
 
     def test_collated_batch_dimension(self):
         """Collated tensors should have batch dimension."""
-        batch = [self._make_item("a.jpg"), self._make_item("b.jpg")]
+        batch = [self._make_item("a.jpg", 0), self._make_item("b.jpg", 1)]
         collated, _ = collate_fn(batch)
         tensors = collated[0]
         self.assertEqual(tensors.shape[0], 2)   # batch size = 2
@@ -645,11 +655,25 @@ class TestCollateFn(unittest.TestCase):
 
     def test_filepaths_preserved_in_collated(self):
         """Filepaths should be preserved in collated output."""
-        batch = [self._make_item("a.jpg"), self._make_item("b.jpg")]
+        batch = [self._make_item("a.jpg", 0), self._make_item("b.jpg", 1)]
         collated, _ = collate_fn(batch)
         filepaths = collated[1]
         self.assertIn("a.jpg", filepaths)
         self.assertIn("b.jpg", filepaths)
+
+    def test_dataloader_reports_failed_rows(self):
+        """A manifest row that can't be loaded should be reported by its position."""
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            img_path = _make_image(Path(tmp_dir) / "img.jpg")
+            manifest = _make_manifest([img_path, str(Path(tmp_dir) / "missing.jpg"), img_path])
+            dl = manifest_dataloader(manifest, crop=False, resize_height=64, resize_width=64,
+                                     batch_size=3, num_workers=1)
+            collated, failed = next(iter(dl))
+            self.assertEqual(failed, [1])
+            self.assertEqual(collated[-1].tolist(), [0, 2])
+        finally:
+            shutil.rmtree(tmp_dir)
 
 
 # ---------------------------------------------------------------------------

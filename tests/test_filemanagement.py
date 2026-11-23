@@ -21,6 +21,8 @@ from animl.file_management import (
     WorkingDirectory,
     save_data,
     load_data,
+    save_failed_rows,
+    load_failed_rows,
     save_json,
     load_json,
     check_file,
@@ -413,6 +415,34 @@ class TestSaveLoadData(unittest.TestCase):
         out_file = str(Path(self.tmp_dir) / 'exists.csv')
         save_data(self.df, out_file, prompt=False)
         self.assertTrue(Path(out_file).exists())
+
+
+class TestSaveLoadFailedRows(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        self.out_file = Path(self.tmp_dir) / 'failed.txt'
+        self.manifest = pd.DataFrame({'filepath': ['a.mp4', 'a.mp4', 'b.jpg'], 'frame': [0, 5, 0]})
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+
+    def test_save_and_load_roundtrip(self):
+        save_failed_rows(self.manifest, [1, 2], self.out_file)
+        self.assertEqual(load_failed_rows(self.out_file), [1, 2])
+
+    def test_saved_file_lists_files_and_frames(self):
+        save_failed_rows(self.manifest, [1], self.out_file)
+        saved = pd.read_csv(self.out_file)
+        self.assertEqual(saved.to_dict('records'), [{'row': 1, 'filepath': 'a.mp4', 'frame': 5}])
+
+    def test_no_failed_rows_removes_old_file(self):
+        save_failed_rows(self.manifest, [0], self.out_file)
+        save_failed_rows(self.manifest, [], self.out_file)
+        self.assertFalse(self.out_file.exists())
+
+    def test_load_missing_file_returns_empty(self):
+        self.assertEqual(load_failed_rows(self.out_file), [])
 
 
 class TestSaveLoadJson(unittest.TestCase):
