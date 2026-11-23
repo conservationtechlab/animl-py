@@ -8,6 +8,7 @@ import re
 import math
 from tqdm import tqdm
 import multiprocessing as mp
+from functools import partial
 import pandas as pd
 from pathlib import Path
 from typing import Optional
@@ -66,13 +67,13 @@ def extract_frames(files,
         lambda x: Path(x).suffix.lower()).isin(file_management.VIDEO_EXTENSIONS)]
 
     if not videos.empty:
-        args = [(video, frames, fps, quiet) for video in videos[file_col]]
+        count_frames = partial(_count_frames, frames=frames, fps=fps, quiet=quiet)
         if parallel:
             # imap keeps the input order and runs the videos in parallel
             with mp.Pool(num_workers) as pool:
-                outputs = list(tqdm(pool.imap(_count_frames_star, args), total=len(args), disable=quiet))
+                outputs = list(tqdm(pool.imap(count_frames, videos[file_col]), total=len(videos), disable=quiet))
         else:
-            outputs = [_count_frames(*a) for a in tqdm(args, disable=quiet)]
+            outputs = [count_frames(video) for video in tqdm(videos[file_col], disable=quiet)]
 
         # videos that can't be read give None and are left out
         video_frames = [row for output in outputs if output for row in output]
@@ -92,19 +93,6 @@ def extract_frames(files,
             cv2.imwrite(str(image_path), image)
 
     return allframes
-
-
-def _count_frames_star(args):
-    """
-    Call _count_frames with its arguments as one tuple, for Pool.imap.
-
-    Args:
-        args (tuple): filepath, frames, fps and quiet
-
-    Returns:
-        frames_saved: list of frames to be extracted, None if the video can't be read
-    """
-    return _count_frames(*args)
 
 
 def _count_frames(filepath, frames=5, fps=None, quiet=False) -> int:
