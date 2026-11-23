@@ -522,7 +522,7 @@ def sequence_classification(animals: pd.DataFrame,
     # remove the rows that failed to load from animals dataframe
     animals = _drop_failed_rows(animals, failed_rows)
 
-    # check prections are correct shape
+    # check predictions are correct shape
     assert predictions_raw.shape[0] == len(animals), "Number of predictions does not match number of animal detections."
     assert predictions_raw.shape[1] == len(class_list), "Number of classes in predictions does not match length of class list."
 
