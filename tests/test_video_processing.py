@@ -262,6 +262,41 @@ class TestCountFrames(unittest.TestCase):
             self.assertIsNotNone(result)
 
 
+class TestCountFramesSelection(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+
+    def _selected(self, n_frames, **kwargs):
+        path = _write_video(Path(self.tmp_dir) / "clip.mp4", n_frames)
+        return [frame for _, frame in _count_frames(path, quiet=True, **kwargs)]
+
+    def test_no_repeated_frames_when_asking_for_more_than_the_video_has(self):
+        """increment was 0, so frame 0 was returned for every requested frame"""
+        self.assertEqual(self._selected(3, frames=5), [0, 1, 2])
+
+    def test_no_repeated_frames_when_sampling_faster_than_the_video(self):
+        frames = self._selected(10, fps=25)  # the video is 10 fps
+        self.assertEqual(frames, sorted(set(frames)))
+        self.assertLessEqual(max(frames), 9)
+
+    def test_frames_spacing_unchanged(self):
+        self.assertEqual(self._selected(20, frames=5), [0, 4, 8, 12, 16])
+
+    def test_capture_released_when_video_has_no_frames(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            video_path = str(Path(tmp) / 'video.mp4')
+            Path(video_path).touch()
+            with patch('cv2.VideoCapture') as mock_cap:
+                mock_cap.return_value.isOpened.return_value = True
+                mock_cap.return_value.get.return_value = 0
+                self.assertIsNone(_count_frames(video_path, quiet=True))
+            mock_cap.return_value.release.assert_called_once()
+
+
 class TestGetFrameAsImage(unittest.TestCase):
 
     def test_returns_image_array(self):
