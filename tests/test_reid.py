@@ -3,12 +3,15 @@ Unit tests for animl/reid/
 
 @ Kyra Swanson 2024
 """
+import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import torch
+from PIL import Image
 
 from animl.reid import (
     load_miew, 
@@ -326,6 +329,67 @@ class TestExtractMiewEmbeddings(unittest.TestCase):
     def test_missing_file_col_raises(self):
         with self.assertRaises(ValueError):
             extract_miew_embeddings(self.model, self.detections.head(2), file_col='nonexistent_col', device='cpu')
+
+
+class _FakeOnnxMiew:
+    """Embedding = (mean red value, 1), so each row can be traced to its image"""
+    architecture = 'onnx'
+
+    def get_inputs(self):
+        return [SimpleNamespace(name='input')]
+
+    def run(self, _names, feed):
+        images = feed['input']
+        return [np.stack([images[:, 0].mean(axis=(1, 2)), np.ones(len(images))], axis=1).astype(np.float32)]
+
+
+class _FakeTorchMiew:
+    architecture = 'miewid'
+
+    def extract_feat(self, images):
+        return torch.stack([images[:, 0].mean(dim=(1, 2)), torch.ones(len(images))], dim=1)
+
+
+class TestExtractMiewEmbeddingsFailedFiles(unittest.TestCase):
+    """Images that fail to load were left out, so every later embedding moved up a row"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        tmp = Path(self.tmp.name)
+        self.dark, self.bright = str(tmp / 'dark.png'), str(tmp / 'bright.png')
+        Image.new('RGB', (16, 16), color=(0, 0, 0)).save(self.dark)
+        Image.new('RGB', (16, 16), color=(255, 0, 0)).save(self.bright)
+        self.missing = str(tmp / 'missing.png')
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _manifest(self, rows):
+        return pd.DataFrame([{'filepath': f, 'frame': 0, 'bbox_x': x, 'bbox_y': 0.0, 'bbox_w': 1.0, 'bbox_h': 1.0}
+                             for f, x in rows])
+
+    def _check(self, model, **kwargs):
+        # a crop that fails (bbox outside the image) next to a good crop of the same image:
+        # a list of failed filepaths can't tell these rows apart
+        manifest = self._manifest([(self.dark, 0.0), (self.dark, 1.5), (self.missing, 0.0), (self.bright, 0.0)])
+        emb = extract_miew_embeddings(model, manifest, num_workers=0, device='cpu', **kwargs)
+        self.assertEqual(emb.shape, (4, 2))
+        self.assertTrue(np.isnan(emb[[1, 2]]).all())
+        self.assertTrue(np.isfinite(emb[[0, 3]]).all())
+        self.assertLess(emb[0, 0], emb[3, 0])
+
+    def test_onnx_rows_match_manifest(self):
+        self._check(_FakeOnnxMiew())
+
+    def test_pytorch_rows_match_manifest(self):
+        for batch_size in (1, 3):
+            with self.subTest(batch_size=batch_size):
+                self._check(_FakeTorchMiew(), batch_size=batch_size)
+
+    def test_nothing_loaded_raises(self):
+        """np.vstack([]) used to raise an unclear error"""
+        with self.assertRaisesRegex(ValueError, "None of the images could be loaded"):
+            extract_miew_embeddings(_FakeOnnxMiew(), self._manifest([(self.missing, 0.0)]), num_workers=0)
 
 
 if __name__ == '__main__':
