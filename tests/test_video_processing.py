@@ -3,8 +3,10 @@ Unit tests for animl/video_processing.py
 
 @ Kyra Swanson 2023
 """
+import multiprocessing as mp
 import shutil
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch, Mock
@@ -102,6 +104,57 @@ class TestExtractFrames(unittest.TestCase):
             # File should be created (actual save is mocked in some tests)
             # Just verify it returns DataFrame
             self.assertIsInstance(result, pd.DataFrame)
+
+
+def _write_video(path, n_frames):
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*'mp4v'), 10, (32, 24))
+    for i in range(n_frames):
+        writer.write(np.full((24, 32, 3), i % 255, dtype=np.uint8))
+    writer.release()
+    return str(path)
+
+
+def _slow_count_frames(filepath, frames=5, fps=None, quiet=False):
+    time.sleep(0.5)
+    return [[str(filepath), 0]]
+
+
+class TestExtractFramesParallel(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+
+    def _frames(self, files, **kwargs):
+        kwargs = {"frames": 3, "num_workers": 2, "quiet": True, **kwargs}
+        return extract_frames(pd.DataFrame({"filepath": files}), **kwargs)
+
+    def test_same_frames_as_serial(self):
+        files = [_write_video(Path(self.tmp_dir) / f"v{i}.mp4", 20 + 10 * i) for i in range(3)]
+        parallel = self._frames(files, parallel=True)
+        serial = self._frames(files, parallel=False)
+        pd.testing.assert_frame_equal(parallel, serial)
+        self.assertEqual(len(parallel), 9)
+
+    def test_unreadable_videos(self):
+        """np.vstack([]) raised in parallel mode when no video could be read"""
+        broken = Path(self.tmp_dir) / "broken.mp4"
+        broken.write_bytes(b"not a video")
+        for parallel in (True, False):
+            with self.subTest(parallel=parallel):
+                self.assertTrue(self._frames([str(broken)], parallel=parallel).empty)
+
+    @unittest.skipUnless(mp.get_start_method() == "fork", "the patched function reaches the workers only with fork")
+    def test_videos_run_concurrently(self):
+        """pool.apply waits for each video, so 'parallel' ran one video at a time"""
+        files = [str(Path(self.tmp_dir) / f"v{i}.mp4") for i in range(4)]
+        with patch("animl.video_processing._count_frames", _slow_count_frames):
+            start = time.time()
+            frames = self._frames(files, parallel=True, num_workers=4)
+        self.assertLess(time.time() - start, 1.5)
+        self.assertEqual(frames["filepath"].tolist(), files)
 
 
 class TestCountFrames(unittest.TestCase):

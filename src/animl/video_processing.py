@@ -9,7 +9,6 @@ import math
 from tqdm import tqdm
 import multiprocessing as mp
 import pandas as pd
-from numpy import vstack
 from pathlib import Path
 from typing import Optional
 
@@ -67,26 +66,18 @@ def extract_frames(files,
         lambda x: Path(x).suffix.lower()).isin(file_management.VIDEO_EXTENSIONS)]
 
     if not videos.empty:
-        video_frames = []
+        args = [(video, frames, fps, quiet) for video in videos[file_col]]
         if parallel:
-            pool = mp.Pool(num_workers)
-            output = [pool.apply(_count_frames, args=(video, frames, fps, quiet)) for video in tqdm(videos[file_col], disable=quiet)]
-            # remove None values from the output, which represent videos that could not be processed
-            output = list(filter(None, output))
-            video_frames = vstack(output)
-            video_frames = pd.DataFrame(video_frames, columns=[file_col, "frame"])
-            video_frames['frame'] = video_frames['frame'].astype(int)
-            pool.close()
-
+            # imap keeps the input order and runs the videos in parallel
+            with mp.Pool(num_workers) as pool:
+                outputs = list(tqdm(pool.imap(_count_frames_star, args), total=len(args), disable=quiet))
         else:
+            outputs = [_count_frames(*a) for a in tqdm(args, disable=quiet)]
 
-            for i, video in tqdm(enumerate(videos[file_col]), disable=quiet):
-                output = _count_frames(video, frames=frames, fps=fps, quiet=quiet)
-                if output is not None:
-                    video_frames.extend(output)
-
-            video_frames = pd.DataFrame(video_frames, columns=[file_col, "frame"])
-            video_frames['frame'] = video_frames['frame'].astype(int)
+        # videos that can't be read give None and are left out
+        video_frames = [row for output in outputs if output for row in output]
+        video_frames = pd.DataFrame(video_frames, columns=[file_col, "frame"])
+        video_frames['frame'] = video_frames['frame'].astype(int)
         videos = videos.merge(video_frames, on=file_col)
 
     allframes = pd.concat([images, videos]).reset_index(drop=True)
@@ -101,6 +92,19 @@ def extract_frames(files,
             cv2.imwrite(str(image_path), image)
 
     return allframes
+
+
+def _count_frames_star(args):
+    """
+    Call _count_frames with its arguments as one tuple, for Pool.imap.
+
+    Args:
+        args (tuple): filepath, frames, fps and quiet
+
+    Returns:
+        frames_saved: list of frames to be extracted, None if the video can't be read
+    """
+    return _count_frames(*args)
 
 
 def _count_frames(filepath, frames=5, fps=None, quiet=False) -> int:
