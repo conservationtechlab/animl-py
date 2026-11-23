@@ -18,6 +18,8 @@ from animl.detection import (
     _convert_detections,
     _save_detection_checkpoint as save_detection_checkpoint,
     detect,
+    get_animals,
+    get_empty,
     parse_detections,
     load_detector,
 )
@@ -379,9 +381,19 @@ class TestParseDetections(unittest.TestCase):
         with self.assertRaises(TypeError):
             parse_detections("not a list")
 
-    def test_empty_list_raises(self):
-        with self.assertRaises(AssertionError):
-            parse_detections([])
+    def test_empty_list_returns_empty_frame(self):
+        """An empty list (e.g. every image unreadable) used to raise an AssertionError"""
+        result = parse_detections([])
+        self.assertTrue(result.empty)
+        self.assertTrue({'filepath', 'frame', 'category_label', 'conf', 'bbox_x'}.issubset(result.columns))
+        self.assertTrue(get_animals(result).empty)
+        self.assertTrue(get_empty(result).empty)
+
+    def test_empty_list_merged_onto_manifest(self):
+        manifest = pd.DataFrame({'filepath': ['a.jpg', 'b.jpg'], 'frame': [0, 0]})
+        result = parse_detections(([], ['a.jpg', 'b.jpg']), manifest=manifest)
+        self.assertEqual(result['filepath'].tolist(), ['a.jpg', 'b.jpg'])
+        self.assertTrue(result['conf'].isna().all())
 
     def test_confidence_threshold_filters_detections(self):
         result = parse_detections(self.results_with_detections, threshold=0.6)
