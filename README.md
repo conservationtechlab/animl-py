@@ -1,4 +1,4 @@
-# animl-py 3.3.0
+# animl-py 3.4.0
 
 AniML comprises a variety of machine learning tools for analyzing ecological data. This Python package includes a set of functions to classify subjects within camera trap field data and can handle both images and videos. 
 This package is also available in R: [animl](https://github.com/conservationtechlab/animl)
@@ -37,19 +37,27 @@ To enable GPU, install the [CUDA-enabled version](https://pytorch.org/get-starte
 
 Python Package Dependencies
 * dill>=0.4.0
+* huggingface_hub>=0.23.0
 * numpy>=2.0.2
-* onnxruntime-gpu>=1.19.2 
+* onnxruntime-gpu>=1.19.2 (onnxruntime>=1.19.2 on macOS)
 * pandas>=2.2.2, <3.0.0
 * pillow>=11.0.0
 * pyexiftool>=0.5.6
-* opencv-python>=4.12.0.88 
+* opencv-python>=4.12.0.88
+* open_clip_torch>=2.24.0
+* peft>=0.12.0
+* safetensors>=0.4.3
 * scikit-learn>=1.5.2
 * timm>=1.0.9
 * torch>=2.6.0
 * torchvision>=0.21.0
+* transformers>=4.40.0
 * tqdm>=4.66.5
 * ultralytics>=8.3.95
 * wget>=3.2
+
+Optional, for experiment tracking during training (`pip install animl[mlops]`):
+* comet-ml>=3.54.2
 
 
 ### Verify Install 
@@ -79,19 +87,18 @@ See the [Reference Manual](https://conservationtechlab.github.io/animl-py/) for 
 
 ### Inference
 The functionality of animl can be parcelated into its individual functions to suit your data and scripting needs.
-The sandbox.ipynb notebook has all of these steps available for further exploration.
 
 1. It is recommended that you use the animl working directory for storing intermediate steps.
 
    ```python
    import animl
-   workingdir = animl.WorkingDirectory('/path/to/save/data')
+   working_dir = animl.WorkingDirectory('/path/to/save/data')
    ```
 
 2. Build the file manifest of your given directory. This will find both images and videos.
 
    ```python
-   files = animl.build_file_manifest('/path/to/images', out_file=workingdir.filemanifest, exif=True, data_timezone='America/Los_Angeles')
+   files = animl.build_file_manifest('/path/to/images', exif=True, out_file=working_dir.filemanifest, data_timezone='America/Los_Angeles')
    ```
 
 3. If there are videos, extract individual frames for processing.
@@ -99,11 +106,11 @@ The sandbox.ipynb notebook has all of these steps available for further explorat
    The other option can be set to None or removed.
 
    ```python
-   allframes = animl.extract_frames(files, frames=3, out_file=workingdir.imageframes, parallel=True)
+   allframes = animl.extract_frames(files, frames=3, out_file=working_dir.imageframes, parallel=True)
    ```
 
 4. Pass all images into MegaDetector. We recommend [MDv5a](https://github.com/agentmorris/MegaDetector/releases/download/v5.0/md_v5a.0.0.pt).
-   The function parse_MD will convert the json to a pandas DataFrame and merge detections with the original file manifest, if provided.
+   The function parse_detections will convert the output of detect to a pandas DataFrame and merge detections with the original file manifest, if provided.
 
    ```python
    detector = animl.load_detector('/path/to/mdmodel.pt', model_type="mdv5", device='cuda:0')
@@ -112,11 +119,11 @@ The sandbox.ipynb notebook has all of these steps available for further explorat
                            resize_width=animl.MEGADETECTORv5_SIZE,
                            resize_height=animl.MEGADETECTORv5_SIZE, 
                            letterbox=True,
+                           batch_size=4,
                            device='cuda:0',
-                           batch_size = 4,
                            checkpoint_path=working_dir.mdraw,
                            checkpoint_frequency=1000)
-   detections = animl.parse_detections(mdresults, manifest=allframes, out_file=workingdir.detections)
+   detections = animl.parse_detections(mdresults, manifest=allframes, out_file=working_dir.detections)
    ```
 
 5. For speed and efficiency, extract the empty/human/vehicle detections before classification.
@@ -156,6 +163,7 @@ The sandbox.ipynb notebook has all of these steps available for further explorat
                                             empty_class="",
                                             sort_columns=None,
                                             file_col="filepath",
+                                            timestamp_col="datetime",
                                             maxdiff=60)
    ```
 
@@ -181,16 +189,16 @@ Training workflows are still under development. Please submit Issues as you come
    This function splits each label proportionally by the given percentages, by default 0.8 training, 0.1 validation, 0.1 Test.
 
    ```python
-   train, val, test, stats = animl.export_train_val_test(manifest,
-                                                         out_dir='path/to/save/data/',
-                                                         label_col="species",
-                                                         val_size: float = 0.1,
-                                                         test_size: float = 0.1,
-                                                         random_state: int = 42)
+   train, val, test = animl.export_train_val_test(manifest,
+                                                  label_col="species",
+                                                  out_dir='path/to/save/data/',
+                                                  val_size=0.1,
+                                                  test_size=0.1,
+                                                  seed=42)
    ```
 
 2. Set up training configuration file. Specify the paths to the data splits from the previous step. 
-Example configs are available in the `configs/` folder.
+Example configs are available in the `config/` folder.
 
 3. Using the config file, begin training.
 
@@ -201,7 +209,7 @@ Example configs are available in the `configs/` folder.
    Every 10 epochs (or define custom 'checkpoint_frequency'), the model will be checkpointed to the 'experiment_folder' parameter in the config file, and will contain performance metrics for selection.
 
 
-5. Testing of a model checkpoint can be done with the "test.py" module.  Add an 'active_model' parameter to the config 
+4. Testing of a model checkpoint can be done with the "test.py" module.  Add an 'active_model' parameter to the config 
 file that contains the path of the checkpoint to test. This will produce a confusion matrix of the test dataset as well 
 as a csv containing predicted and ground truth labels for each image.
 
@@ -215,7 +223,7 @@ The Conservation Technology Lab has several models available for use.
 You can use the download function within animl or access them here:
 
    ```python
-   animl.download_model(animl.CLASSIFIER['sdzes_andes_v1'],  out_dir: str = 'models/')
+   animl.download_model(animl.CLASSIFIER['sdzwa_andes_v1'], out_dir='models/')
    ```
 
 * Southwest United States [v3](https://sandiegozoo.box.com/s/0mait8k3san3jvet8251mpz8svqyjnc3)

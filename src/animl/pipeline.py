@@ -47,9 +47,7 @@ def from_paths(image_dir: str,
     working_dir = file_management.WorkingDirectory(image_dir)
     files = file_management.build_file_manifest(image_dir,
                                                 out_file=working_dir.filemanifest,
-
                                                 exif=True)
-
     print(f"Found {len(files)} files.")
 
     # split out videos

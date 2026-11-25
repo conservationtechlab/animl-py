@@ -21,6 +21,8 @@ from animl.file_management import (
     WorkingDirectory,
     save_data,
     load_data,
+    save_failed_rows,
+    load_failed_rows,
     save_json,
     load_json,
     check_file,
@@ -284,6 +286,70 @@ class TestBuildFileManifest(unittest.TestCase):
             self.assertIsNone(shallow_row['camera'])
 
 
+class TestBuildFileManifestExiftool(unittest.TestCase):
+    """videos share one exiftool process"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        Image.fromarray(np.uint8(np.zeros((10, 10, 3)))).save(Path(self.tmp_dir) / 'a.jpg')
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+
+    def _write_videos(self, names):
+        import cv2
+        for name in names:
+            writer = cv2.VideoWriter(str(Path(self.tmp_dir) / name), cv2.VideoWriter_fourcc(*'mp4v'), 5, (16, 16))
+            for _ in range(3):
+                writer.write(np.zeros((16, 16, 3), np.uint8))
+            writer.release()
+
+    def test_videos_share_one_exiftool_process(self):
+        from unittest.mock import patch
+        self._write_videos(['v1.mp4', 'v2.mp4', 'v3.mp4'])
+        with patch('animl.file_management.exiftool.ExifToolHelper') as helper:
+            helper.return_value.get_metadata.return_value = [{"QuickTime:CreateDate": "2024:01:02 03:04:05"}]
+            helper.return_value.running = True
+            result = build_file_manifest(self.tmp_dir, exif=True)
+        helper.assert_called_once()
+        self.assertEqual(helper.return_value.get_metadata.call_count, 3)
+        helper.return_value.terminate.assert_called_once()
+        videos = result[result['extension'] == '.mp4']
+        self.assertTrue((videos['createdate'] == '2024-01-02 03:04:05').all())
+
+    def test_missing_exiftool_falls_back_to_modify_date_once(self):
+        from unittest.mock import patch
+        self._write_videos(['v1.mp4', 'v2.mp4'])
+        with patch('animl.file_management.exiftool.ExifToolHelper', side_effect=FileNotFoundError("exiftool")) as helper, \
+                patch('builtins.print') as printed:
+            result = build_file_manifest(self.tmp_dir, exif=True)
+        helper.assert_called_once()
+        warnings = [c for c in printed.call_args_list if 'pyexiftool failed' in str(c)]
+        self.assertEqual(len(warnings), 1)
+        videos = result[result['extension'] == '.mp4']
+        self.assertEqual(len(videos), 2)
+        self.assertTrue(videos['datetime'].notna().all())
+
+    def test_unreadable_video_keeps_exiftool_for_the_rest(self):
+        from unittest.mock import patch
+        self._write_videos(['v1.mp4', 'v2.mp4'])
+
+        def get_metadata(filepath):
+            # by name, as files are read in directory order, which differs between systems
+            if Path(filepath).name == 'v1.mp4':
+                raise Exception("bad file")
+            return [{"QuickTime:CreateDate": "2024:01:02 03:04:05"}]
+
+        with patch('animl.file_management.exiftool.ExifToolHelper') as helper:
+            helper.return_value.running = True
+            helper.return_value.get_metadata.side_effect = get_metadata
+            result = build_file_manifest(self.tmp_dir, exif=True)
+        helper.assert_called_once()
+        self.assertEqual(helper.return_value.get_metadata.call_count, 2)
+        videos = result[result['extension'] == '.mp4'].sort_values('filepath')
+        self.assertEqual(videos['createdate'].notna().tolist(), [False, True])
+
+
 class TestWorkingDirectory(unittest.TestCase):
 
     @classmethod
@@ -355,6 +421,34 @@ class TestSaveLoadData(unittest.TestCase):
         out_file = str(Path(self.tmp_dir) / 'exists.csv')
         save_data(self.df, out_file, prompt=False)
         self.assertTrue(Path(out_file).exists())
+
+
+class TestSaveLoadFailedRows(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        self.out_file = Path(self.tmp_dir) / 'failed.txt'
+        self.manifest = pd.DataFrame({'filepath': ['a.mp4', 'a.mp4', 'b.jpg'], 'frame': [0, 5, 0]})
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+
+    def test_save_and_load_roundtrip(self):
+        save_failed_rows(self.manifest, [1, 2], self.out_file)
+        self.assertEqual(load_failed_rows(self.out_file), [1, 2])
+
+    def test_saved_file_lists_files_and_frames(self):
+        save_failed_rows(self.manifest, [1], self.out_file)
+        saved = pd.read_csv(self.out_file)
+        self.assertEqual(saved.to_dict('records'), [{'row': 1, 'filepath': 'a.mp4', 'frame': 5}])
+
+    def test_no_failed_rows_removes_old_file(self):
+        save_failed_rows(self.manifest, [0], self.out_file)
+        save_failed_rows(self.manifest, [], self.out_file)
+        self.assertFalse(self.out_file.exists())
+
+    def test_load_missing_file_returns_empty(self):
+        self.assertEqual(load_failed_rows(self.out_file), [])
 
 
 class TestSaveLoadJson(unittest.TestCase):
@@ -483,7 +577,6 @@ class TestSequenceCalculation(unittest.TestCase):
 # ------------------------------------------------------------------
 # active_times tests
 # ------------------------------------------------------------------
-import pytest
 from animl.file_management import active_times
 
 class TestActiveTimes(unittest.TestCase):
@@ -501,6 +594,18 @@ class TestActiveTimes(unittest.TestCase):
                 '2023-01-01 12:00:00',
                 '2023-01-02 09:00:00',
                 '2023-01-02 11:00:00',
+            ],
+            'station': [
+                's1',
+                's1',
+                's1',
+                's1',
+            ],
+            'camera': [
+                'cam1',
+                'cam1',
+                'cam2',
+                'cam2',
             ]
         })
 
@@ -552,15 +657,15 @@ class TestActiveTimes(unittest.TestCase):
             self.assertIn('min', result['datetime'].columns)
 
     def test_different_cameras_different_sequences(self):
-        result = sequence_calculation(self.manifest.copy(), station_col='station')
+        result = sequence_calculation(self.df.copy(), station_col='station')
         cam1_seq = set(result[result['station'] == 'cam1']['sequence'])
         cam2_seq = set(result[result['station'] == 'cam2']['sequence'])
         self.assertTrue(cam1_seq.isdisjoint(cam2_seq))
 
     def test_custom_sort_columns_explicit(self):
-        default_result = sequence_calculation(self.manifest.copy(), station_col='station')
+        default_result = sequence_calculation(self.df.copy(), station_col='station')
         explicit_result = sequence_calculation(
-            self.manifest.copy(),
+            self.df.copy(),
             station_col='station',
             sort_columns=['station', 'datetime'],
         )
@@ -570,18 +675,18 @@ class TestActiveTimes(unittest.TestCase):
 
     def test_custom_sort_columns(self):
         result = sequence_calculation(
-            self.manifest.copy(),
+            self.df.copy(),
             station_col='station',
             sort_columns=['station', 'datetime'],
         )
         self.assertIn('sequence', result.columns)
 
     def test_zero_maxdiff(self):
-        result = sequence_calculation(self.manifest.copy(), station_col='station', maxdiff=0)
+        result = sequence_calculation(self.df.copy(), station_col='station', maxdiff=0)
         self.assertEqual(len(set(result['sequence'])), len(result))
 
     def test_single_row_dataframe(self):
-        one_row = self.manifest.head(1).copy()
+        one_row = self.df.head(1).copy()
         result = sequence_calculation(one_row, station_col='station')
         self.assertEqual(len(result), 1)
         self.assertEqual(result.iloc[0]['sequence'], 0)

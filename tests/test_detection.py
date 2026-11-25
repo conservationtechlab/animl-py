@@ -18,10 +18,12 @@ from animl.detection import (
     _convert_detections,
     _save_detection_checkpoint as save_detection_checkpoint,
     detect,
+    get_animals,
+    get_empty,
     parse_detections,
     load_detector,
 )
-from animl.model_architecture import MD_LABELS
+from animl.model_architecture import MD_LABELS, MEGADETECTORv5_SIZE
 
 
 # ---------------------------------------------------------------------------
@@ -64,6 +66,87 @@ class TestLoadDetector(unittest.TestCase):
             result = load_detector(f.name, 'UNSUPPORTED')
             self.assertIsNone(result)
 
+
+class TestDetectMDv5(unittest.TestCase):
+    """
+    End-to-end smoke test against a real, downloaded MegaDetector v5a
+    checkpoint, mirrored to the animl-py 'megadetector' GitHub release and
+    fetched in CI via `gh release download`, the same pattern used for the
+    classifier assets under the 'model' release. This redistribution is
+    fine specifically for MDv5 -- unlike MiewID, the maintainers' own model
+    card states "no restrictions are placed on the use of the model by the
+    MegaDetector developers", and the weights are already hosted publicly
+    for direct download at https://github.com/agentmorris/MegaDetector/releases.
+    animl-py also ships animl.models.download.download_model, pointed at
+    that original source, as an alternative way to fetch this file locally.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.model_path = Path.cwd() / 'models' / 'md_v5a.0.0.pt'
+        if not cls.model_path.exists():
+            raise unittest.SkipTest(
+                f"MegaDetector v5a not found at {cls.model_path}; skipping TestDetectMDv5. "
+                "Download it with: gh release download megadetector --repo "
+                "conservationtechlab/animl-py --dir models --pattern 'md_v5a.0.0.pt'"
+            )
+        examples_dir = Path(__file__).parent.parent / 'examples' / 'Southwest'
+        images = sorted(examples_dir.glob('*.JPG'))
+        if not images:
+            raise unittest.SkipTest(f"No example images found under {examples_dir}")
+        cls.image_path = str(images[0])
+        cls.detector = load_detector(str(cls.model_path), 'mdv5', device='cpu')
+
+    def test_loads_real_checkpoint(self):
+        self.assertIsNotNone(self.detector)
+
+    def test_detect_single_image_returns_list_of_dicts(self):
+        results = detect(self.detector, self.image_path,
+                         resize_width=MEGADETECTORv5_SIZE, resize_height=MEGADETECTORv5_SIZE,
+                         device='cpu')
+        self.assertIsInstance(results, list)
+        self.assertEqual(len(results), 1)
+        result = results[0]
+        self.assertIn('filepath', result)
+        self.assertIn('detections', result)
+        self.assertIsInstance(result['detections'], list)
+        for det in result['detections']:
+            self.assertIn('category_label', det)
+            self.assertIn(det['category_label'], MD_LABELS.values())
+            for key in ('bbox_x', 'bbox_y', 'bbox_w', 'bbox_h', 'conf'):
+                self.assertIn(key, det)
+
+
+class TestResumeFromCheckpoint(unittest.TestCase):
+    """detect() resumes from a checkpoint under either the 'images' or 'detections' key."""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        self.files = ['a.jpg', 'b.jpg']
+        self.results = [_make_detection_result(filepath=f) for f in self.files]
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+
+    def _resume(self, key):
+        path = str(Path(self.tmp_dir) / 'checkpoint.json')
+        with open(path, 'w') as f:
+            json.dump({key: self.results}, f)
+        # the checkpoint covers every image, so detect returns before touching the model;
+        # answer 'y' to the load-checkpoint prompt
+        with patch('builtins.input', return_value='y'):
+            return detect(MagicMock(), self.files, MEGADETECTORv5_SIZE, MEGADETECTORv5_SIZE,
+                          checkpoint_path=path)
+
+    def test_resume_from_images_key(self):
+        detections, failed_files = self._resume('images')
+        self.assertEqual(detections, self.results)
+        self.assertEqual(failed_files, [])
+
+    def test_resume_from_detections_key(self):
+        detections, failed_files = self._resume('detections')
+        self.assertEqual(detections, self.results)
+        self.assertEqual(failed_files, [])
 
 
 class TestSaveDetectionCheckpoint(unittest.TestCase):
@@ -298,9 +381,19 @@ class TestParseDetections(unittest.TestCase):
         with self.assertRaises(TypeError):
             parse_detections("not a list")
 
-    def test_empty_list_raises(self):
-        with self.assertRaises(AssertionError):
-            parse_detections([])
+    def test_empty_list_returns_empty_frame(self):
+        """An empty list (e.g. every image unreadable) used to raise an AssertionError"""
+        result = parse_detections([])
+        self.assertTrue(result.empty)
+        self.assertTrue({'filepath', 'frame', 'category_label', 'conf', 'bbox_x'}.issubset(result.columns))
+        self.assertTrue(get_animals(result).empty)
+        self.assertTrue(get_empty(result).empty)
+
+    def test_empty_list_merged_onto_manifest(self):
+        manifest = pd.DataFrame({'filepath': ['a.jpg', 'b.jpg'], 'frame': [0, 0]})
+        result = parse_detections(([], ['a.jpg', 'b.jpg']), manifest=manifest)
+        self.assertEqual(result['filepath'].tolist(), ['a.jpg', 'b.jpg'])
+        self.assertTrue(result['conf'].isna().all())
 
     def test_confidence_threshold_filters_detections(self):
         result = parse_detections(self.results_with_detections, threshold=0.6)

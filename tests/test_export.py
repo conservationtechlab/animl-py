@@ -20,6 +20,7 @@ from animl.export import (
     export_coco,
     export_folders,
     export_megadetector,
+    export_train_val_test,
     export_yolo,
     remove_link,
     update_labels_from_folders,
@@ -84,6 +85,16 @@ def _make_camptrapdp_manifest():
     })
 
 
+def _make_trainvaltest_manifest(n_files=20, n_groups=10):
+    """Return a minimal manifest for export_train_val_test"""
+    return pd.DataFrame({
+        'filepath': [f'/tmp/img{i % n_files}.jpg' for i in range(n_files)],
+        'class': ['deer' if i % 2 == 0 else 'elk' for i in range(n_files)],
+        'confidence': [0.5 + (i * 0.01) for i in range(n_files)],
+        'sequence': [f'seq_{i % n_groups}' for i in range(n_files)]
+    })
+
+
 class TestRemoveLink(unittest.TestCase):
 
     def test_files_are_deleted(self):
@@ -132,7 +143,7 @@ class TestUpdateLabelsFromFolders(unittest.TestCase):
             'filepath': ['/tmp/sorted/deer/deer_001.jpg'],
             'filename': ['deer_001.jpg'],
         })
-        with patch('animl.file_management.build_file_manifest', return_value=fake_ground_truth):
+        with patch('animl.export.build_file_manifest', return_value=fake_ground_truth):
             result = update_labels_from_folders(manifest, export_dir='/tmp/sorted')
         self.assertIn('label', result.columns)
 
@@ -228,16 +239,19 @@ class TestExportMegadetector(unittest.TestCase):
             self.assertIn(key, data)
 
     # TODO: rows with cat=0 should be included but have no detections
-    def test_empty_category_rows_skipped(self):
-        """Rows where category == 0 should not appear in images."""
+    def test_empty_category_rows_included_with_no_detections(self):
+        """Rows where category == 0 should appear in images but with empty detections list."""
         with tempfile.TemporaryDirectory() as tmp:
             out_file = str(Path(tmp) / 'md.json')
             export_megadetector(self.manifest.copy(), out_file=out_file, prompt=False)
             with open(out_file) as f:
                 data = json.load(f)
-        # img1.jpg has category=0 and should be excluded
+        # img1.jpg has category=0 but should still be included
         image_files = [im['file'] for im in data['images']]
-        self.assertNotIn('/tmp/img1.jpg', image_files)
+        self.assertIn('/tmp/img1.jpg', image_files)
+        # The empty row should have empty detections list
+        img1_entry = [im for im in data['images'] if im['file'] == '/tmp/img1.jpg'][0]
+        self.assertEqual(img1_entry.get('detections', []), [])
 
     def test_missing_column_raises_value_error(self):
         bad_manifest = self.manifest.drop(columns=['bbox_x'])
@@ -432,6 +446,76 @@ class TestExportYolo(unittest.TestCase):
                 label_files = list((Path(out) / 'labels' / 'train').glob('*.txt'))
                 self.assertGreater(len(label_files), 0)
 
+
+class TestExportTrainValTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.manifest=_make_trainvaltest_manifest()
+
+    def test_missing_column_raises_error(self):
+        with self.assertRaises(ValueError):
+            export_train_val_test(self.manifest, label_col="missing")
+        with self.assertRaises(ValueError):
+            export_train_val_test(self.manifest, file_col="missing")
+        with self.assertRaises(ValueError):
+            export_train_val_test(self.manifest, groupby_col="missing")
+
+    def test_invalid_split_sizes(self):
+        with self.assertRaises(AssertionError):
+            export_train_val_test(self.manifest, val_size=0.6, test_size=0.5)
+
+    def test_export_to_directory(self):
+        with tempfile.TemporaryDirectory() as out:
+            export_train_val_test(
+                self.manifest,
+                label_col="class",
+                file_col="filepath",
+                out_dir=out
+            )
+            self.assertTrue((Path(out) / "train_data.csv").exists())
+            self.assertTrue((Path(out) / "validate_data.csv").exists())
+            self.assertTrue((Path(out) / "test_data.csv").exists())
+
+    def test_confidence_deduplication(self):
+        temp_manifest=pd.concat([self.manifest,pd.DataFrame({
+            'filepath': ['/tmp/img0.jpg'],
+            'class': ['deer'],
+            'confidence': [0.2]
+        })])
+        train, val, test = export_train_val_test(
+            temp_manifest,
+            label_col="class",
+            file_col="filepath",
+            conf_col="confidence",
+            test_size=0.1,
+            val_size=0.1
+        )
+        combined = pd.concat([train, val, test])
+        # Verify total rows decreases by 1 due to deduplication
+        self.assertEqual(len(combined), len(temp_manifest)-1)
+
+        # Ensure the deduplciated file kept its higher
+        # original confidence (not 0.2)
+        a_row = combined[combined['filepath'] == '/tmp/img0.jpg']
+        self.assertNotAlmostEqual(a_row['confidence'].values[0], 0.2)
+
+    def test_insufficient_groups(self):
+        with self.assertRaises(AssertionError):
+            export_train_val_test(self.manifest, val_size=0.15,
+                                  test_size=0.1, groupby_col="sequence")
+
+    def test_grouped_no_leakage(self):
+        train, val, test = export_train_val_test(self.manifest, "class", "filepath",
+                                                 "confidence", val_size=0.1,
+                                                 test_size=0.1,
+                                                 groupby_col="sequence")
+        train_groups = set(train['sequence'])
+        val_groups = set(val['sequence'])
+        test_groups = set(test['sequence'])
+        self.assertTrue(train_groups.isdisjoint(val_groups))
+        self.assertTrue(train_groups.isdisjoint(test_groups))
+        self.assertTrue(val_groups.isdisjoint(test_groups))
 
 if __name__ == '__main__':
     unittest.main()

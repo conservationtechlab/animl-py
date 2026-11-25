@@ -3,10 +3,13 @@ Video Processing Functions
 
 """
 import cv2
+import subprocess
+import re
+import math
 from tqdm import tqdm
 import multiprocessing as mp
+from functools import partial
 import pandas as pd
-from numpy import vstack
 from pathlib import Path
 from typing import Optional
 
@@ -21,7 +24,8 @@ def extract_frames(manifest: pd.DataFrame,
                    out_dir: str = None,
                    file_col: str = "filepath",
                    parallel: bool = True,
-                   num_workers: int = NUM_THREADS):
+                   num_workers: int = NUM_THREADS,
+                   quiet: bool = False):
     """
     Extract frames from video files in a given DataFrame.
     Can sample frames based on a specified number of frames or frames per second (fps).
@@ -35,6 +39,7 @@ def extract_frames(manifest: pd.DataFrame,
         file_col (str): Column name in the DataFrame that contains the file paths (default is "filepath").
         parallel (bool): Toggle to use multiprocessing for frame extraction (default is True).
         num_workers (int): Number of worker processes to use for parallel processing (default is NUM_THREADS).
+        quiet (bool): Whether to suppress progress bars and print statements (default is False).
 
     Raises:
         ValueError: If the DataFrame does not contain the specified file column or if both fps and frames are not defined.
@@ -62,24 +67,18 @@ def extract_frames(manifest: pd.DataFrame,
         lambda x: Path(x).suffix.lower()).isin(file_management.VIDEO_EXTENSIONS)]
 
     if not videos.empty:
-        video_frames = []
+        count_frames = partial(_count_frames, frames=frames, fps=fps, quiet=quiet)
         if parallel:
-            pool = mp.Pool(num_workers)
-            output = [pool.apply(_count_frames, args=(video, frames, fps)) for video in tqdm(videos[file_col])]
-            output = list(filter(None, output))
-            video_frames = vstack(output)
-            video_frames = pd.DataFrame(video_frames, columns=[file_col, "frame"])
-            video_frames['frame'] = video_frames['frame'].astype(int)
-            pool.close()
-
+            # imap keeps the input order and runs the videos in parallel
+            with mp.Pool(num_workers) as pool:
+                outputs = list(tqdm(pool.imap(count_frames, videos[file_col]), total=len(videos), disable=quiet))
         else:
-            for i, video in tqdm(enumerate(videos[file_col])):
-                output = _count_frames(video, frames=frames, fps=fps)
-                if output is not None:
-                    video_frames.extend(output)
+            outputs = [count_frames(video) for video in tqdm(videos[file_col], disable=quiet)]
 
-            video_frames = pd.DataFrame(video_frames, columns=[file_col, "frame"])
-            video_frames['frame'] = video_frames['frame'].astype(int)
+        # videos that can't be read give None and are left out
+        video_frames = [row for output in outputs if output for row in output]
+        video_frames = pd.DataFrame(video_frames, columns=[file_col, "frame"])
+        video_frames['frame'] = video_frames['frame'].astype(int)
         videos = videos.merge(video_frames, on=file_col)
 
     allframes = pd.concat([images, videos]).reset_index(drop=True)
@@ -96,7 +95,7 @@ def extract_frames(manifest: pd.DataFrame,
     return allframes
 
 
-def _count_frames(filepath, frames=5, fps=None) -> int:
+def _count_frames(filepath, frames=5, fps=None, quiet=False) -> int:
     """
     Count number of frames in a video
 
@@ -109,51 +108,77 @@ def _count_frames(filepath, frames=5, fps=None) -> int:
         frames_saved: list of frames to be extracted
     """
     if not Path(filepath).is_file():
-        raise FileNotFoundError(f"Video file {filepath} does not exist")
+        if not quiet:
+            print(f"Video file {filepath} does not exist")
+        return None
 
     cap = cv2.VideoCapture(filepath)
-    if not cap.isOpened():  # corrupted video
+    try:
+        if not cap.isOpened():  # corrupted video
+            if not quiet:
+                print(f"Video file {filepath} could not be opened, it may be corrupted.")
+            return None
+
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if frame_count <= 0:
+            if not quiet:
+                print(f"Video file {filepath} has 0 frames, skipping.")
+            return None
+
+        # select by fps
+        if fps is not None:
+            video_fps = cap.get(cv2.CAP_PROP_FPS)
+            if video_fps == 0:
+                # Attempt to get FPS using ffmpeg if OpenCV fails
+                video_fps = _get_fps_from_ffmpeg(filepath, quiet=quiet)
+                if video_fps is None:
+                    if not quiet:
+                        print("Could not determine video FPS, defaulting to 30 FPS.")
+                    video_fps = 30  # Default to 30 if unable to determine
+
+            n_frames = math.ceil(frame_count / video_fps * fps)
+            sampled_times = [i / fps for i in range(n_frames)]
+            selected = [min(int(round(t * video_fps)), frame_count-1) for t in sampled_times]
+
+        # select set number of frames
+        else:
+            # no more frames than the video has, so none are repeated
+            n_frames = min(frames, frame_count)
+            increment = frame_count // n_frames
+            selected = [i * increment for i in range(n_frames)]
+    finally:
+        cap.release()
+
+    # sampling faster than the video's frame rate selects some frames twice
+    return [[str(filepath), frame] for frame in dict.fromkeys(selected)]
+
+
+def _get_fps_from_ffmpeg(video_path, quiet=False):
+    """Extract FPS from ffmpeg output"""
+    try:
+        result = subprocess.run(
+            ['ffmpeg', '-i', video_path],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        # Search for fps value in output
+        # Pattern: "X fps" where X is a number (can be decimal)
+        match = re.search(r'(\d+\.?\d*)\s+fps', result.stderr)
+
+        if match:
+            fps = float(match.group(1))
+            if not quiet:
+                print(f"FPS: {fps}")
+            return fps
+        else:
+            if not quiet:
+                print("Could not find fps in ffmpeg output")
+            return None
+
+    except Exception as e:
+        print(f"Error: {e}")
         return None
-
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    if frame_count == 0:
-        # print(f"Video file {filepath} has 0 frames, skipping.")
-        return None
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-    frames_saved = []
-    frame_capture = 0
-
-    # select by fps
-    if fps is not None:
-        video_fps = cap.get(cv2.CAP_PROP_FPS)
-        if video_fps == 0:
-            # try to calculate fps from duration
-            duration = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000  # Sometimes unreliable
-            if duration > 0:
-                video_fps = frame_count / duration
-            else:
-                print(f"Could not determine video FPS, defaulting to {frames} frames uniformly sampled.")
-                increment = int(frame_count / frames)
-                while len(frames_saved) < frames:
-                    frames_saved.append([str(filepath), frame_capture])
-                    frame_capture += increment
-                return frames_saved
-
-        frames = int(frame_count / video_fps * fps)
-        sampled_times = [i / fps for i in range(frames)]
-        frames_saved = [min(int(round(t * video_fps)), frame_count-1) for t in sampled_times]
-
-    # select set number of frames
-    else:
-        increment = int(frame_count / frames)
-        while len(frames_saved) < frames:
-            frames_saved.append([str(filepath), frame_capture])
-            frame_capture += increment
-
-    return frames_saved
 
 
 # get specific frame of video as QImage
