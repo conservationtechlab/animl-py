@@ -7,6 +7,7 @@ Provides functions for creating, removing, and updating sorted symlinks.
 """
 import math
 import os
+import warnings
 import pandas as pd
 from typing import Optional, Union
 from shutil import copy2
@@ -512,17 +513,17 @@ def export_yolo(train_manifest: pd.DataFrame,
     return output_yml
 
 
-def export_camptrapdp(manifest: pd.DataFrame,
-                      out_dir: str,
-                      file_public: bool = False,
-                      classifier_name: str = None):
+def export_camtrapdp(manifest: pd.DataFrame,
+                     out_dir: str,
+                     file_public: bool = False,
+                     classifier_name: str = None):
     """
     Export a manifest to camtrapdp format.
     Requires scientific name for the species prediction label and bounding box coordinates for each detection.
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
-        out_file (str): path to save the camtrapdp formatted file
+        out_dir (str): directory to save the camtrapdp formatted files
         file_public (bool): whether media files are publicly accessible
         classifier_name (str): name of the classifier used for predictions
     """
@@ -590,6 +591,15 @@ def export_camptrapdp(manifest: pd.DataFrame,
     save_json(datapackage, out_dir / 'datapackage.json')
 
     return media_df, observations_df, datapackage
+
+
+def export_camptrapdp(*args, **kwargs):
+    """
+    Deprecated misspelling of export_camtrapdp(), kept for backwards compatibility.
+    """
+    warnings.warn("export_camptrapdp() is deprecated, use export_camtrapdp() instead.",
+                  DeprecationWarning, stacklevel=2)
+    return export_camtrapdp(*args, **kwargs)
 
 
 def export_camtrapR(manifest: pd.DataFrame,

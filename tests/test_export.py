@@ -17,6 +17,7 @@ from PIL import Image
 
 from animl.export import (
     export_camptrapdp,
+    export_camtrapdp,
     export_coco,
     export_folders,
     export_megadetector,
@@ -68,8 +69,8 @@ def _make_megadetector_manifest():
     })
 
 
-def _make_camptrapdp_manifest():
-    """Return a minimal manifest for export_camptrapdp."""
+def _make_camtrapdp_manifest():
+    """Return a minimal manifest for export_camtrapdp."""
     return pd.DataFrame({
         'filepath': ['/tmp/img0.jpg', '/tmp/img0.jpg', '/tmp/img1.jpg'],
         'filename': ['img0.jpg', 'img0.jpg', 'img1.jpg'],
@@ -270,52 +271,58 @@ class TestExportMegadetector(unittest.TestCase):
         self.assertEqual(data['info']['detector'], 'TestDetector')
 
 
-class TestExportCamptrapdp(unittest.TestCase):
+class TestExportCamtrapdp(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.manifest = _make_camptrapdp_manifest()
+        cls.manifest = _make_camtrapdp_manifest()
 
     def test_media_csv_created(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             self.assertTrue((Path(tmp) / 'media.csv').exists())
 
     def test_observations_csv_created(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             self.assertTrue((Path(tmp) / 'observations.csv').exists())
 
     def test_datapackage_json_created(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             self.assertTrue((Path(tmp) / 'datapackage.json').exists())
 
     def test_media_csv_has_one_row_per_unique_filepath(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             media_df = pd.read_csv(Path(tmp) / 'media.csv')
         unique_filepaths = self.manifest['filepath'].nunique()
         self.assertEqual(len(media_df), unique_filepaths)
 
     def test_observations_csv_has_one_row_per_manifest_row(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             obs_df = pd.read_csv(Path(tmp) / 'observations.csv')
         self.assertEqual(len(obs_df), len(self.manifest))
 
     def test_datapackage_json_is_valid(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             with open(Path(tmp) / 'datapackage.json') as f:
                 data = json.load(f)
         self.assertIsInstance(data, dict)
 
     def test_file_public_flag_propagated(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp, file_public=True)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp, file_public=True)
             media_df = pd.read_csv(Path(tmp) / 'media.csv')
         self.assertTrue(media_df['filePublic'].all())
+
+    def test_deprecated_misspelled_alias_warns_and_exports(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertWarns(DeprecationWarning):
+                export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            self.assertTrue((Path(tmp) / 'datapackage.json').exists())
 
 
 class TestExportFolders(unittest.TestCase):
