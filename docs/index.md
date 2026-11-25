@@ -179,7 +179,8 @@ The functionality of animl can be parcelated into its individual functions to su
     ```
 
 ---
-### Classifer Model Training
+### Classifier Model Training
+{: #training-example}
 
 1. Assuming a file manifest of training data with species labels, first split the data into training, validation and test splits.
    This function splits each label proportionally by the given fractions, by default 0.8 training, 0.1 validation, 0.1 test.
@@ -214,13 +215,13 @@ as a csv containing predicted and ground truth labels for each image.
 
 ---
 ### Re-Identification
-{: re-id}
+{: #re-id-example}
 
 <br><br>
 
 ---
 ### Exports
-{: #export}
+{: #export-example}
 
 
 <br><br>
