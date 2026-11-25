@@ -1050,7 +1050,7 @@ Export a manifest to COCO format.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `manifest`    | pd.DataFrame  | required | DataFrame containing detection results and file paths |
-| `class_dict`  | dict          | required | Dictionary mapping class labels to category IDs (e.g., {"empty": 0, "species_a": 1, "species_b": 2}) |
+| `class_dict`  | dict          | required | Dictionary mapping category IDs to class names (e.g., {0: "empty", 1: "species_a", 2: "species_b"}). Each annotation's category is looked up from its `prediction`; predictions not in `class_dict` get category ID -1 |
 | `out_file`    | str or Path   | required | File path to save the COCO JSON output |
 | `info`        | dict or None  | None     | Optional dictionary containing dataset info to include in COCO output (e.g., {"description": "My Dataset", "version": "1.0"}) |
 | `licenses`    | list of dict or None | None     | Optional list of license dictionaries to include in COCO output (e.g., [{"id": 1, "name": "CC-BY-4.0", "url": "https://creativecommons.org/licenses/by/4.0/"}]) |
