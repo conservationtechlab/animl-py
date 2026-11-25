@@ -191,6 +191,40 @@ class TestExportCoco(unittest.TestCase):
             with self.assertRaises(AssertionError):
                 export_coco(bad_manifest, self.class_list.copy(), out_file)
 
+    def test_annotation_category_id_matches_prediction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = export_coco(self.manifest.copy(), self.class_list.copy(), Path(tmp) / 'coco.json')
+        self.assertTrue(all(a['category_id'] == 1 for a in result['annotations']))
+
+    def test_string_category_keys_from_r_are_accepted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = export_coco(self.manifest.copy(), {'0': 'empty', '1': 'deer'}, Path(tmp) / 'coco.json')
+        self.assertEqual(sorted(c['id'] for c in result['categories']), [0, 1])
+        self.assertTrue(all(a['category_id'] == 1 for a in result['annotations']))
+
+    def test_unknown_prediction_gets_category_id_minus_one(self):
+        manifest = self.manifest.copy()
+        manifest['prediction'] = 'moose'
+        with tempfile.TemporaryDirectory() as tmp:
+            result = export_coco(manifest, self.class_list.copy(), Path(tmp) / 'coco.json')
+        self.assertTrue(all(a['category_id'] == -1 for a in result['annotations']))
+
+    def test_bbox_is_absolute_xywh(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = export_coco(self.manifest.copy(), self.class_list.copy(), Path(tmp) / 'coco.json')
+        ann = result['annotations'][0]
+        # relative [0.1, 0.1, 0.2, 0.2] on a 640x480 image
+        for got, expected in zip(ann['bbox'], [64, 48, 128, 96]):
+            self.assertAlmostEqual(got, expected)
+        self.assertAlmostEqual(ann['area'], 128 * 96)
+
+    def test_one_image_entry_per_file_with_multiple_detections(self):
+        manifest = pd.concat([self.manifest, self.manifest], ignore_index=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            result = export_coco(manifest, self.class_list.copy(), Path(tmp) / 'coco.json')
+        self.assertEqual(len(result['images']), manifest['filepath'].nunique())
+        self.assertEqual(len(result['annotations']), len(manifest))
+
     def test_nan_bbox_rows_skipped_in_annotations(self):
         manifest = _make_coco_manifest(n=2)
         # Make first row have NaN bbox

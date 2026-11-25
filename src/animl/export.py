@@ -18,7 +18,7 @@ from sklearn.model_selection import StratifiedGroupKFold, train_test_split
 
 from animl import __version__
 from animl.file_management import build_file_manifest, save_data, save_json, save_yaml
-from animl.utils.general import _xywh_to_xywhc, _xywh_to_absxyxy
+from animl.utils.general import _xywh_to_xywhc
 
 
 def export_folders(manifest: pd.DataFrame,
@@ -309,13 +309,15 @@ def export_coco(manifest: pd.DataFrame,
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
-        class_dict (dict): dictionary containing class names and their corresponding IDs
+        class_dict (dict): dictionary mapping category IDs to class names, e.g. {0: 'empty', 1: 'deer'};
+            IDs may be ints or numeric strings (as from R). Annotations whose prediction
+            is not in class_dict get category_id -1
         out_file (Union[Path, str]): path to save the COCO formatted file
         info (Optional[dict]): info section of COCO file
         licenses (Optional[list]): licenses section of COCO file
 
     Returns:
-        coco formatted json file saved to out_file
+        dict in COCO format, also saved to out_file as json
     """
     expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame',
                         'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
@@ -332,45 +334,50 @@ def export_coco(manifest: pd.DataFrame,
     if licenses is None:
         licenses = []
 
-    # build categories from class list
+    # build categories from class dict, and a lookup from class name to category id
     categories = []
+    name_to_id = {}
     for key, value in class_dict.items():
-        # TODO: handle case where class_dict keys are strings instead of integers (e.g., from reticulate)
-        category = {'id': int(key),
-                    'name': value,
-                    'supercategory': 'none'}
-        categories.append(category)
+        # keys may be numeric strings, e.g. from an R named list via reticulate
+        category_id = int(key)
+        categories.append({'id': category_id,
+                           'name': value,
+                           'supercategory': 'none'})
+        name_to_id[value] = category_id
 
     # create image id based on filepath
     manifest['image_id'] = manifest.groupby('filepath').ngroup()
 
     images = []
     annotations = []
+    seen_images = set()
     for i_row, row in manifest.iterrows():
 
         width = int(row['width']) if not pd.isna(row['width']) else 0
         height = int(row['height']) if not pd.isna(row['height']) else 0
 
-        image = {'id': row['image_id'],
-                 'file_name': Path(row['filepath']).name,
-                 'width': width,
-                 'height': height}
-        images.append(image)
+        # one image entry per file, even if it has several detections
+        image_id = int(row['image_id'])
+        if image_id not in seen_images:
+            seen_images.add(image_id)
+            images.append({'id': image_id,
+                           'file_name': Path(row['filepath']).name,
+                           'width': width,
+                           'height': height})
 
-        # convert bbox to abs coordinates
-        bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         # skip annotation if bbox is NaN
+        bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         if pd.isna(bbox).any():
             continue
-        bbox = _xywh_to_absxyxy(bbox, width, height)
-        bbox = _xywh_to_absxyxy(bbox, width, height)
+        # COCO bbox is [x_min, y_min, width, height] in absolute pixels
+        bbox = [float(bbox[0]) * width, float(bbox[1]) * height,
+                float(bbox[2]) * width, float(bbox[3]) * height]
         area = bbox[2] * bbox[3]
 
-        # get category id
-        category_id = class_dict.get(row['prediction'], -1)
+        category_id = name_to_id.get(row['prediction'], -1)
 
-        annotation = {'id': i_row,
-                      'image_id': row['image_id'],
+        annotation = {'id': int(i_row),
+                      'image_id': image_id,
                       'category_id': category_id,
                       'frame': int(row.get('frame', 0)),
                       'bbox': bbox,
