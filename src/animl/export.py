@@ -5,18 +5,20 @@ Provides functions for creating, removing, and updating sorted symlinks.
 
 @ Kyra Swanson 2023
 """
+import math
 import os
+import warnings
 import pandas as pd
 from typing import Optional, Union
 from shutil import copy2
 from random import randrange
 from pathlib import Path
 from tqdm import tqdm
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedGroupKFold, train_test_split
 
 from animl import __version__
 from animl.file_management import build_file_manifest, save_data, save_json, save_yaml
-from animl.utils.general import _xywh_to_xywhc, _xywh_to_absxyxy
+from animl.utils.general import _xywh_to_xywhc
 
 
 def export_folders(manifest: pd.DataFrame,
@@ -29,7 +31,7 @@ def export_folders(manifest: pd.DataFrame,
                    unique_name: str = 'uniquename',
                    copy: bool = False) -> pd.DataFrame:
     """
-    Creates symbolic links of images into species folders.
+    Sorts images into species folders by hard linking (or, if copy=True, copying) them.
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
@@ -41,7 +43,7 @@ def export_folders(manifest: pd.DataFrame,
         timestamp_col (str): column containing timestamps in format "%Y-%m-%d %H:%M:%S"
         station_col (str): column containing station names
         unique_name (str): column containing unique file name
-        copy (bool): if true, hard copy
+        copy (bool): if true, copy files; otherwise create hard links
 
     Returns:
         copy of manifest with link path column
@@ -100,7 +102,7 @@ def export_folders(manifest: pd.DataFrame,
 def remove_link(manifest: pd.DataFrame,
                 link_col: str = 'link') -> pd.DataFrame:
     """
-    Deletes symbolic links of images.
+    Deletes the linked or copied images created by export_folders() or export_camtrapR().
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
@@ -124,7 +126,7 @@ def update_labels_from_folders(manifest: pd.DataFrame,
                                export_dir: str,
                                unique_name: str = 'uniquename') -> pd.DataFrame:
     """
-    Update manifest after human review of symlink directories.
+    Update manifest after human review of the species folders created by export_folders().
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
@@ -150,6 +152,76 @@ def update_labels_from_folders(manifest: pd.DataFrame,
     return pd.merge(manifest, ground_truth[[unique_name, 'label']], on=unique_name)
 
 
+def _stratified_grouped_datasplit(manifest: pd.DataFrame,
+                                  groupby_col: str,
+                                  label_col: str = "class",
+                                  val_size: float = 0.1,
+                                  test_size: float = 0.1,
+                                  seed: int = 42):
+    """
+    Returns train_df, val_df, test_df with each group in groupby_col
+    belonging to only one of train, val, or test
+
+    It attempts to stratify by species and meet test/val size requirements
+    as best as possible, but final proportions may deviate from desired.
+    Manual verification and adjustment is recommended afterwards.
+
+    Note:
+        val_size and test_size are rounded to the nearest 5% increment (0.05)
+        to ensure StratifiedGroupKFold uses at most 20 splits
+
+    Args:
+        manifest (pd.DataFrame): DataFrame containing predictions
+        groupby_col (str): column containing group labels (e.g., "sequence")
+        label_col (str): column containing species labels
+        val_size (float): fraction of data to use for validation
+        test_size (float): fraction of data to use for testing
+        seed (int): random seed for reproducibility
+    """
+    # round val_size and test_size to nearest 0.05 and then convert to percentage
+    # val_pct and test_pct must be nonzero (at least 5%)
+    val_pct = int(max(5, round(val_size / 0.05) * 5))
+    test_pct = int(max(5, round(test_size / 0.05) * 5))
+
+    # the number of splits is determined by the gcd of
+    # the test, val, and train size percentages
+    gcd_val = math.gcd(math.gcd(test_pct, val_pct), 100 - test_pct - val_pct)
+    n_splits = 100 // gcd_val
+
+    assert len(manifest[groupby_col].unique()) >= n_splits, (
+        f"There must be at least {n_splits} groups for this test size and val size"
+    )
+
+    num_val_folds = int(val_pct * n_splits / 100)
+    num_test_folds = int(test_pct * n_splits / 100)
+
+    # splits data into n_splits sections with no overlapping groups
+    # and species stratified as best as possible
+    sgkf = StratifiedGroupKFold(n_splits=n_splits,
+                                shuffle=True,
+                                random_state=seed)
+
+    # now we just need to grab the right number of sections to form the val and test df
+    # folds is a list of n_splits folds. every fold isolates one of the n_splits sections
+    # folds[i][1] contains the isolated section indices for that specific fold i.
+    folds = list(sgkf.split(manifest, y=manifest[label_col], groups=manifest[groupby_col]))
+
+    # Grab the relevant folds and retrieve the indices
+    val_folds = folds[:num_val_folds]
+    test_folds = folds[num_val_folds: num_val_folds + num_test_folds]
+    val_indices = [idx for fold in val_folds for idx in fold[1]]
+    test_indices = [idx for fold in test_folds for idx in fold[1]]
+
+    # train indices are whichever indices haven't been selected for val and test
+    train_indices = list(set(manifest.index) - set(test_indices) - set(val_indices))
+
+    train_df = manifest.loc[train_indices]
+    val_df = manifest.loc[val_indices]
+    test_df = manifest.loc[test_indices]
+
+    return train_df, val_df, test_df
+
+
 def export_train_val_test(manifest: pd.DataFrame,
                           label_col: str = "class",
                           file_col: str = 'filepath',
@@ -157,7 +229,8 @@ def export_train_val_test(manifest: pd.DataFrame,
                           out_dir: Optional[str] = None,
                           val_size: float = 0.1,
                           test_size: float = 0.1,
-                          seed: int = 42):
+                          seed: int = 42,
+                          groupby_col: Optional[str] = None):
     """
     Returns train_df, val_df, test_df with label_col stratified.
     test_size and val_size are fractions of the whole dataset (e.g., 0.2 -> 20%).
@@ -171,9 +244,11 @@ def export_train_val_test(manifest: pd.DataFrame,
         val_size (float): fraction of data to use for validation
         test_size (float): fraction of data to use for testing
         seed (int): random seed for reproducibility
+        groupby_col (Optional[str]): column containing group labels
+            If provided, splits data so test/val/train don't share any groups.
     """
-    assert 0 <= test_size < 1
-    assert 0 <= val_size < 1
+    assert 0 < test_size < 1
+    assert 0 < val_size < 1
     assert test_size + val_size < 1
 
     if label_col not in manifest.columns:
@@ -181,26 +256,40 @@ def export_train_val_test(manifest: pd.DataFrame,
     if file_col not in manifest.columns:
         raise ValueError(f"file_col '{file_col}' not found in dataframe columns")
 
+    manifest = manifest.reset_index(drop=True)
     # Keep only the highest confidence entry for each file, or one entry per file if no conf_col
     if conf_col not in manifest.columns:
         manifest = manifest.drop_duplicates(subset=[file_col])
     else:
         idx = manifest.groupby(file_col)[conf_col].idxmax()
-        manifest = manifest.loc[idx].reset_index(drop=True)
+        manifest = manifest.loc[idx]
 
-    # Stage 1: split off test
-    trainval_df, test_df = train_test_split(manifest,
-                                            test_size=test_size,
-                                            stratify=manifest[label_col],
-                                            random_state=seed)
+    manifest = manifest.reset_index(drop=True)
 
-    # Stage 2: split train/val from trainval (val_size is relative to the original dataset)
-    # Compute val fraction relative to trainval size
-    rel_val_size = val_size / (1.0 - test_size)
-    train_df, val_df = train_test_split(trainval_df,
-                                        test_size=rel_val_size,
-                                        stratify=trainval_df[label_col],
-                                        random_state=seed + 1)
+    if groupby_col is not None:
+        if groupby_col not in manifest.columns:
+            raise ValueError(f"groupby_col '{groupby_col}' not found in dataframe columns")
+
+        train_df, val_df, test_df = _stratified_grouped_datasplit(manifest=manifest,
+                                                                  groupby_col=groupby_col,
+                                                                  label_col=label_col,
+                                                                  val_size=val_size,
+                                                                  test_size=test_size,
+                                                                  seed=seed)
+    else:
+        # Stage 1: split off test
+        trainval_df, test_df = train_test_split(manifest,
+                                                test_size=test_size,
+                                                stratify=manifest[label_col],
+                                                random_state=seed)
+
+        # Stage 2: split train/val from trainval (val_size is relative to the original dataset)
+        # Compute val fraction relative to trainval size
+        rel_val_size = val_size / (1.0 - test_size)
+        train_df, val_df = train_test_split(trainval_df,
+                                            test_size=rel_val_size,
+                                            stratify=trainval_df[label_col],
+                                            random_state=seed + 1)
     # save to csv
     if out_dir is not None:
         save_data(train_df, out_dir + "/train_data.csv")
@@ -220,13 +309,15 @@ def export_coco(manifest: pd.DataFrame,
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
-        class_dict (dict): dictionary containing class names and their corresponding IDs
+        class_dict (dict): dictionary mapping category IDs to class names, e.g. {0: 'empty', 1: 'deer'};
+            IDs may be ints or numeric strings (as from R). Annotations whose prediction
+            is not in class_dict get category_id -1
         out_file (Union[Path, str]): path to save the COCO formatted file
         info (Optional[dict]): info section of COCO file
         licenses (Optional[list]): licenses section of COCO file
 
     Returns:
-        coco formatted json file saved to out_file
+        dict in COCO format, also saved to out_file as json
     """
     expected_columns = ('filepath', 'filename', 'filemodifydate', 'frame',
                         'max_detection_conf', 'category', 'conf', 'bbox_x', 'bbox_y', 'bbox_w',
@@ -243,44 +334,50 @@ def export_coco(manifest: pd.DataFrame,
     if licenses is None:
         licenses = []
 
-    # build categories from class list
+    # build categories from class dict, and a lookup from class name to category id
     categories = []
+    name_to_id = {}
     for key, value in class_dict.items():
-        category = {'id': int(key),
-                    'name': value,
-                    'supercategory': 'none'}
-        categories.append(category)
+        # keys may be numeric strings, e.g. from an R named list via reticulate
+        category_id = int(key)
+        categories.append({'id': category_id,
+                           'name': value,
+                           'supercategory': 'none'})
+        name_to_id[value] = category_id
 
     # create image id based on filepath
     manifest['image_id'] = manifest.groupby('filepath').ngroup()
 
     images = []
     annotations = []
+    seen_images = set()
     for i_row, row in manifest.iterrows():
 
         width = int(row['width']) if not pd.isna(row['width']) else 0
         height = int(row['height']) if not pd.isna(row['height']) else 0
 
-        image = {'id': row['image_id'],
-                 'file_name': Path(row['filepath']).name,
-                 'width': width,
-                 'height': height}
-        images.append(image)
+        # one image entry per file, even if it has several detections
+        image_id = int(row['image_id'])
+        if image_id not in seen_images:
+            seen_images.add(image_id)
+            images.append({'id': image_id,
+                           'file_name': Path(row['filepath']).name,
+                           'width': width,
+                           'height': height})
 
-        # convert bbox to abs coordinates
-        bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         # skip annotation if bbox is NaN
+        bbox = [row['bbox_x'], row['bbox_y'], row['bbox_w'], row['bbox_h']]
         if pd.isna(bbox).any():
             continue
-        bbox = _xywh_to_absxyxy(bbox, width, height)
-        bbox = _xywh_to_absxyxy(bbox, width, height)
+        # COCO bbox is [x_min, y_min, width, height] in absolute pixels
+        bbox = [float(bbox[0]) * width, float(bbox[1]) * height,
+                float(bbox[2]) * width, float(bbox[3]) * height]
         area = bbox[2] * bbox[3]
 
-        # get category id
-        category_id = class_dict.get(row['prediction'], -1)
+        category_id = name_to_id.get(row['prediction'], -1)
 
-        annotation = {'id': i_row,
-                      'image_id': row['image_id'],
+        annotation = {'id': int(i_row),
+                      'image_id': image_id,
                       'category_id': category_id,
                       'frame': int(row.get('frame', 0)),
                       'bbox': bbox,
@@ -423,17 +520,17 @@ def export_yolo(train_manifest: pd.DataFrame,
     return output_yml
 
 
-def export_camptrapdp(manifest: pd.DataFrame,
-                      out_dir: str,
-                      file_public: bool = False,
-                      classifier_name: str = None):
+def export_camtrapdp(manifest: pd.DataFrame,
+                     out_dir: str,
+                     file_public: bool = False,
+                     classifier_name: str = None):
     """
     Export a manifest to camtrapdp format.
     Requires scientific name for the species prediction label and bounding box coordinates for each detection.
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
-        out_file (str): path to save the camtrapdp formatted file
+        out_dir (str): directory to save the camtrapdp formatted files
         file_public (bool): whether media files are publicly accessible
         classifier_name (str): name of the classifier used for predictions
     """
@@ -503,6 +600,15 @@ def export_camptrapdp(manifest: pd.DataFrame,
     return media_df, observations_df, datapackage
 
 
+def export_camptrapdp(*args, **kwargs):
+    """
+    Deprecated misspelling of export_camtrapdp(), kept for backwards compatibility.
+    """
+    warnings.warn("export_camptrapdp() is deprecated, use export_camtrapdp() instead.",
+                  DeprecationWarning, stacklevel=2)
+    return export_camtrapdp(*args, **kwargs)
+
+
 def export_camtrapR(manifest: pd.DataFrame,
                     out_dir: str,
                     out_file: Optional[str] = None,
@@ -524,7 +630,7 @@ def export_camtrapR(manifest: pd.DataFrame,
         - timestamp_col (str): column containing timestamps in format "%Y-%m-%d %H:%M:%S"
         - station_col (str): column containing station names
         - unique_name (str): column containing unique file name
-        - copy (bool): if true, hard copy
+        - copy (bool): if true, copy files; otherwise create hard links
     """
     expected_columns = (file_col, station_col, label_col)
     for s in expected_columns:
@@ -637,9 +743,9 @@ def export_megadetector(manifest: pd.DataFrame,
                         detector: str = 'MegaDetector v5a',
                         prompt: bool = True):
     """
-    Converts the .csv file [input_file] to the MD-formatted .json file [out_file].
+    Converts a manifest of detections to a MegaDetector-formatted .json file.
 
-    If [out_file] is None, '.json' will be appended to the input file.
+    If out_file is None, the file is saved to 'detections.json' in the current directory.
 
     # Credit goes to Dan Morris https://github.com/agentmorris/MegaDetector/tree/main
     # Adding a modified script to animl-py repo

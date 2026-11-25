@@ -17,9 +17,11 @@ from PIL import Image
 
 from animl.export import (
     export_camptrapdp,
+    export_camtrapdp,
     export_coco,
     export_folders,
     export_megadetector,
+    export_train_val_test,
     export_yolo,
     remove_link,
     update_labels_from_folders,
@@ -67,8 +69,8 @@ def _make_megadetector_manifest():
     })
 
 
-def _make_camptrapdp_manifest():
-    """Return a minimal manifest for export_camptrapdp."""
+def _make_camtrapdp_manifest():
+    """Return a minimal manifest for export_camtrapdp."""
     return pd.DataFrame({
         'filepath': ['/tmp/img0.jpg', '/tmp/img0.jpg', '/tmp/img1.jpg'],
         'filename': ['img0.jpg', 'img0.jpg', 'img1.jpg'],
@@ -81,6 +83,16 @@ def _make_camptrapdp_manifest():
         'bbox_y': [0.1, 0.2, 0.3],
         'bbox_w': [0.2, 0.1, 0.2],
         'bbox_h': [0.2, 0.1, 0.2],
+    })
+
+
+def _make_trainvaltest_manifest(n_files=20, n_groups=10):
+    """Return a minimal manifest for export_train_val_test"""
+    return pd.DataFrame({
+        'filepath': [f'/tmp/img{i % n_files}.jpg' for i in range(n_files)],
+        'class': ['deer' if i % 2 == 0 else 'elk' for i in range(n_files)],
+        'confidence': [0.5 + (i * 0.01) for i in range(n_files)],
+        'sequence': [f'seq_{i % n_groups}' for i in range(n_files)]
     })
 
 
@@ -179,6 +191,40 @@ class TestExportCoco(unittest.TestCase):
             with self.assertRaises(AssertionError):
                 export_coco(bad_manifest, self.class_list.copy(), out_file)
 
+    def test_annotation_category_id_matches_prediction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = export_coco(self.manifest.copy(), self.class_list.copy(), Path(tmp) / 'coco.json')
+        self.assertTrue(all(a['category_id'] == 1 for a in result['annotations']))
+
+    def test_string_category_keys_from_r_are_accepted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = export_coco(self.manifest.copy(), {'0': 'empty', '1': 'deer'}, Path(tmp) / 'coco.json')
+        self.assertEqual(sorted(c['id'] for c in result['categories']), [0, 1])
+        self.assertTrue(all(a['category_id'] == 1 for a in result['annotations']))
+
+    def test_unknown_prediction_gets_category_id_minus_one(self):
+        manifest = self.manifest.copy()
+        manifest['prediction'] = 'moose'
+        with tempfile.TemporaryDirectory() as tmp:
+            result = export_coco(manifest, self.class_list.copy(), Path(tmp) / 'coco.json')
+        self.assertTrue(all(a['category_id'] == -1 for a in result['annotations']))
+
+    def test_bbox_is_absolute_xywh(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = export_coco(self.manifest.copy(), self.class_list.copy(), Path(tmp) / 'coco.json')
+        ann = result['annotations'][0]
+        # relative [0.1, 0.1, 0.2, 0.2] on a 640x480 image
+        for got, expected in zip(ann['bbox'], [64, 48, 128, 96]):
+            self.assertAlmostEqual(got, expected)
+        self.assertAlmostEqual(ann['area'], 128 * 96)
+
+    def test_one_image_entry_per_file_with_multiple_detections(self):
+        manifest = pd.concat([self.manifest, self.manifest], ignore_index=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            result = export_coco(manifest, self.class_list.copy(), Path(tmp) / 'coco.json')
+        self.assertEqual(len(result['images']), manifest['filepath'].nunique())
+        self.assertEqual(len(result['annotations']), len(manifest))
+
     def test_nan_bbox_rows_skipped_in_annotations(self):
         manifest = _make_coco_manifest(n=2)
         # Make first row have NaN bbox
@@ -259,52 +305,58 @@ class TestExportMegadetector(unittest.TestCase):
         self.assertEqual(data['info']['detector'], 'TestDetector')
 
 
-class TestExportCamptrapdp(unittest.TestCase):
+class TestExportCamtrapdp(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.manifest = _make_camptrapdp_manifest()
+        cls.manifest = _make_camtrapdp_manifest()
 
     def test_media_csv_created(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             self.assertTrue((Path(tmp) / 'media.csv').exists())
 
     def test_observations_csv_created(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             self.assertTrue((Path(tmp) / 'observations.csv').exists())
 
     def test_datapackage_json_created(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             self.assertTrue((Path(tmp) / 'datapackage.json').exists())
 
     def test_media_csv_has_one_row_per_unique_filepath(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             media_df = pd.read_csv(Path(tmp) / 'media.csv')
         unique_filepaths = self.manifest['filepath'].nunique()
         self.assertEqual(len(media_df), unique_filepaths)
 
     def test_observations_csv_has_one_row_per_manifest_row(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             obs_df = pd.read_csv(Path(tmp) / 'observations.csv')
         self.assertEqual(len(obs_df), len(self.manifest))
 
     def test_datapackage_json_is_valid(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp)
             with open(Path(tmp) / 'datapackage.json') as f:
                 data = json.load(f)
         self.assertIsInstance(data, dict)
 
     def test_file_public_flag_propagated(self):
         with tempfile.TemporaryDirectory() as tmp:
-            export_camptrapdp(self.manifest.copy(), out_dir=tmp, file_public=True)
+            export_camtrapdp(self.manifest.copy(), out_dir=tmp, file_public=True)
             media_df = pd.read_csv(Path(tmp) / 'media.csv')
         self.assertTrue(media_df['filePublic'].all())
+
+    def test_deprecated_misspelled_alias_warns_and_exports(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertWarns(DeprecationWarning):
+                export_camptrapdp(self.manifest.copy(), out_dir=tmp)
+            self.assertTrue((Path(tmp) / 'datapackage.json').exists())
 
 
 class TestExportFolders(unittest.TestCase):
@@ -435,6 +487,76 @@ class TestExportYolo(unittest.TestCase):
                 label_files = list((Path(out) / 'labels' / 'train').glob('*.txt'))
                 self.assertGreater(len(label_files), 0)
 
+
+class TestExportTrainValTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.manifest=_make_trainvaltest_manifest()
+
+    def test_missing_column_raises_error(self):
+        with self.assertRaises(ValueError):
+            export_train_val_test(self.manifest, label_col="missing")
+        with self.assertRaises(ValueError):
+            export_train_val_test(self.manifest, file_col="missing")
+        with self.assertRaises(ValueError):
+            export_train_val_test(self.manifest, groupby_col="missing")
+
+    def test_invalid_split_sizes(self):
+        with self.assertRaises(AssertionError):
+            export_train_val_test(self.manifest, val_size=0.6, test_size=0.5)
+
+    def test_export_to_directory(self):
+        with tempfile.TemporaryDirectory() as out:
+            export_train_val_test(
+                self.manifest,
+                label_col="class",
+                file_col="filepath",
+                out_dir=out
+            )
+            self.assertTrue((Path(out) / "train_data.csv").exists())
+            self.assertTrue((Path(out) / "validate_data.csv").exists())
+            self.assertTrue((Path(out) / "test_data.csv").exists())
+
+    def test_confidence_deduplication(self):
+        temp_manifest=pd.concat([self.manifest,pd.DataFrame({
+            'filepath': ['/tmp/img0.jpg'],
+            'class': ['deer'],
+            'confidence': [0.2]
+        })])
+        train, val, test = export_train_val_test(
+            temp_manifest,
+            label_col="class",
+            file_col="filepath",
+            conf_col="confidence",
+            test_size=0.1,
+            val_size=0.1
+        )
+        combined = pd.concat([train, val, test])
+        # Verify total rows decreases by 1 due to deduplication
+        self.assertEqual(len(combined), len(temp_manifest)-1)
+
+        # Ensure the deduplciated file kept its higher
+        # original confidence (not 0.2)
+        a_row = combined[combined['filepath'] == '/tmp/img0.jpg']
+        self.assertNotAlmostEqual(a_row['confidence'].values[0], 0.2)
+
+    def test_insufficient_groups(self):
+        with self.assertRaises(AssertionError):
+            export_train_val_test(self.manifest, val_size=0.15,
+                                  test_size=0.1, groupby_col="sequence")
+
+    def test_grouped_no_leakage(self):
+        train, val, test = export_train_val_test(self.manifest, "class", "filepath",
+                                                 "confidence", val_size=0.1,
+                                                 test_size=0.1,
+                                                 groupby_col="sequence")
+        train_groups = set(train['sequence'])
+        val_groups = set(val['sequence'])
+        test_groups = set(test['sequence'])
+        self.assertTrue(train_groups.isdisjoint(val_groups))
+        self.assertTrue(train_groups.isdisjoint(test_groups))
+        self.assertTrue(val_groups.isdisjoint(test_groups))
 
 if __name__ == '__main__':
     unittest.main()

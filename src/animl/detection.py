@@ -20,8 +20,8 @@ from ultralytics import YOLO
 from animl import file_management
 from animl.model_architecture import MEGADETECTORv5_SIZE, MD_LABELS, MD_MODELS
 from animl.generator import manifest_dataloader, image_to_tensor
-from animl.utils.general import (normalize_bbox, _xyxy_to_xywh, scale_letterbox,
-                                 non_max_suppression, get_torch_device, get_onnx_device)
+from animl.utils.general import (_normalize_bbox, _xyxy_to_xywh, _scale_letterbox,
+                                 _non_max_suppression, get_torch_device, get_onnx_device)
 
 
 def load_detector(model_path: str,
@@ -134,8 +134,10 @@ def detect(detector,
     # Single image filepath
     if isinstance(image_file_names, str):
         # convert img path to tensor
-        batch_from_dataloader = image_to_tensor(image_file_names, letterbox=letterbox,
-                                                resize_width=resize_width, resize_height=resize_height)
+        batch_from_dataloader = image_to_tensor(image_file_names,
+                                                resize_height=resize_height,
+                                                resize_width=resize_width,
+                                                letterbox=letterbox)
         if batch_from_dataloader is None:
             print(f"Error loading image {image_file_names}. Skipping.")
             return []
@@ -146,7 +148,7 @@ def detect(detector,
             # letterboxing should be true
             prediction = detector(batch_from_dataloader[0].to(device))
             pred: list = prediction[0]
-            pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
+            pred = _non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
         # onnx
         elif detector.model_type == "onnx":
             input_name = detector.get_inputs()[0].name
@@ -197,12 +199,14 @@ def detect(detector,
 
     # load checkpoint
     if file_management.check_file(checkpoint_path, output_type="Megadetector raw output"):
-        results = file_management.load_json(checkpoint_path).get('images')
+        checkpoint = file_management.load_json(checkpoint_path)
+        # checkpoints currently use 'images'; accept 'detections' for forward compatibility
+        results = checkpoint.get('detections', checkpoint.get('images', []))
         already_processed = set([r['filepath'] for r in results])
-        manifest = image_file_names[~image_file_names[file_col].isin(already_processed)][[file_col, 'frame']].reset_index(drop=True)
+        manifest = manifest[~manifest[file_col].isin(already_processed)][[file_col, 'frame']].reset_index(drop=True)
         if manifest.empty:
             print("All images have already been processed. Exiting.")
-            return results
+            return results, []
     else:
         results = []
         image_file_names = set(image_file_names)
@@ -213,15 +217,16 @@ def detect(detector,
         device = get_torch_device(user_set=device, quiet=True)
 
     # create dataloader
-    dataloader = manifest_dataloader(manifest, 
-                                     batch_size=batch_size,
-                                     num_workers=num_workers, 
-                                     crop=False,
-                                     normalize=True, 
-                                     letterbox=letterbox,
+    dataloader = manifest_dataloader(manifest,
                                      file_col=file_col,
+                                     crop=False,
                                      resize_width=resize_width,
-                                     resize_height=resize_height)
+                                     resize_height=resize_height,
+                                     architecture=None,  # no specific model architecture for detection
+                                     letterbox=letterbox,
+                                     normalize=True,
+                                     batch_size=batch_size,
+                                     num_workers=num_workers)
 
     start_time = time.time()
     failed_files = []
@@ -229,7 +234,8 @@ def detect(detector,
     count = 0  # counter to track number of batches processed for checkpointing
     for _, batch_from_dataloader in tqdm(enumerate(dataloader), total=len(dataloader)):
         successes, failed = batch_from_dataloader
-        failed_files.extend(failed)
+        # collate_fn reports manifest rows; detect reports their files
+        failed_files.extend(dataloader.dataset.x.iloc[failed][file_col].tolist())
 
         if successes is None:  # entire batch was bad
             continue
@@ -240,9 +246,10 @@ def detect(detector,
             # letterboxing should be true
             prediction = detector(successes[0].to(device))
             pred: list = prediction[0]
-            pred = non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
+            pred = _non_max_suppression(prediction=pred, conf_thres=confidence_threshold)
         # 'onnx'
         elif detector.model_type == "onnx":
+            # TODO add conf threshold for onnx
             input_name = detector.get_inputs()[0].name
             if device == "cpu":
                 pred = detector.run(None, {input_name: successes[0].cpu().numpy()})[0]
@@ -338,7 +345,7 @@ def _convert_detections(predictions: list,
             for j in range(len(conf)):
                 # YOLOv5/MDv5
                 if model_type in {'onnx', 'mdv5', 'yolov5', "mdv1000-redwood", "mdv1000-spruce"}:  # xyxy absolute
-                    bbox = normalize_bbox(boxes[j], image_tensors[i].shape[1:])
+                    bbox = _normalize_bbox(boxes[j], image_tensors[i].shape[1:])
                     bbox = _xyxy_to_xywh(bbox)
                 # YOLOv6+
                 elif model_type in {'yolo', "mdv6", "mdv1000-cedar", "mdv1000-larch", "mdv1000-sorrel"}:  # xyxy relative
@@ -348,7 +355,7 @@ def _convert_detections(predictions: list,
                     return None
                 # rescale bboxes if letterbox was used in preprocessing
                 if letterbox:
-                    bbox = scale_letterbox(bbox, image_tensors[i].shape[1:], image_sizes[i, :])
+                    bbox = _scale_letterbox(bbox, image_tensors[i].shape[1:], image_sizes[i, :])
 
                 # increase md categories by 1
                 if model_type in MD_MODELS:
@@ -402,7 +409,8 @@ def parse_detections(results: Union[list, tuple],
     if isinstance(results, (tuple, list)) and len(results) == 2 and isinstance(results[0], list):
         detections, failed_files = results
     elif isinstance(results, dict):
-        detections = results.get('detections', [])
+        # detection checkpoint files use the 'images' key
+        detections = results.get('detections', results.get('images', []))
         failed_files = results.get('failed_files', [])
     else:
         detections, failed_files = results, []
@@ -417,8 +425,6 @@ def parse_detections(results: Union[list, tuple],
     # check results format
     if not isinstance(detections, list):
         raise TypeError("MD results input must be list")
-    if len(detections) == 0:
-        raise AssertionError("'results' contains no detections")
 
     # load results from file if they have already been parsed
     if file_management.check_file(out_file, output_type="Detections"):
@@ -456,7 +462,10 @@ def parse_detections(results: Union[list, tuple],
                             'bbox_h': np.clip(detection['bbox_h'], 0, 1)}
                     lst.append(data)
 
-    df = pd.DataFrame(lst)
+    # columns are set so an empty result (no images, e.g. all unreadable) can still be merged and filtered
+    columns = ['filepath', 'frame', 'max_detection_conf', 'category', 'category_label',
+               'conf', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']
+    df = pd.DataFrame(lst, columns=columns)
 
     if manifest is not None:
         if file_col in manifest.columns:
@@ -535,6 +544,7 @@ def _save_detection_checkpoint(checkpoint_path: str, results: dict) -> None:
         copyfile(checkpoint_path, checkpoint_tmp_path)
 
     # Write the new checkpoint
+    # TODO(next major): write under 'detections'; 'images' kept so older versions can resume
     file_management.save_json({'images': results}, checkpoint_path, prompt=False)
 
     # Remove the backup checkpoint if it exists

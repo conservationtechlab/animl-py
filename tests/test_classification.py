@@ -6,10 +6,12 @@ Unit tests for animl/classification.py
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import torch
 
 from animl.classification import (
     classify,
@@ -78,21 +80,40 @@ class TestLoadClassifier(unittest.TestCase):
         self.assertIsNotNone(model)
 
     def test_loads_onnx_cpu_with_classes(self):
+        if not self.model_path_onnx.exists():
+            self.skipTest(
+                f"ONNX model not found at {self.model_path_onnx}; skipping until it's "
+                "downloaded as part of the 'model' release assets."
+            )
         model = load_classifier(self.model_path_onnx, self.classes, device='cpu')
         self.assertIsNotNone(model)
 
     def test_loads_onnx_cpu_without_classes(self):
+        if not self.model_path_onnx.exists():
+            self.skipTest(
+                f"ONNX model not found at {self.model_path_onnx}; skipping until it's "
+                "downloaded as part of the 'model' release assets."
+            )
         model = load_classifier(self.model_path_onnx, None, device='cpu')
         self.assertIsNotNone(model)
 
     def test_loads_pytorch_cuda(self):
+        if not torch.cuda.is_available():
+            self.skipTest("No CUDA device available on this runner.")
         model = load_classifier(self.model_path_pt, self.classes, 
                                 device='cuda', architecture='efficientnet_v2_m')
         self.assertIsNotNone(model)
 
     def test_loads_onnx_cuda(self):
+        if not self.model_path_onnx.exists():
+            self.skipTest(
+                f"ONNX model not found at {self.model_path_onnx}; skipping until it's "
+                "downloaded as part of the 'model' release assets."
+            )
+        if not torch.cuda.is_available():
+            self.skipTest("No CUDA device available on this runner.")
         model = load_classifier(self.model_path_onnx, self.classes, device='cuda')
-        self.assertIsNotNone(model)    
+        self.assertIsNotNone(model)
 
 
 
@@ -109,6 +130,10 @@ class TestClassifyPytorch(unittest.TestCase):
                 "skipping TestClassifyPytorch (requires downloaded model files and test data)."
             )
         detections = pd.read_csv(cls.detections_path)
+        examples_dir = Path(__file__).parent.parent / 'examples' / 'Southwest'
+        detections['filepath'] = detections['filepath'].apply(
+            lambda p: str(examples_dir / Path(p).name)
+        )
         cls.detections = detections[detections["category_label"] == "animal"].reset_index(drop=True)
         cls.class_path = load_class_list(cls.class_list_path)
         cls.model, cls.classes = load_classifier(cls.model_path_pt, cls.class_path, device='cpu', architecture='efficientnet_v2_m')
@@ -193,6 +218,34 @@ class TestClassifyPytorch(unittest.TestCase):
         detections.loc[0, 'filepath'] = 'nonexistent_file.jpg'
         result, fnf = classify(self.model, detections, device='cpu', batch_size=1)
         self.assertEqual(result.shape[0], len(self.detections) - len(fnf)) 
+
+    def test_no_detections_loaded_raises(self):
+        detections = self.detections[0:2].copy()
+        detections['filepath'] = 'nonexistent_file.jpg'
+        with self.assertRaisesRegex(ValueError, "None of the detections could be loaded"):
+            classify(self.model, detections, device='cpu', batch_size=1)
+
+    def test_failed_rows_are_positions(self):
+        detections = self.detections.copy()
+        detections.loc[1, 'filepath'] = 'nonexistent_file.jpg'
+        result, failed_rows = classify(self.model, detections, device='cpu', batch_size=2)
+        self.assertEqual(failed_rows, [1])
+        self.assertEqual(result.shape[0], len(self.detections) - 1)
+
+    def test_resume_from_out_file_returns_failed_rows(self):
+        out_dir = tempfile.mkdtemp()
+        try:
+            out_file = str(Path(out_dir) / 'classification_results.csv')
+            detections = self.detections.copy()
+            detections.loc[1, 'filepath'] = 'nonexistent_file.jpg'
+            result, failed_rows = classify(self.model, detections, device='cpu', batch_size=1, out_file=out_file)
+            with patch('builtins.input', return_value='y'):
+                loaded, loaded_failed_rows = classify(self.model, detections, device='cpu', batch_size=1,
+                                                      out_file=out_file)
+            self.assertEqual(loaded_failed_rows, failed_rows)
+            np.testing.assert_allclose(loaded, result, rtol=1e-5)
+        finally:
+            shutil.rmtree(out_dir)
 
     def test_input_contains_non_image_files_raises(self):
         detections = self.detections.copy()
@@ -301,14 +354,33 @@ class TestSingleClassification(unittest.TestCase):
         result = single_classification(self.animals.copy(), None, self.predictions_raw, self.class_list)
         self.assertEqual(len(result), len(self.animals))
 
-    def test_assertion_passes_after_failed_files_filtered(self):
+    def test_assertion_passes_after_failed_rows_filtered(self):
         """
-        Predictions sized for post-filter animals (after failed files removed) should pass.
+        Predictions sized for post-filter animals (after failed rows removed) should pass.
         """
-        failed = ['b.jpg', 'c.jpg']  # 2 removed → 1 remains
+        failed = [1, 2]  # 2 removed → 1 remains
         preds = np.array([[0.9, 0.05, 0.05]])  # matches 1 remaining animal
-        result = single_classification(self.animals.copy(), None, preds, self.class_list, failed_files=failed)
+        result = single_classification(self.animals.copy(), None, preds, self.class_list, failed_rows=failed)
         self.assertEqual(len(result), 1)
+
+    def test_failed_row_drops_only_that_detection(self):
+        """A failed crop drops only its own row, not other detections in the same file."""
+        animals = pd.DataFrame({
+            'filepath': ['a.jpg', 'a.jpg', 'b.jpg'],
+            'extension': ['.jpg', '.jpg', '.jpg'],
+            'conf': [0.9, 0.8, 0.7],
+        })
+        preds = np.array([[0.9, 0.05, 0.05], [0.1, 0.1, 0.8]])  # rows 0 and 2 loaded
+        result = single_classification(animals, None, (preds, [1]), self.class_list)
+        self.assertEqual(result['filepath'].tolist(), ['a.jpg', 'b.jpg'])
+        self.assertEqual(result['prediction'].tolist(), ['cat', 'bird'])
+
+    def test_failed_rows_from_reticulate_dict(self):
+        """Failed rows passed back from R as floats in a dict should drop the same rows."""
+        preds = np.array([[0.9, 0.05, 0.05], [0.1, 0.1, 0.8]])
+        result = single_classification(self.animals.copy(), None,
+                                       {'predictions': preds, 'failed_rows': [1.0]}, self.class_list)
+        self.assertEqual(result['filepath'].tolist(), ['a.jpg', 'c.jpg'])
 
     def test_assertion_passes_single_detection(self):
         """Edge case: single animal detection with one prediction row."""
@@ -344,12 +416,12 @@ class TestSingleClassification(unittest.TestCase):
     def test_assertion_fails_predictions_sized_for_prefiler_count(self):
         """
         Most likely real-world mistake: predictions sized for the original animal count
-        but failed_files filtering reduces animals — sizes no longer match.
+        but failed_rows filtering reduces animals — sizes no longer match.
         """
-        failed = ['c.jpg']  # filters down to 2 animals
+        failed = [2]  # filters down to 2 animals
         # caller incorrectly passes predictions for all 3 original animals
         with self.assertRaisesRegex(AssertionError, "Number of predictions does not match"):
-            single_classification(self.animals.copy(), None, self.predictions_raw, self.class_list, failed_files=failed)
+            single_classification(self.animals.copy(), None, self.predictions_raw, self.class_list, failed_rows=failed)
 
     def test_assertion_fails_empty_predictions_nonempty_animals(self):
         """Empty predictions array against non-empty animals should raise AssertionError."""

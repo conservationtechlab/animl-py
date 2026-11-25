@@ -3,8 +3,10 @@ Unit tests for animl/video_processing.py
 
 @ Kyra Swanson 2023
 """
+import multiprocessing as mp
 import shutil
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch, Mock
@@ -104,12 +106,63 @@ class TestExtractFrames(unittest.TestCase):
             self.assertIsInstance(result, pd.DataFrame)
 
 
+def _write_video(path, n_frames):
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*'mp4v'), 10, (32, 24))
+    for i in range(n_frames):
+        writer.write(np.full((24, 32, 3), i % 255, dtype=np.uint8))
+    writer.release()
+    return str(path)
+
+
+def _slow_count_frames(filepath, frames=5, fps=None, quiet=False):
+    time.sleep(0.5)
+    return [[str(filepath), 0]]
+
+
+class TestExtractFramesParallel(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+
+    def _frames(self, files, **kwargs):
+        kwargs = {"frames": 3, "num_workers": 2, "quiet": True, **kwargs}
+        return extract_frames(pd.DataFrame({"filepath": files}), **kwargs)
+
+    def test_same_frames_as_serial(self):
+        files = [_write_video(Path(self.tmp_dir) / f"v{i}.mp4", 20 + 10 * i) for i in range(3)]
+        parallel = self._frames(files, parallel=True)
+        serial = self._frames(files, parallel=False)
+        pd.testing.assert_frame_equal(parallel, serial)
+        self.assertEqual(len(parallel), 9)
+
+    def test_unreadable_videos(self):
+        """np.vstack([]) raised in parallel mode when no video could be read"""
+        broken = Path(self.tmp_dir) / "broken.mp4"
+        broken.write_bytes(b"not a video")
+        for parallel in (True, False):
+            with self.subTest(parallel=parallel):
+                self.assertTrue(self._frames([str(broken)], parallel=parallel).empty)
+
+    @unittest.skipUnless(mp.get_start_method() == "fork", "the patched function reaches the workers only with fork")
+    def test_videos_run_concurrently(self):
+        """pool.apply waits for each video, so 'parallel' ran one video at a time"""
+        files = [str(Path(self.tmp_dir) / f"v{i}.mp4") for i in range(4)]
+        with patch("animl.video_processing._count_frames", _slow_count_frames):
+            start = time.time()
+            frames = self._frames(files, parallel=True, num_workers=4)
+        self.assertLess(time.time() - start, 1.5)
+        self.assertEqual(frames["filepath"].tolist(), files)
+
+
 class TestCountFrames(unittest.TestCase):
 
     def test_raises_for_nonexistent_file(self):
         """Test that FileNotFoundError is raised for non-existent video."""
-        with self.assertRaises(FileNotFoundError):
-            _count_frames('/nonexistent/video.mp4', frames=5)
+        result = _count_frames('/nonexistent/video.mp4', frames=5)
+        self.assertIsNone(result)
 
     def test_returns_none_for_corrupted_video(self):
         """Test that None is returned for corrupted video that won't open."""
@@ -207,6 +260,41 @@ class TestCountFrames(unittest.TestCase):
                 result = _count_frames(video_path, frames=None, fps=1)
             
             self.assertIsNotNone(result)
+
+
+class TestCountFramesSelection(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+
+    def _selected(self, n_frames, **kwargs):
+        path = _write_video(Path(self.tmp_dir) / "clip.mp4", n_frames)
+        return [frame for _, frame in _count_frames(path, quiet=True, **kwargs)]
+
+    def test_no_repeated_frames_when_asking_for_more_than_the_video_has(self):
+        """increment was 0, so frame 0 was returned for every requested frame"""
+        self.assertEqual(self._selected(3, frames=5), [0, 1, 2])
+
+    def test_no_repeated_frames_when_sampling_faster_than_the_video(self):
+        frames = self._selected(10, fps=25)  # the video is 10 fps
+        self.assertEqual(frames, sorted(set(frames)))
+        self.assertLessEqual(max(frames), 9)
+
+    def test_frames_spacing_unchanged(self):
+        self.assertEqual(self._selected(20, frames=5), [0, 4, 8, 12, 16])
+
+    def test_capture_released_when_video_has_no_frames(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            video_path = str(Path(tmp) / 'video.mp4')
+            Path(video_path).touch()
+            with patch('cv2.VideoCapture') as mock_cap:
+                mock_cap.return_value.isOpened.return_value = True
+                mock_cap.return_value.get.return_value = 0
+                self.assertIsNone(_count_frames(video_path, quiet=True))
+            mock_cap.return_value.release.assert_called_once()
 
 
 class TestGetFrameAsImage(unittest.TestCase):

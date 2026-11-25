@@ -17,7 +17,7 @@ import exiftool
 import yaml
 from typing import Optional, Union
 
-IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', ".tiff", '.tif"'}
+IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.tiff', '.tif', '.ppm'}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".wmv",
                     ".mpg", ".mpeg", ".asf", ".m4v"}
 VALID_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
@@ -88,44 +88,56 @@ def build_file_manifest(image_dir: str,
     invalid = []
 
     if exif:
-        for i, row in files.iterrows():
-            if row["extension"] in IMAGE_EXTENSIONS:
-                try:
-                    img = PIL.Image.open(row['filepath'])
-                    files.loc[i, "width"] = img.size[0]
-                    files.loc[i, "height"] = img.size[1]
-                    files.loc[i, "createdate"] = img.getexif().get(0x0132)
-                except PIL.UnidentifiedImageError:
-                    print(f"Error processing image file {row['filepath']}")
-                    invalid.append(i)
-
-            elif row["extension"] in VIDEO_EXTENSIONS:
-                try:
-                    vid = cv2.VideoCapture(row['filepath'])
-                    # check if video opened successfully
-                    if not vid.isOpened():
-                        print(f"Error opening video file {row['filepath']}")
+        # one exiftool process for all videos, starting one per video was most of the time spent on them
+        et = None
+        exiftool_failed = False
+        try:
+            for i, row in files.iterrows():
+                if row["extension"] in IMAGE_EXTENSIONS:
+                    try:
+                        img = PIL.Image.open(row['filepath'])
+                        files.loc[i, "width"] = img.size[0]
+                        files.loc[i, "height"] = img.size[1]
+                        files.loc[i, "createdate"] = img.getexif().get(0x0132)
+                    except PIL.UnidentifiedImageError:
+                        print(f"Error processing image file {row['filepath']}")
                         invalid.append(i)
-                        continue
-                    files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
-                    files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                except Exception as e:
-                    print(f"Error processing file {row['filepath']}: {e}")
-                    invalid.append(i)
-                # for videos try to get createdate from exiftool, but use filemodifydate as backup
-                try:
-                    with exiftool.ExifToolHelper() as et:
-                        metadata = et.get_metadata(row['filepath'])[0]
-                        if "QuickTime:CreateDate" in metadata:
-                            files.loc[i, "createdate"] = metadata["QuickTime:CreateDate"]
-                        elif "EXIF:DateTimeOriginal" in metadata:
-                            files.loc[i, "createdate"] = metadata["EXIF:DateTimeOriginal"]
-                        else:
-                            files.loc[i, "createdate"] = None
-                except Exception:
-                    print("pyexiftool failed, is exiftool installed and in PATH? \n",
-                          "createdate cannot be determined for videos, falling back to filemodifydate.")
+
+                elif row["extension"] in VIDEO_EXTENSIONS:
+                    try:
+                        vid = cv2.VideoCapture(row['filepath'])
+                        # check if video opened successfully
+                        if not vid.isOpened():
+                            print(f"Error opening video file {row['filepath']}")
+                            invalid.append(i)
+                            continue
+                        files.loc[i, "width"] = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        files.loc[i, "height"] = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    except Exception as e:
+                        print(f"Error processing file {row['filepath']}: {e}")
+                        invalid.append(i)
+                    # for videos try to get createdate from exiftool, but use filemodifydate as backup
                     files.loc[i, "createdate"] = None
+                    if not exiftool_failed:
+                        try:
+                            if et is None:
+                                et = exiftool.ExifToolHelper()
+                            metadata = et.get_metadata(row['filepath'])[0]
+                            if "QuickTime:CreateDate" in metadata:
+                                files.loc[i, "createdate"] = metadata["QuickTime:CreateDate"]
+                            elif "EXIF:DateTimeOriginal" in metadata:
+                                files.loc[i, "createdate"] = metadata["EXIF:DateTimeOriginal"]
+                        except Exception:
+                            # exiftool missing: say so once, not for every video
+                            if et is None or not et.running:
+                                exiftool_failed = True
+                                print("pyexiftool failed, is exiftool installed and in PATH? \n",
+                                      "createdate cannot be determined for videos, falling back to filemodifydate.")
+                            else:
+                                print(f"exiftool could not read {row['filepath']}, falling back to filemodifydate.")
+        finally:
+            if et is not None and et.running:
+                et.terminate()
 
         # determine local timezone for conversion
         local_tz = datetime.now().astimezone().tzinfo
@@ -218,7 +230,8 @@ class WorkingDirectory():
 
 def save_data(data: pd.DataFrame,
               out_file: Union[Path, str],
-              prompt: bool = True) -> None:
+              prompt: bool = True,
+              index: bool = False) -> None:
     """
     Save data to given file.
 
@@ -226,6 +239,7 @@ def save_data(data: pd.DataFrame,
         data (pd.DataFrame): the dataframe to be saved
         out_file (Union[Path, str]): full path to save file to
         prompt (bool): prompts the user to confirm overwrite
+        index (bool): if True, saves the indices in the output file
 
     Returns:
         None
@@ -234,11 +248,11 @@ def save_data(data: pd.DataFrame,
         prompt = "Output file exists, would you like to overwrite? y/n: "
         if input(prompt).lower() != "y":
             return
+
+    if Path(out_file).parent.exists():
+        data.to_csv(out_file, index=index)
     else:
-        if Path(out_file).parent.exists():
-            data.to_csv(out_file, index=False)
-        else:
-            raise AssertionError('Cannot save, directory does not exis.')
+        raise AssertionError('Cannot save, directory does not exist.')
 
 
 def load_data(file: Union[Path, str]) -> pd.DataFrame:
@@ -332,6 +346,45 @@ def load_yaml(file: Union[Path, str]) -> dict:
         raise AssertionError("Error. Expecting a .yaml or .yml file.")
 
 
+def save_failed_rows(manifest: pd.DataFrame,
+                     failed_rows: list,
+                     out_file: Union[Path, str],
+                     file_col: str = "filepath") -> None:
+    """
+    Save the manifest rows that failed to load, or remove an old file if none failed.
+
+    Args:
+        manifest (pd.DataFrame): manifest passed to the dataloader
+        failed_rows (list): positions in manifest of the rows that failed to load
+        out_file (Union[Path, str]): full path to save file to
+        file_col (str): column name containing file paths
+
+    Returns:
+        None
+    """
+    if len(failed_rows) > 0:
+        failed = manifest.iloc[failed_rows][[file_col, 'frame']].rename(columns={file_col: 'filepath'})
+        failed.insert(0, 'row', failed_rows)
+        failed.to_csv(out_file, index=False)
+    elif Path(out_file).is_file():
+        Path(out_file).unlink()
+
+
+def load_failed_rows(file: Union[Path, str]) -> list:
+    """
+    Load the manifest rows that failed to load from file.
+
+    Args:
+        file (Union[Path, str]): full path to failed rows file
+
+    Returns:
+        list of positions of the rows that failed to load, empty if file does not exist
+    """
+    if not Path(file).is_file():
+        return []
+    return pd.read_csv(file)['row'].astype(int).tolist()
+
+
 def check_file(file: Union[Path, str], output_type: Union[Path, str] = None) -> bool:
     """
     Check for files existence and prompt user if they want to load.
@@ -367,6 +420,8 @@ def class_list_to_dict(class_list: pd.DataFrame,
 
     Args:
         class_list (pd.DataFrame): dataframe with 'class' and 'id' columns
+        id_col (str): column name for class ids, defaults to 'id'
+        class_col (str): column name for class names, defaults to 'class'
 
     Returns:
         class_dict (dict): dictionary mapping ids to class names
