@@ -31,7 +31,7 @@ def export_folders(manifest: pd.DataFrame,
                    unique_name: str = 'uniquename',
                    copy: bool = False) -> pd.DataFrame:
     """
-    Creates symbolic links of images into species folders.
+    Sorts images into species folders by hard linking (or, if copy=True, copying) them.
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
@@ -43,7 +43,7 @@ def export_folders(manifest: pd.DataFrame,
         timestamp_col (str): column containing timestamps in format "%Y-%m-%d %H:%M:%S"
         station_col (str): column containing station names
         unique_name (str): column containing unique file name
-        copy (bool): if true, hard copy
+        copy (bool): if true, copy files; otherwise create hard links
 
     Returns:
         copy of manifest with link path column
@@ -102,7 +102,7 @@ def export_folders(manifest: pd.DataFrame,
 def remove_link(manifest: pd.DataFrame,
                 link_col: str = 'link') -> pd.DataFrame:
     """
-    Deletes symbolic links of images.
+    Deletes the linked or copied images created by export_folders() or export_camtrapR().
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
@@ -126,7 +126,7 @@ def update_labels_from_folders(manifest: pd.DataFrame,
                                export_dir: str,
                                unique_name: str = 'uniquename') -> pd.DataFrame:
     """
-    Update manifest after human review of symlink directories.
+    Update manifest after human review of the species folders created by export_folders().
 
     Args:
         manifest (pd.DataFrame): dataframe containing images and associated predictions
@@ -623,7 +623,7 @@ def export_camtrapR(manifest: pd.DataFrame,
         - timestamp_col (str): column containing timestamps in format "%Y-%m-%d %H:%M:%S"
         - station_col (str): column containing station names
         - unique_name (str): column containing unique file name
-        - copy (bool): if true, hard copy
+        - copy (bool): if true, copy files; otherwise create hard links
     """
     expected_columns = (file_col, station_col, label_col)
     for s in expected_columns:
@@ -736,9 +736,9 @@ def export_megadetector(manifest: pd.DataFrame,
                         detector: str = 'MegaDetector v5a',
                         prompt: bool = True):
     """
-    Converts the .csv file [input_file] to the MD-formatted .json file [out_file].
+    Converts a manifest of detections to a MegaDetector-formatted .json file.
 
-    If [out_file] is None, '.json' will be appended to the input file.
+    If out_file is None, the file is saved to 'detections.json' in the current directory.
 
     # Credit goes to Dan Morris https://github.com/agentmorris/MegaDetector/tree/main
     # Adding a modified script to animl-py repo

@@ -138,7 +138,7 @@ def _get_model_transforms(resize_height,
         if resize_width != BIOCLIP_CLASSIFIER_SIZE or resize_height != BIOCLIP_CLASSIFIER_SIZE:
             resize_width, resize_height = (BIOCLIP_CLASSIFIER_SIZE, BIOCLIP_CLASSIFIER_SIZE)
             print(
-                "[WARNING] Changing resize_width and resize_height to 224x224 "
+                f"[WARNING] Changing resize_width and resize_height to {BIOCLIP_CLASSIFIER_SIZE}x{BIOCLIP_CLASSIFIER_SIZE} "
                 "to satisfy BioClip input requirements."
             )
 
@@ -157,7 +157,7 @@ def _get_model_transforms(resize_height,
             resize_width = MIEWID_SIZE
             resize_height = MIEWID_SIZE
             print(
-                "[WARNING] Changing resize_width and resize_height to 128x128 "
+                f"[WARNING] Changing resize_width and resize_height to {MIEWID_SIZE}x{MIEWID_SIZE} "
                 "to satisfy MiewID input requirements."
             )
 
