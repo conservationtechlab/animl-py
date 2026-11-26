@@ -121,7 +121,7 @@ def _get_model_transforms(resize_height,
         resize_width (int): resize image width
         architecture (str, optional): Model architecture name. If None, falls
             back to the default transform pipeline.
-            ["bioclip_2", "miewid", "efficientnet_v2_m", "convnext_base", "pytorch", "onnx"]
+            ["bioclip_2", "miewid", "efficientnet_v2_m", "convnext_base"]
         letterbox (bool): whether to use letterbox resizing for the default pipeline.
 
     Returns:

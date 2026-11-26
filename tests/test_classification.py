@@ -115,6 +115,48 @@ class TestLoadClassifier(unittest.TestCase):
         model = load_classifier(self.model_path_onnx, self.classes, device='cuda')
         self.assertIsNotNone(model)
 
+    def test_pytorch_sets_architecture_and_framework(self):
+        model, _ = load_classifier(self.model_path_pt, self.classes,
+                                   device='cpu', architecture='efficientnet_v2_m')
+        self.assertEqual(model.architecture, 'efficientnet_v2_m')
+        self.assertEqual(model.framework, 'pytorch')
+
+    def test_onnx_keeps_given_architecture(self):
+        """ONNX models keep the architecture they were given, so preprocessing can match it."""
+        if not self.model_path_onnx.exists():
+            self.skipTest(f"ONNX model not found at {self.model_path_onnx}")
+        model, _ = load_classifier(self.model_path_onnx, self.classes, device='cpu',
+                                   architecture='bioclip_2')
+        self.assertEqual(model.architecture, 'bioclip_2')
+        self.assertEqual(model.framework, 'onnx')
+
+
+
+class _StopAfterDataloader(Exception):
+    pass
+
+
+class TestClassifyFrameworkAndArchitecture(unittest.TestCase):
+    """classify picks the runtime from the framework and the preprocessing from the architecture."""
+
+    def _dataloader_architecture(self, model):
+        with patch('animl.classification.generator.manifest_dataloader',
+                   side_effect=_StopAfterDataloader) as dl:
+            with self.assertRaises(_StopAfterDataloader):
+                classify(model, 'img.jpg', device='cpu')
+        return dl.call_args.kwargs['architecture']
+
+    def test_onnx_model_uses_its_architecture_for_preprocessing(self):
+        model = type('FakeOnnx', (), {'framework': 'onnx', 'architecture': 'bioclip_2'})()
+        self.assertEqual(self._dataloader_architecture(model), 'bioclip_2')
+
+    def test_legacy_framework_in_architecture_uses_default_preprocessing(self):
+        model = type('LegacyOnnx', (), {'architecture': 'onnx'})()
+        self.assertIsNone(self._dataloader_architecture(model))
+
+    def test_torch_model_without_attributes_is_accepted(self):
+        model = torch.nn.Linear(2, 2)
+        self.assertIsNone(self._dataloader_architecture(model))
 
 
 class TestClassifyPytorch(unittest.TestCase):
@@ -173,7 +215,7 @@ class TestClassifyPytorch(unittest.TestCase):
             classify(self.model, {"not": "a_dataframe"}, device='cpu', batch_size=1)
 
     def test_non_model_raises(self):
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(TypeError):
             classify("not_a_model", self.detections[0:1].copy(), device='cpu', batch_size=1) 
     
     def test_non_string_file_col_raises(self):
