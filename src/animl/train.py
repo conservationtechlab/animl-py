@@ -110,7 +110,13 @@ def load_classifier_checkpoint(model_path, model, optimizer, scheduler, scaler, 
         # load state dict and apply weights to model
         print(f'Resuming from epoch {start_epoch}')
         checkpoint = torch.load(open(f'{model_path}/{start_epoch}.pt', 'rb'), map_location=device)
-        model.load_state_dict(checkpoint['model'], strict=False)
+        if getattr(model, 'architecture', None) == 'bioclip_2':
+            # bioclip checkpoints only hold lora + classifier weights, so backbone keys are expected to be missing
+            result = model.load_state_dict(checkpoint['model'], strict=False)
+            if result.unexpected_keys:
+                print(f'WARNING: unexpected keys in checkpoint ignored: {result.unexpected_keys}')
+        else:
+            model.load_state_dict(checkpoint['model'], strict=True)
         # Model is assumed to be on the correct device already (moved in main before optimizer creation)
 
         # load optimzier state if available
@@ -434,9 +440,12 @@ def train_classifier(cfg):
     else:  # do nothing scheduler
         scheduler = LambdaLR(optim, lr_lambda=lambda epoch: 1)
 
-    # get mixed precision flag
+    # get mixed precision flag; mixed precision is only used on CUDA devices
     mixed_precision = cfg.get('mixed_precision', False)
-    # get mixed precision flag
+    if mixed_precision and (device == 'cpu' or not torch.cuda.is_available()):
+        print('Mixed precision requires a CUDA device; training in full precision (fp32).')
+        mixed_precision = False
+    # get mixed precision dtype
     precision_dtype = cfg.get('precision_dtype', 'float16')
 
     if precision_dtype == 'bfloat16':
@@ -446,7 +455,7 @@ def train_classifier(cfg):
     else:
         precision_dtype = torch.float16
 
-    if mixed_precision and device != 'cpu' and torch.cuda.is_available():
+    if mixed_precision:
         # Creates a GradScaler once at the beginning of training.
         scaler = GradScaler('cuda', enabled=True)
     else:
