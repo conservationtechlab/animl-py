@@ -121,14 +121,16 @@ def _get_model_transforms(resize_height,
         resize_width (int): resize image width
         architecture (str, optional): Model architecture name. If None, falls
             back to the default transform pipeline.
-            ["bioclip_2", "miewid", "efficientnet_v2_m", "convnext_base", "pytorch", "onnx"]
+            ["bioclip_2", "miewid", "efficientnet_v2_m", "convnext_base"]
         letterbox (bool): whether to use letterbox resizing for the default pipeline.
 
     Returns:
         torchvision.transforms.v2.Compose: Complete preprocessing pipeline.
     """
-    if not isinstance(resize_height, int) or not isinstance(resize_width, int):
-        raise TypeError("resize_height and resize_width must be integers")
+    # accept ints, numpy ints, and whole-number floats (e.g. 1280.0 from R via reticulate)
+    if int(resize_height) != resize_height or int(resize_width) != resize_width:
+        raise TypeError("resize_height and resize_width must be whole numbers")
+    resize_height, resize_width = int(resize_height), int(resize_width)
 
     if not isinstance(letterbox, bool):
         raise TypeError("letterbox must be a boolean value")
@@ -483,10 +485,9 @@ class TrainGenerator(Dataset):
             label = self.categories[img_row[self.label_col]]
             cache_path = self._get_cache_path(img_row)
 
+            # the cache stores the original (cropped) image, before any transform or normalization
             if cache_path is not None and Path(cache_path).exists():
                 img = Image.open(cache_path).convert("RGB")
-                img_tensor = self.transform(img)
-                return img_tensor, label, image_name, idx
             else:
                 try:
                     img = Image.open(image_name).convert('RGB')
@@ -526,14 +527,15 @@ class TrainGenerator(Dataset):
                         bottom = min(height, int(bottom))
                         img = img.crop((left, top, right, bottom))
 
-                img_tensor = self.transform(img)
-
-                if not self.normalize:  # un-normalize
-                    img_tensor = img_tensor * 255
-
-                if self.cache_dir is not None:
+                if cache_path is not None:
                     img.save(cache_path, format="JPEG")
-                img.close()
+
+            # same transform + scaling whether the image came from the cache or from disk
+            img_tensor = self.transform(img)
+            img.close()
+
+            if not self.normalize:  # un-normalize
+                img_tensor = img_tensor * 255
 
             return img_tensor, label, str(image_name), idx
 

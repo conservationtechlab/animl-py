@@ -63,7 +63,9 @@ def count_detections(detections: pd.DataFrame,
                      maxdiff: int = 60,
                      max_n: int = None,
                      count_type: str = "max",
-                     classes: list = None) -> pd.DataFrame:
+                     classes: list = None,
+                     file_col: str = "filepath",
+                     timestamp_col: str = "datetime") -> pd.DataFrame:
     """
     Count detections per species across image sequences.
 
@@ -73,17 +75,21 @@ def count_detections(detections: pd.DataFrame,
         confidence_threshold (float): minimum confidence to consider a detection
         iou_threshold (float): IOU threshold for duplicate detection removal
         maxdiff (int): max time difference in seconds between images in a sequence
-        max_n (int): optional max number of images per sequence to consider
+        max_n (int): optional max number of images per sequence to consider,
+            taking the earliest images in capture order
         count_type (str): "max" or "mean" to determine how to aggregate counts
         classes (list): list of category labels to count
+        file_col (str): column name containing the image file path
+        timestamp_col (str): column name containing the image timestamp
 
     Returns:
-        pd.DataFrame: one row per sequence with averaged counts per species
+        pd.DataFrame: one row per sequence with aggregated (max or mean) counts per species
     """
 
     # Step 1: assign sequence IDs using station and datetime already in detections
     detections = file_management.sequence_calculation(
-        detections, station_col=station_col, maxdiff=maxdiff
+        detections, station_col=station_col, file_col=file_col,
+        timestamp_col=timestamp_col, maxdiff=maxdiff
     )
 
     # Step 2: get unique classes from detections if not specified
@@ -105,7 +111,10 @@ def count_detections(detections: pd.DataFrame,
 
         image_counts = []
 
-        for i, (filepath, image_group) in enumerate(seq_group.groupby("filepath")):
+        # keep images in capture order so max_n takes the first N images
+        seq_group = seq_group.sort_values([timestamp_col, file_col], kind="stable")
+
+        for i, (filepath, image_group) in enumerate(seq_group.groupby(file_col, sort=False)):
 
             # optionally cap number of images per sequence
             if max_n is not None and i >= max_n:
@@ -123,7 +132,7 @@ def count_detections(detections: pd.DataFrame,
 
             image_counts.append(counts)
 
-        # Step 6: average counts across images in the sequence
+        # Step 6: aggregate counts across images in the sequence
         if image_counts:
             if count_type == "max":
                 avg_counts = {cls: max(c[cls] for c in image_counts) for cls in classes}

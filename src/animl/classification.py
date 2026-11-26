@@ -16,8 +16,8 @@ import onnxruntime
 
 from animl import generator, file_management
 from animl.model_architecture import BioCLIP, EfficientNet, ConvNeXtBase
-from animl.utils.general import (get_torch_device, get_onnx_device, _softmax,
-                                 _tensor_to_onnx, NUM_THREADS)
+from animl.utils.general import (get_torch_device, get_onnx_device, get_model_framework,
+                                 _softmax, _tensor_to_onnx, NUM_THREADS)
 
 FAILED_FILES_NAME = "classification_failed_files.txt"
 
@@ -35,11 +35,13 @@ def load_classifier(model_path: str,
         classes (int | str | Path | pd.DataFrame): number of classes, path to associated class list,
                                                    or pd.DataFrame of class list
         device (str): specify to run on cpu or gpu
-        architecture (str): expected model architecture
+        architecture (str): model architecture (e.g. "efficientnet_v2_m", "convnext_base", "bioclip_2").
+            Required to build .pt models; for .pth and .onnx files it sets the image preprocessing.
         quiet (bool): whether to suppress GPU warnings
 
     Returns:
-        model: model object of given architecture with loaded weights
+        model: model object of given architecture with loaded weights, with 'architecture'
+            and 'framework' ("pytorch" or "onnx") attributes set
         class_list: list of class names
     '''
     class_list = None
@@ -74,6 +76,8 @@ def load_classifier(model_path: str,
             model = BioCLIP(num_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
+        model.architecture = architecture
+        model.framework = "pytorch"
         return model, class_list
 
     # load a specific model file
@@ -110,6 +114,7 @@ def load_classifier(model_path: str,
 
             # set architecture
             model.architecture = architecture
+            model.framework = "pytorch"
 
         # PyTorch full modelspeak
         elif model_path.suffix == '.pth':
@@ -118,12 +123,14 @@ def load_classifier(model_path: str,
             model = torch.load(model_path, map_location=device)
             model.to(device)
             model.eval()
-            model.architecture = "pytorch"  # unknown model type
+            model.architecture = architecture
+            model.framework = "pytorch"
         elif model_path.suffix == '.onnx':
             providers = get_onnx_device(user_set=device)
             model = onnxruntime.InferenceSession(model_path,
                                                  providers=providers)
-            model.architecture = "onnx"
+            model.architecture = architecture
+            model.framework = "onnx"
             # try to load class dict from metadata
             props = model.get_modelmeta().custom_metadata_map
             if "class_dict" in props:
@@ -213,14 +220,16 @@ def classify(model,
     else:
         pass
 
-    # check if model has architecture attribute
-    if not hasattr(model, "architecture"):
-        raise AttributeError("""Model object must have 'architecture' attribute indicating model type
-                              (e.g. 'pytorch', 'onnx', etc.)""")
-    architecture = model.architecture
+    # framework decides how to run the model, architecture decides the image preprocessing
+    framework = get_model_framework(model)
+    architecture = getattr(model, "architecture", None)
+    if architecture in ("pytorch", "onnx"):  # older convention stored the framework here
+        architecture = None
+    if framework == "pytorch" and not isinstance(model, torch.nn.Module):
+        raise TypeError(f"Model must be a torch.nn.Module or onnxruntime.InferenceSession, got {type(model).__name__}")
 
     # move to device if not already there
-    if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
+    if framework == "pytorch":
         device = get_torch_device(user_set=device)
         model = model.to(device)  # move model to given device before inference
 
@@ -286,19 +295,19 @@ def classify(model,
             if collated is None:  # entire batch was bad
                 continue
             # pytorch
-            if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
+            if framework == "pytorch":
                 data = collated[0]
                 data = data.to(device)
                 output = model(data)
                 raw_output.extend(torch.nn.functional.softmax(output, dim=1).cpu().detach().numpy())
             # onnx
-            elif architecture == "onnx":
+            elif framework == "onnx":
                 data = collated[0]
                 data = _tensor_to_onnx(data)
                 output = model.run(None, {model.get_inputs()[0].name: data})[0]
                 raw_output.extend(_softmax(output))
             else:
-                raise AssertionError("Model architecture not supported.")
+                raise AssertionError(f"Model framework not supported: {framework}")
 
     if len(raw_output) == 0:
         raise ValueError("None of the detections could be loaded; see failed rows above.")

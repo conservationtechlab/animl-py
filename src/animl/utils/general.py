@@ -113,6 +113,28 @@ def get_onnx_device(user_set=None, quiet=False):
     return providers
 
 
+def get_model_framework(model):
+    """
+    Return the framework used to run a model: "onnx" or "pytorch".
+
+    Uses the model's 'framework' attribute when set (animl loaders set it).
+    Otherwise falls back to the model type, and to the older convention of
+    storing "onnx"/"pytorch" in 'architecture'.
+
+    Args:
+        model: loaded model object
+
+    Returns:
+        str: "onnx" or "pytorch"
+    """
+    framework = getattr(model, 'framework', None)
+    if framework is not None:
+        return framework
+    if isinstance(model, ort.InferenceSession) or getattr(model, 'architecture', None) == 'onnx':
+        return 'onnx'
+    return 'pytorch'
+
+
 def init_seed(seed):
     '''
     Initalize the seed for all random number generators.

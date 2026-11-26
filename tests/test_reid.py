@@ -273,6 +273,7 @@ class TestLoadMiew(unittest.TestCase):
         model = load_miew(str(self.model_path_pt), device='cpu')
         self.assertIsNotNone(model)
         self.assertEqual(model.architecture, 'miewid')
+        self.assertEqual(model.framework, 'pytorch')
 
     def test_pytorch_model_is_in_eval_mode(self):
         if not self.model_path_pt.exists():
@@ -285,7 +286,8 @@ class TestLoadMiew(unittest.TestCase):
             self.skipTest("ONNX model not found")
         model = load_miew(str(self.model_path_onnx), device='cpu')
         self.assertIsNotNone(model)
-        self.assertEqual(model.architecture, 'onnx')
+        self.assertEqual(model.architecture, 'miewid')
+        self.assertEqual(model.framework, 'onnx')
 
 
 class TestExtractMiewEmbeddings(unittest.TestCase):
@@ -333,7 +335,8 @@ class TestExtractMiewEmbeddings(unittest.TestCase):
 
 class _FakeOnnxMiew:
     """Embedding = (mean red value, 1), so each row can be traced to its image"""
-    architecture = 'onnx'
+    architecture = 'miewid'
+    framework = 'onnx'
 
     def get_inputs(self):
         return [SimpleNamespace(name='input')]

@@ -16,7 +16,7 @@ from scipy.spatial.distance import cdist
 import torch.nn.functional as F
 
 from animl.model_architecture import MiewIdNet, MIEWID_SIZE
-from animl.utils.general import get_torch_device, get_onnx_device
+from animl.utils.general import get_torch_device, get_onnx_device, get_model_framework
 from animl.generator import manifest_dataloader
 
 
@@ -35,7 +35,8 @@ def load_miew(file_path: str,
     if Path(file_path).suffix == '.onnx':
         providers = get_onnx_device(user_set=device)
         miew = ort.InferenceSession(file_path, providers=providers)
-        miew.architecture = 'onnx'  # treat like generic onnx model
+        miew.architecture = 'miewid'
+        miew.framework = 'onnx'
         return miew
 
     else:
@@ -46,6 +47,7 @@ def load_miew(file_path: str,
         miew.to(device)
         miew.device = device
         miew.architecture = 'miewid'
+        miew.framework = 'pytorch'
         miew.load_state_dict(weights, strict=False)
         miew.eval()
     return miew
@@ -78,7 +80,7 @@ def extract_miew_embeddings(miew_model,
     rows = []  # manifest row of each embedding
     failed_rows = []
 
-    if miew_model.architecture == 'onnx':
+    if get_model_framework(miew_model) == 'onnx':
         dataloader = manifest_dataloader(manifest,
                                          file_col=file_col,
                                          crop=True,
