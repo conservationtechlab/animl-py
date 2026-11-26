@@ -136,6 +136,25 @@ class TestCountDetections(unittest.TestCase):
                                   maxdiff=60, max_n=1)
         self.assertFalse(result.empty)
 
+    def test_max_n_uses_capture_order(self):
+        """max_n should keep the earliest images by timestamp, not by filename."""
+        # z.jpg is first in time (2 animals), a.jpg is later (1 animal)
+        rows = [
+            _make_detection_row(filepath='z.jpg', datetime='2024-01-01 12:00:00', bbox_x=0.0),
+            _make_detection_row(filepath='z.jpg', datetime='2024-01-01 12:00:00', bbox_x=0.6),
+            _make_detection_row(filepath='a.jpg', datetime='2024-01-01 12:00:05'),
+        ]
+        result = count_detections(_make_detections_df(rows), station_col='station',
+                                  maxdiff=60, max_n=1)
+        self.assertEqual(result['adult'].iloc[0], 2)
+
+    def test_custom_file_col(self):
+        """A manifest with a non-default file column should be counted."""
+        df = _make_detections_df([_make_detection_row(filepath=fp) for fp in ['a.jpg', 'b.jpg']])
+        df = df.rename(columns={'filepath': 'file'})
+        result = count_detections(df, station_col='station', maxdiff=60, file_col='file')
+        self.assertEqual(result['adult'].iloc[0], 1)
+
 
 if __name__ == '__main__':
     unittest.main()
