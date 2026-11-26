@@ -74,6 +74,7 @@ def load_classifier(model_path: str,
             model = BioCLIP(num_classes)
         else:  # can only resume models from a directory at this time
             raise AssertionError('Please provide the correct model')
+        model.architecture = architecture
         return model, class_list
 
     # load a specific model file
