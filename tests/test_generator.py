@@ -238,6 +238,18 @@ class TestGetModelTransforms(unittest.TestCase):
         with self.assertRaises(TypeError):
             _get_model_transforms(64, "64")
 
+    def test_non_whole_float_size_raises(self):
+        """A fractional size should raise TypeError."""
+        with self.assertRaises(TypeError):
+            _get_model_transforms(64.5, 64)
+
+    def test_whole_float_and_numpy_int_sizes_accepted(self):
+        """Whole-number floats (from R) and numpy ints should be coerced to int."""
+        img = Image.new("RGB", (100, 80))
+        for h, w in [(64.0, 64.0), (np.int64(64), np.int64(64)), (np.float64(64), 64)]:
+            result = _get_model_transforms(h, w)(img)
+            self.assertEqual(result.shape, (3, 64, 64))
+
     def test_invalid_letterbox_type_raises(self):
         """Non-boolean letterbox should raise TypeError."""
         with self.assertRaises(TypeError):
@@ -591,6 +603,29 @@ class TestTrainGeneratorGetItem(unittest.TestCase):
         ds[0]   # writes cache
         tensor, _, _, _ = ds[0]   # reads from cache
         self.assertIsNotNone(tensor)
+
+    def test_cache_hit_matches_miss_when_not_normalized(self):
+        """With normalize=False, cached and uncached reads should share the same [0, 255] scale."""
+        cache = Path(self.tmp_dir) / "train_cache3"
+        ds = TrainGenerator(self.manifest, self.classes, self.transform,
+                            crop=False, normalize=False, cache_dir=str(cache))
+        miss, _, path_miss, _ = ds[0]   # writes cache
+        hit, _, path_hit, _ = ds[0]     # reads from cache
+        self.assertGreater(miss.max().item(), 1.0)
+        self.assertGreater(hit.max().item(), 1.0)
+        # jpeg re-encoding of the cached image allows small differences
+        self.assertLess((miss - hit).abs().mean().item(), 5.0)
+        self.assertEqual(path_miss, path_hit)
+
+    def test_cache_reusable_across_normalize_settings(self):
+        """A cache built with normalize=True should give [0, 255] tensors when reused with normalize=False."""
+        cache = Path(self.tmp_dir) / "train_cache4"
+        TrainGenerator(self.manifest, self.classes, self.transform,
+                       crop=False, normalize=True, cache_dir=str(cache))[0]
+        ds = TrainGenerator(self.manifest, self.classes, self.transform,
+                            crop=False, normalize=False, cache_dir=str(cache))
+        tensor, _, _, _ = ds[0]   # reads from cache
+        self.assertGreater(tensor.max().item(), 1.0)
 
 
 # ---------------------------------------------------------------------------

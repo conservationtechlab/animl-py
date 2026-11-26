@@ -485,10 +485,9 @@ class TrainGenerator(Dataset):
             label = self.categories[img_row[self.label_col]]
             cache_path = self._get_cache_path(img_row)
 
+            # the cache stores the original (cropped) image, before any transform or normalization
             if cache_path is not None and Path(cache_path).exists():
                 img = Image.open(cache_path).convert("RGB")
-                img_tensor = self.transform(img)
-                return img_tensor, label, image_name, idx
             else:
                 try:
                     img = Image.open(image_name).convert('RGB')
@@ -528,14 +527,15 @@ class TrainGenerator(Dataset):
                         bottom = min(height, int(bottom))
                         img = img.crop((left, top, right, bottom))
 
-                img_tensor = self.transform(img)
-
-                if not self.normalize:  # un-normalize
-                    img_tensor = img_tensor * 255
-
-                if self.cache_dir is not None:
+                if cache_path is not None:
                     img.save(cache_path, format="JPEG")
-                img.close()
+
+            # same transform + scaling whether the image came from the cache or from disk
+            img_tensor = self.transform(img)
+            img.close()
+
+            if not self.normalize:  # un-normalize
+                img_tensor = img_tensor * 255
 
             return img_tensor, label, str(image_name), idx
 
