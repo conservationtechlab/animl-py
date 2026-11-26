@@ -127,8 +127,10 @@ def _get_model_transforms(resize_height,
     Returns:
         torchvision.transforms.v2.Compose: Complete preprocessing pipeline.
     """
-    if not isinstance(resize_height, int) or not isinstance(resize_width, int):
-        raise TypeError("resize_height and resize_width must be integers")
+    # accept ints, numpy ints, and whole-number floats (e.g. 1280.0 from R via reticulate)
+    if int(resize_height) != resize_height or int(resize_width) != resize_width:
+        raise TypeError("resize_height and resize_width must be whole numbers")
+    resize_height, resize_width = int(resize_height), int(resize_width)
 
     if not isinstance(letterbox, bool):
         raise TypeError("letterbox must be a boolean value")
