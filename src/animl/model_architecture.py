@@ -49,6 +49,35 @@ class EfficientNet(nn.Module):
         return self.model(x)
 
 
+class DinoV3Head(nn.Module):
+    """
+    Backbone = DINOv3 ViT.
+    Head input = concat([CLS], mean(patch_tokens)) -> dim = 2 * embed_dim
+    """
+    def __init__(self, backbone: nn.Module, num_classes: int):
+        super().__init__()
+        self.backbone = backbone
+        embed_dim = backbone.embed_dim  # DINOv3 ViT exposes embed_dim
+
+        self.classifier = (
+            nn.Linear(embed_dim * 2, num_classes) if num_classes > 0 else nn.Identity()
+        )
+
+    def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
+        """
+        Return logits for classification."""
+        # get_intermediate_layers returns a list; take last requested layer
+        seq = self.backbone.get_intermediate_layers(pixel_values, n=1)[0]  # [B, 1+N, D]
+
+        cls_token = seq[:, 0]          # [B, D]
+        patch_tokens = seq[:, 1:]      # [B, N, D]
+        pooled_patches = patch_tokens.mean(dim=1)  # [B, D]
+
+        x = torch.cat([cls_token, pooled_patches], dim=1)  # [B, 2D]
+        logits = self.classifier(x)
+        return logits
+
+
 class ConvNeXtBase(nn.Module):
     '''
     Construct the ConvNeXt-Base model architecture.
