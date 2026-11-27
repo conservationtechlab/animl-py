@@ -15,7 +15,7 @@ import torch
 import onnxruntime
 
 from animl import generator, file_management
-from animl.model_architecture import BioCLIP, EfficientNet, ConvNeXtBase
+from animl.model_architecture import BioCLIP, EfficientNet, ConvNeXtBase, DinoV3Head
 from animl.utils.general import (get_torch_device, get_onnx_device, _softmax,
                                  _tensor_to_onnx, NUM_THREADS)
 
@@ -26,7 +26,10 @@ def load_classifier(model_path: str,
                     classes: Union[int, str, Path, pd.DataFrame],
                     device: Optional[str] = None,
                     architecture: str = "efficientnet_v2_m",
-                    quiet: bool = True):
+                    quiet: bool = True,
+                    *,
+                    dinov3_repo_dir: Optional[str] = None,
+                    ):
     '''
     Creates a model instance and loads the latest model state weights.
 
@@ -81,8 +84,14 @@ def load_classifier(model_path: str,
         print(f'Loading model at {model_path}')
         start_time = time()
         # PyTorch dict
-        if model_path.suffix == '.pt':
-            supported_architectures = ["efficientnet_v2_m", "convnext_base", "bioclip_2"]
+        if model_path.suffix == '.pt' or (
+            model_path.suffix == '.pth' and architecture == "dinov3_vitb16"
+            ):
+            supported_architectures = [
+                "efficientnet_v2_m",
+                "convnext_base",
+                "bioclip_2",
+                "dinov3_vitb16"]
             if architecture not in supported_architectures:
                 raise ValueError(f"""Unsupported architecture: {architecture}.
                                  Supported architectures are: {supported_architectures}""")
@@ -105,6 +114,22 @@ def load_classifier(model_path: str,
                 model = BioCLIP(num_classes, tune=False)
                 checkpoint = torch.load(model_path, map_location=device)
                 model.load_state_dict(checkpoint['model'], strict=False)
+                model.to(device)
+                model.eval()
+            elif architecture == "dinov3_vitb16":
+                if dinov3_repo_dir is None:
+                    raise ValueError("no PATH to dinov3 repo provided, can't load dinov3 model")
+                checkpoint = torch.load(model_path, map_location=device, weights_only=True)
+                labels = list(checkpoint['labels'])
+                class_list = pd.DataFrame({'class': labels})
+
+                backbone = torch.hub.load(
+                    str(dinov3_repo_dir),
+                    'dinov3_vitb16',
+                    source="local",
+                    pretrained=False)
+                model = DinoV3Head(backbone, len(labels))
+                model.load_state_dict(checkpoint['model_state_dict'], strict=True)
                 model.to(device)
                 model.eval()
 
@@ -220,7 +245,8 @@ def classify(model,
     architecture = model.architecture
 
     # move to device if not already there
-    if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
+    if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base",
+                        "bioclip_2", "dinov3_vitb16"]:
         device = get_torch_device(user_set=device)
         model = model.to(device)  # move model to given device before inference
 
@@ -286,7 +312,8 @@ def classify(model,
             if collated is None:  # entire batch was bad
                 continue
             # pytorch
-            if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base", "bioclip_2"]:
+            if architecture in ["pytorch", "efficientnet_v2_m", "convnext_base",
+                                "bioclip_2", "dinov3_vitb16"]:
                 data = collated[0]
                 data = data.to(device)
                 output = model(data)

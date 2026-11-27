@@ -240,7 +240,12 @@ def from_config(config: str):
         # Use the classifier model to predict the species of animal detections
         print("Predicting species...")
         # Load classifier
-        classifier, class_list = classification.load_classifier(cfg['classifier_file'], cfg.get('class_list', None), device=device)
+        classifier, class_list = classification.load_classifier(
+            cfg['classifier_file'],
+            cfg.get('class_list', None),
+            device=device,
+            architecture=cfg.get('architecture', 'efficientnet_v2_m'),
+            dinov3_repo_dir=cfg.get('dinov3_repo_dir'))
 
         predictions_output = classification.classify(classifier,
                                                      animals,

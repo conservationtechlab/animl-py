@@ -17,7 +17,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms.functional import InterpolationMode
 from torchvision.transforms.v2 import (Compose, Resize, ToImage, ToDtype, Pad, RandomHorizontalFlip,
                                        RandomAffine, RandomGrayscale, RandomApply,
-                                       ColorJitter, GaussianBlur, Normalize)
+                                       ColorJitter, GaussianBlur, Normalize, CenterCrop)
 
 from animl.model_architecture import SDZWA_CLASSIFIER_SIZE, BIOCLIP_CLASSIFIER_SIZE, MIEWID_SIZE
 from animl.file_management import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
@@ -121,7 +121,8 @@ def _get_model_transforms(resize_height,
         resize_width (int): resize image width
         architecture (str, optional): Model architecture name. If None, falls
             back to the default transform pipeline.
-            ["bioclip_2", "miewid", "efficientnet_v2_m", "convnext_base", "pytorch", "onnx"]
+            ["bioclip_2", "miewid", "efficientnet_v2_m",
+            "convnext_base", "pytorch", "onnx", "dinov3_vitb16"]
         letterbox (bool): whether to use letterbox resizing for the default pipeline.
 
     Returns:
@@ -132,6 +133,16 @@ def _get_model_transforms(resize_height,
 
     if not isinstance(letterbox, bool):
         raise TypeError("letterbox must be a boolean value")
+
+    # DINOv3 model preprocessing pipeline
+    if architecture == "dinov3_vitb16":
+        return Compose([
+            Resize(256, interpolation=InterpolationMode.BICUBIC),
+            CenterCrop(224),
+            ToImage(),
+            ToDtype(torch.float32, scale=True),
+            Normalize(mean=[0.485, 0.456, 0.406],
+                      std=[0.229, 0.224, 0.225]),])
 
     # BioClip model preprocessing pipeline
     if architecture == "bioclip_2":
